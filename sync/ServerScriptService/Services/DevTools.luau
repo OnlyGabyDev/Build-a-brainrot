@@ -8,13 +8,16 @@
 	  dev:Invoke("AddCoins", player, 50000)
 	  dev:Invoke("Snapshot", player)   -- before a destructive test (e.g. rebirthing)
 	  dev:Invoke("Restore", player)    -- puts the data back and rebuilds the tycoon
+	  dev:Invoke("ShowOnLine", player, "TrippiTroppi", lineId) -- to see its art on a line
 
 	Never created in live servers.
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local Brainrots = require(ReplicatedStorage.Shared.Config.Brainrots)
 local DataManager = require(script.Parent.DataManager)
 local TycoonManager = require(script.Parent.TycoonManager)
 
@@ -41,6 +44,15 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 			return false
 		end
 		TycoonManager.ResetPlot(player)
+		return true
+	end,
+	-- Unlocks all 4 parts of a brainrot and equips them on a line (skipping the line
+	-- rules). It saves, so Snapshot first.
+	ShowOnLine = function(player, brainrotId, lineId)
+		for _, partType in Brainrots.PartTypes do
+			DataManager.AddPart(player, brainrotId, partType)
+			DataManager.SetLinePart(player, lineId, partType, brainrotId)
+		end
 		return true
 	end,
 }

@@ -8,7 +8,7 @@ The user opens a new chat per task to save tokens. Take the first unchecked task
 ## Workflow
 - **Sync:** code lives in `sync/` and syncs to Roblox Studio through Azul (Studio-first). `Name.server.luau` is a Script, `Name.client.luau` a LocalScript, and `Name.luau` a ModuleScript. Before editing, check that Azul is running (`Get-Process node`); if it restarts, it rewrites `sync/` from Studio.
 - **Studio MCP:** use it to playtest (`start_stop_play`, `execute_luau`, `get_console_output`). Never edit code while a playtest is running; stop it first.
-  - The MCP's `execute_luau` gets its **own copies** of ModuleScripts. Reach the live game through `game.ServerStorage.DevCommand:Invoke(name, player, ...)` (Studio-only, `Services/DevTools.luau`): AddCoins, AddGems, AddRolls, Snapshot, Restore.
+  - The MCP's `execute_luau` gets its **own copies** of ModuleScripts. Reach the live game through `game.ServerStorage.DevCommand:Invoke(name, player, ...)` (Studio-only, `Services/DevTools.luau`): AddCoins, AddGems, AddRolls, Snapshot, Restore, ShowOnLine (puts a brainrot's 4 parts on a line).
   - The user's Studio profile **saves**. Snapshot before destructive tests (rebirths, spending), and Restore after.
   - Buy a tycoon button from the Client executor by `PivotTo`-ing the character onto it.
   - Verify with data probes (sample positions/sizes every 0.1 s), not bursts of screenshots. Take one `screen_capture` at a time, only when the look really matters.

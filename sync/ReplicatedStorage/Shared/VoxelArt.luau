@@ -7,8 +7,8 @@
 
 	Coordinates are in voxels, continuous: X is left/right (0 = the center line), Y is
 	up (0 = the ground under the feet), -Z is the front. A voxel is filled when its
-	center is inside a shape; later shapes paint over earlier ones, and carve shapes
-	cut holes. Each part is voxelized on its own, so parts look whole when shown alone
+	center is inside a shape; later shapes paint over earlier ones, carve shapes cut
+	holes, and paint shapes only recolor voxels that are already filled. Each part is voxelized on its own, so parts look whole when shown alone
 	(keep different parts from overlapping, or the shared faces flicker).
 
 	Art modules live in Shared/Art/<BrainrotId> and use the constructors below:
@@ -27,6 +27,7 @@ export type Shape = {
 	Kind: string, -- "Box" | "Ball" | "Cylinder"
 	Color: string, -- a Palette key, or "" for a carve
 	Carve: boolean,
+	Paint: boolean?, -- recolors filled voxels only (stripes and spots on curved surfaces)
 	Min: Vector3, -- Box: corners; Ball/Cylinder: bounds (for the grid)
 	Max: Vector3,
 	Center: Vector3?, -- Ball/Cylinder (Cylinder ignores Y)
@@ -38,6 +39,9 @@ export type Art = {
 	Palette: { [string]: Color3 },
 	Material: Enum.Material?, -- defaults to SmoothPlastic
 	Parts: { [string]: { Shape } },
+	-- Where a part attaches, in voxels, for parts whose bounding box would mislead
+	-- (antennae, a hanging trunk). Same meaning as BrainrotModels' "Joint".
+	Joints: { [string]: Vector3 }?,
 }
 
 local VoxelArt = {}
@@ -83,6 +87,13 @@ function VoxelArt.carve(shape: Shape): Shape
 	return copy
 end
 
+-- The same shape recoloring only voxels that are already filled.
+function VoxelArt.paint(shape: Shape): Shape
+	local copy = table.clone(shape)
+	copy.Paint = true
+	return copy
+end
+
 -- The same shape mirrored left/right (for symmetric features).
 function VoxelArt.mirror(shape: Shape): Shape
 	local copy = table.clone(shape)
@@ -117,7 +128,7 @@ local function voxelize(shapes: { Shape }): (Vector3, Vector3, { [number]: strin
 	local low = Vector3.new(math.huge, math.huge, math.huge)
 	local high = -low
 	for _, shape in shapes do
-		if not shape.Carve then
+		if not shape.Carve and not shape.Paint then
 			low = low:Min(shape.Min)
 			high = high:Max(shape.Max)
 		end
@@ -133,7 +144,11 @@ local function voxelize(shapes: { Shape }): (Vector3, Vector3, { [number]: strin
 				local color: string? = nil
 				for _, shape in shapes do
 					if contains(shape, p) then
-						color = if shape.Carve then nil else shape.Color
+						if shape.Carve then
+							color = nil
+						elseif color or not shape.Paint then
+							color = shape.Color
+						end
 					end
 				end
 				if color then
@@ -239,6 +254,14 @@ function VoxelArt.Build(art: Art, partType: string): Model?
 	local origin, size, cells = voxelize(shapes)
 	mesh(model, art, origin, size, cells)
 	model.WorldPivot = CFrame.identity
+	local joint = art.Joints and art.Joints[partType]
+	local anchor = model:FindFirstChildWhichIsA("BasePart")
+	if joint and anchor then
+		local attachment = Instance.new("Attachment")
+		attachment.Name = "Joint"
+		attachment.Parent = anchor
+		attachment.WorldPosition = joint * art.VoxelSize
+	end
 	return model
 end
 

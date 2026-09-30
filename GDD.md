@@ -435,6 +435,7 @@ StarterPlayer/StarterPlayerScripts/
 14. **The facility grows up and out:** each expansion adds floors and side wings, and the whole place looks more and more like a dreamy science factory.
 15. **Toy Workshop chutes:** parts slide out of chutes onto the belt instead of dropping from boxes.
 16. **Per-rarity box effects:** unique looks, particles, spawn and open animations per rarity. Godly boxes arrive through a black hole (§5).
+17. **Signature idle touches:** finished brainrots get a small idle animation or prop from their meme, like *Steal a Brainrot* does: Lirilì's floating clock, Tung tapping his bat, Tralalero's tail wag, Trippi's antennae wobble.
 
 ---
 
