@@ -1,8 +1,9 @@
 --[[
 	BrainrotModels
 	Builds one part of a brainrot (Head/Body/Arms/Legs) as a Model, styled for a zone's
-	edition. Uses the split model in ReplicatedStorage/Assets/Brainrots/<Id> when it
-	exists, otherwise colored placeholder blocks (GDD §3).
+	edition. In order: the split model in ReplicatedStorage/Assets/Brainrots/<Id> if
+	one exists, its voxel art in Shared/Art/<Id> (VoxelArt), or colored placeholder
+	blocks (GDD §3).
 
 	Every returned model's pivot is the brainrot's root (on the ground between the feet,
 	facing -Z), so model:PivotTo(rootCFrame) puts the part exactly where it belongs in
@@ -18,7 +19,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Brainrots = require(script.Parent.Config.Brainrots)
+local VoxelArt = require(script.Parent.VoxelArt)
 local Zones = require(script.Parent.Config.Zones)
+
+-- Voxel art is built once per part and cloned after that (false = no art).
+local artTemplates: { [string]: Model | false } = {}
 
 local FACE_TEXTURE = "rbxasset://textures/face.png"
 
@@ -128,8 +133,30 @@ local function applyStyle(model: Model, zoneId: string?)
 	end
 end
 
+local function buildFromArt(brainrotId: string, partType: string): Model?
+	local key = `{brainrotId}/{partType}`
+	local template = artTemplates[key]
+	if template == nil then
+		template = false
+		local folder = script.Parent:FindFirstChild("Art")
+		local module = folder and folder:FindFirstChild(brainrotId)
+		if module and module:IsA("ModuleScript") then
+			local ok, art = pcall(require, module)
+			if ok then
+				template = VoxelArt.Build(art, partType) or false
+			else
+				warn(`[BrainrotModels] Art for {brainrotId} failed to load: {art}`)
+			end
+		end
+		artTemplates[key] = template
+	end
+	return if template then template:Clone() else nil
+end
+
 local function buildRaw(brainrotId: string, partType: string): Model
-	return cloneFromAsset(brainrotId, partType) or buildPlaceholder(brainrotId, partType)
+	return cloneFromAsset(brainrotId, partType)
+		or buildFromArt(brainrotId, partType)
+		or buildPlaceholder(brainrotId, partType)
 end
 
 -- Where a part attaches, in root space. The model's pivot is the root at the origin.
