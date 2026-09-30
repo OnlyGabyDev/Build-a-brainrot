@@ -277,6 +277,7 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 **Daily Wheel**
 - 1 free spin every 24 h (rolling timer). Paid spins with Robux (and maybe Gems).
 - Prizes: Coins, Gems, Rolls, temporary Luck boosts, and a small chance at a Mythic box.
+- ✅ Built (`Config/DailyWheel`): Coins (2 min of income) 30%, 25 Gems 22%, 1 Roll 18%, Luck boost 15 min 12%, 100 Gems 8%, 3 Rolls 7%, **500 Gems jackpot 3%**. The jackpot replaces the Mythic box, because rarities stay locked behind rebirths. VIP gets 2 free spins a day.
 
 **Compliance:** anything bought with Robux that grants random rewards (Roll packs, paid wheel spins) must **show the odds in the UI before purchase** (Roblox paid random items policy). All purchases are handled server-side via `ProcessReceipt`, with receipt IDs stored to prevent double-granting.
 
@@ -311,14 +312,16 @@ ServerScriptService/
     LootManager.luau            -- shared loot boxes, Rolls, server rolls, duplicates
     RebirthManager.luau         -- rebirths and the Rebirth Shop
     GadgetManager.luau          -- gadgets and morphs
-    MonetizationManager.luau    -- gamepasses (dev products and daily wheel to come)
+    MonetizationManager.luau    -- gamepasses (perks from config), dev products (ProcessReceipt)
+    DailyWheelManager.luau      -- the Daily Wheel (free + bought spins, prizes)
     DevTools.luau               -- Studio only: ServerStorage.DevCommand (AddCoins, Snapshot, Restore…) for playtests
 ReplicatedStorage/
   Shared/
     Remotes.luau                -- get RemoteEvents/Functions by name (server creates, client waits)
     Format.luau                 -- number abbreviations (1.2K)
     BrainrotModels.luau         -- builds a brainrot part (real model or placeholder), styled per zone; mixed-part layout
-    Config/                     -- Rarities, Brainrots, Zones, TycoonItems, Production (+ assembly schedule), Loot, Sounds
+    Config/                     -- Rarities, Brainrots, Zones, TycoonItems, Production (+ assembly schedule), Loot,
+                                --   Sounds, Rebirths, Gadgets, Gamepasses, Products, DailyWheel
   Client/UI/                    -- client-only UI modules
     Kit.luau                    -- Pet Sim X style building blocks (panels, bouncy buttons, viewports, toasts)
     LineMenu.luau               -- line menu (server-built view, intents only)
@@ -326,6 +329,8 @@ ReplicatedStorage/
     Catalog.luau                -- the Index
     Celebration.luau            -- completion banner (queued)
     RebirthMenu.luau            -- rebirth + Rebirth Shop
+    Shop.luau                   -- gamepasses and Robux products, with odds for random items
+    DailyWheelMenu.luau         -- the Daily Wheel
   Assets/Brainrots/             -- split brainrot models (see §3)
 StarterPlayer/StarterPlayerScripts/
   ProductionVisuals.client.luau -- drop → part-by-part assembly (per-zone machines) → ship, coin popups
@@ -394,7 +399,7 @@ StarterPlayer/StarterPlayerScripts/
 9. ✅ Catalog UI: silhouettes, per-part coloring, edition badges, sort by rarity, filters, "put it on a line"
 10. ✅ Completion celebrations (full-screen banner, server announcements), morph, 3 gadgets (Sahur baton, Ballerina emote, Tralalero sneakers)
 11. ✅ RebirthManager, Zone 2 (Plushie Sewing Room, with its own sewing-machine assembly), Rebirth Shop (basic)
-12. MonetizationManager: 🟡 partly (Auto-Collect pass with remote lines); still to do: the other gamepasses, dev products, daily wheel
+12. ✅ Monetization: 5 gamepasses (VIP, 2x Coins, Auto-Collect, Lucky, Fast Open), dev products (Gem packs, Roll packs, wheel spins) with receipt de-duplication, the Daily Wheel, and a Shop that shows odds before any random purchase. **To go live:** create the passes/products on the Creator Dashboard and paste their ids into `Config/Gamepasses` and `Config/Products`.
 13. Swap placeholders for real models and themed zone art, polish (sounds, juice), publish, test on a live server
 
 **Later 🟡:** Zones 3–10 (themed animations), living brainrots, map bosses, Bombardiro mount, Loot Rain, trading, quests.
@@ -404,6 +409,7 @@ StarterPlayer/StarterPlayerScripts/
 - All UI: much more effort, cute, friendly and VERY colorful, referencing the famous simulator games. The Index becomes a sticker book (§8 polish target).
 - A real map to replace the baseplate hub, and real facility art (the tycoon is placeholder blocks).
 - Brainrot models (§3), per-rarity box effects (§5), sounds and music.
+- Art sources, in order: **1) build the assets ourselves first** (voxel brainrots split into parts, props, UI styling, all made in Studio). **2) Only if that falls short:** paid or online asset packs (map, facility, UI), or paid brainrot sets (voxelized to match the style).
 
 ---
 
@@ -438,6 +444,10 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v0.6 (2026-09-30):**
+  - Monetization built: 5 gamepasses with config-driven perks, Gem, Roll and wheel-spin products granted once per receipt, the Daily Wheel (jackpot is 500 Gems instead of a Mythic box), and a Shop that shows odds before purchase.
+  - A VIP chat tag was added.
+  - Art plan: we build assets ourselves first; paid or online packs only if that falls short.
 - **v0.5 (2026-09-30):**
   - Box odds: a box gives mostly its own rarity, sometimes rarer ones (§5).
   - Remote line config is an Auto-Collect gamepass perk (§12).

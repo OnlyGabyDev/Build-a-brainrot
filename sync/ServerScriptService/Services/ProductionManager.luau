@@ -76,8 +76,8 @@ local function fullMatchId(parts: LineConfig): string?
 end
 
 -- A line's droppers, speed and value multiplier, from its upgrades plus the player's
--- rebirths and Rebirth Shop levels. Nil if the line isn't bought.
-local function getLineStats(data: DataManager.PlayerData, line: TycoonItems.Line): LineStats?
+-- rebirths, Rebirth Shop levels and gamepasses. Nil if the line isn't bought.
+local function getLineStats(player: Player, data: DataManager.PlayerData, line: TycoonItems.Line): LineStats?
 	local purchased = data.Tycoon.Purchased
 	if not purchased[line.UnlockItemId] then
 		return nil
@@ -85,7 +85,7 @@ local function getLineStats(data: DataManager.PlayerData, line: TycoonItems.Line
 	local stats: LineStats = {
 		Droppers = {},
 		CycleTime = Production.BaseCycleTime / Rebirths.SpeedMultiplier(data.Upgrades),
-		ValueMultiplier = Rebirths.IncomeMultiplier(data.Rebirths, data.Upgrades),
+		ValueMultiplier = Rebirths.IncomeMultiplier(data.Rebirths, data.Upgrades) * MonetizationManager.IncomeMultiplier(player),
 	}
 	for _, item in line.Items do
 		if purchased[item.Id] then
@@ -305,7 +305,7 @@ local function productionLoop()
 			end
 
 			for _, line in TycoonItems.Lines do
-				local stats = getLineStats(data, line)
+				local stats = getLineStats(player, data, line)
 				if not (stats and next(stats.Droppers)) then
 					continue
 				end
@@ -345,10 +345,10 @@ local function getOwnedLine(player: Player, lineId: string): (DataManager.Player
 	return nil, nil
 end
 
--- Lines are configured by walking up to them, or from anywhere with the Auto-Collect
--- gamepass (GDD §12).
+-- Lines are configured by walking up to them, or from anywhere with a pass that has
+-- the RemoteLines perk (Auto-Collect, GDD §12).
 local function canReach(player: Player, lineId: string): boolean
-	if MonetizationManager.OwnsPass(player, "AutoCollect") then
+	if MonetizationManager.HasPerk(player, "RemoteLines") then
 		return true
 	end
 	local plot = TycoonManager.GetPlot(player)
@@ -436,7 +436,7 @@ local function onGetLines(player: Player): { any }
 
 	local view = {}
 	for _, line in TycoonItems.Lines do
-		local stats = getLineStats(data, line)
+		local stats = getLineStats(player, data, line)
 		if not stats then
 			continue
 		end
@@ -502,7 +502,7 @@ function ProductionManager.GetIncome(player: Player): number
 	end
 	local income = 0
 	for _, line in TycoonItems.Lines do
-		local stats = getLineStats(data, line)
+		local stats = getLineStats(player, data, line)
 		local config = data.Tycoon.Lines[line.Id]
 		if stats and config then
 			local _, value = evaluate(line, stats, config)

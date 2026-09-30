@@ -43,6 +43,7 @@ local REQUEST_RETRY_BASE_DELAY = 1
 local SHUTDOWN_TIMEOUT = 25 -- BindToClose gets 30s max
 
 local STARTER_ROLLS = 3 -- free Rolls for new players (GDD §2)
+local MAX_RECEIPTS = 100 -- recent Robux purchase ids kept per player
 
 local LOAD_FAILED_MESSAGE =
 	"We couldn't load your data (Roblox DataStores may be down). Please rejoin in a minute. Your progress is safe!"
@@ -76,6 +77,9 @@ export type PlayerData = {
 		Lines: { [string]: { [string]: string } },
 	},
 	Upgrades: { [string]: number }, -- Rebirth Shop levels (Config/Rebirths), kept on rebirth
+	Boosts: { [string]: number }, -- [boostId] = os.time() it expires
+	DailyWheel: { FreeSpins: { number }, Spins: number }, -- free spins used (times), bought spins
+	Receipts: { string }, -- recent Robux purchase ids, so none is granted twice
 	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number },
 }
 
@@ -106,6 +110,9 @@ local TEMPLATE: PlayerData = {
 		Lines = {}, -- [lineId] = { Head = brainrotId, ... } (kept on rebirth)
 	},
 	Upgrades = {}, -- [upgradeId] = level
+	Boosts = {},
+	DailyWheel = { FreeSpins = {}, Spins = 0 },
+	Receipts = {},
 	Stats = {
 		TotalCoinsEarned = 0,
 		FirstJoin = 0,
@@ -266,6 +273,14 @@ local function replicateUpgrades(profile: Profile)
 	end
 end
 
+-- Boost expiry times ("Boost_<Id>", os.time()) and bought wheel spins, for the UI.
+local function replicateExtras(profile: Profile)
+	for id, expires in profile.Data.Boosts do
+		profile.Player:SetAttribute(`Boost_{id}`, expires)
+	end
+	profile.Player:SetAttribute("WheelSpins", profile.Data.DailyWheel.Spins)
+end
+
 local function setupReplication(profile: Profile)
 	local leaderstats = Instance.new("Folder")
 	leaderstats.Name = "leaderstats"
@@ -280,6 +295,7 @@ local function setupReplication(profile: Profile)
 		replicateStat(profile, stat)
 	end
 	replicateUpgrades(profile)
+	replicateExtras(profile)
 	leaderstats.Parent = profile.Player
 	profile.Player:SetAttribute("DataLoaded", true)
 	replicateInventory(profile)
@@ -623,6 +639,7 @@ function DataManager.DevRestore(player: Player, snapshot: PlayerData): boolean
 		replicateStat(profile, stat)
 	end
 	replicateUpgrades(profile)
+	replicateExtras(profile)
 	replicateInventory(profile)
 	return true
 end
@@ -668,6 +685,90 @@ function DataManager.BuyUpgrade(player: Player, upgradeId: string, cost: number,
 	data.Upgrades[upgradeId] = level + 1
 	replicateStat(profile, "RebirthPoints")
 	replicateUpgrades(profile)
+	return true
+end
+
+-- Purchases, boosts and the Daily Wheel ------------------------------------------
+
+-- Grants a Robux purchase exactly once (GDD §12). `grant` runs only for a new
+-- receipt, using the other DataManager functions; the receipt is then recorded and
+-- the profile saved straight away. Returns true once the purchase is safely granted
+-- (now or before), false to have Roblox retry later.
+function DataManager.ProcessReceipt(player: Player, receiptId: string, grant: () -> ()): boolean
+	checkId("receiptId", receiptId)
+	local profile = profiles[player]
+	if not profile then
+		return false
+	end
+	local receipts = profile.Data.Receipts
+	if table.find(receipts, receiptId) then
+		return true
+	end
+	grant()
+	table.insert(receipts, receiptId)
+	while #receipts > MAX_RECEIPTS do
+		table.remove(receipts, 1)
+	end
+	return saveProfile(profile, false)
+end
+
+-- Starts or extends a timed boost (e.g. "Luck") by `seconds`.
+function DataManager.AddBoost(player: Player, boostId: string, seconds: number): boolean
+	checkId("boostId", boostId)
+	seconds = checkAmount(seconds)
+	local profile = profiles[player]
+	if not profile then
+		return false
+	end
+	local now = os.time()
+	profile.Data.Boosts[boostId] = math.max(profile.Data.Boosts[boostId] or 0, now) + seconds
+	replicateExtras(profile)
+	return true
+end
+
+-- Whether a timed boost is running right now.
+function DataManager.HasBoost(player: Player, boostId: string): boolean
+	local profile = profiles[player]
+	return profile ~= nil and (profile.Data.Boosts[boostId] or 0) > os.time()
+end
+
+-- Uses a Daily Wheel spin: a free one if fewer than `freePerDay` were used in the
+-- last `cooldown` seconds, else a bought one. Returns "Free", "Paid", or nil when
+-- the player has no spin left.
+function DataManager.UseWheelSpin(player: Player, freePerDay: number, cooldown: number): string?
+	local profile = profiles[player]
+	if not profile then
+		return nil
+	end
+	local wheel = profile.Data.DailyWheel
+	local now = os.time()
+	local recent = {}
+	for _, usedAt in wheel.FreeSpins do
+		if now - usedAt < cooldown then
+			table.insert(recent, usedAt)
+		end
+	end
+	wheel.FreeSpins = recent
+	local kind: string? = nil
+	if #recent < freePerDay then
+		table.insert(recent, now)
+		kind = "Free"
+	elseif wheel.Spins > 0 then
+		wheel.Spins -= 1
+		kind = "Paid"
+	end
+	replicateExtras(profile)
+	return kind
+end
+
+function DataManager.AddWheelSpins(player: Player, amount: number): boolean
+	amount = checkAmount(amount)
+	local profile = profiles[player]
+	if not profile then
+		return false
+	end
+	profile.Data.DailyWheel.Spins += amount
+	replicateExtras(profile)
 	return true
 end
 

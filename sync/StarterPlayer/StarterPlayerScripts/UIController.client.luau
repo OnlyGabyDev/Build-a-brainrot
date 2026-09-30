@@ -8,6 +8,7 @@
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -17,10 +18,12 @@ local Gamepasses = require(Shared:WaitForChild("Config"):WaitForChild("Gamepasse
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Catalog = require(UI:WaitForChild("Catalog"))
 local Celebration = require(UI:WaitForChild("Celebration"))
+local DailyWheelMenu = require(UI:WaitForChild("DailyWheelMenu"))
 local Kit = require(UI:WaitForChild("Kit"))
 local LineMenu = require(UI:WaitForChild("LineMenu"))
 local Loot = require(UI:WaitForChild("Loot"))
 local RebirthMenu = require(UI:WaitForChild("RebirthMenu"))
+local Shop = require(UI:WaitForChild("Shop"))
 
 local COUNTERS = {
 	{ Stat = "Coins", Icon = "💰", Colors = Kit.Colors.Coins },
@@ -28,7 +31,7 @@ local COUNTERS = {
 	{ Stat = "Rolls", Icon = "🎲", Colors = Kit.Colors.Rolls },
 }
 local LINE_REACH = 28 -- a bit under the server's reach, so an open here always works
-local REMOTE_LINES_PASS = "AutoCollect" -- the pass that lets you configure lines from anywhere
+local VIP_TAG = '<font color="#FFD23C">[VIP]</font> '
 
 local player = Players.LocalPlayer
 local gui = Kit.getGui()
@@ -101,7 +104,7 @@ local buttons = Kit.new("Frame", {
 	Name = "MenuButtons",
 	AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 28, 0.5, 130),
-	Size = UDim2.fromOffset(400, 110),
+	Size = UDim2.fromOffset(620, 110),
 	BackgroundTransparency = 1,
 	Parent = gui,
 })
@@ -112,10 +115,11 @@ Kit.new("UIListLayout", {
 	Parent = buttons,
 })
 
-local function menuButton(order: number, icon: string, label: string, colors: { Color3 }, onClick: () -> ())
+local function menuButton(order: number, icon: string, label: string, colors: { Color3 }, onClick: () -> ()): TextButton
 	local button = Kit.button({ LayoutOrder = order, Size = UDim2.fromOffset(104, 104), Parent = buttons }, colors, nil, onClick)
 	Kit.text({ Text = icon, Position = UDim2.fromScale(0.1, 0.06), Size = UDim2.fromScale(0.8, 0.56), StrokeThickness = 0, Parent = button })
 	Kit.text({ Text = label, Position = UDim2.fromScale(0.06, 0.64), Size = UDim2.fromScale(0.88, 0.28), Parent = button })
+	return button
 end
 
 -- The line you're standing at, if any.
@@ -138,9 +142,9 @@ local function nearbyLine(): string?
 	return nil
 end
 
--- Configuring lines from anywhere is a gamepass perk; at a line it's free.
+-- Configuring lines from anywhere is a gamepass perk (RemoteLines); at a line it's free.
 local function openLines()
-	if player:GetAttribute(`Pass_{REMOTE_LINES_PASS}`) then
+	if player:GetAttribute("Perk_RemoteLines") then
 		LineMenu.Open()
 		return
 	end
@@ -149,17 +153,42 @@ local function openLines()
 		LineMenu.Open(lineId)
 		return
 	end
-	local pass = Gamepasses[REMOTE_LINES_PASS]
-	if pass.Id > 0 then
-		MarketplaceService:PromptGamePassPurchase(player, pass.Id)
-	else
-		Kit.toast("Walk up to a line to configure it! Remote config: Auto-Collect pass (soon)", Color3.fromRGB(255, 220, 80))
+	for _, pass in Gamepasses do
+		if pass.RemoteLines and pass.Id > 0 then
+			MarketplaceService:PromptGamePassPurchase(player, pass.Id)
+			return
+		end
 	end
+	Kit.toast("Walk up to a line to configure it! Remote config: Auto-Collect pass (soon)", Color3.fromRGB(255, 220, 80))
 end
 
 menuButton(1, "🏭", "LINES", Kit.Colors.Purple, openLines)
 menuButton(2, "📖", "INDEX", Kit.Colors.Gems, Catalog.Open)
 menuButton(3, "🔄", "REBIRTH", Kit.Colors.Coins, RebirthMenu.Open)
+local wheelButton = menuButton(4, "🎡", "WHEEL", Kit.Colors.Rolls, DailyWheelMenu.Open)
+menuButton(5, "🛒", "SHOP", Kit.Colors.Green, function()
+	Shop.Open()
+end)
+
+-- A red "!" on the wheel button while a spin is waiting.
+local wheelBadge = Kit.text({
+	Text = "!",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.new(1, -8, 0, 8),
+	Size = UDim2.fromOffset(36, 36),
+	BackgroundTransparency = 0,
+	BackgroundColor3 = Color3.fromRGB(235, 60, 60),
+	ZIndex = 5,
+	Visible = false,
+	Parent = wheelButton,
+})
+Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = wheelBadge })
+task.spawn(function()
+	while true do
+		wheelBadge.Visible = DailyWheelMenu.CanSpin()
+		task.wait(1)
+	end
+end)
 
 -- Line prompts ---------------------------------------------------------------
 
@@ -232,3 +261,22 @@ Remotes.Event("Announce").OnClientEvent:Connect(function(text: string, color: Co
 		Kit.toast(`✨ {text} ✨`, color)
 	end
 end)
+
+-- Purchases & chat -------------------------------------------------------------
+
+-- The server thanks you once a Robux purchase is granted.
+Remotes.Event("Purchased").OnClientEvent:Connect(function(text: string)
+	Shop.Thanks(text)
+end)
+
+-- VIPs get a gold tag in chat.
+TextChatService.OnIncomingMessage = function(message: TextChatMessage)
+	local source = message.TextSource
+	local sender = source and Players:GetPlayerByUserId(source.UserId)
+	if sender and sender:GetAttribute("Pass_VIP") then
+		local properties = Instance.new("TextChatMessageProperties")
+		properties.PrefixText = VIP_TAG .. message.PrefixText
+		return properties
+	end
+	return nil
+end

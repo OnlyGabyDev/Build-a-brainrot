@@ -16,9 +16,9 @@ local Config = Shared:WaitForChild("Config")
 local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
 local Brainrots = require(Config:WaitForChild("Brainrots"))
 local Format = require(Shared:WaitForChild("Format"))
+local Gamepasses = require(Config:WaitForChild("Gamepasses"))
 local LootConfig = require(Config:WaitForChild("Loot"))
 local Rarities = require(Config:WaitForChild("Rarities"))
-local Rebirths = require(Config:WaitForChild("Rebirths"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
@@ -47,7 +47,7 @@ export type Result = {
 	Amount: number?,
 }
 
-type Slot = { Key: string, Label: string, Color: Color3 }
+export type Slot = { Key: string, Label: string, Color: Color3 }
 
 local player = Players.LocalPlayer
 local queue: { Result } = {}
@@ -70,7 +70,7 @@ end
 -- (the same odds the server rolled with, from Config/Loot).
 local function buildSlots(result: Result): { Slot }
 	local rebirths = player:GetAttribute("Rebirths") or 0
-	local luck = Rebirths.Luck({ Luck = player:GetAttribute("Upgrade_Luck") or 0 })
+	local luck = player:GetAttribute("Luck") or 0 -- total luck, kept fresh by LootManager
 	local odds = if result.Source == "Box" and result.BoxRarity
 		then LootConfig.BoxOdds(result.BoxRarity, rebirths, luck)
 		else LootConfig.RollOdds(rebirths, luck)
@@ -132,7 +132,7 @@ local function circle(parent: Instance)
 	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = parent })
 end
 
-local function buildWheel(parent: Frame, slots: { Slot }, result: Result): (Frame, Frame, { Frame })
+local function buildWheel(parent: Frame, slots: { Slot }, hubText: string): (Frame, Frame, { Frame })
 	local wheel = Kit.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -182,9 +182,8 @@ local function buildWheel(parent: Frame, slots: { Slot }, result: Result): (Fram
 	circle(hub)
 	Kit.stroke(hub, 6)
 	Kit.gradient(hub, Kit.Colors.Purple)
-	local subtitle = if result.BoxRarity then `{string.upper(result.BoxRarity)} BOX` else "ROLL"
 	Kit.text({
-		Text = `{subtitle}\n{string.upper(result.PartType)}`,
+		Text = hubText,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(0.75, 0.5),
@@ -221,7 +220,9 @@ local function spin(spinner: Frame, slotCount: number, target: number)
 			playTick()
 		end
 	end)
-	local tween = TweenService:Create(value, TweenInfo.new(SPIN_TIME, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Value = final })
+	local speed = if player:GetAttribute("Pass_FastOpen") then Gamepasses.FastOpen.WheelSpeed or 1 else 1
+	local info = TweenInfo.new(SPIN_TIME / speed, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+	local tween = TweenService:Create(value, info, { Value = final })
 	tween:Play()
 	tween.Completed:Wait()
 	value:Destroy()
@@ -339,7 +340,10 @@ end
 
 -- Playback -------------------------------------------------------------------
 
-local function play(result: Result)
+-- Shows a prize wheel on a dim overlay, spins it until slot `target` is under the
+-- pointer, and flashes `color`. Returns the overlay: the caller shows its reveal on
+-- it, then destroys it.
+function Loot.PlayWheel(slots: { Slot }, target: number, hubText: string, color: Color3): Frame
 	local screen = Kit.new("Frame", {
 		Name = "LootOverlay",
 		Size = UDim2.fromScale(1, 1),
@@ -349,18 +353,22 @@ local function play(result: Result)
 		ZIndex = 30,
 		Parent = Kit.getGui(),
 	})
-	local rarity = Rarities.ById[result.Rarity]
-	local slots = buildSlots(result)
-	local target = pickTarget(slots, result)
-	local wheel, spinner, cards = buildWheel(screen, slots, result)
+	local wheel, spinner, cards = buildWheel(screen, slots, hubText)
 	Kit.pop(wheel, -0.6)
-
 	spin(spinner, #slots, target)
 	Kit.pop(cards[target], 0.35)
-	Kit.flash(screen, rarity.Color)
+	Kit.flash(screen, color)
 	task.wait(0.45)
 	wheel:Destroy()
+	return screen
+end
 
+local function play(result: Result)
+	local slots = buildSlots(result)
+	local target = pickTarget(slots, result)
+	local subtitle = if result.BoxRarity then `{string.upper(result.BoxRarity)} BOX` else "ROLL"
+	local hubText = `{subtitle}\n{string.upper(result.PartType)}`
+	local screen = Loot.PlayWheel(slots, target, hubText, Rarities.ById[result.Rarity].Color)
 	reveal(screen, result)
 	screen:Destroy()
 end

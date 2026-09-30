@@ -10,6 +10,7 @@ local ProductionManager = require(Services:WaitForChild("ProductionManager"))
 local LootManager = require(Services:WaitForChild("LootManager"))
 local GadgetManager = require(Services:WaitForChild("GadgetManager"))
 local RebirthManager = require(Services:WaitForChild("RebirthManager"))
+local DailyWheelManager = require(Services:WaitForChild("DailyWheelManager"))
 local DevTools = require(Services:WaitForChild("DevTools"))
 
 DataManager.Init()
@@ -19,4 +20,5 @@ ProductionManager.Init()
 LootManager.Init()
 GadgetManager.Init()
 RebirthManager.Init()
+DailyWheelManager.Init()
 DevTools.Init() -- Studio only

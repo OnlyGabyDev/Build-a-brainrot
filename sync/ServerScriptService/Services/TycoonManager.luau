@@ -639,7 +639,7 @@ end
 -- straight away with the Auto-Collect gamepass.
 function TycoonManager.AddToCollector(player: Player, amount: number)
 	local plot = plotByPlayer[player]
-	if plot and MonetizationManager.OwnsPass(player, "AutoCollect") then
+	if plot and MonetizationManager.HasPerk(player, "AutoCollect") then
 		DataManager.AddCurrency(player, "Coins", amount)
 	elseif plot then
 		plot.Collected += amount

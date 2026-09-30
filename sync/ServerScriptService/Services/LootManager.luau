@@ -24,11 +24,13 @@ local Rebirths = require(Shared.Config.Rebirths)
 local Remotes = require(Shared.Remotes)
 
 local DataManager = require(script.Parent.DataManager)
+local MonetizationManager = require(script.Parent.MonetizationManager)
 local ProductionManager = require(script.Parent.ProductionManager)
 
 local PART_TYPES = Brainrots.PartTypes
 local REQUEST_COOLDOWN = 0.25 -- per player, for open requests
 local BOX_HEIGHT = 1.5 -- box center above the ground (the baseplate's top is Y = 0)
+local LUCK_SYNC_INTERVAL = 2 -- seconds between refreshes of the "Luck" attribute
 
 export type Box = {
 	Id: number,
@@ -58,6 +60,11 @@ local boxesRemote: RemoteEvent
 local LootManager = {}
 
 -- Rolling --------------------------------------------------------------------
+
+-- A player's total luck: Rebirth Shop levels, passes and a running Luck boost.
+local function luckOf(player: Player, data: DataManager.PlayerData): number
+	return Rebirths.Luck(data.Upgrades) + MonetizationManager.Luck(player)
+end
 
 -- Picks a rarity id from weighted odds (see Config/Loot).
 local function rollRarity(odds: Loot.Odds, fallback: string): string
@@ -199,7 +206,7 @@ local function onOpenRoll(player: Player): Result?
 	if not data or not DataManager.UseRoll(player) then
 		return nil
 	end
-	local odds = Loot.RollOdds(data.Rebirths, Rebirths.Luck(data.Upgrades))
+	local odds = Loot.RollOdds(data.Rebirths, luckOf(player, data))
 	local rarityId = rollRarity(odds, Rarities.List[1].Id)
 	return grant(player, "Roll", rollBrainrot(rarityId), rollPartType())
 end
@@ -226,7 +233,7 @@ local function onOpenBox(player: Player, boxId: unknown): Result?
 	boxCount -= 1
 	boxesRemote:FireAllClients("Remove", box.Id, player)
 	task.delay(random:NextNumber(Loot.RespawnTime.Min, Loot.RespawnTime.Max), spawnBox)
-	local odds = Loot.BoxOdds(box.Rarity, data.Rebirths, Rebirths.Luck(data.Upgrades))
+	local odds = Loot.BoxOdds(box.Rarity, data.Rebirths, luckOf(player, data))
 	local rarityId = rollRarity(odds, box.Rarity)
 	local result = grant(player, "Box", rollBrainrot(rarityId), box.PartType)
 	if result then
@@ -254,6 +261,20 @@ function LootManager.Init()
 	DataManager.OnPlayerLoaded(fillBoxes)
 	Players.PlayerRemoving:Connect(function(player)
 		lastRequest[player] = nil
+	end)
+
+	-- The loot wheel shows odds with the player's luck, which changes with upgrades,
+	-- passes and boosts that run out, so keep the attribute fresh.
+	task.spawn(function()
+		while true do
+			for _, player in Players:GetPlayers() do
+				local data = DataManager.GetData(player)
+				if data then
+					player:SetAttribute("Luck", luckOf(player, data))
+				end
+			end
+			task.wait(LUCK_SYNC_INTERVAL)
+		end
 	end)
 end
 
