@@ -1,21 +1,22 @@
 --[[
 	ProductionVisuals
-	Animates the assembly lines near the camera (GDD §6): droppers release their parts,
+	Animates the assembly lines near the camera (GDD §6): droppers spit out their parts,
 	the parts ride the belt to the Assembler, and the zone's machines put the brainrot
-	together one part at a time, each part with its own animation. The finished
-	brainrot then rides to the shipping chute with a coin popup. Purely cosmetic: the
-	server decides what ships and pays out on the same schedule (Production.Schedule).
+	together one part at a time, each part with its own animation and sounds. The
+	finished brainrot rides through the upgrade stations (paint, glitter) to the
+	shipping chute, and its coins fly over to the Cash Pad. Purely cosmetic: the server
+	decides what ships and pays out on the same schedule (Production.Schedule).
 
 	Every zone has its own style in ASSEMBLY_STYLES (GDD §10): machines found on the
 	line (built by TycoonManager) plus one animation per part type.
-	  * Toy Workshop: the legs hop onto the pad, the claw lifts the body onto them, two
-	    wooden robots punch the arms into place, and the claw screws the head on. Pop!
+	  * Toy Workshop: the legs boing onto the pad, the claw whirs the body onto them,
+	    two wooden robots BONK the arms into place, and the claw ratchets the head on.
+	    Pop!
 	  * Plushie Sewing Room: the legs plop onto a cushion, the needle stitches the body
 	    on, thread spools reel the arms in, and the needle pumps the head full of
 	    stuffing. Pop!
 ]]
 
-local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -27,15 +28,26 @@ local Format = require(Shared:WaitForChild("Format"))
 local Production = require(Config:WaitForChild("Production"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
+local TycoonItems = require(Config:WaitForChild("TycoonItems"))
+local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
 
 local RENDER_DISTANCE = 250
+local FX_RANGE = 140 -- particles and flying coins only for lines this close to the camera
 local COIN_COLOR = Color3.fromRGB(255, 215, 60)
 local MATCH_COLOR = Color3.fromRGB(120, 255, 140)
 local SPARKLE_COLOR = Color3.fromRGB(255, 255, 255)
 local POP_COLOR = Color3.fromRGB(255, 200, 60)
 local STUFFING_COLOR = Color3.fromRGB(255, 250, 245)
-local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
-local PUFF_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
+local DUST_COLOR = Color3.fromRGB(235, 220, 200)
+local BONK_COLOR = Color3.fromRGB(255, 110, 90)
+local PAINT_COLORS = {
+	Color3.fromRGB(255, 90, 170),
+	Color3.fromRGB(90, 210, 255),
+	Color3.fromRGB(255, 220, 60),
+	Color3.fromRGB(140, 240, 100),
+	Color3.fromRGB(190, 120, 255),
+}
+local GLITTER_COLOR = Color3.fromRGB(255, 230, 120)
 
 local INTAKE_GAP = 4 -- studs before the pad where parts wait to be picked up
 local HOP_HEIGHT = 2.5
@@ -48,6 +60,7 @@ local FIST_HALF = 0.4
 local STITCHES = 6 -- needle stitches while sewing the body on
 local STITCH_HOVER = 1.5 -- studs the body starts above its place
 local DEFLATED = 0.35 -- the plushie head's starting scale, before it's stuffed
+local CHUTE_DROP = 3 -- studs the brainrot sinks into the chute as it ships
 
 type Piece = {
 	Model: Model,
@@ -65,6 +78,7 @@ type Build = {
 	Machines: any, -- whatever the zone style's Setup returned
 	Built: { Piece }, -- parts in place so far
 	FullMatch: boolean,
+	Near: boolean, -- close enough to the camera for particles
 }
 
 type StepAnimation = (build: Build, piece: Piece, duration: number) -> ()
@@ -76,9 +90,7 @@ type Style = {
 	Steps: { [string]: StepAnimation },
 }
 
-local effects = Instance.new("Folder")
-effects.Name = "ProductionEffects"
-effects.Parent = workspace
+local effects = Effects.Folder
 
 -- Helpers --------------------------------------------------------------------
 
@@ -136,95 +148,6 @@ local function squish(model: Model)
 	tweenScale(model, model:GetScale() * SQUISH, info)
 end
 
--- An invisible part for effects to hang off. It cleans itself up after `lifetime`.
-local function makeAnchor(position: Vector3, lifetime: number): Part
-	local anchor = Instance.new("Part")
-	anchor.Anchored = true
-	anchor.CanCollide = false
-	anchor.CanQuery = false
-	anchor.CanTouch = false
-	anchor.Transparency = 1
-	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
-	anchor.Position = position
-	anchor.Parent = effects
-	Debris:AddItem(anchor, lifetime)
-	return anchor
-end
-
-local function playSound(position: Vector3, soundId: string, volume: number, speed: number?)
-	local sound = Instance.new("Sound")
-	sound.SoundId = soundId
-	sound.Volume = volume
-	sound.PlaybackSpeed = speed or 1
-	sound.RollOffMaxDistance = 120
-	sound.Parent = makeAnchor(position, 3)
-	sound:Play()
-end
-
-local function sparkle(position: Vector3, color: Color3, count: number)
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Texture = SPARKLE_TEXTURE
-	emitter.Color = ColorSequence.new(color)
-	emitter.LightEmission = 0.7
-	emitter.Size = NumberSequence.new(0.9, 0)
-	emitter.Lifetime = NumberRange.new(0.4, 0.8)
-	emitter.Speed = NumberRange.new(10, 18)
-	emitter.SpreadAngle = Vector2.new(180, 180)
-	emitter.Acceleration = Vector3.new(0, -35, 0)
-	emitter.Rotation = NumberRange.new(0, 360)
-	emitter.Enabled = false
-	emitter.Parent = makeAnchor(position, 1.5)
-	emitter:Emit(count)
-end
-
--- Soft white clouds, like stuffing bursting out.
-local function puff(position: Vector3, count: number)
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Texture = PUFF_TEXTURE
-	emitter.Color = ColorSequence.new(STUFFING_COLOR)
-	emitter.Size = NumberSequence.new(1.2, 2.8)
-	emitter.Transparency = NumberSequence.new(0.1, 1)
-	emitter.Lifetime = NumberRange.new(0.5, 0.8)
-	emitter.Speed = NumberRange.new(4, 8)
-	emitter.SpreadAngle = Vector2.new(180, 180)
-	emitter.Drag = 4
-	emitter.Rotation = NumberRange.new(0, 360)
-	emitter.Enabled = false
-	emitter.Parent = makeAnchor(position, 1.5)
-	emitter:Emit(count)
-end
-
--- Floating text that rises and fades. `height` is in studs.
-local function popup(position: Vector3, text: string, color: Color3, height: number, duration: number?)
-	local lifetime = duration or 1.2
-	local anchor = makeAnchor(position, lifetime + 0.1)
-
-	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromScale(height * 5, height)
-	gui.AlwaysOnTop = true
-	gui.LightInfluence = 0
-	gui.Parent = anchor
-
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
-	label.TextScaled = true
-	label.TextColor3 = color
-	label.Text = text
-	label.Parent = gui
-
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 3
-	stroke.Parent = label
-
-	local rise = TweenInfo.new(lifetime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	local fade = TweenInfo.new(lifetime * 0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, lifetime * 0.6)
-	TweenService:Create(anchor, rise, { Position = position + Vector3.new(0, 6, 0) }):Play()
-	TweenService:Create(label, fade, { TextTransparency = 1 }):Play()
-	TweenService:Create(stroke, fade, { Transparency = 1 }):Play()
-end
-
 local function findPart(parent: Instance?, name: string): BasePart?
 	local part = parent and parent:FindFirstChild(name)
 	return if part and part:IsA("BasePart") then part else nil
@@ -240,10 +163,93 @@ local function placeRod(rod: BasePart, from: Vector3, to: Vector3)
 	rod.CFrame = CFrame.lookAt((from + to) / 2, to)
 end
 
+-- Whether TycoonFX is still popping a line's parts into place (just bought).
+local function isBuilding(line: Instance): boolean
+	local deadline = line:GetAttribute("BuildingUntil")
+	return typeof(deadline) == "number" and deadline > os.clock()
+end
+
+-- Particles are skipped on lines far from the camera; sounds cull themselves.
+local function sparkle(build: Build, position: Vector3, color: Color3, count: number)
+	if build.Near then
+		Effects.sparkle(position, color, count)
+	end
+end
+
+local function puff(build: Build, position: Vector3, color: Color3, count: number, size: number?)
+	if build.Near then
+		Effects.puff(position, color, count, size)
+	end
+end
+
+local function ring(build: Build, color: Color3, radius: number)
+	if build.Near then
+		Effects.ring(build.Root.Position + Vector3.new(0, 0.1, 0), color, radius)
+	end
+end
+
+-- A random pitch around `speed`, so repeated sounds don't grate.
+local function vary(speed: number?): number
+	return (speed or 1) * (0.92 + math.random() * 0.16)
+end
+
+-- Droppers and the beacon ----------------------------------------------------
+
+-- The dropper squashes and spits its part out with a plop and a puff.
+local function spit(line: Model, dropper: BasePart, near: boolean)
+	local mouth = dropper.Position - Vector3.new(0, dropper.Size.Y / 2 + 0.3, 0)
+	Effects.sound(mouth, Sounds.Plop, 0.35, vary(1))
+	if near then
+		Effects.puff(mouth, dropper.Color:Lerp(Color3.new(1, 1, 1), 0.5), 5, 0.6)
+	end
+	if isBuilding(line) then
+		return -- it's still popping in; don't fight over its size
+	end
+	local rest = dropper:GetAttribute("RestSize")
+	if typeof(rest) ~= "Vector3" then
+		rest = dropper.Size
+		dropper:SetAttribute("RestSize", rest)
+	end
+	local restSize = rest :: Vector3
+	dropper.Size = restSize
+	local squashed = Vector3.new(restSize.X * 1.12, restSize.Y * 0.8, restSize.Z * 1.12)
+	local info = TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
+	TweenService:Create(dropper, info, { Size = squashed }):Play()
+end
+
+local beaconTweens: { [BasePart]: Tween } = {}
+
+-- The gantry's beacon glows and pulses while the Assembler works.
+local function setBeacon(line: Model, on: boolean)
+	local beacon = findPart(line, "Beacon")
+	local light = beacon and beacon:FindFirstChildOfClass("PointLight")
+	if not (beacon and light) then
+		return
+	end
+	local running = beaconTweens[beacon]
+	if running then
+		running:Cancel()
+		beaconTweens[beacon] = nil
+	end
+	local glow = beacon:GetAttribute("GlowColor")
+	if on then
+		beacon.Material = Enum.Material.Neon
+		beacon.Color = if typeof(glow) == "Color3" then glow else POP_COLOR
+		light.Brightness = 0.5
+		local tween = TweenService:Create(light, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Brightness = 4 })
+		beaconTweens[beacon] = tween
+		tween:Play()
+	else
+		beacon.Material = Enum.Material.SmoothPlastic
+		beacon.Color = Color3.fromRGB(120, 110, 130)
+		light.Brightness = 0
+	end
+end
+
 -- Build helpers --------------------------------------------------------------
 
--- Puts a piece in its place and makes everything built so far squish, with sparkles
--- and a sound.
+-- Puts a piece in its place and makes everything built so far squish, with sparkles,
+-- a ring on the pad and a sound.
 local function place(build: Build, piece: Piece, color: Color3, sparkles: number, soundId: string, volume: number)
 	piece.Model:PivotTo(piece.Home)
 	table.insert(build.Built, piece)
@@ -251,17 +257,30 @@ local function place(build: Build, piece: Piece, color: Color3, sparkles: number
 		squish(built.Model)
 	end
 	local center = build.Root.Position + Vector3.new(0, 2, 0)
-	sparkle(center, color, sparkles)
-	playSound(center, soundId, volume)
+	sparkle(build, center, color, sparkles)
+	ring(build, color, 3.5)
+	Effects.sound(center, soundId, volume, vary(1))
 end
 
--- The finishing touch on the last part: a big pop.
+-- The finishing touch on the last part: a big pop. A full match gets confetti too.
 local function pop(build: Build)
 	local color = if build.FullMatch then MATCH_COLOR else POP_COLOR
 	local center = build.Root.Position + Vector3.new(0, 2, 0)
-	sparkle(center, color, 30)
-	playSound(center, Sounds.Pop, 0.6)
-	popup(build.Root.Position + Vector3.new(0, 5, 0), "POP!", color, 1.5, 0.6)
+	sparkle(build, center, color, 30)
+	ring(build, color, 6)
+	if build.Near then
+		Effects.flash(center + Vector3.new(0, 2, 0), color, 3, 18)
+	end
+	Effects.sound(center, Sounds.Pop, 0.6, vary(1))
+	if build.FullMatch then
+		if build.Near then
+			Effects.confetti(center + Vector3.new(0, 2, 0), 25)
+		end
+		Effects.popup(build.Root.Position + Vector3.new(0, 5.5, 0), "PERFECT!", color, 1.5, 0.8)
+	else
+		Effects.popup(build.Root.Position + Vector3.new(0, 5, 0), "POP!", color, 1.5, 0.6)
+	end
+	setBeacon(build.Line, false)
 end
 
 local function builtTop(build: Build): number
@@ -381,9 +400,9 @@ local function setFist(pusher: Pusher, cframe: CFrame)
 end
 
 -- The claw picks `piece` up from the intake, carries it over the build and lowers it
--- into place, spinning it `turns` times on the way down. Calls `onPlaced` the moment
--- it lands, then heads home.
-local function clawCarry(build: Build, piece: Piece, duration: number, turns: number, onPlaced: () -> ())
+-- into place, spinning it `turns` times on the way down. Calls `onLower` as it starts
+-- down and `onPlaced` the moment it lands, then heads home. Whirs as it goes.
+local function clawCarry(build: Build, piece: Piece, duration: number, turns: number, onPlaced: () -> (), onLower: (() -> ())?)
 	local claw = (build.Machines :: ToyMachines).Claw
 	local token = {}
 	claw.Owner = token
@@ -409,6 +428,8 @@ local function clawCarry(build: Build, piece: Piece, duration: number, turns: nu
 	end
 
 	local d = duration
+	local speed = math.clamp(1.2 / d, 1, 2) -- faster lines whir higher
+	Effects.sound(claw.Rest.Position, Sounds.Servo, 0.25, vary(speed))
 	run(d * 0.18, function(a)
 		setGrip(claw.Rest:Lerp(above(pickup), ease(a)), 1)
 	end)
@@ -418,12 +439,16 @@ local function clawCarry(build: Build, piece: Piece, duration: number, turns: nu
 	run(d * 0.06, function(a)
 		setGrip(pickup, 1 - a)
 	end)
+	Effects.sound(pickup.Position, Sounds.Servo, 0.2, vary(speed * 1.2))
 	run(d * 0.14, function(a)
 		carry(pickup:Lerp(above(pickup), ease(a)))
 	end)
 	run(d * 0.14, function(a)
 		carry(above(pickup):Lerp(above(drop), ease(a)))
 	end)
+	if onLower then
+		onLower()
+	end
 	run(d * 0.22, function(a)
 		local e = ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 		carry(above(drop):Lerp(drop, e) * CFrame.Angles(0, turns * 2 * math.pi * (1 - e), 0))
@@ -500,6 +525,12 @@ local function resetSpools(machines: SewingMachines)
 	end
 end
 
+local function stopSound(sound: Sound?)
+	if sound then
+		sound:Stop()
+	end
+end
+
 -- Assembly styles ------------------------------------------------------------
 -- One animation per part type, per zone. Each runs for its step's duration, starting
 -- as the part reaches the intake. The rarer the zone, the crazier it should be.
@@ -514,10 +545,12 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 	ToyWorkshop = {
 		Setup = setupToy,
 		Steps = {
-			-- The legs hop off the belt and land on the pad.
+			-- The legs boing off the belt and land on the pad.
 			Legs = function(build, piece, duration)
+				Effects.sound(homeCenter(piece), Sounds.Boing, 0.3, vary(1.15))
 				hop(piece.Model, piece.Home, duration * 0.7, 3)
 				place(build, piece, SPARKLE_COLOR, 6, Sounds.Pop, 0.3)
+				puff(build, build.Root.Position + Vector3.new(0, 0.4, 0), DUST_COLOR, 6, 0.6)
 			end,
 
 			-- The claw lifts the body off the belt and sets it down on the legs.
@@ -527,7 +560,7 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 				end)
 			end,
 
-			-- The arms hop in loose until the two robots punch them into place.
+			-- The arms hop in loose until the two robots BONK them into place.
 			Arms = function(build, piece, duration)
 				local machines = build.Machines :: ToyMachines
 				local model = piece.Model
@@ -549,7 +582,11 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 					model:ScaleTo(base * (LOOSE - (LOOSE - 1) * e))
 				end)
 				model:ScaleTo(base)
-				place(build, piece, SPARKLE_COLOR, 12, Sounds.Stamp, 0.3)
+				place(build, piece, SPARKLE_COLOR, 12, Sounds.Clunk, 0.35)
+				for _, target in punches do
+					sparkle(build, target.Position, BONK_COLOR, 6)
+				end
+				Effects.popup(homeCenter(piece) + Vector3.new(0, 1.5, 0), "BONK!", BONK_COLOR, 1, 0.5)
 
 				run(duration * 0.3, function(a)
 					local e = ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -559,11 +596,15 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 				end)
 			end,
 
-			-- The claw screws the head on. Pop!
+			-- The claw ratchets the head on. Pop!
 			Head = function(build, piece, duration)
+				local ratchet: Sound? = nil
 				clawCarry(build, piece, duration, 2, function()
+					stopSound(ratchet)
 					place(build, piece, POP_COLOR, 12, Sounds.Stamp, 0.2)
 					pop(build)
+				end, function()
+					ratchet = Effects.sound(homeCenter(piece), Sounds.Ratchet, 0.3, vary(math.clamp(1.2 / duration, 1, 1.8)))
 				end)
 			end,
 		},
@@ -574,9 +615,10 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 		Steps = {
 			-- The legs plop down from up high onto a soft cushion. Floof.
 			Legs = function(build, piece, duration)
+				Effects.sound(homeCenter(piece), Sounds.Boing, 0.25, vary(0.8))
 				hop(piece.Model, piece.Home, duration * 0.7, 5)
-				place(build, piece, STUFFING_COLOR, 6, Sounds.Pop, 0.3)
-				puff(build.Root.Position + Vector3.new(0, 0.5, 0), 8)
+				place(build, piece, STUFFING_COLOR, 6, Sounds.Squeak, 0.3)
+				puff(build, build.Root.Position + Vector3.new(0, 0.5, 0), STUFFING_COLOR, 8)
 			end,
 
 			-- The body hovers over the legs and the needle stitches it down, one quick
@@ -587,14 +629,15 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 				hop(piece.Model, hover, duration * 0.3, HOP_HEIGHT)
 				local center = homeCenter(piece)
 				local stitchTime = duration * 0.6 / STITCHES
+				local sewing = Effects.sound(center, Sounds.Sewing, 0.3, math.clamp(1.2 / duration, 1, 1.6))
 				for index = 1, STITCHES do
 					local height = STITCH_HOVER * (1 - index / STITCHES)
 					piece.Model:PivotTo(piece.Home + Vector3.new(0, height, 0))
 					local topY = center.Y + piece.Size.Y / 2 + height
-					playSound(center, Sounds.Stamp, 0.12, 2.2)
 					stitch(machines, center.X, center.Z, topY - 0.4, stitchTime)
 				end
-				place(build, piece, Color3.fromRGB(255, 170, 205), 10, Sounds.Pop, 0.25)
+				stopSound(sewing)
+				place(build, piece, Color3.fromRGB(255, 170, 205), 10, Sounds.Squeak, 0.25)
 			end,
 
 			-- The arms land too wide, and the thread spools reel them in snug.
@@ -606,6 +649,7 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 
 				local center = build.Root:PointToObjectSpace(homeCenter(piece))
 				local half = piece.Size.X / 2
+				local reel = Effects.sound(homeCenter(piece), Sounds.Ratchet, 0.2, 1.6)
 				run(duration * 0.45, function(a)
 					local e = ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 					local scale = LOOSE - (LOOSE - 1) * e
@@ -617,9 +661,10 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 						spool.Spool.CFrame = spool.SpoolRest * CFrame.Angles(e * math.pi * 6 * side, 0, 0)
 					end
 				end)
+				stopSound(reel)
 				model:ScaleTo(base)
 				resetSpools(machines)
-				place(build, piece, Color3.fromRGB(120, 200, 255), 12, Sounds.Pop, 0.3)
+				place(build, piece, Color3.fromRGB(120, 200, 255), 12, Sounds.Squeak, 0.3)
 			end,
 
 			-- The head arrives deflated, and the needle pumps it full of stuffing. Pop!
@@ -642,12 +687,12 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 					stitch(machines, center.X, center.Z, topY, duration * 0.15)
 					model:ScaleTo(base * factor)
 					model:PivotTo(centeredPivot(piece, piece.Home, factor))
-					puff(center, 3)
-					playSound(center, Sounds.Pop, 0.2, 0.8 + pump * 0.2)
+					puff(build, center, STUFFING_COLOR, 3)
+					Effects.sound(center, Sounds.Pop, 0.25, 0.8 + pump * 0.2)
 				end
 				model:ScaleTo(base)
-				place(build, piece, STUFFING_COLOR, 12, Sounds.Pop, 0.2)
-				puff(center, 14)
+				place(build, piece, STUFFING_COLOR, 12, Sounds.Squeak, 0.3)
+				puff(build, center, STUFFING_COLOR, 14)
 				pop(build)
 			end,
 		},
@@ -661,10 +706,74 @@ local machinesByLine: { [Model]: any } = setmetatable({}, { __mode = "k" }) :: a
 local function getMachines(line: Model, style: Style): any?
 	local machines = machinesByLine[line]
 	if not machines then
+		-- A line that was just bought is still popping in; read it once it settles.
+		while isBuilding(line) do
+			task.wait(0.1)
+		end
 		machines = style.Setup(line)
 		machinesByLine[line] = machines
 	end
 	return machines
+end
+
+-- Upgrade stations -----------------------------------------------------------
+-- The brainrot rides under each station's arch on its way to the chute, and the
+-- station does its thing: the Paint Booth splashes it with paint, the Glitter
+-- Blaster showers it in glitter. Each shows its value multiplier.
+
+type StationPass = { Alpha: number, Key: string, Arch: BasePart }
+
+local STATION_FX: { [string]: (build: Build, arch: BasePart, brainrot: Model, center: Vector3) -> () } = {
+	Station1 = function(build, _arch, brainrot, center)
+		local color = PAINT_COLORS[math.random(1, #PAINT_COLORS)]
+		Effects.tint(brainrot, color, 0.7)
+		puff(build, center, color, 8, 0.7)
+		sparkle(build, center, PAINT_COLORS[math.random(1, #PAINT_COLORS)], 10)
+		Effects.sound(center, Sounds.Whoosh, 0.2, vary(1.8))
+	end,
+	Station2 = function(build, arch, brainrot, center)
+		Effects.tint(brainrot, GLITTER_COLOR, 0.7)
+		sparkle(build, arch.Position - Vector3.new(0, arch.Size.Y / 2, 0), GLITTER_COLOR, 24)
+		sparkle(build, center, SPARKLE_COLOR, 12)
+		Effects.sound(center, Sounds.Coin, 0.35, vary(1.7))
+	end,
+}
+
+-- The stations on a line, as the share of the ride where the brainrot passes under.
+local function stationPasses(line: Model, from: Vector3, to: Vector3): { StationPass }
+	local passes = {}
+	local path = to - from
+	local length = path.Magnitude
+	if length < 0.01 then
+		return passes
+	end
+	for key in STATION_FX do
+		local arch = findPart(line, key)
+		if arch then
+			local alpha = (arch.Position - from):Dot(path.Unit) / length
+			table.insert(passes, { Alpha = math.clamp(alpha, 0, 1), Key = key, Arch = arch })
+		end
+	end
+	table.sort(passes, function(a, b)
+		return a.Alpha < b.Alpha
+	end)
+	return passes
+end
+
+local function stationPass(build: Build, pass: StationPass, brainrot: Model)
+	local box = brainrot:GetBoundingBox()
+	local center = box.Position
+	STATION_FX[pass.Key](build, pass.Arch, brainrot, center)
+
+	local glow = findPart(build.Line, pass.Key .. "Glow")
+	if glow then
+		local info = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
+		TweenService:Create(glow, info, { Color = POP_COLOR }):Play()
+	end
+	local item = TycoonItems.ById[`{build.Line.Name}_{pass.Key}`]
+	if item and item.Multiplier then
+		Effects.popup(center + Vector3.new(0, 3, 0), `x{item.Multiplier}`, glow and glow.Color or POP_COLOR, 1, 0.6)
+	end
 end
 
 -- One production cycle -------------------------------------------------------
@@ -689,7 +798,14 @@ local function animateCycle(
 	local root = rotation + Vector3.new(assembler.Position.X, beltTop, assembler.Position.Z)
 	local shipRoot = rotation + Vector3.new(ship.Position.X, beltTop, ship.Position.Z)
 	local style = ASSEMBLY_STYLES[zoneId] or DEFAULT_STYLE
-	local build: Build = { Line = line, Root = root, Machines = getMachines(line, style), Built = {}, FullMatch = fullMatch }
+	local build: Build = {
+		Line = line,
+		Root = root,
+		Machines = getMachines(line, style),
+		Built = {},
+		FullMatch = fullMatch,
+		Near = Effects.near(root.Position, FX_RANGE),
+	}
 
 	-- Everything is scheduled against one clock, so the parts and machines stay in sync.
 	local start = os.clock()
@@ -748,6 +864,7 @@ local function animateCycle(
 		local ride = piece.Travel / speed
 		task.spawn(function()
 			waitUntil(step.Start - ride - Production.DropTime)
+			spit(line, piece.Dropper, build.Near)
 			local below = piece.Dropper.Position
 			local landing = centeredAt(piece.Center, Vector3.new(below.X, beltTop + piece.Size.Y / 2, below.Z))
 			glide(piece.Model, landing, Production.DropTime, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
@@ -756,13 +873,16 @@ local function animateCycle(
 		end)
 	end
 
-	-- 3) The zone's machines assemble it, one part at a time.
-	for _, step in steps do
+	-- 3) The zone's machines assemble it, one part at a time, with the beacon flashing.
+	for index, step in steps do
 		local piece = pieces[step.PartType]
 		if not piece then
 			continue
 		end
 		waitUntil(step.Start)
+		if index == 1 then
+			setBeacon(line, true)
+		end
 		local animate = if build.Machines then style.Steps[step.PartType] else nil
 		local ok, err = pcall(animate or simpleStep, build, piece, step.Duration)
 		if not ok then
@@ -772,8 +892,9 @@ local function animateCycle(
 	end
 	local _, finished = Production.Schedule(parts, cycleTime)
 	waitUntil(finished)
+	setBeacon(line, false) -- in case the last step wasn't a head (no pop)
 
-	-- 4) Ride to the chute as one brainrot, then drop in.
+	-- 4) Ride through the stations to the chute as one brainrot, then drop in.
 	local brainrot = Instance.new("Model")
 	brainrot.Name = "Brainrot"
 	for _, piece in pieces do
@@ -783,14 +904,41 @@ local function animateCycle(
 	brainrot.WorldPivot = root
 	brainrot.Parent = effects
 
-	glide(brainrot, shipRoot, Production.ShipTime, Enum.EasingStyle.Linear, Enum.EasingDirection.In)
+	local passes = stationPasses(line, root.Position, shipRoot.Position)
+	local nextPass = 1
+	run(Production.ShipTime, function(alpha)
+		brainrot:PivotTo(root:Lerp(shipRoot, alpha))
+		local pass = passes[nextPass]
+		if pass and alpha >= pass.Alpha then
+			nextPass += 1
+			stationPass(build, pass, brainrot)
+		end
+	end)
 
-	local text = `+{Format.Number(value)} 💰` .. (if fullMatch then " x2!" else "")
 	local top = ship.Position + Vector3.new(0, ship.Size.Y / 2 + 2, 0)
-	popup(top, text, if fullMatch then MATCH_COLOR else COIN_COLOR, 2)
-	playSound(top, Sounds.Cash, 0.35)
-	tweenScale(brainrot, 0.05, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In))
-	Debris:AddItem(brainrot, 0.3)
+	local text = `+{Format.Number(value)} 💰` .. (if fullMatch then " x2!" else "")
+	Effects.popup(top + Vector3.new(0, 1, 0), text, if fullMatch then MATCH_COLOR else COIN_COLOR, 2.2, 1.4)
+	Effects.sound(top, Sounds.Whoosh, 0.2, vary(1.2))
+	Effects.sound(top, Sounds.Cash, 0.3, vary(1))
+
+	-- The coins spill out of the chute and hop over to the Cash Pad.
+	local plot = line.Parent and line.Parent.Parent
+	local pad = findPart(plot, "CashPad")
+	if pad and build.Near then
+		local count = math.clamp(2 + math.floor(math.log10(math.max(value, 1))), 3, 8)
+		Effects.sound(top, Sounds.Coins, 0.25, vary(1))
+		Effects.coins(top, pad.Position + Vector3.new(0, pad.Size.Y / 2 + 0.3, 0), count)
+		sparkle(build, top, COIN_COLOR, 10)
+	end
+
+	-- Sink into the chute, shrinking away.
+	local base = brainrot:GetScale()
+	run(0.25, function(alpha)
+		local e = ease(alpha, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		brainrot:ScaleTo(base * math.max(1 - 0.9 * e, 0.05))
+		brainrot:PivotTo(shipRoot - Vector3.new(0, CHUTE_DROP * e, 0))
+	end)
+	brainrot:Destroy()
 end
 
 local function findLine(plot: Instance?, lineId: string): Model?

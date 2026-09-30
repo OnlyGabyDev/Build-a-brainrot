@@ -6,9 +6,13 @@
 
 	All geometry is generated here as colorful placeholders, so the game is playable
 	before any art exists. ProductionVisuals finds line parts by name (Belt, Assembler,
-	Ship, HeadDropper, BodyDropper, ArmsDropper, LegsDropper) and animates the
-	Assembler's machines (Claw: Hand, Rod, FingerLeft, FingerRight; PusherLeft and
-	PusherRight: Fist, Rod): keep those names when swapping in real art.
+	Ship, HeadDropper, BodyDropper, ArmsDropper, LegsDropper, Beacon, Station1/2 and
+	their Glow) and animates the Assembler's machines (Claw: Hand, Rod, FingerLeft,
+	FingerRight; PusherLeft and PusherRight: Fist, Rod): keep those names when swapping
+	in real art. TycoonFX finds Belt and CashPad (its Collected attribute).
+
+	Bought items' parts get a Built attribute (server time) so clients play the build
+	animation; every item part gets Item = its item id.
 ]]
 
 local Players = game:GetService("Players")
@@ -87,6 +91,7 @@ local FACE_TEXTURE = "rbxasset://textures/face.png"
 local SEWING_COLOR = Color3.fromRGB(255, 170, 205)
 local SEWING_LIGHT_COLOR = Color3.fromRGB(255, 235, 245)
 local THREAD_COLORS = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 150, 90) }
+local COIN_GLOW_COLOR = Color3.fromRGB(255, 215, 60)
 local AFFORDABLE_COLOR = Color3.fromRGB(80, 220, 100)
 local EXPENSIVE_COLOR = Color3.fromRGB(235, 80, 80)
 local BUTTON_COOLDOWN = 0.5
@@ -98,6 +103,7 @@ export type Plot = {
 	LinesFolder: Folder,
 	ButtonsFolder: Folder,
 	SignLabel: TextLabel,
+	CashPad: BasePart,
 	CashLabel: TextLabel,
 	ZoneLabels: { [string]: TextLabel }, -- each back room's name + lock
 	Owner: Player?,
@@ -259,27 +265,54 @@ local function buildSewingMachine(parent: Model, origin: CFrame)
 	end
 end
 
--- Gantry colors per zone: { pillars, beam }.
+-- Gantry colors per zone: { pillars, beam, glow }. The glow lines the rails and lights
+-- the beacon while the Assembler works.
 local GANTRY_COLORS = {
-	ToyWorkshop = { Color3.fromRGB(110, 60, 200), GANTRY_COLOR },
-	PlushieRoom = { SEWING_LIGHT_COLOR, SEWING_COLOR },
+	ToyWorkshop = { Color3.fromRGB(110, 60, 200), GANTRY_COLOR, Color3.fromRGB(255, 220, 70) },
+	PlushieRoom = { SEWING_LIGHT_COLOR, SEWING_COLOR, Color3.fromRGB(255, 120, 200) },
 }
+
+-- Makes a part that's just for looks: no collisions, no touches.
+local function makeDecor(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?): Part
+	local part = makePart(parent, name, size, cframe, color, material)
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	return part
+end
 
 local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Item) -> () } = {
 	Line = function(model, origin, item)
+		local colors = GANTRY_COLORS[item.Zone] or GANTRY_COLORS.ToyWorkshop
 		makePart(model, "Belt", Vector3.new(8, 1, 62), origin * CFrame.new(0, 0.5, 13), Color3.fromRGB(60, 60, 70))
 		for _, side in { -1, 1 } do
 			local rail = if side < 0 then "RailLeft" else "RailRight"
 			makePart(model, rail, Vector3.new(0.6, 1.4, 62), origin * CFrame.new(4.3 * side, 0.7, 13), Color3.fromRGB(255, 170, 60))
+			makeDecor(model, rail .. "Glow", Vector3.new(0.3, 0.12, 62), origin * CFrame.new(4.3 * side, 1.46, 13), colors[3], Enum.Material.Neon)
 		end
 
-		-- The Assembler: a gantry over the pad, with the zone's machines.
-		local colors = GANTRY_COLORS[item.Zone] or GANTRY_COLORS.ToyWorkshop
+		-- The Assembler: a gantry over the pad, with the zone's machines, a lamp that
+		-- lights the pad and a beacon that flashes while it builds.
 		for _, corner in { Vector2.new(-1, -1), Vector2.new(-1, 1), Vector2.new(1, -1), Vector2.new(1, 1) } do
 			local cframe = origin * CFrame.new(6.9 * corner.X, GANTRY_BOTTOM_Y / 2, 5 * corner.Y)
 			makePart(model, "AssemblerPillar", Vector3.new(1.2, GANTRY_BOTTOM_Y, 1.2), cframe, colors[1])
 		end
-		makePart(model, "Assembler", Vector3.new(15, 2, 11.2), origin * CFrame.new(0, GANTRY_BOTTOM_Y + 1, 0), colors[2])
+		local assembler = makePart(model, "Assembler", Vector3.new(15, 2, 11.2), origin * CFrame.new(0, GANTRY_BOTTOM_Y + 1, 0), colors[2])
+		local lamp = Instance.new("SpotLight")
+		lamp.Face = Enum.NormalId.Bottom
+		lamp.Angle = 75
+		lamp.Range = 16
+		lamp.Brightness = 1.6
+		lamp.Color = Color3.fromRGB(255, 240, 215)
+		lamp.Parent = assembler
+		local beacon = makeDecor(model, "Beacon", Vector3.new(1.6, 1.6, 1.6), origin * CFrame.new(0, GANTRY_BOTTOM_Y + 2.8, 0), Color3.fromRGB(120, 110, 130), Enum.Material.SmoothPlastic)
+		beacon.Shape = Enum.PartType.Ball
+		beacon:SetAttribute("GlowColor", colors[3])
+		local beaconLight = Instance.new("PointLight")
+		beaconLight.Color = colors[3]
+		beaconLight.Range = 14
+		beaconLight.Brightness = 0
+		beaconLight.Parent = beacon
 		if item.Zone == "PlushieRoom" then
 			buildSewingMachine(model, origin)
 		else
@@ -288,7 +321,10 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			buildPusher(model, origin, 1)
 		end
 
+		-- The shipping chute: a box with a dark hole in its top.
 		local ship = makePart(model, "Ship", Vector3.new(10, 6, 6), origin * CFrame.new(0, 3, -21), Color3.fromRGB(255, 140, 50))
+		makeDecor(model, "ChuteHole", Vector3.new(7.6, 0.1, 4), origin * CFrame.new(0, 6.05, -21), Color3.fromRGB(35, 25, 45))
+		makeDecor(model, "ChuteGlow", Vector3.new(8.4, 0.08, 4.8), origin * CFrame.new(0, 6.02, -21), COIN_GLOW_COLOR, Enum.Material.Neon)
 		makeBillboard(ship, "SHIPPING", Vector2.new(8, 2), 4.5, 80)
 	end,
 
@@ -298,6 +334,9 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		local dropper = makePart(model, partType .. "Dropper", Vector3.new(6, 4, 6), origin * CFrame.new(0, 10, z), PART_COLORS[partType])
 		makePart(model, partType .. "DropperPillar", Vector3.new(1.2, 12.8, 1.2), origin * CFrame.new(-6, 6.4, z), METAL_COLOR)
 		makePart(model, partType .. "DropperArm", Vector3.new(6, 0.8, 0.8), origin * CFrame.new(-3, 12.4, z), METAL_COLOR)
+		-- A glowing rim around the dark mouth the parts drop out of.
+		makeDecor(model, partType .. "DropperRim", Vector3.new(6.3, 0.35, 6.3), origin * CFrame.new(0, 8.1, z), PART_COLORS[partType]:Lerp(Color3.new(1, 1, 1), 0.35), Enum.Material.Neon)
+		makeDecor(model, partType .. "DropperMouth", Vector3.new(4.2, 0.1, 4.2), origin * CFrame.new(0, 7.9, z), Color3.fromRGB(35, 25, 45))
 		makeBillboard(dropper, string.upper(partType), Vector2.new(5, 1.5), 3.2, 80)
 	end,
 
@@ -319,8 +358,25 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 	end,
 }
 
-local function buildItem(plot: Plot, item: TycoonItems.Item)
-	BUILDERS[item.Kind](getLineModel(plot, item.LineId), lineOrigin(plot, item.LineId), item)
+-- Builds an item's parts onto its line. Each part is tagged with its item, and a
+-- freshly bought one also with the server time it was built, so clients can play the
+-- build animation (TycoonFX) for new purchases only.
+local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?)
+	local model = getLineModel(plot, item.LineId)
+	local existing = {}
+	for _, descendant in model:GetDescendants() do
+		existing[descendant] = true
+	end
+	BUILDERS[item.Kind](model, lineOrigin(plot, item.LineId), item)
+	local now = workspace:GetServerTimeNow()
+	for _, descendant in model:GetDescendants() do
+		if not existing[descendant] and descendant:IsA("BasePart") then
+			descendant:SetAttribute("Item", item.Id)
+			if bought then
+				descendant:SetAttribute("Built", now)
+			end
+		end
+	end
 end
 
 -- Buttons --------------------------------------------------------------------
@@ -350,7 +406,7 @@ local function onButtonTouched(plot: Plot, item: TycoonItems.Item, hit: BasePart
 	buttonCooldowns[player] = now + BUTTON_COOLDOWN
 
 	if DataManager.PurchaseItem(player, item.Id, item.Price) then
-		buildItem(plot, item)
+		buildItem(plot, item, true)
 		refreshButtons(plot)
 	end
 end
@@ -392,8 +448,10 @@ end
 
 -- Plots ----------------------------------------------------------------------
 
+-- The Cash Pad's label, plus a Collected attribute clients use to pile coins on it.
 local function updateCashLabel(plot: Plot)
 	plot.CashLabel.Text = `💰 {Format.Number(plot.Collected)}\nStep here to collect!`
+	plot.CashPad:SetAttribute("Collected", plot.Collected)
 end
 
 -- Each back room's sign shows its name, with a lock until the owner unlocks it.
@@ -474,6 +532,7 @@ local function buildPlot(index: number, parent: Instance): Plot
 		LinesFolder = linesFolder,
 		ButtonsFolder = buttonsFolder,
 		SignLabel = signLabel,
+		CashPad = cashPad,
 		CashLabel = cashLabel,
 		ZoneLabels = zoneLabels,
 		Owner = nil,

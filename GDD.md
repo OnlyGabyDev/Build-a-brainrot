@@ -288,6 +288,7 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 - **UI:** rounded corners (UICorner), thick dark outlines (UIStroke), gradients (UIGradient), drop shadows, and big icons. Buttons bounce on hover and click.
 - **Feedback:** floating `+1.2K 💰` popups over the shipping chute, a currency counter that ticks up, screen shake and a rarity-colored flash on rare pulls, and a rainbow shimmer for Godly.
 - **Audio:** a click SFX on every button, machine clanks, a cash-register sound on each ship, a wheel tick, a rarity reveal stinger, and upbeat background music.
+- ✅ **Core-loop juice pass (v0.7):** every assembly step has its own sound (plop, boing, servo whir, BONK, ratchet, sewing, squeak, pop), the droppers squash and spit, the Assembler's beacon flashes while it builds, the upgrade stations paint or glitter each brainrot as it passes (with its ×multiplier), coins hop from the chute to the Cash Pad, full matches get confetti and "PERFECT!". The belts scroll, bought items pop in piece by piece, the Cash Pad piles up coins and bursts (coins fly into the HUD counter) when collected, and affordable buttons get a bouncing arrow. Lighting: bloom (Neon glows), color grading, pastel haze; shuffled background music with a mute button. Ids live in `Config/Sounds`.
 - **Numbers:** abbreviated (1.2K, 3.4M, 5.6B…).
 - **Assets:** toolbox models, maps and UI kits are allowed. Restyle them to fit the palette.
 
@@ -331,9 +332,12 @@ ReplicatedStorage/
     RebirthMenu.luau            -- rebirth + Rebirth Shop
     Shop.luau                   -- gamepasses and Robux products, with odds for random items
     DailyWheelMenu.luau         -- the Daily Wheel
+  Client/Effects.luau           -- world juice: 3D sounds, sparkles, puffs, rings, flashes, popups, flying coins
   Assets/Brainrots/             -- split brainrot models (see §3)
 StarterPlayer/StarterPlayerScripts/
-  ProductionVisuals.client.luau -- drop → part-by-part assembly (per-zone machines) → ship, coin popups
+  ProductionVisuals.client.luau -- drop → part-by-part assembly (per-zone machines) → stations → ship, with sounds and effects
+  TycoonFX.client.luau          -- rolling belts, build-in animations, Cash Pad coin pile, button arrows
+  Atmosphere.client.luau        -- lighting, bloom, color grading, background music + mute
   UIController.client.luau      -- HUD counters, menu buttons, "Configure line" prompts
   LootBoxes.client.luau         -- draws the shared boxes, opens them on walk-in, announcements
   GadgetsClient.client.luau     -- the client half of gadgets (emote animations)
@@ -408,7 +412,7 @@ StarterPlayer/StarterPlayerScripts/
 - The loot wheel looks ugly; redesign it.
 - All UI: much more effort, cute, friendly and VERY colorful, referencing the famous simulator games. The Index becomes a sticker book (§8 polish target).
 - A real map to replace the baseplate hub, and real facility art (the tycoon is placeholder blocks).
-- Brainrot models (§3), per-rarity box effects (§5), sounds and music.
+- Brainrot models (§3), per-rarity box effects (§5). ~~Sounds and music~~ (first pass done in v0.7; UI sounds and per-zone machine sounds can still grow).
 - Art sources, in order: **1) build the assets ourselves first** (voxel brainrots split into parts, props, UI styling, all made in Studio). **2) Only if that falls short:** paid or online asset packs (map, facility, UI), or paid brainrot sets (voxelized to match the style).
 
 ---
@@ -444,6 +448,7 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v0.7 (2026-09-30):** Core-loop juice pass (§13): per-step assembly sounds and effects, station effects, flying coins, rolling belts, build-in animations, the Cash Pad coin pile, lighting with bloom, and background music.
 - **v0.6 (2026-09-30):**
   - Monetization built: 5 gamepasses with config-driven perks, Gem, Roll and wheel-spin products granted once per receipt, the Daily Wheel (jackpot is 500 Gems instead of a Mythic box), and a Shop that shows odds before purchase.
   - A VIP chat tag was added.
