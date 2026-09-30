@@ -57,7 +57,7 @@ A joyful, colorful **brainrot factory tycoon**. The factory *is* the brainrot bu
 | Rare | Cappuccino Assassino, Bombombini Gusini, Frigo Camelo | archetype defaults |
 | Legendary | **Tung Tung Tung Sahur**, Glorbo Fruttodrillo | Sahur: **high-knockback baton** |
 | Mythic | **Bombardiro Crocodilo**, La Vaca Saturno Saturnita | Bombardiro: **rideable bomber** 🟡 |
-| Godly | *Supremo Brainrotto*: placeholder for our own original signature brainrot 💡 | TBD |
+| Godly | **Supremo Brainrotto**, the Risotto King (our own signature brainrot): a crowned pink brain with googly eyes and a mustache, popping out of a golden pot of risotto that steams in rainbow colors, holding a giant spoon and fork, on chef boots | TBD |
 
 **Gadget archetypes.** Every brainrot's gadget is one of a few reusable templates plus config:
 - **Emote** (dance, pose) 🟢
@@ -145,6 +145,10 @@ Each **zone** has several assembly lines (**3 in the Toy Workshop**). Players bu
                               │
                [ Upgrade stations ] (Paint Booth, Glitter Blaster, ...)
                               │
+               [ Finishing stage ]  ← zone-themed last step (🟡 planned)
+                              │
+               [ Finishing upgrader ]  ← one more zone-themed station (🟡 planned)
+                              │
                      [ Shipping chute ] ──► Coins into the collector
 ```
 
@@ -157,6 +161,10 @@ Each **zone** has several assembly lines (**3 in the Toy Workshop**). Players bu
 - **Shipping value** = sum of the part values × zone multiplier (§7) × upgrade stations × global multipliers (rebirth, gamepasses).
 - **Full-match bonus:** if all 4 parts come from the same brainrot, the ship is worth **×2** and counts as a **completion** (§7).
 - Line configurations are **remembered across rebirths**.
+- **Finishing stage** 🟡 (requested 2026-09-30): every zone ends its line with its own themed, cute last step. Toy Workshop: the brainrot hops down to the floor, a toy box pops up and opens, the toy jumps in and the box closes. Plushie room: it gets filled with foam. Robot Plant: a wind-up key turns and the brainrot starts moving. Each new zone gets one.
+- **Finishing upgrader** 🟡: after the finishing stage, one more upgrade station with the zone's own theme.
+- **Paint Booth options** 🟡: the player picks the paint color, or turns the booth off. A gamepass (§12) paints each limb a different color.
+- **Photobooth** 🟡 (on every floor): saves a brainrot exactly as the player painted it, to use as a colorful statue, a photo in the factory, an in-game icon, or all of them. The photo's background matches the floor it was taken on.
 
 ---
 
@@ -267,6 +275,8 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 - **Auto-Collect:** collector coins bank automatically, **and you can configure your lines from anywhere** (the HUD LINES button) ✅. Without it, you configure a line by walking up to its robot (free; the server checks reach). Set the pass id in `Config/Gamepasses` once it exists.
 - **Lucky:** +Luck on loot box and Roll rarity.
 - **Fast Open:** skips or speeds up the wheel animation (Pet Sim–style QoL).
+- **Sprint** 🟡 (requested): hold Shift to run.
+- **Custom Paint** 🟡 (requested): paint each limb a different color at the Paint Booth (§6).
 
 **Developer Products**
 - **Gem packs** (S / M / L / XL)
@@ -449,6 +459,9 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v0.8 (2026-09-30):**
+  - All 15 brainrots have voxel art. The 14 *Steal a Brainrot* ones follow its renders; the Godly is our own **Supremo Brainrotto, the Risotto King** (§3).
+  - Requested and planned: a themed **finishing stage** and **finishing upgrader** per zone, **Paint Booth options** and a **Photobooth** (§6); **Sprint** and **Custom Paint** gamepasses (§12).
 - **v0.7 (2026-09-30):** Core-loop juice pass (§13): per-step assembly sounds and effects, station effects, flying coins, rolling belts, build-in animations, the Cash Pad coin pile, lighting with bloom, and background music.
 - **v0.6 (2026-09-30):**
   - Monetization built: 5 gamepasses with config-driven perks, Gem, Roll and wheel-spin products granted once per receipt, the Daily Wheel (jackpot is 500 Gems instead of a Mythic box), and a Shop that shows odds before purchase.

@@ -5,7 +5,7 @@ _Last updated: 2026-09-30. Keep this current: it's how a new chat picks up the w
 **New chat? Read [CLAUDE.md](CLAUDE.md) first, then take the first unchecked task in the [Task queue](#task-queue).** One task per chat: finish it (type-check, playtest, commit and push), tick it off here, add anything the next chat needs, and tell the user it's done.
 
 ## Where we are
-The core game is **complete and playtested** (GDD §15, sprint steps 1–12). We're in **step 13: polish**. The core loop's juice pass (sounds, effects, lights) is done, and the brainrot art is underway (all 14 *Steal a Brainrot* ones are done; only the Godly, our own design, is left).
+The core game is **complete and playtested** (GDD §15, sprint steps 1–12). We're in **step 13: polish**. The core loop's juice pass (sounds, effects, lights) is done, and **all 15 brainrots have voxel art**. Next: a bug fix, then the user's new requests (themed finishing stages, Paint Booth options, Photobooth, Sprint pass).
 
 ### Built (all playtested in Studio)
 | Area | What works | Where |
@@ -21,7 +21,7 @@ The core game is **complete and playtested** (GDD §15, sprint steps 1–12). We
 | Gadgets | Morphs + Tralalero Sneakers, Sahur Baton (knockback, safe in plots), Ballerina Dance | `Services/GadgetManager`, `GadgetsClient.client` |
 | Rebirths | 50K ×3 cost, +25% income each, Rebirth Shop (Income, Speed, Luck) | `Services/RebirthManager`, `Client/UI/RebirthMenu` |
 | Monetization | 5 gamepasses (config-driven perks), Gem/Roll/Spin products with receipt de-dup, Daily Wheel | `Services/MonetizationManager`, `Services/DailyWheelManager` |
-| Art | Voxel pipeline (`Shared/VoxelArt`) plus voxel Tralalero, Tung Tung Tung Sahur, Brr Brr Patapim, Lirilì Larilà, Trippi Troppi, Ballerina Cappuccina, Chimpanzini Bananini, Boneca Ambalabu, Cappuccino Assassino, Bombombini Gusini, Frigo Camelo, Glorbo Fruttodrillo, Bombardiro Crocodilo and La Vaca Saturno Saturnita, all checked against *Steal a Brainrot* (only Supremo Brainrotto is still a placeholder) | `Shared/Art/*` |
+| Art | Voxel pipeline (`Shared/VoxelArt`) plus voxel Tralalero, Tung Tung Tung Sahur, Brr Brr Patapim, Lirilì Larilà, Trippi Troppi, Ballerina Cappuccina, Chimpanzini Bananini, Boneca Ambalabu, Cappuccino Assassino, Bombombini Gusini, Frigo Camelo, Glorbo Fruttodrillo, Bombardiro Crocodilo and La Vaca Saturno Saturnita, all checked against *Steal a Brainrot*, plus our own Godly, Supremo Brainrotto (the Risotto King, with glowing Neon gems and steam) | `Shared/Art/*` |
 
 ## Task queue
 Roughly in priority order (the user: polish first, and the core loop matters most). Each task is sized for one chat.
@@ -31,17 +31,25 @@ Roughly in priority order (the user: polish first, and the core loop matters mos
 - [x] **Brainrots B: Uncommons** (2026-09-30): Ballerina (cappuccino-cup head, tutu, one leg lifted), Chimpanzini (grumpy chimp in a banana; the arms are peel flaps, and it stands on the banana's curled bottom), Boneca (frog head, see-through tire body, skinny legs).
 - [x] **Brainrots C: Rares** (2026-09-30): Cappuccino Assassino (ninja cup, headband, two katanas), Bombombini Gusini (goose bomber: wings with propellers as arms, goose feet), Frigo Camelo (fridge body, camel neck and head, laced boots).
 - [x] **Brainrots D: Legendary, Mythic** (2026-09-30): Glorbo (croc in a striped watermelon), Bombardiro (croc-nosed bomber: wings with propellers and bombs as arms, landing gear as legs), La Vaca (cow in sunglasses on a striped Saturn; the ring is its arms, big bare feet).
-- [ ] **Brainrots E: the Godly, SupremoBrainrotto.** Our own original design (GDD §3, §16.11). Propose the design in the chat before building it.
+- [x] **Brainrots E: the Godly** (2026-09-30): Supremo Brainrotto, the Risotto King (the user picked it from 3 concepts): a crowned pink brain with googly eyes and a mustache in a golden risotto pot with rainbow steam, a giant spoon and fork, chef boots. `VoxelArt` got per-color `Materials` for the Neon glow.
+- [ ] **Bug: payouts in flight survive a plot reset.** `ProductionManager.ship` pays with `task.delay`, and `TycoonManager.ResetPlot` (rebirths and DevTools `Restore`) doesn't cancel it, so brainrots still on the belt pay into the fresh plot afterwards. In testing, the Godly leaked ~54K Coins past a `Restore`. Fix idea: a `Generation` number on the plot, bumped by `ResetPlot` and checked in the delayed payout. Small; do it first.
+- [ ] **Finishing stage + finishing upgrader** (GDD §6, the user's request; assembly animations are HIGH priority): every zone gets a themed last step after the stations, then one more themed upgrade station. Toy Workshop: the brainrot hops to the floor, a toy box pops up and opens, the toy jumps in, and the box closes. Plushie room: filled with foam. Robot Plant (later): a wind-up key turns and it moves. Start with the Toy Workshop and the Plushie room.
+- [ ] **Paint Booth options** (GDD §6, §12): pick the paint color or turn the booth off, plus a **Custom Paint** gamepass to paint each limb differently.
+- [ ] **Sprint gamepass** (GDD §12): hold Shift to run. Small.
 - [ ] **UI: the sticker-book Index** (GDD §8 polish target): big popped-out brainrots on rarity backgrounds, round edition buttons (gray/blue/green), more color everywhere. Needs the brainrot art first.
 - [ ] **UI: the loot wheel** (the user finds it ugly) plus UI juice: sounds on opens/reveals, bouncier panels, the whole HUD more Pet Simulator–style (GDD §13, §15).
 - [ ] **Facility and map:** real factory rooms instead of flat plots, and a hub map instead of the baseplate (GDD §15). Build it ourselves in code first (see CLAUDE.md, art preferences).
 - [ ] **Per-rarity loot box looks and effects** (GDD §5, §16.16): a Godly box arrives through a black hole.
+- [ ] **Photobooth on every floor** (GDD §6): save a brainrot as the player painted it, for a colorful statue, a factory photo and/or an in-game icon, on a background themed to the floor. Best after the Paint Booth options and the facility.
 
-**Needs the user:** Claude can't hear audio, so every sound was picked by its library description. Ask the user to listen in a playtest and name any sound to swap; the ids are all in `Config/Sounds`.
+**Needs the user:**
+- Claude can't hear audio, so every sound was picked by its library description. Ask the user to listen in a playtest and name any sound to swap; the ids are all in `Config/Sounds`.
+- Because of the bug above, the art playtests left the user's Studio profile with **+62,340 Coins** (4,407 before the session, 66,747 after; nothing else changed). Claude's direct write to the DataStore to undo it was blocked, so the user decides whether to fix it.
 
 ## Voxel brainrots how-to
 The pipeline works: the voxel Tralalero already runs on the lines in game (60 fps, no errors).
 - Each brainrot gets `sync/ReplicatedStorage/Shared/Art/<BrainrotId>.luau`, which returns `{ VoxelSize, Palette, Parts = { Legs, Body, Arms, Head }, Joints? }`. Each part is a list of shapes from `Shared/VoxelArt.luau`: `box`, `ball`, `cylinder` (upright), `carve`, `paint`, `mirror`.
+- `Materials = { [paletteKey] = Enum.Material.Neon }` makes those colors glow (Supremo's gems and steam). Zone editions with their own material override it.
 - `paint(shape)` only recolors voxels that are already filled: use it for stripes and spots on curved surfaces (cactus ribs, gills, bark), because a plain box there adds stray voxels.
 - `Joints = { Head = Vector3 }` (voxels) overrides a part's socket when its bounding box misleads: a hanging nose or trunk, antennae (Patapim, Lirilì, Trippi). `Legs` is the hip, where the body's bottom sits (Tralalero). Mixed builds use these, so check one in the preview.
 - To end a leg exactly on a curved belly, reach up into the torso and `carve` the torso shapes from the legs (see Tralalero).
@@ -61,7 +69,9 @@ The pipeline works: the voxel Tralalero already runs on the lines in game (60 fp
 2. `screen_capture` from `(x + 3, 4.5, -7.5)` looking at `(x, 3.2, 0)`. Edit mode is flatly lit, so colors look paler than in game.
 3. **Delete `Workspace.ArtPreview` when done.** It's a Studio instance and isn't synced.
 
-**On a line (playtest):** `Snapshot`, then `DevCommand:Invoke("ShowOnLine", player, id, "ToyWorkshop_1")` (the user's lines are `ToyWorkshop_1` and `ToyWorkshop_2`), probe the Client for the part models, and `Restore` at the end. The Restore warns "can't complete …: missing …" for builds already in flight; that's expected.
+**On a line (playtest):** `Snapshot`, then `DevCommand:Invoke("ShowOnLine", player, id, "ToyWorkshop_1")` (the user's lines are `ToyWorkshop_1` and `ToyWorkshop_2`), probe the Client for the part models, and `Restore` at the end. Until the bug above is fixed, builds still in flight pay out **after** the Restore (it warns "can't complete …: missing …"), so switch the line back and let it run a few seconds before restoring.
+
+**In-game screenshot** (with bloom): the camera script resets the camera every frame, so pin it on the Client with `RunService:BindToRenderStep("ShotCam", Enum.RenderPriority.Last.Value, fn)` (set `Scriptable` and the CFrame inside), `screen_capture` with no camera arguments, then unbind and set the camera back to `Custom`.
 
 After each brainrot: `sh tools/typecheck.sh`, a preview screenshot, then commit and push. Tick it off in the task queue.
 
@@ -72,6 +82,6 @@ After each brainrot: `sh tools/typecheck.sh`, a preview screenshot, then commit 
 
 ## Known quirks
 - Azul's sourcemap can miss new modules; `tools/typecheck.sh` works around it.
-- Studio test data lives in the `PlayerData_Studio` DataStore. The user's profile has ~4.4K Coins and 2 lines; Snapshot/Restore around spending tests.
+- Studio test data lives in the `PlayerData_Studio` DataStore. The user's profile has 2 lines, and 66.7K Coins (see Needs the user); Snapshot/Restore around spending tests. `ListVersionsAsync` on key `Player_<UserId>` shows the save history.
 - `get_console_output` often comes back empty even when things run fine; probe state with `execute_luau` instead.
 - Playtest FPS reads ~15 while Studio isn't the focused window, even on the old lines. Compare against a baseline before blaming new content.
