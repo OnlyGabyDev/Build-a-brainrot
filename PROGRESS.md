@@ -5,7 +5,7 @@ _Last updated: 2026-09-30. Keep this current: it's how a new chat picks up the w
 **New chat? Read [CLAUDE.md](CLAUDE.md) first, then take the first unchecked task in the [Task queue](#task-queue).** One task per chat: finish it (type-check, playtest, commit and push), tick it off here, add anything the next chat needs, and tell the user it's done.
 
 ## Where we are
-The core game is **complete and playtested** (GDD §15, sprint steps 1–12). We're in **step 13: polish**. The core loop's juice pass (sounds, effects, lights) is done, and the brainrot art is underway (Commons, Uncommons and Rares are done; Legendary, Mythic and Godly are next).
+The core game is **complete and playtested** (GDD §15, sprint steps 1–12). We're in **step 13: polish**. The core loop's juice pass (sounds, effects, lights) is done, and the brainrot art is underway (all 14 *Steal a Brainrot* ones are done; only the Godly, our own design, is left).
 
 ### Built (all playtested in Studio)
 | Area | What works | Where |
@@ -21,7 +21,7 @@ The core game is **complete and playtested** (GDD §15, sprint steps 1–12). We
 | Gadgets | Morphs + Tralalero Sneakers, Sahur Baton (knockback, safe in plots), Ballerina Dance | `Services/GadgetManager`, `GadgetsClient.client` |
 | Rebirths | 50K ×3 cost, +25% income each, Rebirth Shop (Income, Speed, Luck) | `Services/RebirthManager`, `Client/UI/RebirthMenu` |
 | Monetization | 5 gamepasses (config-driven perks), Gem/Roll/Spin products with receipt de-dup, Daily Wheel | `Services/MonetizationManager`, `Services/DailyWheelManager` |
-| Art | Voxel pipeline (`Shared/VoxelArt`) plus voxel Tralalero, Tung Tung Tung Sahur, Brr Brr Patapim, Lirilì Larilà, Trippi Troppi, Ballerina Cappuccina, Chimpanzini Bananini, Boneca Ambalabu, Cappuccino Assassino, Bombombini Gusini and Frigo Camelo, all checked against *Steal a Brainrot* (4 brainrots still placeholders) | `Shared/Art/*` |
+| Art | Voxel pipeline (`Shared/VoxelArt`) plus voxel Tralalero, Tung Tung Tung Sahur, Brr Brr Patapim, Lirilì Larilà, Trippi Troppi, Ballerina Cappuccina, Chimpanzini Bananini, Boneca Ambalabu, Cappuccino Assassino, Bombombini Gusini, Frigo Camelo, Glorbo Fruttodrillo, Bombardiro Crocodilo and La Vaca Saturno Saturnita, all checked against *Steal a Brainrot* (only Supremo Brainrotto is still a placeholder) | `Shared/Art/*` |
 
 ## Task queue
 Roughly in priority order (the user: polish first, and the core loop matters most). Each task is sized for one chat.
@@ -30,7 +30,8 @@ Roughly in priority order (the user: polish first, and the core loop matters mos
 - [x] **Brainrots A: Commons** (2026-09-30): Patapim (mossy hood, droopy nose), Lirilì (elephant head on a cactus, sandals), Trippi (cat face on a shrimp). SaB check: Tralalero got longer legs, gills, a pink mouth and dark swooshes; Tung got more orange with longer legs. (Tralalero's legs "not showing" was a preview bug: the model sank into the ground.)
 - [x] **Brainrots B: Uncommons** (2026-09-30): Ballerina (cappuccino-cup head, tutu, one leg lifted), Chimpanzini (grumpy chimp in a banana; the arms are peel flaps, and it stands on the banana's curled bottom), Boneca (frog head, see-through tire body, skinny legs).
 - [x] **Brainrots C: Rares** (2026-09-30): Cappuccino Assassino (ninja cup, headband, two katanas), Bombombini Gusini (goose bomber: wings with propellers as arms, goose feet), Frigo Camelo (fridge body, camel neck and head, laced boots).
-- [ ] **Brainrots D: Legendary, Mythic, Godly.** GlorboFruttodrillo, BombardiroCrocodilo, LaVacaSaturnoSaturnita, SupremoBrainrotto (Godly: our own original design, GDD §3 and §16.11; propose the design in the chat before building it).
+- [x] **Brainrots D: Legendary, Mythic** (2026-09-30): Glorbo (croc in a striped watermelon), Bombardiro (croc-nosed bomber: wings with propellers and bombs as arms, landing gear as legs), La Vaca (cow in sunglasses on a striped Saturn; the ring is its arms, big bare feet).
+- [ ] **Brainrots E: the Godly, SupremoBrainrotto.** Our own original design (GDD §3, §16.11). Propose the design in the chat before building it.
 - [ ] **UI: the sticker-book Index** (GDD §8 polish target): big popped-out brainrots on rarity backgrounds, round edition buttons (gray/blue/green), more color everywhere. Needs the brainrot art first.
 - [ ] **UI: the loot wheel** (the user finds it ugly) plus UI juice: sounds on opens/reveals, bouncier panels, the whole HUD more Pet Simulator–style (GDD §13, §15).
 - [ ] **Facility and map:** real factory rooms instead of flat plots, and a hub map instead of the baseplate (GDD §15). Build it ourselves in code first (see CLAUDE.md, art preferences).
