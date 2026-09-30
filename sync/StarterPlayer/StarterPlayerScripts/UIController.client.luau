@@ -1,0 +1,234 @@
+--[[
+	UIController
+	The HUD (GDD §13): Coins, Gems and Rolls counters (Player attributes set by
+	DataManager), the menu buttons, and a "Configure line" prompt on the robot of each
+	of your own assembly lines. The menus live in ReplicatedStorage/Client/UI.
+]]
+
+local MarketplaceService = game:GetService("MarketplaceService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local UI = ReplicatedStorage:WaitForChild("Client"):WaitForChild("UI")
+local Format = require(Shared:WaitForChild("Format"))
+local Gamepasses = require(Shared:WaitForChild("Config"):WaitForChild("Gamepasses"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+local Catalog = require(UI:WaitForChild("Catalog"))
+local Celebration = require(UI:WaitForChild("Celebration"))
+local Kit = require(UI:WaitForChild("Kit"))
+local LineMenu = require(UI:WaitForChild("LineMenu"))
+local Loot = require(UI:WaitForChild("Loot"))
+local RebirthMenu = require(UI:WaitForChild("RebirthMenu"))
+
+local COUNTERS = {
+	{ Stat = "Coins", Icon = "💰", Colors = Kit.Colors.Coins },
+	{ Stat = "Gems", Icon = "💎", Colors = Kit.Colors.Gems },
+	{ Stat = "Rolls", Icon = "🎲", Colors = Kit.Colors.Rolls },
+}
+local LINE_REACH = 28 -- a bit under the server's reach, so an open here always works
+local REMOTE_LINES_PASS = "AutoCollect" -- the pass that lets you configure lines from anywhere
+
+local player = Players.LocalPlayer
+local gui = Kit.getGui()
+
+-- Counters -------------------------------------------------------------------
+
+local counters = Kit.new("Frame", {
+	Name = "Counters",
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(0, 28, 0.5, -70),
+	Size = UDim2.fromOffset(360, 212),
+	BackgroundTransparency = 1,
+	Parent = gui,
+})
+Kit.new("UIListLayout", { Padding = UDim.new(0, 16), SortOrder = Enum.SortOrder.LayoutOrder, Parent = counters })
+
+-- A pill that shows a Player attribute, counting up smoothly with a pop.
+local function makeCounter(order: number, stat: string, icon: string, colors: { Color3 }): Frame
+	local pill = Kit.new("Frame", {
+		Name = stat,
+		LayoutOrder = order,
+		Size = UDim2.fromOffset(230, 60),
+		BackgroundColor3 = Kit.White,
+		Parent = counters,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = pill })
+	Kit.stroke(pill, 4)
+	Kit.gradient(pill, colors)
+	Kit.text({ Text = icon, Position = UDim2.fromOffset(-16, -10), Size = UDim2.fromOffset(76, 76), StrokeThickness = 0, Parent = pill })
+	local label = Kit.text({
+		Text = "0",
+		Position = UDim2.fromOffset(66, 9),
+		Size = UDim2.new(1, -84, 1, -18),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		StrokeThickness = 3,
+		Parent = pill,
+	})
+
+	local shown = Instance.new("NumberValue")
+	shown.Changed:Connect(function(value)
+		label.Text = Format.Number(math.floor(value + 0.5))
+	end)
+	local function update()
+		local target = player:GetAttribute(stat) or 0
+		if target > shown.Value then
+			Kit.pop(pill, 0.08)
+		end
+		TweenService:Create(shown, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = target }):Play()
+	end
+	player:GetAttributeChangedSignal(stat):Connect(update)
+	update()
+	return pill
+end
+
+local pills = {}
+for order, counter in COUNTERS do
+	pills[counter.Stat] = makeCounter(order, counter.Stat, counter.Icon, counter.Colors)
+end
+
+Kit.button({
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(1, 12, 0.5, 0),
+	Size = UDim2.fromOffset(96, 50),
+	Parent = pills.Rolls,
+}, Kit.Colors.Green, "OPEN", Loot.OpenRoll)
+
+-- Menu buttons ---------------------------------------------------------------
+
+local buttons = Kit.new("Frame", {
+	Name = "MenuButtons",
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(0, 28, 0.5, 130),
+	Size = UDim2.fromOffset(400, 110),
+	BackgroundTransparency = 1,
+	Parent = gui,
+})
+Kit.new("UIListLayout", {
+	FillDirection = Enum.FillDirection.Horizontal,
+	Padding = UDim.new(0, 14),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+	Parent = buttons,
+})
+
+local function menuButton(order: number, icon: string, label: string, colors: { Color3 }, onClick: () -> ())
+	local button = Kit.button({ LayoutOrder = order, Size = UDim2.fromOffset(104, 104), Parent = buttons }, colors, nil, onClick)
+	Kit.text({ Text = icon, Position = UDim2.fromScale(0.1, 0.06), Size = UDim2.fromScale(0.8, 0.56), StrokeThickness = 0, Parent = button })
+	Kit.text({ Text = label, Position = UDim2.fromScale(0.06, 0.64), Size = UDim2.fromScale(0.88, 0.28), Parent = button })
+end
+
+-- The line you're standing at, if any.
+local function nearbyLine(): string?
+	local index = player:GetAttribute("PlotIndex")
+	local tycoons = workspace:FindFirstChild("Tycoons")
+	local plot = index and tycoons and tycoons:FindFirstChild(`Plot{index}`)
+	local lines = plot and plot:FindFirstChild("Lines")
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not (lines and root) then
+		return nil
+	end
+	for _, line in lines:GetChildren() do
+		local assembler = line:FindFirstChild("Assembler") :: BasePart?
+		if assembler and (assembler.Position - root.Position).Magnitude <= LINE_REACH then
+			return line.Name
+		end
+	end
+	return nil
+end
+
+-- Configuring lines from anywhere is a gamepass perk; at a line it's free.
+local function openLines()
+	if player:GetAttribute(`Pass_{REMOTE_LINES_PASS}`) then
+		LineMenu.Open()
+		return
+	end
+	local lineId = nearbyLine()
+	if lineId then
+		LineMenu.Open(lineId)
+		return
+	end
+	local pass = Gamepasses[REMOTE_LINES_PASS]
+	if pass.Id > 0 then
+		MarketplaceService:PromptGamePassPurchase(player, pass.Id)
+	else
+		Kit.toast("Walk up to a line to configure it! Remote config: Auto-Collect pass (soon)", Color3.fromRGB(255, 220, 80))
+	end
+end
+
+menuButton(1, "🏭", "LINES", Kit.Colors.Purple, openLines)
+menuButton(2, "📖", "INDEX", Kit.Colors.Gems, Catalog.Open)
+menuButton(3, "🔄", "REBIRTH", Kit.Colors.Coins, RebirthMenu.Open)
+
+-- Line prompts ---------------------------------------------------------------
+
+-- The part that carries a line's prompt (TycoonManager tags one per zone's machines).
+local function findPromptAnchor(line: Instance): BasePart?
+	local deadline = os.clock() + 10
+	while line.Parent and os.clock() < deadline do
+		for _, descendant in line:GetDescendants() do
+			if descendant:IsA("BasePart") and descendant:GetAttribute("PromptAnchor") then
+				return descendant
+			end
+		end
+		task.wait(0.25)
+	end
+	return nil
+end
+
+local function addLinePrompt(line: Instance)
+	local head = findPromptAnchor(line)
+	if not head or head:FindFirstChild("ConfigurePrompt") then
+		return
+	end
+	local prompt = Kit.new("ProximityPrompt", {
+		Name = "ConfigurePrompt",
+		ActionText = "Configure line",
+		ObjectText = "Assembly line",
+		HoldDuration = 0,
+		MaxActivationDistance = 12,
+		RequiresLineOfSight = false,
+		Parent = head,
+	})
+	prompt.Triggered:Connect(function()
+		LineMenu.Open(line.Name)
+	end)
+end
+
+local function watchPlot()
+	local index = player:GetAttribute("PlotIndex")
+	if not index then
+		return
+	end
+	local plot = workspace:WaitForChild("Tycoons"):WaitForChild(`Plot{index}`)
+	local lines = plot:WaitForChild("Lines")
+	for _, line in lines:GetChildren() do
+		task.spawn(addLinePrompt, line)
+	end
+	lines.ChildAdded:Connect(function(line)
+		task.spawn(addLinePrompt, line)
+	end)
+end
+
+player:GetAttributeChangedSignal("PlotIndex"):Connect(watchPlot)
+task.spawn(watchPlot)
+
+-- New parts and completions show up in open menus right away.
+Remotes.Event("InventoryUpdated").OnClientEvent:Connect(function()
+	LineMenu.Refresh()
+	Catalog.Refresh()
+end)
+
+-- Completions ----------------------------------------------------------------
+
+Remotes.Event("Completion").OnClientEvent:Connect(function(_plot, _lineId, brainrotId, editions, gems, firstEver)
+	Celebration.Show(brainrotId, editions, gems, firstEver)
+end)
+
+-- Big moments from other players (your own get the full banner instead).
+Remotes.Event("Announce").OnClientEvent:Connect(function(text: string, color: Color3, from: Player?)
+	if from ~= player then
+		Kit.toast(`✨ {text} ✨`, color)
+	end
+end)

@@ -1,0 +1,410 @@
+--[[
+	UI Kit
+	The shared look and building blocks for every menu (GDD §1, §13), Pet Simulator X
+	style: chunky rounded panels, thick dark outlines, gradients, bouncy buttons and a
+	click on every press. Everything is designed at 1600x900 and scaled to the screen.
+	Client only.
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
+
+local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Sounds"))
+
+local DESIGN_SIZE = Vector2.new(1600, 900)
+local WHITE = Color3.new(1, 1, 1)
+
+local Kit = {}
+
+Kit.Font = Enum.Font.FredokaOne
+Kit.Outline = Color3.fromRGB(30, 25, 45)
+Kit.White = WHITE
+-- Gradient pairs, top to bottom.
+Kit.Colors = {
+	Coins = { Color3.fromRGB(255, 225, 90), Color3.fromRGB(255, 160, 30) },
+	Gems = { Color3.fromRGB(120, 235, 255), Color3.fromRGB(40, 130, 255) },
+	Rolls = { Color3.fromRGB(255, 140, 230), Color3.fromRGB(170, 70, 255) },
+	Green = { Color3.fromRGB(130, 245, 110), Color3.fromRGB(40, 180, 60) },
+	Red = { Color3.fromRGB(255, 120, 120), Color3.fromRGB(220, 50, 60) },
+	Purple = { Color3.fromRGB(190, 140, 255), Color3.fromRGB(120, 70, 230) },
+	Grey = { Color3.fromRGB(205, 205, 215), Color3.fromRGB(150, 150, 165) },
+	Panel = { Color3.fromRGB(255, 252, 245), Color3.fromRGB(238, 228, 212) },
+}
+
+local gui: ScreenGui? = nil
+local clickSound: Sound? = nil
+local openModal: Frame? = nil
+
+-- Creates an instance, sets its properties (Parent last) and parents `children` to it.
+function Kit.new(className: string, props: { [string]: any }?, children: { Instance }?): any
+	local instance = Instance.new(className)
+	local properties: { [string]: any } = props or {}
+	local kids: { Instance } = children or {}
+	local parent = nil
+	for key, value in properties do
+		if key == "Parent" then
+			parent = value
+		else
+			(instance :: any)[key] = value
+		end
+	end
+	for _, child in kids do
+		child.Parent = instance
+	end
+	instance.Parent = parent
+	return instance
+end
+
+function Kit.corner(parent: Instance, radius: number?): UICorner
+	return Kit.new("UICorner", { CornerRadius = UDim.new(0, radius or 16), Parent = parent })
+end
+
+-- A thick dark outline around a frame or button (not its text).
+function Kit.stroke(parent: Instance, thickness: number?, color: Color3?): UIStroke
+	return Kit.new("UIStroke", {
+		Thickness = thickness or 4,
+		Color = color or Kit.Outline,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = parent,
+	})
+end
+
+function Kit.gradient(parent: Instance, colors: { Color3 }): UIGradient
+	return Kit.new("UIGradient", {
+		Color = ColorSequence.new(colors[1], colors[2] or colors[1]),
+		Rotation = 90,
+		Parent = parent,
+	})
+end
+
+-- Chunky white text with a dark outline. `props` overrides the defaults.
+function Kit.text(props: { [string]: any }): TextLabel
+	local label = Kit.new("TextLabel", {
+		BackgroundTransparency = 1,
+		Font = Kit.Font,
+		TextScaled = true,
+		TextColor3 = WHITE,
+		Size = UDim2.fromScale(1, 1),
+	})
+	local strokeThickness = props.StrokeThickness or 2.5
+	for key, value in props do
+		if key ~= "StrokeThickness" and key ~= "Parent" then
+			(label :: any)[key] = value
+		end
+	end
+	Kit.new("UIStroke", { Thickness = strokeThickness, Color = Kit.Outline, Parent = label })
+	label.Parent = props.Parent
+	return label
+end
+
+function Kit.click()
+	if not clickSound then
+		clickSound = Kit.new("Sound", { SoundId = Sounds.Click, Volume = 0.6, Parent = SoundService })
+	end
+	SoundService:PlayLocalSound(clickSound :: Sound)
+end
+
+-- Plays a one-off UI sound.
+function Kit.playSound(soundId: string, volume: number, speed: number?)
+	local sound = Kit.new("Sound", { SoundId = soundId, Volume = volume, PlaybackSpeed = speed or 1, Parent = SoundService })
+	SoundService:PlayLocalSound(sound)
+	task.delay(6, function()
+		sound:Destroy()
+	end)
+end
+
+-- A quick scale pop on any GuiObject (e.g. a counter that just went up).
+function Kit.pop(object: GuiObject, amount: number?)
+	local scale = object:FindFirstChild("PopScale") :: UIScale?
+	if not scale then
+		scale = Kit.new("UIScale", { Name = "PopScale", Parent = object })
+	end
+	local popScale = scale :: UIScale
+	popScale.Scale = 1 + (amount or 0.12)
+	TweenService:Create(popScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+end
+
+-- A chunky, bouncy button. `colors` is a gradient pair from Kit.Colors.
+function Kit.button(props: { [string]: any }, colors: { Color3 }, text: string?, onClick: () -> ()): TextButton
+	local button = Kit.new("TextButton", {
+		AutoButtonColor = false,
+		Text = "",
+		BackgroundColor3 = WHITE,
+		Size = UDim2.fromOffset(160, 56),
+	})
+	for key, value in props do
+		if key ~= "Parent" then
+			(button :: any)[key] = value
+		end
+	end
+	Kit.corner(button, 14)
+	Kit.stroke(button, 3.5)
+	Kit.gradient(button, colors)
+	if text then
+		Kit.text({
+			Text = text,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(0.88, 0.68),
+			Parent = button,
+		})
+	end
+
+	local scale = Kit.new("UIScale", { Parent = button })
+	local function to(value: number)
+		TweenService:Create(scale, TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = value }):Play()
+	end
+	button.MouseEnter:Connect(function()
+		to(1.06)
+	end)
+	button.MouseLeave:Connect(function()
+		to(1)
+	end)
+	button.MouseButton1Down:Connect(function()
+		to(0.92)
+	end)
+	button.MouseButton1Up:Connect(function()
+		to(1.06)
+	end)
+	button.Activated:Connect(function()
+		Kit.click()
+		onClick()
+	end)
+	button.Parent = props.Parent
+	return button
+end
+
+-- A ViewportFrame showing `model` from the front (models face -Z).
+function Kit.viewport(props: { [string]: any }, model: Model): ViewportFrame
+	local frame = Kit.new("ViewportFrame", {
+		BackgroundTransparency = 1,
+		Ambient = Color3.fromRGB(190, 190, 190),
+		LightColor = WHITE,
+		LightDirection = Vector3.new(-0.4, -1, 0.6),
+	})
+	for key, value in props do
+		if key ~= "Parent" then
+			(frame :: any)[key] = value
+		end
+	end
+	local camera = Kit.new("Camera", { FieldOfView = 35, Parent = frame })
+	frame.CurrentCamera = camera
+	model.Parent = frame
+	local box, size = model:GetBoundingBox()
+	local distance = size.Magnitude * 1.5 + 0.5
+	camera.CFrame = CFrame.lookAt(box.Position + Vector3.new(0.35, 0.3, -1).Unit * distance, box.Position)
+	frame.Parent = props.Parent
+	return frame
+end
+
+-- The one ScreenGui every menu lives in, scaled to the screen.
+function Kit.getGui(): ScreenGui
+	if gui and gui.Parent then
+		return gui
+	end
+	local screen = Kit.new("ScreenGui", {
+		Name = "BrainrotUI",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = Players.LocalPlayer:WaitForChild("PlayerGui"),
+	})
+	local scale = Kit.new("UIScale", { Parent = screen })
+	local function rescale()
+		local camera = workspace.CurrentCamera
+		local size = if camera then camera.ViewportSize else DESIGN_SIZE
+		scale.Scale = math.clamp(math.min(size.X / DESIGN_SIZE.X, size.Y / DESIGN_SIZE.Y), 0.45, 1.4)
+	end
+	rescale()
+	if workspace.CurrentCamera then
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+	end
+	gui = screen
+	return screen
+end
+
+-- A centered menu panel with a colored title bar and a close button. Returns the
+-- panel (hidden) and its content area (below the title bar).
+function Kit.modal(name: string, title: string, colors: { Color3 }, size: Vector2): (Frame, Frame)
+	local panel = Kit.new("Frame", {
+		Name = name,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(size.X, size.Y),
+		BackgroundColor3 = WHITE,
+		Visible = false,
+		ZIndex = 10,
+		Parent = Kit.getGui(),
+	})
+	Kit.corner(panel, 24)
+	Kit.stroke(panel, 5)
+	Kit.gradient(panel, Kit.Colors.Panel)
+	Kit.new("UIScale", { Name = "OpenScale", Parent = panel })
+
+	local header = Kit.new("Frame", {
+		Name = "Header",
+		Size = UDim2.new(1, 0, 0, 72),
+		BackgroundColor3 = WHITE,
+		Parent = panel,
+	})
+	Kit.corner(header, 24)
+	Kit.gradient(header, colors)
+	Kit.text({
+		Text = title,
+		Position = UDim2.fromOffset(24, 12),
+		Size = UDim2.new(1, -110, 0, 48),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		StrokeThickness = 3,
+		Parent = header,
+	})
+	Kit.button({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -14, 0, 10),
+		Size = UDim2.fromOffset(52, 52),
+		Parent = header,
+	}, Kit.Colors.Red, "X", function()
+		Kit.close(panel)
+	end)
+
+	local content = Kit.new("Frame", {
+		Name = "Content",
+		Position = UDim2.fromOffset(0, 72),
+		Size = UDim2.new(1, 0, 1, -72),
+		BackgroundTransparency = 1,
+		Parent = panel,
+	})
+	return panel, content
+end
+
+-- Shows a panel with a bounce, closing whichever menu was open.
+function Kit.open(panel: Frame)
+	if openModal and openModal ~= panel then
+		openModal.Visible = false
+	end
+	openModal = panel
+	panel.Visible = true
+	local scale = panel:FindFirstChild("OpenScale") :: UIScale?
+	if scale then
+		scale.Scale = 0.6
+		TweenService:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end
+end
+
+function Kit.close(panel: Frame)
+	panel.Visible = false
+	if openModal == panel then
+		openModal = nil
+	end
+end
+
+-- Hype effects ---------------------------------------------------------------
+
+-- A full-screen flash that fades out.
+function Kit.flash(parent: GuiObject, color: Color3, zIndex: number?)
+	local frame = Kit.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = color,
+		BackgroundTransparency = 0.2,
+		ZIndex = zIndex or 45,
+		Parent = parent,
+	})
+	TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+	task.delay(0.6, function()
+		frame:Destroy()
+	end)
+end
+
+-- A burst of confetti from the middle of `parent`.
+function Kit.confetti(parent: GuiObject, colors: { Color3 }, count: number, zIndex: number?)
+	for _ = 1, count do
+		local piece = Kit.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.45),
+			Size = UDim2.fromOffset(math.random(10, 18), math.random(10, 18)),
+			BackgroundColor3 = colors[math.random(1, #colors)],
+			Rotation = math.random(0, 360),
+			ZIndex = zIndex or 44,
+			Parent = parent,
+		})
+		local angle = math.random() * math.pi * 2
+		local distance = math.random(220, 520)
+		TweenService:Create(piece, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.new(0.5, math.cos(angle) * distance, 0.45, math.sin(angle) * distance + 140),
+			Rotation = piece.Rotation + math.random(-360, 360),
+			BackgroundTransparency = 1,
+		}):Play()
+		task.delay(1.3, function()
+			piece:Destroy()
+		end)
+	end
+end
+
+-- Two big rotating squares behind something special. Returns a function that stops
+-- and removes them.
+function Kit.rays(parent: GuiObject, color: Color3, size: number, zIndex: number): () -> ()
+	local rays = {}
+	for index = 1, 2 do
+		local ray = Kit.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(size, size),
+			BackgroundColor3 = color,
+			BackgroundTransparency = 0.65,
+			Rotation = index * 45,
+			ZIndex = zIndex,
+			Parent = parent,
+		})
+		Kit.corner(ray, size / 10)
+		rays[index] = ray
+	end
+	local connection = RunService.RenderStepped:Connect(function(dt)
+		rays[1].Rotation += dt * 25
+		rays[2].Rotation -= dt * 18
+	end)
+	return function()
+		connection:Disconnect()
+		for _, ray in rays do
+			ray:Destroy()
+		end
+	end
+end
+
+-- Slowly orbits a viewport's camera around its model. Returns a stop function.
+function Kit.orbit(viewport: ViewportFrame, model: Model): () -> ()
+	local camera = viewport.CurrentCamera :: Camera
+	local box, size = model:GetBoundingBox()
+	local distance = size.Magnitude * 1.5 + 0.5
+	local connection = RunService.RenderStepped:Connect(function()
+		local angle = os.clock() * 0.8
+		camera.CFrame = CFrame.lookAt(box.Position + Vector3.new(math.sin(angle), 0.3, -math.cos(angle)).Unit * distance, box.Position)
+	end)
+	return function()
+		connection:Disconnect()
+	end
+end
+
+-- A short message at the top of the screen that fades out.
+function Kit.toast(text: string, color: Color3?)
+	local label = Kit.text({
+		Text = text,
+		TextColor3 = color or WHITE,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 90),
+		Size = UDim2.fromOffset(700, 44),
+		StrokeThickness = 3,
+		ZIndex = 50,
+		Parent = Kit.getGui(),
+	})
+	Kit.pop(label, 0.2)
+	local fade = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 1.5)
+	TweenService:Create(label, fade, { TextTransparency = 1 }):Play()
+	TweenService:Create(label:FindFirstChildOfClass("UIStroke") :: UIStroke, fade, { Transparency = 1 }):Play()
+	task.delay(2.1, function()
+		label:Destroy()
+	end)
+end
+
+return Kit

@@ -1,0 +1,2 @@
+# Keep LF everywhere: Azul writes LF, and CRLF conversions would churn the Studio sync.
+* text=auto eol=lf
