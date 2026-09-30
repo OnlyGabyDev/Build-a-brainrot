@@ -38,6 +38,7 @@ export type Art = {
 	VoxelSize: number,
 	Palette: { [string]: Color3 },
 	Material: Enum.Material?, -- defaults to SmoothPlastic
+	Materials: { [string]: Enum.Material }?, -- per palette key (e.g. Neon for glowing bits)
 	Parts: { [string]: { Shape } },
 	-- Where a part attaches, in voxels, for parts whose bounding box would mislead
 	-- (antennae, a hanging trunk). Same meaning as BrainrotModels' "Joint".
@@ -233,7 +234,7 @@ local function mesh(model: Model, art: Art, origin: Vector3, size: Vector3, cell
 				part.Size = Vector3.new(x1 - x + 1, y1 - y + 1, z1 - z + 1) * voxel
 				part.CFrame = CFrame.new((origin + Vector3.new(x + x1 + 1, y + y1 + 1, z + z1 + 1) / 2) * voxel)
 				part.Color = art.Palette[color] or Color3.new(1, 0, 1)
-				part.Material = material
+				part.Material = if art.Materials and art.Materials[color] then art.Materials[color] else material
 				part.TopSurface = Enum.SurfaceType.Smooth
 				part.BottomSurface = Enum.SurfaceType.Smooth
 				part.Parent = model
