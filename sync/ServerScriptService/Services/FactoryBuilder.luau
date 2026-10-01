@@ -1,16 +1,19 @@
 --[[
 	FactoryBuilder
 	Builds each plot's factory building around its lines (GDD §10): a toy-house tower
-	that grows a storey at a time, in soft pastels of the plot's own color. The ground
-	floor (Toy Workshop front, Plushie room back) is brick with chunky trims and flower
-	boxes; the 2nd floor (Clay Studio, Vinyl Collectibles) wood siding with shutters
-	and a little balcony; the 3rd floor (Candy Factory, over the front half only) a
-	candy shop with stripes, round candy windows, candy-cane pillars and icing drips,
-	under a gable with a clock. The back half's roof is a terrace. Bolted on: outside
-	stairs up to the 2nd floor and on to the terrace, a turret, a crooked chimney, a
-	water tower and pipes. The entrance faces the hub under the owner's sign; a glass
-	door leads into each other room, locked until its zone unlocks, so you can peek at
-	its theme (RoomDecor furnishes the props). TycoonManager furnishes the lines.
+	that grows a storey at a time, all in the plot's own color at a different strength
+	per storey. The ground floor (Toy Workshop front, Plushie room back) is brick with
+	chunky trims and flower boxes; the 2nd floor (Clay Studio, Vinyl Collectibles)
+	lighter wood siding with bold shutters, flower boxes and a little balcony; the 3rd
+	floor (Candy Factory, over the front half only) a candy shop: white stripes, a
+	frosting band with rainbow sprinkles and drips, round windows, candy-cane pillars
+	and a giant spinning donut in a ring of chasing marquee bulbs, under a gable with a
+	clock and a pinwheel. The back half's roof is a terrace. Bolted on: outside stairs
+	up to the 2nd floor and on to the terrace, a turret, a crooked chimney, a water
+	tower, pipes and bobbing balloons. The entrance faces the hub under the owner's
+	sign; a glass door leads into each other room, locked until its zone unlocks, so
+	you can peek at its theme (patterned floors and wallpaper here, RoomDecor's props).
+	TycoonManager furnishes the lines. Atmosphere plays the motion.
 
 	Plot space: origin on the ground at the plot's center, -Z (front) faces the hub.
 
@@ -61,6 +64,7 @@ local CEILING_THICKNESS = 0.4
 local BAND_TOP = 8 -- the wainscot inside, up to the window sills
 local WINDOW = Vector2.new(14, 13) -- its bottom sits on the band
 local ROUND_WINDOW = 12 -- the candy floor's, across
+local DONUT_SIZE, DONUT_Y = 16, 13.5 -- the candy floor's emblem: across, and its center's height
 local SIDE_WINDOWS = { -36, 0, 36 } -- along a room's side walls, from its center
 local ENTRANCE = Vector2.new(26, 18)
 local DOORWAY = Vector2.new(24, 18) -- into a back room
@@ -106,11 +110,24 @@ local FLOWER_COLORS = {
 	Color3.fromRGB(255, 255, 255),
 	Color3.fromRGB(185, 145, 255),
 }
+-- Candy colors, the same on every plot, for the little things: sprinkles, balloons,
+-- the pinwheel and the donut, so the building sparkles whatever its own color.
+local RAINBOW = {
+	Color3.fromRGB(255, 85, 150), -- strawberry
+	Color3.fromRGB(255, 205, 45), -- lemon
+	Color3.fromRGB(70, 220, 135), -- mint
+	Color3.fromRGB(65, 170, 255), -- blueberry
+	Color3.fromRGB(170, 105, 255), -- grape
+	Color3.fromRGB(255, 135, 55), -- orange
+}
+local DOUGH_COLOR = Color3.fromRGB(235, 170, 95)
 
--- A plot's colors, all soft pastels of its own hue so the lobby stays harmonious:
--- Pastel (the plot's own), Brick, Siding, Frosting and Stripe (the candy floor),
--- Accent (shutters, awning, turret, icing), Dark (trims), Stone (the plinth), Roof,
--- and White.
+-- A plot's colors, all of its own hue so the building hangs together (the user
+-- found mixed hues ugly), each storey a different strength of it so the floors still
+-- read apart: Brick and Accent (the ground floor), Siding and Shutter (the 2nd floor,
+-- lighter), Candy and CandyDeep (the candy floor, the boldest, under white stripes).
+-- Plus Pastel (the plot's own), Dark (trims), Stone (the plinth), Roof and White. The
+-- candy colors (RAINBOW) only go on small things.
 type Palette = { [string]: Color3 }
 
 -- Each room's inside.
@@ -124,6 +141,8 @@ type RoomStyle = {
 	BandMaterial: Enum.Material,
 	Trim: Color3, -- door and window frames
 	Ceiling: Color3,
+	Wallpaper: Color3?, -- stripes down the walls above the band
+	Checker: Color3?, -- big floor tiles, every other one this color
 }
 
 local ROOM_STYLES: { [string]: RoomStyle } = {
@@ -151,35 +170,39 @@ local ROOM_STYLES: { [string]: RoomStyle } = {
 	ClayStudio = {
 		Title = "🎨 CLAY STUDIO",
 		SignColor = Color3.fromRGB(225, 110, 60),
-		Floor = Color3.fromRGB(230, 175, 135),
+		Floor = Color3.fromRGB(240, 175, 125),
 		FloorMaterial = Enum.Material.Sand,
-		Wall = Color3.fromRGB(255, 230, 205),
-		Band = Color3.fromRGB(215, 125, 85),
+		Wall = Color3.fromRGB(255, 200, 150),
+		Band = Color3.fromRGB(225, 105, 65),
 		BandMaterial = Enum.Material.SmoothPlastic,
-		Trim = Color3.fromRGB(185, 95, 60),
-		Ceiling = Color3.fromRGB(255, 242, 228),
+		Trim = Color3.fromRGB(175, 75, 45),
+		Ceiling = Color3.fromRGB(255, 225, 185),
 	},
 	VinylCollectibles = {
 		Title = "✨ VINYL COLLECTIBLES",
 		SignColor = Color3.fromRGB(90, 120, 255),
-		Floor = Color3.fromRGB(120, 140, 230),
+		Floor = Color3.fromRGB(85, 95, 215),
 		FloorMaterial = Enum.Material.SmoothPlastic,
-		Wall = Color3.fromRGB(228, 238, 255),
-		Band = Color3.fromRGB(130, 175, 255),
+		Wall = Color3.fromRGB(175, 180, 255),
+		Band = Color3.fromRGB(95, 110, 240),
 		BandMaterial = Enum.Material.SmoothPlastic,
-		Trim = Color3.fromRGB(90, 135, 255),
-		Ceiling = Color3.fromRGB(242, 247, 255),
+		Trim = Color3.fromRGB(255, 200, 55),
+		Ceiling = Color3.fromRGB(150, 160, 250),
+		Wallpaper = Color3.fromRGB(200, 205, 255),
+		Checker = Color3.fromRGB(120, 135, 245),
 	},
 	CandyFactory = {
 		Title = "🍭 CANDY FACTORY",
 		SignColor = Color3.fromRGB(255, 90, 160),
-		Floor = Color3.fromRGB(255, 225, 238),
+		Floor = Color3.fromRGB(255, 245, 250),
 		FloorMaterial = Enum.Material.SmoothPlastic,
-		Wall = Color3.fromRGB(255, 240, 248),
-		Band = Color3.fromRGB(255, 160, 205),
+		Wall = Color3.fromRGB(255, 150, 200),
+		Band = Color3.fromRGB(95, 220, 185),
 		BandMaterial = Enum.Material.SmoothPlastic,
-		Trim = Color3.fromRGB(255, 120, 185),
-		Ceiling = Color3.fromRGB(255, 246, 251),
+		Trim = Color3.fromRGB(255, 70, 150),
+		Ceiling = Color3.fromRGB(255, 225, 240),
+		Wallpaper = WHITE,
+		Checker = Color3.fromRGB(255, 160, 205),
 	},
 }
 
@@ -188,6 +211,7 @@ type Facade = {
 	Texture: string?, -- tinted onto the walls' outer faces (nil: a plain skin)
 	Tile: number, -- studs per texture tile
 	Wall: string,
+	Pop: string, -- the storey's bright accent: shutters, the trim strip, its sign borders
 	Frame: string, -- window frames
 	Pillar: string, -- the corner pillars
 	PillarSize: number,
@@ -196,8 +220,8 @@ type Facade = {
 	RoundWindows: boolean,
 	Shutters: boolean,
 	FlowerBoxes: boolean, -- under the front windows
-	Stripes: boolean, -- candy stripes down the walls
-	Icing: boolean, -- icing drips under the cornice
+	Stripes: boolean, -- white candy stripes down the walls
+	Icing: boolean, -- frosting with sprinkles and drips under the cornice
 }
 
 local FACADES: { Facade } = {
@@ -205,6 +229,7 @@ local FACADES: { Facade } = {
 		Texture = BRICK_TEXTURE,
 		Tile = 12,
 		Wall = "Brick",
+		Pop = "Accent",
 		Frame = "Dark",
 		Pillar = "Dark",
 		PillarSize = 5,
@@ -220,23 +245,25 @@ local FACADES: { Facade } = {
 		Texture = SIDING_TEXTURE,
 		Tile = 10,
 		Wall = "Siding",
+		Pop = "Shutter",
 		Frame = "White",
-		Pillar = "Accent",
+		Pillar = "Shutter",
 		PillarSize = 4.4,
 		CandyPillars = false,
 		Windows = { -52, -26, 26, 52 },
 		RoundWindows = false,
 		Shutters = true,
-		FlowerBoxes = false,
+		FlowerBoxes = true,
 		Stripes = false,
 		Icing = false,
 	},
 	{
 		Texture = nil,
 		Tile = 10,
-		Wall = "Frosting",
+		Wall = "Candy",
+		Pop = "CandyDeep",
 		Frame = "White",
-		Pillar = "Stripe",
+		Pillar = "CandyDeep",
 		PillarSize = 4.4,
 		CandyPillars = true,
 		Windows = { -52, -26, 26, 52 },
@@ -258,17 +285,18 @@ local function paletteOf(color: Color3): Palette
 	local hue = color:ToHSV()
 	-- Dark yellow turns olive: the yellow plot's trims go a warm brown instead.
 	local darkHue = if hue > 0.1 and hue < 0.2 then 0.07 else hue
-	local dark = Color3.fromHSV(darkHue, 0.42, 0.55)
+	local dark = Color3.fromHSV(darkHue, 0.45, 0.52)
 	return {
 		Pastel = color,
-		Brick = Color3.fromHSV(hue, 0.3, 1),
-		Siding = Color3.fromHSV(hue, 0.07, 1),
-		Frosting = Color3.fromHSV(hue, 0.1, 1),
-		Stripe = Color3.fromHSV(hue, 0.3, 1),
-		Accent = Color3.fromHSV(hue, 0.45, 1),
+		Brick = Color3.fromHSV(hue, 0.4, 1),
+		Accent = Color3.fromHSV(hue, 0.62, 1),
+		Siding = Color3.fromHSV(hue, 0.2, 1),
+		Shutter = Color3.fromHSV(hue, 0.6, 0.97),
+		Candy = Color3.fromHSV(hue, 0.5, 1),
+		CandyDeep = Color3.fromHSV(hue, 0.75, 1),
 		Dark = dark,
 		Stone = dark:Lerp(WHITE, 0.45),
-		Roof = Color3.fromHSV(hue, 0.5, 0.92),
+		Roof = Color3.fromHSV(hue, 0.66, 0.93),
 		White = WHITE,
 	}
 end
@@ -433,6 +461,46 @@ local function makeGlassDoor(parent: Instance, name: string, size: Vector2, base
 	return door
 end
 
+-- Motion, played on the client (Atmosphere): a Model tagged "Spinner" turns about its
+-- pivot's Z axis at its Speed (radians per second), one tagged "Bobbing" bobs up and
+-- down, and Neon bulbs tagged "Marquee" chase colored light along their Index.
+
+-- Makes `model` (its parts already in) a spinner about `pivot`, into `parent`.
+local function spin(model: Model, parent: Instance, pivot: CFrame, speed: number)
+	model.WorldPivot = pivot
+	model:SetAttribute("Speed", speed)
+	CollectionService:AddTag(model, "Spinner")
+	model.Parent = parent
+end
+
+local function makeBulb(parent: Instance, at: CFrame, index: number): Part
+	local bulb = makeBall(parent, "Bulb", 1.8, at, LAMP_COLOR)
+	bulb.Material = Enum.Material.Neon
+	bulb.CastShadow = false
+	bulb:SetAttribute("Index", index)
+	CollectionService:AddTag(bulb, "Marquee")
+	return bulb
+end
+
+-- A bunch of balloons on strings, tied at `at`, bobbing. `seed` picks their colors.
+local function buildBalloons(parent: Instance, at: CFrame, count: number, seed: number)
+	local bunch = Instance.new("Model")
+	bunch.Name = "Balloons"
+	for index = 1, count do
+		local angle = index * 2.4 + seed
+		local top = at * CFrame.new(math.cos(angle) * 2.4, 9 + (index % 3) * 1.6, math.sin(angle) * 2.4)
+		local color = RAINBOW[(index + seed) % #RAINBOW + 1]
+		local balloon = makeBall(bunch, "Balloon", 3.8, top, color)
+		balloon.Reflectance = 0.1
+		makeBall(bunch, "BalloonKnot", 0.7, top * CFrame.new(0, -2, 0), color)
+		local from, to = at.Position, (top * CFrame.new(0, -2.2, 0)).Position
+		makeDecor(bunch, "BalloonString", Vector3.new(0.12, 0.12, (to - from).Magnitude), CFrame.lookAt((from + to) / 2, to), WHITE)
+	end
+	bunch.WorldPivot = at
+	CollectionService:AddTag(bunch, "Bobbing")
+	bunch.Parent = parent
+end
+
 -- A Model for the cutaway (see the header), parented to the plot's model.
 local function makeCutaway(model: Model, name: string, level: number, cframe: CFrame): Model
 	local cutaway = Instance.new("Model")
@@ -500,6 +568,40 @@ local function buildBand(parent: Instance, base: CFrame, length: number, opening
 	for _, span in solidSpans(length, openings) do
 		if span[2] - span[1] > 0.01 then
 			makeDecor(parent, "Band", Vector3.new(span[2] - span[1], BAND_TOP, 0.3), base * CFrame.new((span[1] + span[2]) / 2, BAND_TOP / 2, offset + 0.15), style.Band, style.BandMaterial)
+		end
+	end
+end
+
+-- Wallpaper stripes down a wall's inner face, from the band up to the ceiling (same
+-- frame as buildBand), around its doors.
+local function buildWallpaper(parent: Instance, base: CFrame, length: number, openings: { Opening }, offset: number, color: Color3)
+	local width, period = 3, 8
+	local height = CEILING - BAND_TOP
+	local x = -length / 2 + period / 2
+	while x + width / 2 <= length / 2 - 0.5 do
+		local blocked = false
+		for _, opening in openings do
+			if math.abs(x - opening.X) < opening.Width / 2 + width / 2 + 1.5 then
+				blocked = true
+			end
+		end
+		if not blocked then
+			makeDecor(parent, "Wallpaper", Vector3.new(width, height, 0.1), base * CFrame.new(x, BAND_TOP + height / 2, offset + 0.05), color)
+		end
+		x += period
+	end
+end
+
+-- Big floor tiles over a room's floor (`center`: on the floor), every other one.
+local function buildChecker(parent: Instance, center: CFrame, color: Color3, material: Enum.Material)
+	local tile = 20
+	for column = 0, ROOM_SIZE.X / tile - 1 do
+		for row = 0, ROOM_SIZE.Z / tile - 1 do
+			if (column + row) % 2 == 0 then
+				local x = -ROOM_SIZE.X / 2 + (column + 0.5) * tile
+				local z = -ROOM_SIZE.Z / 2 + (row + 0.5) * tile
+				makeDecor(parent, "FloorTile", Vector3.new(tile, 0.05, tile), center * CFrame.new(x, 0.025, z), color, material)
+			end
 		end
 	end
 end
@@ -580,7 +682,7 @@ end
 
 -- Candy stripes down a wall's outer face, around its doors.
 local function buildStripes(parent: Instance, base: CFrame, length: number, openings: { Opening }, color: Color3)
-	local width, period, height = 4, 8, STOREY - 3
+	local width, period, height = 3.6, 9, STOREY - 3
 	local x = -length / 2 + period / 2
 	while x + width / 2 <= length / 2 - 1 do
 		local blocked = false
@@ -601,19 +703,22 @@ end
 -- the front only.
 local function buildOuterWall(layer: Instance, base: CFrame, length: number, openings: { Opening }, spots: { number }, room: Room, storey: number, palette: Palette, isFront: boolean)
 	local facade = FACADES[storey]
-	local inside = room.Style.Wall or palette.Pastel
-	buildWall(layer, base, length, openings, inside, { Texture = facade.Texture, Tile = facade.Tile, Color = palette[facade.Wall] })
-	buildBand(layer, base, length, openings, WALL / 2, room.Style)
+	local style = room.Style
+	buildWall(layer, base, length, openings, style.Wall or palette.Pastel, { Texture = facade.Texture, Tile = facade.Tile, Color = palette[facade.Wall] })
+	buildBand(layer, base, length, openings, WALL / 2, style)
+	if style.Wallpaper then
+		buildWallpaper(layer, base, length, openings, WALL / 2, style.Wallpaper)
+	end
 	if facade.Stripes then
-		buildStripes(layer, base, length, openings, palette.Stripe)
+		buildStripes(layer, base, length, openings, WHITE)
 	end
 	local y = BAND_TOP + WINDOW.Y / 2
 	for _, x in spots do
 		local outer = base * CFrame.new(x, y, -WALL / 2)
 		if facade.RoundWindows then
-			buildRoundWindow(layer, outer, ROUND_WINDOW, palette.Accent)
+			buildRoundWindow(layer, outer, ROUND_WINDOW, palette[facade.Pop])
 		else
-			buildWindow(layer, outer, WINDOW, palette[facade.Frame], if facade.Shutters then palette.Accent else nil, facade.FlowerBoxes and isFront)
+			buildWindow(layer, outer, WINDOW, palette[facade.Frame], if facade.Shutters then palette[facade.Pop] else nil, facade.FlowerBoxes and isFront)
 		end
 		buildInnerWindow(layer, base * CFrame.new(x, y, WALL / 2) * CFrame.Angles(0, math.pi, 0), facade.RoundWindows, room.Style.Trim)
 	end
@@ -667,9 +772,9 @@ local function addSmoke(parent: BasePart, height: number)
 	local smoke = Instance.new("ParticleEmitter")
 	smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
 	smoke.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 190, 230)),
-		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 220, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 245, 200)),
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 150, 210)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(160, 200, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 235, 150)),
 	})
 	smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(1, 9) })
 	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1) })
@@ -848,21 +953,68 @@ local function buildClock(parent: Instance, face: CFrame, palette: Palette)
 	makeBall(parent, "ClockPin", 1.6, front, palette.Accent)
 end
 
--- Icing drips under the top storey's cornice, along a face (`face`: at the icing
--- band's bottom, at the face's middle, -Z out), leaving `gap` clear around the middle
--- (over a door's sign).
-local function buildIcing(parent: Instance, face: CFrame, length: number, color: Color3, gap: number)
+-- Frosting drips under the candy storey's cornice, along a face (`face`: at the
+-- frosting band's bottom, at the face's middle, -Z out), with rainbow sprinkles on the
+-- band (`height` tall, standing `out` from the wall), leaving `gap` clear around the
+-- middle (over a door's sign, or the donut).
+local function buildIcing(parent: Instance, face: CFrame, length: number, height: number, out: number, gap: number)
 	local index = 0
 	local x = -length / 2 + 5
 	while x <= length / 2 - 5 do
 		if math.abs(x) >= gap then
 			local drip = 1.6 + ((index * 5) % 4) * 0.9
-			makeCylinder(parent, "Icing", 1.6, drip, face * CFrame.new(x, -drip, -0.8), color)
-			makeBall(parent, "IcingDrop", 2, face * CFrame.new(x, -drip, -0.8), color)
+			makeCylinder(parent, "Icing", 1.6, drip, face * CFrame.new(x, -drip, -0.8), WHITE)
+			makeBall(parent, "IcingDrop", 2, face * CFrame.new(x, -drip, -0.8), WHITE)
+		end
+		for side = 0, 1 do
+			local sx = x + 2.5 + side * 3.5
+			if math.abs(sx) >= gap and sx <= length / 2 - 2 then
+				local tilt = math.rad(((index * 7 + side * 3) % 6) * 30)
+				local color = RAINBOW[(index * 2 + side) % #RAINBOW + 1]
+				makeDecor(parent, "Sprinkle", Vector3.new(0.45, 1.3, 0.3), face * CFrame.new(sx, height * (0.35 + side * 0.3), -out - 0.1) * CFrame.Angles(0, 0, tilt), color)
+			end
 		end
 		index += 1
 		x += 9
 	end
+end
+
+-- A giant donut on a wall (`face`: its center on the face, -Z out), turning slowly in
+-- a ring of marquee bulbs.
+local function buildDonut(parent: Instance, face: CFrame, diameter: number, frosting: Color3)
+	local donut = Instance.new("Model")
+	donut.Name = "Donut"
+	local back = face * CFrame.new(0, 0, -0.5) -- off the wall, so it turns clear of it
+	makeDisc(donut, "Dough", diameter, 1.6, back, DOUGH_COLOR)
+	makeDisc(donut, "Frosting", diameter * 0.86, 2, back, frosting)
+	makeDisc(donut, "DonutHole", diameter * 0.3, 2.1, back, DOUGH_COLOR:Lerp(Color3.new(0, 0, 0), 0.35))
+	for index = 1, 15 do
+		local angle = index * math.pi * 2 / 15
+		local radius = diameter * (0.22 + (index % 3) * 0.07)
+		local at = back * CFrame.new(math.cos(angle) * radius, math.sin(angle) * radius, -2.05) * CFrame.Angles(0, 0, angle * 3)
+		makeDecor(donut, "Sprinkle", Vector3.new(0.6, 1.8, 0.4), at, RAINBOW[index % #RAINBOW + 1])
+	end
+	spin(donut, parent, back, 0.4)
+	local count, radius = 16, diameter / 2 + 2
+	for index = 1, count do
+		local angle = index * math.pi * 2 / count
+		makeBulb(parent, face * CFrame.new(math.cos(angle) * radius, math.sin(angle) * radius, -0.9), index)
+	end
+end
+
+-- A pinwheel on a stick (`base`: the stick's foot, -Z the way it faces), spinning.
+local function buildPinwheel(parent: Instance, base: CFrame, height: number, size: number)
+	makeCylinder(parent, "PinwheelStick", 0.9, height, base, WHITE)
+	local hub = base * CFrame.new(0, height, -0.9)
+	local wheel = Instance.new("Model")
+	wheel.Name = "Pinwheel"
+	for index = 0, 3 do
+		-- a wedge turned to lie flat in the wheel: a triangle from the hub out
+		local blade = hub * CFrame.Angles(0, 0, index * math.pi / 2) * CFrame.new(size / 4, size / 4, 0) * CFrame.Angles(0, math.pi / 2, 0)
+		makeWedge(wheel, "PinwheelBlade", Vector3.new(0.4, size / 2, size / 2), blade, RAINBOW[index + 1])
+	end
+	makeBall(wheel, "PinwheelPin", 1.8, hub * CFrame.new(0, 0, -0.4), GOLD_COLOR)
+	spin(wheel, parent, hub, 1.5)
 end
 
 -- Roof and terrace ---------------------------------------------------------------------
@@ -915,18 +1067,29 @@ local function buildRoof(layer: Instance, cframe: CFrame, fromZ: number, toZ: nu
 	local cap = makeDecor(layer, "RidgeCap", Vector3.new(frontTo - frontFrom + 1.6, 2.6, 2.6), CFrame.fromMatrix(ridge + Vector3.new(0, 0.3, 0), cframe.ZVector, Vector3.yAxis), palette.Dark)
 	cap.Shape = Enum.PartType.Cylinder
 	local height = ROOF_BASE + FRONT_RISE - wallTop
-	buildGable(layer, cframe * CFrame.new(0, wallTop, fromZ + WALL / 2), ROOM_SIZE.X, height, palette.Frosting)
-	buildGable(layer, cframe * CFrame.new(0, wallTop, toZ - WALL / 2) * CFrame.Angles(0, math.pi, 0), ROOM_SIZE.X, height, palette.Frosting)
+	buildGable(layer, cframe * CFrame.new(0, wallTop, fromZ + WALL / 2), ROOM_SIZE.X, height, palette.Siding)
+	buildGable(layer, cframe * CFrame.new(0, wallTop, toZ - WALL / 2) * CFrame.Angles(0, math.pi, 0), ROOM_SIZE.X, height, palette.Siding)
 	buildClock(layer, cframe * CFrame.new(0, wallTop + 10, fromZ), palette)
+	-- a pinwheel on the gable's peak, facing the hub
+	buildPinwheel(layer, cframe * CFrame.new(0, ROOF_BASE + FRONT_RISE + 1, frontFrom + 1.5), 7, 13)
 end
 
--- A giant lollipop (`at`: the foot of its stick).
-local function buildLollipop(parent: Instance, at: CFrame, height: number, color: Color3)
-	makeCylinder(parent, "LollipopStick", 1, height, at, WHITE)
-	local head = at * CFrame.new(0, height + 4.5, 0)
-	makeDisc(parent, "Lollipop", 10, 1.4, head * CFrame.new(0, 0, 0.7), color)
-	makeDisc(parent, "LollipopSwirl", 6.8, 1.6, head * CFrame.new(0, 0, 0.8), WHITE)
-	makeDisc(parent, "LollipopSwirl", 3.4, 1.8, head * CFrame.new(0, 0, 0.9), color)
+-- A giant lollipop (`at`: the foot of its stick, -Z the way it faces), its white
+-- swirl spinning.
+local function buildLollipop(parent: Instance, at: CFrame, height: number, size: number, color: Color3)
+	makeCylinder(parent, "LollipopStick", 1.2, height, at, WHITE)
+	local head = at * CFrame.new(0, height + size / 2 - 0.5, 0)
+	local pop = Instance.new("Model")
+	pop.Name = "Lollipop"
+	makeDisc(pop, "Lollipop", size, 1.6, head * CFrame.new(0, 0, 0.8), color)
+	local dots, turns = 12, 2
+	for index = 1, dots do
+		local t = index / dots
+		local angle = t * turns * math.pi * 2
+		local radius = t * size * 0.4
+		makeBall(pop, "LollipopSwirl", size * (0.08 + t * 0.07), head * CFrame.new(math.cos(angle) * radius, math.sin(angle) * radius, -0.8), WHITE)
+	end
+	spin(pop, parent, head, -0.8)
 end
 
 -- A string of little triangle flags from `from` to `to` (world positions).
@@ -993,10 +1156,14 @@ local function buildTerrace(layer: Instance, cframe: CFrame, storey: number, roo
 		makeDecor(layer, "Crate", Vector3.new(4, 4, 4), crate, WOOD_COLOR, Enum.Material.WoodPlanks)
 	end
 	for _, side in { -1, 1 } do
-		buildLollipop(layer, at(side * 15, fromZ + 6), 11, if side < 0 then palette.Accent else palette.Stripe)
+		-- facing the terrace, beside the candy floor's door
+		buildLollipop(layer, at(side * 16, fromZ + 6) * CFrame.Angles(0, math.pi, 0), 14, 12, if side < 0 then palette.CandyDeep else RAINBOW[1])
 	end
+	-- balloons tied to the parapet's back corners
+	buildBalloons(layer, at(-HALF_X + 2.5, toZ - 2.5) * CFrame.new(0, 3.4, 0), 3, 1)
+	buildBalloons(layer, at(HALF_X - 2.5, toZ - 2.5) * CFrame.new(0, 3.4, 0), 4, 3)
 	-- bunting from the candy floor's wall out to poles at the back
-	local colors = { palette.Accent, WHITE, palette.Stripe, GOLD_COLOR }
+	local colors = { RAINBOW[1], RAINBOW[2], RAINBOW[3], RAINBOW[4], RAINBOW[5] }
 	for _, x in { -34, 34 } do
 		local pole = at(x, toZ - 4)
 		makeCylinder(layer, "BuntingPole", 0.6, 12, pole, WHITE)
@@ -1071,6 +1238,9 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 		end
 		local ceiling = makeDecor(above, `{room.ZoneId}Ceiling`, Vector3.new(inner, CEILING_THICKNESS, innerTo - innerFrom), center * CFrame.new(0, CEILING + CEILING_THICKNESS / 2, innerZ), style.Ceiling)
 		ceiling.CastShadow = false
+		if style.Checker then
+			buildChecker(layer, center, style.Checker, style.FloorMaterial)
+		end
 		RoomDecor.Build(room.ZoneId, layer, center)
 
 		-- side walls
@@ -1087,7 +1257,7 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 				local doorBase = wallBase * CFrame.new(SIDE_DOOR_Z, 0, 0)
 				buildDoorFrame(layer, doorBase, SIDE_DOOR, palette.Dark)
 				local door = makeGlassDoor(layer, `{room.ZoneId}Shutter`, SIDE_DOOR, doorBase, style.Band)
-				local sign = makeSign(layer, `{room.ZoneId}Sign`, Vector3.new(17, 4.6, 1), wallBase * CFrame.new(SIDE_DOOR_Z, SIDE_DOOR.Y + 5, -WALL / 2 - 0.55), style.SignColor, palette.Accent, palette.Dark, style.Title)
+				local sign = makeSign(layer, `{room.ZoneId}Sign`, Vector3.new(17, 4.6, 1), wallBase * CFrame.new(SIDE_DOOR_Z, SIDE_DOOR.Y + 5, -WALL / 2 - 0.55), style.SignColor, palette[facade.Pop], palette.Dark, style.Title)
 				factory.Doorways[room.ZoneId] = { Label = sign, Title = style.Title, Shutter = door }
 			end
 		end
@@ -1115,18 +1285,19 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 				makeDecor(layer, "MailboxPost", Vector3.new(0.6, 3.6, 0.6), mailbox * CFrame.new(0, 1.8, 0), WOOD_DARK)
 				makeDecor(layer, "Mailbox", Vector3.new(2.2, 2, 3.2), mailbox * CFrame.new(0, 4.6, 0), palette.Accent)
 				makeDecor(layer, "MailboxFlag", Vector3.new(0.2, 1.4, 0.6), mailbox * CFrame.new(1.2, 5.2, 0.6), Color3.fromRGB(255, 90, 110))
+				buildBalloons(layer, mailbox * CFrame.new(-1.1, 5.4, 0), 3, 0)
+			elseif facade.Icing then
+				-- the candy floor's emblem over the entrance: a giant spinning donut
+				buildDonut(layer, face * CFrame.new(0, DONUT_Y, 0), DONUT_SIZE, RAINBOW[1])
 			else
-				-- a round window over the entrance (bigger on the candy floor)
+				-- a round window over the entrance, under a little striped awning
 				local window = face * CFrame.new(0, BAND_TOP + WINDOW.Y / 2, 0)
-				if facade.RoundWindows then
-					buildRoundWindow(layer, window, 16, palette.Accent)
-				else
-					makeDisc(layer, "WindowFrame", 15, 1, window, palette[facade.Frame])
-					local glass = makeDisc(layer, "Window", 12.4, 1.2, window, GLASS_COLOR)
-					glass.Reflectance = 0.15
-					makeDecor(layer, "WindowBar", Vector3.new(0.5, 12.4, 0.6), window * CFrame.new(0, 0, -1.2), palette[facade.Frame])
-					makeDecor(layer, "WindowBar", Vector3.new(12.4, 0.5, 0.6), window * CFrame.new(0, 0, -1.2), palette[facade.Frame])
-				end
+				makeDisc(layer, "WindowFrame", 15, 1, window, palette[facade.Frame])
+				local glass = makeDisc(layer, "Window", 12.4, 1.2, window, GLASS_COLOR)
+				glass.Reflectance = 0.15
+				makeDecor(layer, "WindowBar", Vector3.new(0.5, 12.4, 0.6), window * CFrame.new(0, 0, -1.2), palette[facade.Frame])
+				makeDecor(layer, "WindowBar", Vector3.new(12.4, 0.5, 0.6), window * CFrame.new(0, 0, -1.2), palette[facade.Frame])
+				buildAwning(layer, window * CFrame.new(0, 9.5, 0), 18, palette[facade.Pop])
 				buildInnerWindow(layer, front * CFrame.new(0, BAND_TOP + WINDOW.Y / 2, WALL / 2) * CFrame.Angles(0, math.pi, 0), true, style.Trim)
 				if storey == 2 then
 					-- a little balcony under it, over the owner's sign
@@ -1140,6 +1311,7 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 						makeDecor(layer, "BalconyRail", Vector3.new(0.5, 0.5, 5), deck * CFrame.new(side * 8.75, 3.8, 0), WHITE)
 						buildPot(layer, deck * CFrame.new(side * 6, 0.4, 0), 1.8, FLOWER_COLORS[if side < 0 then 2 else 1])
 					end
+					buildBalloons(layer, deck * CFrame.new(8.75, 3.8, -2.2), 3, 2)
 				end
 			end
 		else
@@ -1154,9 +1326,15 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 			buildWall(layer, divider * CFrame.new(0, 0, half / 2), inner, openings, style.Wall or palette.Pastel, nil, half)
 			buildBand(layer, divider * CFrame.Angles(0, math.pi, 0), inner, openings, half, previous.Style)
 			buildBand(layer, divider, inner, openings, half, style)
+			if previous.Style.Wallpaper then
+				buildWallpaper(layer, divider * CFrame.Angles(0, math.pi, 0), inner, openings, half, previous.Style.Wallpaper)
+			end
+			if style.Wallpaper then
+				buildWallpaper(layer, divider, inner, openings, half, style.Wallpaper)
+			end
 			buildDoorFrame(layer, divider, DOORWAY, previous.Style.Trim)
 			local face = divider * CFrame.new(0, 0, -half)
-			local sign = makeSign(layer, `{room.ZoneId}Sign`, Vector3.new(34, 6.5, 1), face * CFrame.new(0, CEILING - 4.5, -0.55), style.SignColor, palette.Accent, palette.Dark, style.Title)
+			local sign = makeSign(layer, `{room.ZoneId}Sign`, Vector3.new(34, 6.5, 1), face * CFrame.new(0, CEILING - 4.5, -0.55), style.SignColor, palette[facade.Pop], palette.Dark, style.Title)
 			local door = makeGlassDoor(layer, `{room.ZoneId}Shutter`, DOORWAY, divider, style.Band)
 			factory.Doorways[room.ZoneId] = { Label = sign, Title = style.Title, Shutter = door }
 		end
@@ -1170,7 +1348,7 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 			if terraceDoor then
 				buildDoorFrame(layer, back, TERRACE_DOOR, palette.Dark)
 				local door = makeGlassDoor(layer, `{room.ZoneId}Shutter`, TERRACE_DOOR, back, style.Band)
-				local sign = makeSign(layer, `{room.ZoneId}Sign`, Vector3.new(22, 5, 1), back * CFrame.new(0, TERRACE_DOOR.Y + 5, -WALL / 2 - 0.55), style.SignColor, palette.Accent, palette.Dark, style.Title)
+				local sign = makeSign(layer, `{room.ZoneId}Sign`, Vector3.new(22, 5, 1), back * CFrame.new(0, TERRACE_DOOR.Y + 5, -WALL / 2 - 0.55), style.SignColor, palette[facade.Pop], palette.Dark, style.Title)
 				factory.Doorways[room.ZoneId] = { Label = sign, Title = style.Title, Shutter = door }
 			end
 		end
@@ -1201,18 +1379,20 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 		end
 	end
 	ring("TrimBand", bandHeight, bandOut, bandTop - bandHeight / 2, palette.Dark, false)
-	local stripY = bandTop - bandHeight - 0.4
-	ring("TrimStrip", 0.8, bandOut - 0.6, stripY, if facade.Icing then palette.Accent elseif isTop then WHITE else palette.Accent, false)
+	-- under it a strip in the storey's bright accent, or a thick frosting band
+	local stripHeight, stripOut = if facade.Icing then 2 else 0.8, bandOut - 0.6
+	local stripY = bandTop - bandHeight - stripHeight / 2
+	ring("TrimStrip", stripHeight, stripOut, stripY, if facade.Icing or isTop then WHITE else palette[facade.Pop], false)
 	if facade.Icing then
-		local y = base + stripY - 0.4
+		local y = base + stripY - stripHeight / 2
 		local faces: { { any } } = {
-			{ CFrame.new(0, y, fromZ), ROOM_SIZE.X, 0 },
+			{ CFrame.new(0, y, fromZ), ROOM_SIZE.X, if storey > 1 then DONUT_SIZE / 2 + 3 else 0 }, -- over the donut
 			{ CFrame.new(0, y, toZ) * CFrame.Angles(0, math.pi, 0), ROOM_SIZE.X, if isTop then 14 else 0 }, -- over the terrace door's sign
 			{ CFrame.new(HALF_X, y, middleZ) * CFrame.Angles(0, -math.pi / 2, 0), depth, 0 },
 			{ CFrame.new(-HALF_X, y, middleZ) * CFrame.Angles(0, math.pi / 2, 0), depth, 0 },
 		}
 		for _, face in faces do
-			buildIcing(layer, cframe * face[1], face[2], palette.Accent, face[3])
+			buildIcing(layer, cframe * face[1], face[2], stripHeight, stripOut, face[3])
 		end
 	end
 	if storey == 1 then
@@ -1226,12 +1406,12 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 		if not turretCorner then
 			local foot = cframe * CFrame.new(corner[1] * HALF_X, base + pillarFrom, corner[2])
 			if facade.CandyPillars then
-				-- candy canes: white and colored bands
+				-- candy canes: colored and white bands, under a gumdrop
 				local segment = (pillarTo - pillarFrom) / 9
 				for band = 0, 8 do
 					makeCylinder(layer, "Pillar", facade.PillarSize, segment, foot * CFrame.new(0, band * segment, 0), if band % 2 == 0 then palette[facade.Pillar] else WHITE)
 				end
-				makeBall(layer, "PillarTop", facade.PillarSize + 1, foot * CFrame.new(0, pillarTo - pillarFrom, 0), palette.Accent)
+				makeBall(layer, "PillarTop", facade.PillarSize + 1.4, foot * CFrame.new(0, pillarTo - pillarFrom, 0), palette[facade.Pillar])
 			else
 				local pillar = makeCylinder(layer, "Pillar", facade.PillarSize, pillarTo - pillarFrom, foot, palette[facade.Pillar])
 				pillar.CanCollide = true

@@ -11,6 +11,8 @@
 	FactoryBuilder calls RoomDecor.Build for every room.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
+
 local RoomDecor = {}
 
 local WHITE = Color3.new(1, 1, 1)
@@ -46,6 +48,15 @@ local function cylinder(parent: Instance, name: string, diameter: number, height
 	local part = makeDecor(parent, name, Vector3.new(height, diameter, diameter), base * CFrame.new(0, height / 2, 0) * CFrame.Angles(0, 0, math.pi / 2), color, material)
 	part.Shape = Enum.PartType.Cylinder
 	return part
+end
+
+-- Makes `model` (its parts already in) spin about `pivot`'s Z axis on the client
+-- (Atmosphere turns Models tagged "Spinner" at their Speed, in radians per second).
+local function spinner(model: Model, parent: Instance, pivot: CFrame, speed: number)
+	model.WorldPivot = pivot
+	model:SetAttribute("Speed", speed)
+	CollectionService:AddTag(model, "Spinner")
+	model.Parent = parent
 end
 
 -- A cylinder lying along `base`'s X axis, centered on it.
@@ -157,7 +168,58 @@ local function sculpture(parent: Instance, at: CFrame)
 	makeDecor(parent, "SculptingTool", Vector3.new(0.4, 5, 0.4), at * CFrame.new(-2, 18, 2) * CFrame.Angles(math.rad(30), 0, math.rad(20)), Color3.fromRGB(225, 180, 125), Enum.Material.Wood)
 end
 
+local PAINT_COLORS = {
+	Color3.fromRGB(255, 95, 120),
+	Color3.fromRGB(255, 200, 60),
+	Color3.fromRGB(90, 200, 255),
+	Color3.fromRGB(120, 215, 110),
+	Color3.fromRGB(185, 120, 255),
+}
+
+-- A spot on a wall's inner face, room space: { X, Y, Z } on the face, and the way
+-- into the room (only along X or Z). The side walls' faces are at X = ±68, an outer
+-- front or back wall's at Z = ±58, a wall between two rooms' at Z = ±59.
+type WallSpot = { number }
+
+-- The spot's CFrame, -Z pointing into the room.
+local function wallFace(floor: CFrame, spot: WallSpot): CFrame
+	local at = Vector3.new(spot[1], spot[2], spot[3])
+	local inward = if math.abs(spot[1]) >= 68 then Vector3.new(-math.sign(spot[1]), 0, 0) else Vector3.new(0, 0, -math.sign(spot[3]))
+	return floor * CFrame.lookAt(at, at + inward)
+end
+
+-- A splat of paint on a wall (`face`: its middle, on the wall, -Z into the room), with
+-- a drip running down.
+local function splat(parent: Instance, face: CFrame, size: number, color: Color3)
+	local function blob(diameter: number, x: number, y: number)
+		local part = makeDecor(parent, "PaintSplat", Vector3.new(0.2, diameter, diameter), face * CFrame.new(x, y, -0.1) * CFrame.Angles(0, math.pi / 2, 0), color)
+		part.Shape = Enum.PartType.Cylinder
+	end
+	blob(size, 0, 0)
+	blob(size * 0.35, size * 0.55, size * 0.3)
+	blob(size * 0.25, -size * 0.5, size * 0.4)
+	blob(size * 0.3, size * 0.2, -size * 0.45)
+	makeDecor(parent, "PaintDrip", Vector3.new(size * 0.15, size * 0.8, 0.2), face * CFrame.new(-size * 0.15, -size * 0.6, -0.1), color)
+	blob(size * 0.22, -size * 0.15, -size)
+end
+
 local function buildClay(parent: Instance, floor: CFrame)
+	-- paint splats up the walls, between the windows (and clear of the side door at
+	-- +X, Z = 31, and the doorway in the back)
+	local spots: { WallSpot } = {
+		{ -68, 15, -18 },
+		{ -68, 18, 18 },
+		{ -68, 14, 51 },
+		{ 68, 17, -18 },
+		{ 68, 14, 14 },
+		{ -32, 17, 59 },
+		{ 46, 14, 59 },
+		{ -39, 22, -58 },
+		{ 39, 16, -58 },
+	}
+	for index, spot in spots do
+		splat(parent, wallFace(floor, spot), 5 + (index % 3) * 1.2, PAINT_COLORS[index % #PAINT_COLORS + 1])
+	end
 	-- across from the side door (X = +70, Z = 31): the sculpture, between big pots
 	sculpture(parent, floor * CFrame.new(-60, 0, 31))
 	pot(parent, floor * CFrame.new(-61, 0, 16), 12, CLAY)
@@ -201,7 +263,36 @@ local function figureBox(parent: Instance, at: CFrame, color: Color3)
 	window.Transparency = 0.5
 end
 
+-- A big gold star on a wall (`face`: on the wall, -Z into the room).
+local function wallStar(parent: Instance, face: CFrame, size: number)
+	local holder = makeDecor(parent, "WallStar", Vector3.new(size, size, 0.2), face * CFrame.new(0, 0, -0.15), WHITE)
+	holder.Transparency = 1
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.LightInfluence = 0
+	gui.PixelsPerStud = 12
+	gui.Parent = holder
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.Text = "⭐"
+	label.Parent = gui
+end
+
 local function buildVinyl(parent: Instance, floor: CFrame)
+	local spots: { WallSpot } = {
+		{ -68, 17, -18 },
+		{ -68, 19, 18 },
+		{ 68, 18, -18 },
+		{ 68, 16, 18 },
+		{ 36, 18, -59 },
+		{ -36, 17, -59 },
+	}
+	for index, spot in spots do
+		wallStar(parent, wallFace(floor, spot), 6 + (index % 2) * 2)
+	end
 	-- display shelves along the back wall
 	local shelf = floor * CFrame.new(-28, 0, 55.5)
 	for _, x in { -14, 14 } do
@@ -242,58 +333,136 @@ local CANDY_COLORS = {
 	Color3.fromRGB(200, 150, 255),
 }
 
-local function lollipop(parent: Instance, at: CFrame, height: number, color: Color3)
-	cylinder(parent, "LollipopStick", 0.8, height, at, WHITE)
-	local head = at * CFrame.new(0, height + 3, 0) * CFrame.Angles(0, math.pi / 2, 0)
-	roller(parent, "Lollipop", 8, 1.2, head, color)
-	roller(parent, "LollipopSwirl", 5.6, 1.4, head, WHITE)
-	roller(parent, "LollipopSwirl", 3, 1.6, head, color)
+-- A giant lollipop (`at`: the foot of its stick, -Z the way it faces), its white
+-- swirl spinning (Atmosphere turns Models tagged "Spinner").
+local function lollipop(parent: Instance, at: CFrame, height: number, size: number, color: Color3)
+	cylinder(parent, "LollipopStick", 1, height, at, WHITE)
+	local head = at * CFrame.new(0, height + size / 2 - 0.5, 0)
+	local pop = Instance.new("Model")
+	pop.Name = "Lollipop"
+	roller(pop, "Lollipop", size, 1.4, head * CFrame.Angles(0, math.pi / 2, 0), color)
+	local dots, turns = 12, 2
+	for index = 1, dots do
+		local t = index / dots
+		local angle = t * turns * math.pi * 2
+		local radius = t * size * 0.4
+		ball(pop, "LollipopSwirl", size * (0.08 + t * 0.07), head * CFrame.new(math.cos(angle) * radius, math.sin(angle) * radius, -0.7), WHITE)
+	end
+	spinner(pop, parent, head, -0.8)
 end
 
--- A candy cane: striped segments up, then a crook bending over toward +X.
-local function candyCane(parent: Instance, at: CFrame, color: Color3)
-	local segment, radius = 2.4, 2
+-- A candy cane `scale` times the base size: striped segments up, then a crook bending
+-- over toward +X.
+local function candyCane(parent: Instance, at: CFrame, color: Color3, scale: number)
+	local segment, radius, thickness = 2.4 * scale, 2 * scale, 1.8 * scale
 	for index = 0, 4 do
-		cylinder(parent, "CandyCane", 1.8, segment, at * CFrame.new(0, index * segment, 0), if index % 2 == 0 then color else WHITE)
+		cylinder(parent, "CandyCane", thickness, segment, at * CFrame.new(0, index * segment, 0), if index % 2 == 0 then color else WHITE)
 	end
 	-- pieces around an arc, each lying along it (a cylinder's axis is its X)
 	local center = at * CFrame.new(radius, 5 * segment, 0)
 	for index, degrees in { 30, 90, 150 } do
 		local theta = math.rad(degrees)
 		local cframe = center * CFrame.new(-radius * math.cos(theta), radius * math.sin(theta), 0) * CFrame.Angles(0, 0, math.atan2(math.cos(theta), math.sin(theta)))
-		roller(parent, "CandyCane", 1.8, segment, cframe, if index % 2 == 1 then WHITE else color)
+		roller(parent, "CandyCane", thickness, segment, cframe, if index % 2 == 1 then WHITE else color)
 	end
 end
 
 local function gumdrop(parent: Instance, at: CFrame, size: number, color: Color3)
-	cylinder(parent, "Gumdrop", size, size * 0.5, at, color, Enum.Material.Glass)
-	ball(parent, "Gumdrop", size, at * CFrame.new(0, size * 0.5, 0), color, Enum.Material.Glass)
+	cylinder(parent, "Gumdrop", size, size * 0.5, at, color)
+	ball(parent, "Gumdrop", size, at * CFrame.new(0, size * 0.5, 0), color)
+	-- sugar crystals
+	for index = 1, 3 do
+		local angle = index * 2.1
+		ball(parent, "Sugar", size * 0.12, at * CFrame.new(math.cos(angle) * size * 0.3, size * 0.9, math.sin(angle) * size * 0.3), WHITE)
+	end
 end
 
-local function wrappedCandy(parent: Instance, at: CFrame, color: Color3)
-	roller(parent, "Candy", 3, 3.4, at * CFrame.new(0, 1.5, 0), color)
+local function wrappedCandy(parent: Instance, at: CFrame, color: Color3, scale: number)
+	roller(parent, "Candy", 3 * scale, 3.4 * scale, at * CFrame.new(0, 1.5 * scale, 0), color)
+	roller(parent, "CandyStripe", 3.05 * scale, 0.8 * scale, at * CFrame.new(0, 1.5 * scale, 0), WHITE)
 	for _, side in { -1, 1 } do
-		roller(parent, "CandyWrapper", 2.4, 1.2, at * CFrame.new(side * 2.4, 1.5, 0), color:Lerp(WHITE, 0.4))
+		roller(parent, "CandyWrapper", 2.4 * scale, 1.2 * scale, at * CFrame.new(side * 2.4 * scale, 1.5 * scale, 0), color:Lerp(WHITE, 0.4))
 	end
+end
+
+-- A gumball machine (`at`: its foot, -Z its front): a glass globe full of gumballs on
+-- a colored stand with a coin slot.
+local function gumballMachine(parent: Instance, at: CFrame, color: Color3)
+	local metal = Color3.fromRGB(215, 220, 230)
+	cylinder(parent, "GumballFoot", 8, 1, at, color)
+	cylinder(parent, "GumballStand", 4.6, 6, at * CFrame.new(0, 1, 0), color)
+	makeDecor(parent, "GumballBox", Vector3.new(6.4, 4, 6.4), at * CFrame.new(0, 8.5, 0), color)
+	makeDecor(parent, "GumballSlot", Vector3.new(2.4, 2.4, 0.3), at * CFrame.new(0, 9, -3.3), metal, Enum.Material.Metal)
+	makeDecor(parent, "GumballKnob", Vector3.new(0.6, 1.6, 0.6), at * CFrame.new(0, 9, -3.6), color:Lerp(Color3.new(0, 0, 0), 0.25))
+	makeDecor(parent, "GumballChute", Vector3.new(1.8, 1.2, 0.8), at * CFrame.new(0, 7.2, -3.4), metal, Enum.Material.Metal)
+	local globe = at * CFrame.new(0, 15.5, 0)
+	local radius = 5
+	local index = 0
+	for y = -3, 0.6, 1.8 do
+		local room = math.sqrt(radius * radius - y * y) - 1.4 -- keep each gumball inside the glass
+		for ring = 1, 2 do
+			local r = math.min(room, ring * 1.55)
+			local count = if ring == 1 then 3 else 7
+			for k = 1, count do
+				index += 1
+				local angle = k * math.pi * 2 / count + y
+				ball(parent, "Gumball", 2.4, globe * CFrame.new(math.cos(angle) * r, y, math.sin(angle) * r), CANDY_COLORS[index % #CANDY_COLORS + 1])
+			end
+		end
+	end
+	local glass = ball(parent, "GumballGlobe", radius * 2, globe, Color3.fromRGB(225, 245, 255))
+	glass.Transparency = 0.6
+	glass.Reflectance = 0.1
+	cylinder(parent, "GumballCap", 4.6, 1.6, globe * CFrame.new(0, radius - 0.6, 0), color)
+	ball(parent, "GumballTop", 2.2, globe * CFrame.new(0, radius + 1.2, 0), color)
+end
+
+-- A giant cupcake (`at`: its foot): a ribbed paper cup, swirls of frosting, sprinkles
+-- and a cherry.
+local function cupcake(parent: Instance, at: CFrame, cup: Color3, frosting: Color3)
+	cylinder(parent, "CupcakeCup", 8, 5.5, at, cup)
+	for index = 1, 10 do
+		local angle = index * math.pi * 2 / 10
+		makeDecor(parent, "CupcakeRib", Vector3.new(0.7, 5.5, 0.4), at * CFrame.new(math.cos(angle) * 3.95, 2.75, math.sin(angle) * 3.95) * CFrame.Angles(0, -angle + math.pi / 2, 0), WHITE)
+	end
+	cylinder(parent, "CupcakeCake", 8.6, 1.2, at * CFrame.new(0, 5.5, 0), Color3.fromRGB(240, 185, 120))
+	local swirls = { { 6.6, 4.2 }, { 8.9, 3.2 }, { 11.2, 2.1 } } -- each swirl's center height and radius
+	for _, swirl in swirls do
+		ball(parent, "Frosting", swirl[2] * 2, at * CFrame.new(0, swirl[1], 0), frosting)
+	end
+	-- sprinkles on the two lower swirls, 30° up their sides
+	for index = 1, 12 do
+		local swirl = swirls[index % 2 + 1]
+		local angle = index * math.pi * 2 / 12
+		local r, y = swirl[2] * 0.866, swirl[1] + swirl[2] * 0.5
+		makeDecor(parent, "Sprinkle", Vector3.new(0.3, 1, 0.3), at * CFrame.new(math.cos(angle) * r, y, math.sin(angle) * r) * CFrame.Angles(index, 0, index * 0.7), CANDY_COLORS[index % #CANDY_COLORS + 1])
+	end
+	ball(parent, "Cherry", 2.2, at * CFrame.new(0, 13.6, 0), Color3.fromRGB(235, 40, 70))
+	makeDecor(parent, "CherryStem", Vector3.new(0.25, 1.8, 0.25), at * CFrame.new(0.4, 15.2, 0) * CFrame.Angles(0, 0, math.rad(-20)), Color3.fromRGB(90, 160, 60))
 end
 
 local function buildCandy(parent: Instance, floor: CFrame)
 	-- giant lollipops along the front wall, facing the door at the back
-	for index, x in { -36, 0, 36 } do
-		lollipop(parent, floor * CFrame.new(x, 0, -55), 9 + (index % 2) * 3, CANDY_COLORS[index])
+	for index, x in { -40, -14, 14, 40 } do
+		lollipop(parent, floor * CFrame.new(x, 0, -54) * CFrame.Angles(0, math.pi, 0), 11 + (index % 2) * 4, 10, CANDY_COLORS[index])
 	end
-	candyCane(parent, floor * CFrame.new(-62, 0, -52), Color3.fromRGB(255, 90, 120))
-	candyCane(parent, floor * CFrame.new(62, 0, -52), Color3.fromRGB(120, 200, 255))
-	for index, spot in { Vector3.new(-62, 0, -20), Vector3.new(-60, 0, 10), Vector3.new(62, 0, -15), Vector3.new(61, 0, 22), Vector3.new(-58, 0, 40) } do
-		gumdrop(parent, floor * CFrame.new(spot), 3 + (index % 3), CANDY_COLORS[index])
+	candyCane(parent, floor * CFrame.new(-63, 0, -52), Color3.fromRGB(255, 90, 120), 1.6)
+	candyCane(parent, floor * CFrame.new(60, 0, -52) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(120, 200, 255), 1.6)
+	gumballMachine(parent, floor * CFrame.new(-60, 0, -24) * CFrame.Angles(0, -math.pi / 2, 0), Color3.fromRGB(255, 70, 110))
+	gumballMachine(parent, floor * CFrame.new(60, 0, 14) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(80, 170, 255))
+	cupcake(parent, floor * CFrame.new(-59, 0, 22), Color3.fromRGB(255, 150, 200), Color3.fromRGB(255, 245, 250))
+	cupcake(parent, floor * CFrame.new(59, 0, -24), Color3.fromRGB(120, 215, 255), Color3.fromRGB(255, 160, 210))
+	for index, spot in { Vector3.new(-62, 0, -6), Vector3.new(-60, 0, 40), Vector3.new(62, 0, -6), Vector3.new(62, 0, 32), Vector3.new(-30, 0, 54) } do
+		gumdrop(parent, floor * CFrame.new(spot), 4 + (index % 3) * 1.5, CANDY_COLORS[index])
 	end
 	-- a chocolate vat
-	local vat = floor * CFrame.new(56, 0, 48)
-	cylinder(parent, "Vat", 11, 5, vat, Color3.fromRGB(235, 225, 240), Enum.Material.Metal)
-	cylinder(parent, "Chocolate", 10, 0.4, vat * CFrame.new(0, 4.8, 0), Color3.fromRGB(120, 70, 45))
-	cylinder(parent, "VatRim", 11.6, 0.6, vat * CFrame.new(0, 5, 0), Color3.fromRGB(255, 150, 200))
-	wrappedCandy(parent, floor * CFrame.new(-56, 0, 52), CANDY_COLORS[3])
-	wrappedCandy(parent, floor * CFrame.new(40, 0, 54), CANDY_COLORS[5])
+	local vat = floor * CFrame.new(54, 0, 48)
+	cylinder(parent, "Vat", 13, 6, vat, Color3.fromRGB(235, 225, 240), Enum.Material.Metal)
+	cylinder(parent, "Chocolate", 12, 0.4, vat * CFrame.new(0, 5.8, 0), Color3.fromRGB(120, 70, 45))
+	cylinder(parent, "VatRim", 13.6, 0.8, vat * CFrame.new(0, 6, 0), Color3.fromRGB(255, 150, 200))
+	makeDecor(parent, "VatPaddle", Vector3.new(0.6, 9, 0.6), vat * CFrame.new(1.5, 8, 0) * CFrame.Angles(0, 0, math.rad(20)), Color3.fromRGB(225, 180, 125), Enum.Material.Wood)
+	wrappedCandy(parent, floor * CFrame.new(-54, 0, 50), CANDY_COLORS[3], 1.8)
+	wrappedCandy(parent, floor * CFrame.new(28, 0, 53), CANDY_COLORS[5], 1.8)
 end
 
 -- API --------------------------------------------------------------------------------

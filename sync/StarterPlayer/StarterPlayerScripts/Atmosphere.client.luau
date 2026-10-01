@@ -4,7 +4,9 @@
 	afternoon under a dreamy anime skybox (Creator Store), with bloom (so every Neon part
 	glows), punchy color grading, a soft pastel haze, and cheerful background music on
 	shuffle with a mute button. In the hub (MapBuilder), the statues turn slowly, the
-	balloons bob and the water's cartoon texture drifts. Client only.
+	balloons bob and the water's cartoon texture drifts; on the factories
+	(FactoryBuilder), pinwheels, donuts and lollipops spin, balloons bob and marquee
+	bulbs chase. Client only.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -165,6 +167,93 @@ task.spawn(function()
 			part.CFrame = rests[index] + Vector3.new(0, math.sin(now * 1.3 + phase) * 1.2, 0)
 		end
 	end)
+end)
+
+-- The factories' moving bits (FactoryBuilder) ------------------------------------------
+
+-- Pinwheels, donuts and lollipops (Models tagged "Spinner") turn about their pivot's Z
+-- axis at their Speed, balloon bunches ("Bobbing") bob, and marquee bulbs ("Marquee")
+-- chase candy-colored lights along their Index. Only the ones near the camera move.
+local DECOR_DISTANCE = 450
+local MARQUEE_STEP = 0.16 -- seconds per chase step
+local MARQUEE_COLORS = {
+	Color3.fromRGB(255, 120, 190),
+	Color3.fromRGB(255, 225, 90),
+	Color3.fromRGB(110, 235, 170),
+	Color3.fromRGB(110, 200, 255),
+	Color3.fromRGB(200, 150, 255),
+}
+local BULB_OFF = Color3.fromRGB(255, 215, 130)
+
+type Mover = { Rest: CFrame, Speed: number, Phase: number }
+local spinners: { [Model]: Mover } = {}
+local bobbers: { [Model]: Mover } = {}
+local bulbs: { [BasePart]: number } = {} -- bulb → its index along its string
+
+local function watchTag(tag: string, added: (Instance) -> (), removed: (Instance) -> ())
+	for _, instance in CollectionService:GetTagged(tag) do
+		added(instance)
+	end
+	CollectionService:GetInstanceAddedSignal(tag):Connect(added)
+	CollectionService:GetInstanceRemovedSignal(tag):Connect(removed)
+end
+
+watchTag("Spinner", function(model)
+	if model:IsA("Model") then
+		local speed = model:GetAttribute("Speed")
+		spinners[model] = { Rest = model:GetPivot(), Speed = if typeof(speed) == "number" then speed else 1, Phase = 0 }
+	end
+end, function(model)
+	spinners[model :: Model] = nil
+end)
+watchTag("Bobbing", function(model)
+	if model:IsA("Model") then
+		local rest = model:GetPivot()
+		bobbers[model] = { Rest = rest, Speed = 1.3, Phase = (rest.X * 0.37 + rest.Z * 0.61) % (math.pi * 2) }
+	end
+end, function(model)
+	bobbers[model :: Model] = nil
+end)
+watchTag("Marquee", function(bulb)
+	if bulb:IsA("BasePart") then
+		local index = bulb:GetAttribute("Index")
+		bulbs[bulb] = if typeof(index) == "number" then index else 0
+	end
+end, function(bulb)
+	bulbs[bulb :: BasePart] = nil
+end)
+
+local marqueeStep = -1
+RunService.RenderStepped:Connect(function()
+	local now = os.clock()
+	local camera = workspace.CurrentCamera.CFrame.Position
+	for model, mover in spinners do
+		if (mover.Rest.Position - camera).Magnitude < DECOR_DISTANCE then
+			model:PivotTo(mover.Rest * CFrame.Angles(0, 0, now * mover.Speed))
+		end
+	end
+	for model, mover in bobbers do
+		if (mover.Rest.Position - camera).Magnitude < DECOR_DISTANCE then
+			model:PivotTo(mover.Rest + Vector3.new(0, math.sin(now * mover.Speed + mover.Phase) * 0.8, 0))
+		end
+	end
+	-- every third bulb lit, each light keeping its color as it runs along the string
+	local step = math.floor(now / MARQUEE_STEP)
+	if step ~= marqueeStep then
+		marqueeStep = step
+		for bulb, index in bulbs do
+			if (bulb.Position - camera).Magnitude < DECOR_DISTANCE then
+				local offset = index - step
+				if offset % 3 == 0 then
+					bulb.Material = Enum.Material.Neon
+					bulb.Color = MARQUEE_COLORS[(offset // 3) % #MARQUEE_COLORS + 1]
+				else
+					bulb.Material = Enum.Material.SmoothPlastic
+					bulb.Color = BULB_OFF
+				end
+			end
+		end
+	end
 end)
 
 -- Music ----------------------------------------------------------------------
