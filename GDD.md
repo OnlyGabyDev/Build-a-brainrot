@@ -228,7 +228,7 @@ We also track the **Rebirths** count (not a currency), which gates zones and rar
   - Shop: **Income** (+10%/lv), **Dropper Speed** (+5%/lv), **Luck** (+10%/lv: rarer tiers weigh more, boxes upgrade more often).
   - Box cap and box respawn don't fit shared boxes, so they're dropped. Walk Speed comes later.
 - Line setups of lines you haven't bought back since a rebirth are remembered, but don't hold their parts, so those parts are free for your other lines.
-- Each zone is a room of the factory, further back from the hub. Zone 2's room gets its free first line the moment it unlocks. ✅ The rooms are real buildings: walls, windows, a sawtooth roof that fades while you watch from above, and a shuttered doorway (🔒 REBIRTH N) into each locked room.
+- Each zone is a room of the factory, further back from the hub. Zone 2's room gets its free first line the moment it unlocks. ✅ Each plot is a real building: a 2-storey toy house (v0.9) with the Toy Workshop and the Plushie room on the ground floor and the Clay Studio and Vinyl Collectibles upstairs (built but locked until those zones exist), a shuttered doorway (🔒 REBIRTH N) into each locked room, and outside stairs up to the 2nd floor.
 
 ### Zones
 
@@ -236,7 +236,8 @@ Zones aren't only floors. The factory **physically expands**: new floors, annexe
 
 **The crazy building** (the user's direction, 2026-09-30): the factory grows **upward** as zones unlock, and the more it grows, the more it looks like a ramshackle, *Hello Neighbor*–style tower: floors stacked on floors, each in its own style (toy factory, sewing room, lab, bunker…), crooked add-ons bolted on, outside stairs and bridges, pipes and chimneys everywhere. Zones 1–2 are the ground floor (front room and back room); the next zones stack on top (and later sideways and underground, per the table). A late-game plot should be the craziest building on the map.
 - 💡 Proposed: the next locked floor shows on top as scaffolding with a 🔒 REBIRTH N sign, so players see what they're working toward.
-- Camera: like the ground floor's roof, every floor above the one you're on fades away while the camera is above it (a dollhouse cutaway), so the lines stay easy to watch.
+- ✅ Camera: every floor above the one you're on (and the roofs) fades away while the camera is above your ceiling (a dollhouse cutaway), so the lines stay easy to watch.
+- ✅ **The 2-storey building (v0.9):** references *Pet Simulator 99* (colored brick, thick dark trims, chunky window frames, light-blue glass) and *Adopt Me!* (rounded pillars, pastel, shutters, flower boxes). Ground floor: brick in the plot's color with dark trims and a stone plinth. 2nd floor: wood siding in the opposite pastel hue, with shutters. A front gable with a clock faces the hub, a second gabled roof crosses behind it, and the ramshackle bits start: a turret with a crooked cone roof, a crooked smoking chimney, pipes, and outside stairs to the 2nd floor's side door.
 
 | # | Zone | Where | Edition (size & style) | Assembly animation | Unlock | Status |
 |---|---|---|---|---|---|---|
@@ -464,6 +465,7 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v0.9 (2026-09-30):** The factory redesign (§10): every plot is a 2-storey toy house in its own colors (brick ground floor, siding 2nd floor, crossed gabled roofs with a clock, a turret, a crooked chimney, pipes, outside stairs). The 2nd floor holds the Clay Studio and Vinyl Collectibles rooms, locked until those zones are built. The dollhouse cutaway now works per storey.
 - **v0.8 (2026-09-30):**
   - All 15 brainrots have voxel art. The 14 *Steal a Brainrot* ones follow its renders; the Godly is our own **Supremo Brainrotto, the Risotto King** (§3).
   - Requested and planned: a themed **finishing stage**, **finishing upgrader** and **droppers** per zone, **Paint Booth options** and a **Photobooth** (§6); **Sprint** and **Custom Paint** gamepasses (§12).

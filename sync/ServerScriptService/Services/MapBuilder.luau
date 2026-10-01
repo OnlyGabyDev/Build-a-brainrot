@@ -1276,8 +1276,10 @@ function MapBuilder.Init()
 
 	-- A trimmed lawn under every factory, so the animated grass doesn't poke through its
 	-- floors. Then the paths: everything else checks it stays off them.
+	local lot = FactoryBuilder.Lot
 	for _, plot in plots do
-		paint(plot.CFrame * CFrame.new(0, 0, 60), Vector2.new(150, 250), Enum.Material.LeafyGrass)
+		local lawn = Vector2.new(lot.HalfWidth * 2 + 4, lot.Back - lot.Front + 4)
+		paint(plot.CFrame * CFrame.new(0, 0, (lot.Front + lot.Back) / 2), lawn, Enum.Material.LeafyGrass)
 	end
 	for index, plot in plots do
 		local entrance = (plot.CFrame * CFrame.new(0, 0, -60)).Position

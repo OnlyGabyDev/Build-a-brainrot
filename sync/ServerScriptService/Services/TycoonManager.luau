@@ -4,8 +4,8 @@
 	builds what they've purchased, shows the purchase buttons in unlock order, and runs
 	the collector + Cash Pad.
 
-	All geometry is generated in code: FactoryBuilder builds each plot's building (one
-	room per zone), and this module the lines inside. ProductionVisuals finds line parts by name (Belt, Assembler,
+	All geometry is generated in code: FactoryBuilder builds each plot's building (a
+	room per zone, two per storey), and this module the lines inside. ProductionVisuals finds line parts by name (Belt, Assembler,
 	Ship, HeadDropper, BodyDropper, ArmsDropper, LegsDropper, Beacon, Station1/2 and
 	their Glow) and animates the Assembler's machines (Claw: Hand, Rod, FingerLeft,
 	FingerRight; PusherLeft and PusherRight: Fist, Rod): keep those names when swapping
@@ -32,11 +32,10 @@ local MonetizationManager = require(script.Parent.MonetizationManager)
 
 local PLOT_COUNT = 6
 local PLOT_RADIUS = 300 -- hub (world origin) to plot center; entrances at 240
-local PLOT_SIZE = FactoryBuilder.RoomSize -- one zone's floor
 local FLOOR_TOP = FactoryBuilder.FloorTop
--- Each zone is a room of the factory, further back from the hub (GDD §10). By zone
--- index: Z of the room's center. The Toy Workshop sits at the plot's center.
-local ZONE_Z = { 0, 120 }
+-- Each zone is a room of the factory (GDD §10), placed by FactoryBuilder.Layout: the
+-- Toy Workshop sits at the plot's center, the Plushie room behind it, and the next
+-- zones upstairs.
 local PLOT_COLORS = {
 	Color3.fromRGB(255, 214, 165),
 	Color3.fromRGB(190, 230, 255),
@@ -103,7 +102,7 @@ export type Plot = {
 	SignLabel: TextLabel,
 	CashPad: BasePart,
 	CashLabel: TextLabel,
-	Doorways: { [string]: FactoryBuilder.Doorway }, -- into each back room, by zone id
+	Doorways: { [string]: FactoryBuilder.Doorway }, -- into every room but the first, by zone id
 	Owner: Player?,
 	Collected: number, -- Coins waiting on the Cash Pad
 	Generation: number, -- bumped on every reset or release, so payouts in flight can tell
@@ -184,7 +183,7 @@ end
 local function lineOrigin(plot: Plot, lineId: string): CFrame
 	local line = TycoonItems.LinesById[lineId]
 	local zone = Zones.ById[line.Zone]
-	return plot.CFrame * CFrame.new(LINE_X[line.Index], FLOOR_TOP, ZONE_Z[zone.Index])
+	return plot.CFrame * FactoryBuilder.RoomCFrame(zone.Index) * CFrame.new(LINE_X[line.Index], 0, 0)
 end
 
 local function getLineModel(plot: Plot, lineId: string): Model
@@ -460,14 +459,21 @@ local function newGeneration(plot: Plot)
 	plot.CashPad:SetAttribute("Generation", plot.Generation)
 end
 
--- Each back room's doorway stays shuttered, its sign showing a lock, until the owner
--- unlocks the zone.
+-- Each room's doorway stays shuttered, its sign showing a lock, until the owner
+-- unlocks the zone. Rooms of zones that aren't built yet stay shut, "coming soon"
+-- once the owner has the rebirths.
 local function updateZoneLabels(plot: Plot)
 	local data = plot.Owner and DataManager.GetData(plot.Owner)
 	for zoneId, doorway in plot.Doorways do
 		local zone = Zones.ById[zoneId]
-		local unlocked = data ~= nil and data.Rebirths >= zone.UnlockRebirths
-		FactoryBuilder.SetLocked(doorway, if unlocked then nil else `🔒 REBIRTH {zone.UnlockRebirths}`)
+		local rebirths = if data then data.Rebirths else 0
+		if zone.Available and rebirths >= zone.UnlockRebirths then
+			FactoryBuilder.SetLocked(doorway, nil)
+		elseif rebirths >= zone.UnlockRebirths then
+			FactoryBuilder.SetLocked(doorway, "🚧 COMING SOON")
+		else
+			FactoryBuilder.SetLocked(doorway, `🔒 REBIRTH {zone.UnlockRebirths}`)
+		end
 	end
 end
 
@@ -481,15 +487,7 @@ local function buildPlot(index: number, parent: Instance): Plot
 	model.WorldPivot = cframe
 	model.Parent = parent
 
-	-- The factory building: a room per available zone, each behind the last.
-	local rooms: { FactoryBuilder.Room } = {}
-	for _, zone in Zones.List do
-		local z = ZONE_Z[zone.Index]
-		if zone.Available and z then
-			table.insert(rooms, { ZoneId = zone.Id, Z = z })
-		end
-	end
-	local factory = FactoryBuilder.Build(model, cframe, PLOT_COLORS[index], rooms)
+	local factory = FactoryBuilder.Build(model, cframe, PLOT_COLORS[index])
 
 	local cashPad = makePart(model, "CashPad", Vector3.new(8, 0.6, 8), cframe * CASH_PAD_OFFSET, Color3.fromRGB(255, 215, 0), Enum.Material.Neon)
 	local cashLabel = makeBillboard(cashPad, "", Vector2.new(8, 3), 4, 100)
@@ -649,13 +647,13 @@ function TycoonManager.GetPlots(): { Plot }
 	return plots
 end
 
--- Whether a world position is over any tycoon plot (any of its rooms). Plots are
--- safe zones (GDD §3).
+-- Whether a world position is over any tycoon plot (its building and outside stairs).
+-- Plots are safe zones (GDD §3).
 function TycoonManager.IsInPlot(position: Vector3): boolean
-	local back = ZONE_Z[#ZONE_Z] + PLOT_SIZE.Z / 2
+	local lot = FactoryBuilder.Lot
 	for _, plot in plots do
 		local offset = plot.CFrame:PointToObjectSpace(position)
-		if math.abs(offset.X) <= PLOT_SIZE.X / 2 and offset.Z >= -PLOT_SIZE.Z / 2 and offset.Z <= back then
+		if math.abs(offset.X) <= lot.HalfWidth and offset.Z >= lot.Front and offset.Z <= lot.Back then
 			return true
 		end
 	end
