@@ -9,7 +9,7 @@
 	Ship, HeadDropper, BodyDropper, ArmsDropper, LegsDropper, Beacon, Station1/2 and
 	their Glow) and animates the Assembler's machines (Claw: Hand, Rod, FingerLeft,
 	FingerRight; PusherLeft and PusherRight: Fist, Rod): keep those names when swapping
-	in real art. TycoonFX finds Belt and CashPad (its Collected attribute).
+	in real art. TycoonFX finds Belt and CashPad (its Collected and Generation attributes).
 
 	Bought items' parts get a Built attribute (server time) so clients play the build
 	animation; every item part gets Item = its item id.
@@ -108,6 +108,7 @@ export type Plot = {
 	ZoneLabels: { [string]: TextLabel }, -- each back room's name + lock
 	Owner: Player?,
 	Collected: number, -- Coins waiting on the Cash Pad
+	Generation: number, -- bumped on every reset or release, so payouts in flight can tell
 	Buttons: { [string]: BasePart },
 	Connections: { RBXScriptConnection },
 }
@@ -454,6 +455,13 @@ local function updateCashLabel(plot: Plot)
 	plot.CashPad:SetAttribute("Collected", plot.Collected)
 end
 
+-- On a reset or release: voids the payouts in flight, and tells clients the Cash Pad's
+-- coming wipe isn't a collect.
+local function newGeneration(plot: Plot)
+	plot.Generation += 1
+	plot.CashPad:SetAttribute("Generation", plot.Generation)
+end
+
 -- Each back room's sign shows its name, with a lock until the owner unlocks it.
 local function updateZoneLabels(plot: Plot)
 	local data = plot.Owner and DataManager.GetData(plot.Owner)
@@ -537,6 +545,7 @@ local function buildPlot(index: number, parent: Instance): Plot
 		ZoneLabels = zoneLabels,
 		Owner = nil,
 		Collected = 0,
+		Generation = 0,
 		Buttons = {},
 		Connections = {},
 	}
@@ -632,6 +641,7 @@ local function releasePlot(player: Player)
 		return
 	end
 	plotByPlayer[player] = nil
+	newGeneration(plot)
 
 	for _, connection in plot.Connections do
 		connection:Disconnect()
@@ -679,13 +689,15 @@ function TycoonManager.IsInPlot(position: Vector3): boolean
 end
 
 -- After a rebirth (the data is already reset): clears the tycoon and furnishes it
--- again, including the free first line of any zone that just unlocked.
+-- again, including the free first line of any zone that just unlocked. Brainrots
+-- still on the belts are dropped, and so are the Cash Pad's Coins.
 function TycoonManager.ResetPlot(player: Player)
 	local plot = plotByPlayer[player]
 	local data = DataManager.GetData(player)
 	if not (plot and data) then
 		return
 	end
+	newGeneration(plot)
 	plot.LinesFolder:ClearAllChildren()
 	plot.ButtonsFolder:ClearAllChildren()
 	table.clear(plot.Buttons)

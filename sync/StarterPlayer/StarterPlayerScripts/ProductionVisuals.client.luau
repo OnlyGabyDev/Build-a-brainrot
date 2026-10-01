@@ -853,6 +853,18 @@ local function animateCycle(
 		return
 	end
 
+	-- A plot reset (rebirth) clears the line mid-cycle: the brainrot goes with it (the
+	-- server voids its payout too).
+	local function cancelled(): boolean
+		if line.Parent then
+			return false
+		end
+		for _, piece in pieces do
+			piece.Model:Destroy()
+		end
+		return true
+	end
+
 	-- 1-2) Each part drops onto the belt and rides it at one constant speed, timed to
 	-- reach the intake just as its assembly step starts.
 	local speed = math.max(maxTravel, 1) / Production.SlideTime
@@ -864,11 +876,17 @@ local function animateCycle(
 		local ride = piece.Travel / speed
 		task.spawn(function()
 			waitUntil(step.Start - ride - Production.DropTime)
+			if cancelled() then
+				return
+			end
 			spit(line, piece.Dropper, build.Near)
 			local below = piece.Dropper.Position
 			local landing = centeredAt(piece.Center, Vector3.new(below.X, beltTop + piece.Size.Y / 2, below.Z))
 			glide(piece.Model, landing, Production.DropTime, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
 			waitUntil(step.Start - ride)
+			if cancelled() then
+				return
+			end
 			glide(piece.Model, piece.Waiting, ride, Enum.EasingStyle.Linear, Enum.EasingDirection.In)
 		end)
 	end
@@ -880,18 +898,27 @@ local function animateCycle(
 			continue
 		end
 		waitUntil(step.Start)
+		if cancelled() then
+			return
+		end
 		if index == 1 then
 			setBeacon(line, true)
 		end
 		local animate = if build.Machines then style.Steps[step.PartType] else nil
 		local ok, err = pcall(animate or simpleStep, build, piece, step.Duration)
 		if not ok then
+			if cancelled() then
+				return -- its machines vanished mid-step
+			end
 			warn(`[ProductionVisuals] {zoneId} {step.PartType} step failed: {err}`)
 			piece.Model:PivotTo(piece.Home)
 		end
 	end
 	local _, finished = Production.Schedule(parts, cycleTime)
 	waitUntil(finished)
+	if cancelled() then
+		return
+	end
 	setBeacon(line, false) -- in case the last step wasn't a head (no pop)
 
 	-- 4) Ride through the stations to the chute as one brainrot, then drop in.
@@ -909,11 +936,15 @@ local function animateCycle(
 	run(Production.ShipTime, function(alpha)
 		brainrot:PivotTo(root:Lerp(shipRoot, alpha))
 		local pass = passes[nextPass]
-		if pass and alpha >= pass.Alpha then
+		if pass and alpha >= pass.Alpha and line.Parent then
 			nextPass += 1
 			stationPass(build, pass, brainrot)
 		end
 	end)
+	if cancelled() then
+		brainrot:Destroy()
+		return
+	end
 
 	local top = ship.Position + Vector3.new(0, ship.Size.Y / 2 + 2, 0)
 	local text = `+{Format.Number(value)} 💰` .. (if fullMatch then " x2!" else "")

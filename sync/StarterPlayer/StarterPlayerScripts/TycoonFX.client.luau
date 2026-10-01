@@ -317,13 +317,17 @@ local function watchCashPad(plot: Instance, pad: BasePart)
 	end
 
 	local last = 0
+	local generation = pad:GetAttribute("Generation")
 	local function update()
 		local amount = pad:GetAttribute("Collected")
 		local value = if typeof(amount) == "number" then amount else 0
-		if value == 0 and last > 0 and Effects.near(pad.Position, 150) then
+		-- A plot reset (rebirth, owner leaving) wipes the pad too: no burst for that.
+		local reset = pad:GetAttribute("Generation") ~= generation
+		if value == 0 and last > 0 and not reset and Effects.near(pad.Position, 150) then
 			collected(last)
 		end
 		last = value
+		generation = pad:GetAttribute("Generation")
 		setPile(if value <= 0 then 0 else math.clamp(math.floor(math.log10(value + 1) * 2.5), 1, PILE_MAX))
 	end
 	pad:GetAttributeChangedSignal("Collected"):Connect(update)
