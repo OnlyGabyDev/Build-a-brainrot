@@ -13,7 +13,7 @@ local Production = {
 	AssemblyShare = 0.9,
 
 	-- Client animation timings, in seconds.
-	DropTime = 0.5, -- dropper to belt
+	DropTime = 0.8, -- dropper to belt: the Toy Workshop's parts slide down a ceiling chute first
 	SlideTime = 1.2, -- belt ride from the farthest dropper to the Assembler
 	ShipTime = 1.0, -- Assembler to shipping chute
 }

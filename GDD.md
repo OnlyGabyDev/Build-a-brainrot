@@ -163,7 +163,7 @@ Each **zone** has several assembly lines (**3 in the Toy Workshop**). Players bu
 - Line configurations are **remembered across rebirths**.
 - **Finishing stage** 🟡 (requested 2026-09-30): every zone ends its line with its own themed, cute last step. Toy Workshop: the brainrot hops down to the floor, a toy box pops up and opens, the toy jumps in and the box closes. Plushie room: it gets filled with foam. Robot Plant: a wind-up key turns and the brainrot starts moving. Each new zone gets one.
 - **Finishing upgrader** 🟡: after the finishing stage, one more upgrade station with the zone's own theme.
-- **Themed droppers** 🟡 (requested 2026-09-30): every zone's droppers match its theme, like its other machines. Toy Workshop: chutes in the **ceiling** drop the parts onto the belt (§16.15; the user picked the ceiling). The other zones' droppers are still to be decided.
+- **Themed droppers** (requested 2026-09-30): every zone's droppers match its theme, like its other machines. ✅ Toy Workshop (v1.1): glass chutes from the **ceiling** (§16.15): each part pops out of a collar in the ceiling, slides down the tube in plain sight and the chunky nozzle spits it onto the belt. 🟡 The other zones' droppers are still to be decided (ideas in §16.18).
 - **Paint Booth options** 🟡: the player picks the paint color, or turns the booth off. A gamepass (§12) paints each limb a different color.
 - **Photobooth** 🟡 (on every floor): saves a brainrot exactly as the player painted it, to use as a colorful statue, a photo in the factory, an in-game icon, or all of them. The photo's background matches the floor it was taken on.
 
@@ -454,6 +454,7 @@ StarterPlayer/StarterPlayerScripts/
 15. ✅ **Toy Workshop chutes:** parts slide out of chutes onto the belt instead of dropping from boxes. Decided: part of the themed droppers (§6).
 16. **Per-rarity box effects:** unique looks, particles, spawn and open animations per rarity. Godly boxes arrive through a black hole (§5).
 17. **Signature idle touches:** finished brainrots get a small idle animation or prop from their meme, like *Steal a Brainrot* does: Lirilì's floating clock, Tung tapping his bat, Tralalero's tail wag, Trippi's antennae wobble.
+18. **Themed droppers for the next zones** (§6), to pick from: *Plushie room:* a big sewing basket on a shelf that tosses each part in an arc, or a fluffy pillow that squishes and poofs the part out in a burst of feathers. *Clay Studio:* a play-dough press that squeezes a blob out, which pops into the part. *Vinyl Collectibles:* gacha capsules rolling out of a vending machine and popping open. *Candy Factory:* a gumball machine that drops each part as a gumball that cracks open.
 
 ---
 
@@ -467,6 +468,7 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v1.1 (2026-10-01):** The Toy Workshop's droppers are ceiling chutes (§6): parts slide down glass tubes from the ceiling and bounce out of a chunky nozzle. A part's drop now takes 0.8 s (was 0.5), so payouts land 0.3 s later.
 - **v1.0 (2026-10-01):** The factory grows a 3rd floor (the Candy Factory) and a terrace, and gets its life back (§10): each building in its plot's own hue at a different strength per storey, white candy stripes, frosting with sprinkles, a spinning donut with chasing marquee bulbs, a pinwheel, bobbing balloons; themed floors, wallpaper and props in the upstairs rooms.
 - **v0.9 (2026-09-30):** The factory redesign (§10): every plot is a 2-storey toy house in its own colors (brick ground floor, siding 2nd floor, crossed gabled roofs with a clock, a turret, a crooked chimney, pipes, outside stairs). The 2nd floor holds the Clay Studio and Vinyl Collectibles rooms, locked until those zones are built. The dollhouse cutaway now works per storey.
 - **v0.8 (2026-09-30):**

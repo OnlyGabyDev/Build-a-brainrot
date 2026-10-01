@@ -6,7 +6,8 @@
 
 	All geometry is generated in code: FactoryBuilder builds each plot's building (a
 	room per zone, two per storey), and this module the lines inside. ProductionVisuals finds line parts by name (Belt, Assembler,
-	Ship, HeadDropper, BodyDropper, ArmsDropper, LegsDropper, Beacon, Station1/2 and
+	Ship, HeadDropper, BodyDropper, ArmsDropper, LegsDropper (with the Toy Workshop's
+	ceiling chutes, HeadChuteTop etc.), Beacon, Station1/2 and
 	their Glow) and animates the Assembler's machines (Claw: Hand, Rod, FingerLeft,
 	FingerRight; PusherLeft and PusherRight: Fist, Rod): keep those names when swapping
 	in real art. TycoonFX finds Belt and CashPad (its Collected and Generation attributes).
@@ -279,6 +280,42 @@ local function makeDecor(parent: Instance, name: string, size: Vector3, cframe: 
 	return part
 end
 
+-- An upright cylinder from `bottom` to `top` over `base` (on the floor).
+local function makeColumn(parent: Instance, name: string, diameter: number, bottom: number, top: number, base: CFrame, color: Color3, material: Enum.Material?): Part
+	local part = makeDecor(parent, name, Vector3.new(top - bottom, diameter, diameter), base * CFrame.new(0, (bottom + top) / 2, 0) * CFrame.Angles(0, 0, math.pi / 2), color, material)
+	part.Shape = Enum.PartType.Cylinder
+	return part
+end
+
+-- The Toy Workshop's droppers are chutes from the ceiling (GDD §6): each part pops out
+-- of a collar in the ceiling (the ChuteTop), slides down a glass tube ringed with
+-- colored bands, and the chunky nozzle (the Dropper) spits it onto the belt. `base` is
+-- on the floor under it. ProductionVisuals plays the slide.
+local CHUTE_TUBE = 5.6 -- across
+local CHUTE_COLLAR = 4 -- tall: it hides a part waiting to slide
+local function buildChute(model: Model, base: CFrame, partType: string, color: Color3)
+	local ceiling = FactoryBuilder.CeilingHeight
+	local light = color:Lerp(Color3.new(1, 1, 1), 0.35)
+	local nozzle = makePart(model, partType .. "Dropper", Vector3.new(6, 3, 6), base * CFrame.new(0, 9.5, 0), color)
+	makeDecor(model, partType .. "DropperRim", Vector3.new(6.3, 0.35, 6.3), base * CFrame.new(0, 8.1, 0), light, Enum.Material.Neon)
+	makeDecor(model, partType .. "DropperMouth", Vector3.new(4.2, 0.1, 4.2), base * CFrame.new(0, 7.9, 0), Color3.fromRGB(35, 25, 45))
+	local label = makeBillboard(nozzle, string.upper(partType), Vector2.new(5, 1.5), 0, 80)
+	local gui = label.Parent :: BillboardGui
+	gui.StudsOffsetWorldSpace = base.XVector * -5.6 + Vector3.new(0, 0.6, 0) -- beside the nozzle, clear of the tube
+
+	local tubeBottom, tubeTop = 11, ceiling - CHUTE_COLLAR
+	makeColumn(model, partType .. "ChuteNeck", CHUTE_TUBE + 1.4, tubeBottom, tubeBottom + 1.2, base, light)
+	local glass = makeColumn(model, partType .. "ChuteTube", CHUTE_TUBE, tubeBottom + 1.2, tubeTop, base, light, Enum.Material.Glass)
+	glass.Transparency = 0.55
+	for _, share in { 0.25, 0.55, 0.85 } do
+		local y = tubeBottom + 1.2 + (tubeTop - tubeBottom - 1.2) * share
+		makeColumn(model, partType .. "ChuteBand", CHUTE_TUBE + 0.6, y - 0.4, y + 0.4, base, color)
+	end
+	makeColumn(model, partType .. "ChuteTop", CHUTE_TUBE + 1.8, tubeTop, ceiling, base, GANTRY_COLOR)
+	makeColumn(model, partType .. "ChuteRing", CHUTE_TUBE + 2.4, tubeTop - 0.3, tubeTop + 0.9, base, color)
+	makeColumn(model, partType .. "ChuteFlange", CHUTE_TUBE + 4, ceiling - 0.6, ceiling, base, light)
+end
+
 local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Item) -> () } = {
 	Line = function(model, origin, item)
 		local colors = GANTRY_COLORS[item.Zone] or GANTRY_COLORS.ToyWorkshop
@@ -329,6 +366,10 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 	Dropper = function(model, origin, item)
 		local partType = item.PartType :: string
 		local z = DROPPER_Z[partType]
+		if item.Zone == "ToyWorkshop" then
+			buildChute(model, origin * CFrame.new(0, 0, z), partType, PART_COLORS[partType])
+			return
+		end
 		local dropper = makePart(model, partType .. "Dropper", Vector3.new(6, 4, 6), origin * CFrame.new(0, 10, z), PART_COLORS[partType])
 		makePart(model, partType .. "DropperPillar", Vector3.new(1.2, 12.8, 1.2), origin * CFrame.new(-6, 6.4, z), METAL_COLOR)
 		makePart(model, partType .. "DropperArm", Vector3.new(6, 0.8, 0.8), origin * CFrame.new(-3, 12.4, z), METAL_COLOR)

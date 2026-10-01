@@ -61,12 +61,14 @@ local STITCHES = 6 -- needle stitches while sewing the body on
 local STITCH_HOVER = 1.5 -- studs the body starts above its place
 local DEFLATED = 0.35 -- the plushie head's starting scale, before it's stuffed
 local CHUTE_DROP = 3 -- studs the brainrot sinks into the chute as it ships
+local FALL_TIME = 0.5 -- a part's bounce from its dropper's mouth onto the belt
 
 type Piece = {
 	Model: Model,
 	Center: Vector3, -- the part's center relative to its pivot
 	Size: Vector3,
 	Dropper: BasePart,
+	ChuteTop: BasePart?, -- a ceiling chute's collar, where the part starts its slide
 	Waiting: CFrame, -- pivot while it waits at the intake
 	Home: CFrame, -- pivot in the assembled brainrot
 	Travel: number, -- belt distance, dropper to intake
@@ -840,6 +842,7 @@ local function animateCycle(
 			Center = center,
 			Size = size,
 			Dropper = dropper,
+			ChuteTop = findPart(line, partType .. "ChuteTop"),
 			Waiting = centeredAt(center, intake),
 			Home = root * CFrame.new(layout[partType]),
 			Travel = math.max(flat.Magnitude - INTAKE_GAP, 0),
@@ -865,8 +868,9 @@ local function animateCycle(
 		return true
 	end
 
-	-- 1-2) Each part drops onto the belt and rides it at one constant speed, timed to
-	-- reach the intake just as its assembly step starts.
+	-- 1-2) Each part drops onto the belt (a ceiling chute's slides down its glass tube
+	-- into the nozzle first) and rides it at one constant speed, timed to reach the
+	-- intake just as its assembly step starts.
 	local speed = math.max(maxTravel, 1) / Production.SlideTime
 	for _, step in steps do
 		local piece = pieces[step.PartType]
@@ -879,10 +883,22 @@ local function animateCycle(
 			if cancelled() then
 				return
 			end
+			local chute = piece.ChuteTop
+			if chute then
+				piece.Model:PivotTo(centeredAt(piece.Center, chute.Position))
+				Effects.sound(chute.Position, Sounds.Whoosh, 0.18, vary(1.5))
+				local nozzle = centeredAt(piece.Center, piece.Dropper.Position)
+				glide(piece.Model, nozzle, Production.DropTime - FALL_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			else
+				waitUntil(step.Start - ride - FALL_TIME)
+			end
+			if cancelled() then
+				return
+			end
 			spit(line, piece.Dropper, build.Near)
 			local below = piece.Dropper.Position
 			local landing = centeredAt(piece.Center, Vector3.new(below.X, beltTop + piece.Size.Y / 2, below.Z))
-			glide(piece.Model, landing, Production.DropTime, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+			glide(piece.Model, landing, FALL_TIME, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
 			waitUntil(step.Start - ride)
 			if cancelled() then
 				return
