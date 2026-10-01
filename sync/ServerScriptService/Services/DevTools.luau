@@ -9,6 +9,8 @@
 	  dev:Invoke("Snapshot", player)   -- before a destructive test (e.g. rebirthing)
 	  dev:Invoke("Restore", player)    -- puts the data back and rebuilds the tycoon
 	  dev:Invoke("ShowOnLine", player, "TrippiTroppi", lineId) -- to see its art on a line
+	  dev:Invoke("BuildUpgrade", player, "ToyWorkshop_Decor_ToyTrain_2") -- a room upgrade level drops in
+	  dev:Invoke("ResetPlot", player)  -- rebuilds the tycoon from the data
 
 	Never created in live servers.
 ]]
@@ -43,6 +45,15 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 		if not (snapshot and DataManager.DevRestore(player, snapshot)) then
 			return false
 		end
+		TycoonManager.ResetPlot(player)
+		return true
+	end,
+	-- Builds a room upgrade's level as if just bought (it drops in), without touching
+	-- the data; ResetPlot puts the real one back.
+	BuildUpgrade = function(player, itemId)
+		return TycoonManager.DevBuildUpgrade(player, itemId)
+	end,
+	ResetPlot = function(player)
 		TycoonManager.ResetPlot(player)
 		return true
 	end,

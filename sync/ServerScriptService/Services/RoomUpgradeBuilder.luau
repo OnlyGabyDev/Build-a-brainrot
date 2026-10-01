@@ -22,6 +22,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BrainrotModels = require(ReplicatedStorage.Shared.BrainrotModels)
 local Brainrots = require(ReplicatedStorage.Shared.Config.Brainrots)
 local ConveyorPath = require(ReplicatedStorage.Shared.ConveyorPath)
+local LoopPath = require(ReplicatedStorage.Shared.LoopPath)
 
 local RoomUpgradeBuilder = {}
 
@@ -374,93 +375,237 @@ local function buildJackBox(model: Model, floor: CFrame, level: number)
 	tagged(model, "JackInTheBox", model.Parent :: Instance)
 end
 
--- Toy Train (Toy Workshop, the back-left corner) --------------------------------------
--- A round table with a track and a little train pulling wagons of presents round and
--- round (RoomFX: TrainCar models, each with its Offset in radians behind the engine).
--- Level 2: a golden engine, more wagons and a tunnel mountain in the middle.
+-- Toy Train (Toy Workshop, along the left wall at the back) ----------------------------
+-- A table with a toy train running round an oval track (RoomFX moves its TrainCar
+-- models along the LoopPath in its attributes; each car's Offset is how many studs it
+-- runs behind the engine). Every level the table, the train and the track grow and
+-- more wagons join; one wagon carries the loot: a heap of gold coins (level 2), then
+-- diamonds (3), then both (4). Pine trees on the table, then a snowy mountain and a
+-- neon station sign (3), then a golden engine, a glowing track and chasing lights (4).
 
-local TRAIN_RADIUS = 5.2
+type TrainLevel = {
+	Scale: number, -- the train and the track
+	Width: number, -- the table's half width (its round ends' radius)
+	Straight: number, -- half the length of the table's straight sides
+	Speed: number, -- studs per second
+	Wagons: { string }, -- behind the engine: Gift, Coins, Diamonds, Both
+}
+local TRAIN_LEVELS: { TrainLevel } = {
+	{ Scale = 1, Width = 7, Straight = 0, Speed = 3, Wagons = { "Gift", "Gift" } },
+	{ Scale = 1.15, Width = 7.6, Straight = 5, Speed = 3.6, Wagons = { "Coins", "Gift", "Gift" } },
+	{ Scale = 1.3, Width = 8.3, Straight = 9, Speed = 4.2, Wagons = { "Diamonds", "Gift", "Coins", "Gift" } },
+	{ Scale = 1.45, Width = 9, Straight = 11, Speed = 5, Wagons = { "Both", "Gift", "Diamonds", "Coins", "Gift" } },
+}
+local TRAIN_TABLE_TOP = 3.7
+local GEM_COLORS = { Color3.fromRGB(90, 230, 255), Color3.fromRGB(255, 110, 220), Color3.fromRGB(170, 120, 255) }
 
-local function buildEngine(car: Model, at: CFrame, golden: boolean)
+-- An oval slab (`at`: its bottom middle): a box between two round ends, its long way
+-- along Z.
+local function stadium(parent: Instance, name: string, halfWidth: number, straight: number, height: number, at: CFrame, color: Color3, material: Enum.Material?)
+	if straight > 0 then
+		makeDecor(parent, name, Vector3.new(halfWidth * 2, height, straight * 2), at * CFrame.new(0, height / 2, 0), color, material)
+	end
+	local ends = if straight > 0 then { -straight, straight } else { 0 }
+	for _, z in ends do
+		cylinder(parent, name, halfWidth * 2, height, at * CFrame.new(0, 0, z), color, material)
+	end
+end
+
+local function pineTree(parent: Instance, at: CFrame, height: number)
+	cylinder(parent, "PineTrunk", height * 0.16, height * 0.3, at, Color3.fromRGB(140, 90, 60), Enum.Material.Wood)
+	for tier = 0, 2 do
+		local width = height * (0.62 - tier * 0.17)
+		cylinder(parent, "PineTier", width, height * 0.26, at * CFrame.new(0, height * (0.24 + tier * 0.22), 0), Color3.fromRGB(40, 150, 80):Lerp(Color3.fromRGB(90, 200, 110), tier * 0.3))
+	end
+	ball(parent, "PineSnow", height * 0.16, at * CFrame.new(0, height * 0.95, 0), WHITE)
+end
+
+-- `at`: the car's base on the rails, -Z the way it goes; `s`: its scale.
+local function buildEngine(car: Model, at: CFrame, golden: boolean, s: number)
+	local function p(x: number, y: number, z: number): CFrame
+		return at * CFrame.new(x * s, y * s, z * s)
+	end
 	local dark = Color3.fromRGB(60, 50, 70)
 	local boiler = if golden then GOLD else TOY_COLORS[1]
-	makeDecor(car, "Chassis", Vector3.new(1.4, 0.5, 2.8), at * CFrame.new(0, 0.6, 0), dark)
-	local tube = roller(car, "Boiler", 1.3, 1.7, at * CFrame.new(0, 1.45, -0.45) * CFrame.Angles(0, math.pi / 2, 0), boiler)
-	if golden then
-		tube.Material = Enum.Material.Metal
-	end
-	roller(car, "Smokebox", 1.35, 0.3, at * CFrame.new(0, 1.45, -1.35) * CFrame.Angles(0, math.pi / 2, 0), dark)
-	cylinder(car, "Chimney", 0.55, 0.9, at * CFrame.new(0, 2.05, -0.9), dark)
-	makeDecor(car, "Cab", Vector3.new(1.4, 1.5, 1.1), at * CFrame.new(0, 1.6, 0.8), TOY_COLORS[3])
-	makeDecor(car, "CabRoof", Vector3.new(1.7, 0.25, 1.4), at * CFrame.new(0, 2.45, 0.8), boiler)
-	ball(car, "Lamp", 0.4, at * CFrame.new(0, 1.5, -1.55), Color3.fromRGB(255, 240, 160), Enum.Material.Neon)
+	local shiny = if golden then Enum.Material.Metal else nil
+	makeDecor(car, "Chassis", Vector3.new(1.4, 0.5, 2.8) * s, p(0, 0.6, 0), dark)
+	roller(car, "Boiler", 1.3 * s, 1.7 * s, p(0, 1.45, -0.45) * CFrame.Angles(0, math.pi / 2, 0), boiler, shiny)
+	roller(car, "BoilerBand", 1.38 * s, 0.18 * s, p(0, 1.45, -0.2) * CFrame.Angles(0, math.pi / 2, 0), if golden then WHITE else GOLD, Enum.Material.Metal)
+	roller(car, "Smokebox", 1.35 * s, 0.3 * s, p(0, 1.45, -1.35) * CFrame.Angles(0, math.pi / 2, 0), dark)
+	cylinder(car, "Chimney", 0.55 * s, 0.9 * s, p(0, 2.05, -0.9), dark)
+	makeDecor(car, "Cab", Vector3.new(1.4, 1.5, 1.1) * s, p(0, 1.6, 0.8), if golden then TOY_COLORS[5] else TOY_COLORS[3])
+	makeDecor(car, "CabRoof", Vector3.new(1.7, 0.25, 1.4) * s, p(0, 2.45, 0.8), boiler, shiny)
+	ball(car, "Lamp", 0.4 * s, p(0, 1.5, -1.55), Color3.fromRGB(255, 240, 160), Enum.Material.Neon)
+	makeDecor(car, "Cowcatcher", Vector3.new(1.3, 0.4, 0.35) * s, p(0, 0.45, -1.5), TOY_COLORS[2])
 	for _, x in { -0.75, 0.75 } do
 		for _, z in { -0.9, 0.9 } do
-			roller(car, "Wheel", 0.8, 0.25, at * CFrame.new(x, 0.4, z), TOY_COLORS[2])
+			roller(car, "Wheel", 0.8 * s, 0.25 * s, p(x, 0.4, z), TOY_COLORS[2])
 		end
 	end
 end
 
-local function buildWagon(car: Model, at: CFrame, index: number)
-	makeDecor(car, "Chassis", Vector3.new(1.3, 0.45, 2.2), at * CFrame.new(0, 0.6, 0), TOY_COLORS[(index + 3) % #TOY_COLORS + 1])
-	present(car, at * CFrame.new(0, 0.82, 0) * CFrame.Angles(0, index, 0), Vector3.new(1.1, 1, 1.1), TOY_COLORS[(index + 1) % #TOY_COLORS + 1], WHITE)
+-- A wagon: a present, or an open hopper heaped with loot (Coins, Diamonds or Both).
+local function buildWagon(car: Model, at: CFrame, index: number, cargo: string, s: number)
+	local function p(x: number, y: number, z: number): CFrame
+		return at * CFrame.new(x * s, y * s, z * s)
+	end
+	local color = TOY_COLORS[(index + 3) % #TOY_COLORS + 1]
+	makeDecor(car, "Chassis", Vector3.new(1.3, 0.45, 2.2) * s, p(0, 0.6, 0), color)
 	for _, x in { -0.7, 0.7 } do
 		for _, z in { -0.7, 0.7 } do
-			roller(car, "Wheel", 0.7, 0.25, at * CFrame.new(x, 0.35, z), Color3.fromRGB(60, 50, 70))
+			roller(car, "Wheel", 0.7 * s, 0.25 * s, p(x, 0.35, z), Color3.fromRGB(60, 50, 70))
 		end
+	end
+	if cargo == "Gift" then
+		present(car, p(0, 0.82, 0) * CFrame.Angles(0, index, 0), Vector3.new(1.1, 1, 1.1) * s, TOY_COLORS[(index + 1) % #TOY_COLORS + 1], WHITE)
+		return
+	end
+	-- the hopper: an open tub with a gold rim
+	makeDecor(car, "HopperFloor", Vector3.new(1.3, 0.15, 2) * s, p(0, 0.9, 0), color)
+	for _, side in { -1, 1 } do
+		makeDecor(car, "HopperSide", Vector3.new(0.15, 0.8, 2) * s, p(side * 0.6, 1.3, 0), color)
+		makeDecor(car, "HopperEnd", Vector3.new(1.3, 0.8, 0.15) * s, p(0, 1.3, side * 0.95), color)
+		makeDecor(car, "HopperRim", Vector3.new(0.22, 0.15, 2.1) * s, p(side * 0.6, 1.75, 0), GOLD, Enum.Material.Metal)
+	end
+	local random = Random.new(index * 7 + #cargo)
+	if cargo == "Coins" or cargo == "Both" then
+		local count = if cargo == "Both" then 8 else 11
+		for k = 1, count do
+			local spot = p(random:NextNumber(-0.4, 0.4), 1.25 + (k / count) * 0.75, random:NextNumber(-0.7, 0.7))
+			roller(car, "CargoCoin", 0.62 * s, 0.14 * s, spot * CFrame.Angles(random:NextNumber(-0.5, 0.5), random:NextNumber(0, 6), math.pi / 2 + random:NextNumber(-0.5, 0.5)), GOLD, Enum.Material.Metal)
+		end
+	end
+	if cargo == "Diamonds" or cargo == "Both" then
+		local count = if cargo == "Both" then 4 else 6
+		for k = 1, count do
+			local spot = p(random:NextNumber(-0.35, 0.35), 1.45 + (k / count) * 0.7, random:NextNumber(-0.6, 0.6))
+			local gem = makeDecor(car, "CargoGem", Vector3.one * 0.5 * s, spot * CFrame.Angles(math.rad(45), random:NextNumber(0, 6), math.rad(35)), GEM_COLORS[k % #GEM_COLORS + 1], Enum.Material.Neon)
+			gem.CastShadow = false
+		end
+	end
+	if cargo == "Both" then
+		local sparkler = makeDecor(car, "CargoSparkle", Vector3.one * 0.2, p(0, 2, 0), WHITE)
+		sparkler.Transparency = 1
+		sparkles(sparkler, GOLD, 6, 0.6)
 	end
 end
 
 local function buildToyTrain(model: Model, floor: CFrame, level: number)
-	local center = floor * CFrame.new(-60, 0, 36)
-	local tableTop = 3.7
-	-- the table: a round top with a green felt, a colored skirt, four legs
-	cylinder(model, "TrainTableSkirt", 14.4, 0.7, center * CFrame.new(0, tableTop - 1.2, 0), TOY_COLORS[5])
-	cylinder(model, "TrainTable", 14, 0.6, center * CFrame.new(0, tableTop - 0.6, 0), WOOD, Enum.Material.Wood)
-	cylinder(model, "TrainFelt", 13.2, 0.08, center * CFrame.new(0, tableTop, 0), Color3.fromRGB(90, 190, 90), Enum.Material.Fabric)
-	for index = 0, 3 do
-		local angle = index * math.pi / 2 + math.pi / 4
-		makeDecor(model, "TrainTableLeg", Vector3.new(0.9, tableTop - 1.2, 0.9), center * CFrame.new(math.cos(angle) * 5, (tableTop - 1.2) / 2, math.sin(angle) * 5), TOY_COLORS[5]:Lerp(Color3.new(0, 0, 0), 0.25))
+	local spec = TRAIN_LEVELS[level]
+	local s, width, straight = spec.Scale, spec.Width, spec.Straight
+	local center = floor * CFrame.new(-58, 0, 34)
+	local top = TRAIN_TABLE_TOP
+	-- the table: legs, a colored skirt, the wooden top, green felt (level 4: a gold rim)
+	local legs = if straight > 6 then { -straight, 0, straight } elseif straight > 0 then { -straight, straight } else { 0 }
+	for _, z in legs do
+		for _, x in { -1, 1 } do
+			local spot = center * CFrame.new(x * (width - 2.2), (top - 1.2) / 2, z + (if straight == 0 then x * 2.5 else 0))
+			makeDecor(model, "TrainTableLeg", Vector3.new(0.9, top - 1.2, 0.9), spot, TOY_COLORS[5]:Lerp(Color3.new(0, 0, 0), 0.25))
+		end
 	end
-	-- the track: two rails round a ring of sleepers
-	local track = center * CFrame.new(0, tableTop + 0.08, 0)
-	local segments = 16
+	stadium(model, "TrainTableSkirt", width + 0.2, straight, 0.7, center * CFrame.new(0, top - 1.2, 0), TOY_COLORS[5])
+	stadium(model, "TrainTable", width, straight, 0.6, center * CFrame.new(0, top - 0.6, 0), WOOD, Enum.Material.Wood)
+	stadium(model, "TrainFelt", width - 0.4, straight, 0.08, center * CFrame.new(0, top, 0), Color3.fromRGB(90, 190, 90), Enum.Material.Fabric)
+	if level >= 4 then
+		stadium(model, "TrainTableRim", width + 0.35, straight, 0.3, center * CFrame.new(0, top - 0.85, 0), GOLD, Enum.Material.Metal)
+	end
+
+	-- the track: sleepers and two rails round the loop, laid segment by segment (so it
+	-- drops in that way)
+	local radius = width - 1.8 * s
+	local path = LoopPath.new(radius, radius + straight, radius)
+	local track = center * CFrame.new(0, top + 0.08, 0)
+	local gauge = 0.5 * s
+	local segments = math.max(16, math.floor(path.Perimeter / (1.5 * s)))
+	local step = path.Perimeter / segments
 	for index = 0, segments - 1 do
-		local angle = (index + 0.5) / segments * math.pi * 2
-		local spoke = track * CFrame.Angles(0, -angle, 0)
-		makeDecor(model, "Sleeper", Vector3.new(1.8, 0.15, 0.45), spoke * CFrame.new(TRAIN_RADIUS, 0.075, 0), Color3.fromRGB(150, 100, 70))
-		local length = 2 * math.pi * TRAIN_RADIUS / segments
-		for _, offset in { -0.5, 0.5 } do
-			local radius = TRAIN_RADIUS + offset
-			makeDecor(model, "Rail", Vector3.new(0.22, 0.22, length * radius / TRAIN_RADIUS + 0.1), spoke * CFrame.new(radius, 0.26, 0), Color3.fromRGB(200, 205, 220), Enum.Material.Metal)
+		local a, headingA = path:Point(index * step)
+		local b, headingB = path:Point((index + 1) * step)
+		local middle, heading = path:Point((index + 0.5) * step)
+		makeDecor(model, "Sleeper", Vector3.new(1.8, 0.15, 0.45) * s, track * CFrame.lookAt(middle, middle + heading) * CFrame.new(0, 0.075 * s, 0), Color3.fromRGB(150, 100, 70))
+		for _, side in { -1, 1 } do
+			local outA = Vector3.new(-headingA.Z, 0, headingA.X) * side * gauge
+			local outB = Vector3.new(-headingB.Z, 0, headingB.X) * side * gauge
+			local from = (track * CFrame.new(a + outA + Vector3.new(0, 0.26 * s, 0))).Position
+			local to = (track * CFrame.new(b + outB + Vector3.new(0, 0.26 * s, 0))).Position
+			rod(model, "Rail", 0.22 * s, from, to + (to - from).Unit * 0.05, if level >= 4 then GOLD else Color3.fromRGB(200, 205, 220), Enum.Material.Metal)
+		end
+		if level >= 4 then
+			local from = (track * CFrame.new(a + Vector3.new(0, 0.17 * s, 0))).Position
+			local to = (track * CFrame.new(b + Vector3.new(0, 0.17 * s, 0))).Position
+			rod(model, "TrackGlow", 0.2 * s, from, to, TOY_COLORS[2], Enum.Material.Neon).CastShadow = false
 		end
 	end
-	if level >= 2 then
-		-- a mountain with a snowy top in the middle
+
+	-- inside the loop: pine trees (a hill at level 2), then a snowy mountain
+	local inner = radius - gauge - 1
+	if level >= 3 then
+		for _, z in { -1, 1 } do
+			pineTree(model, center * CFrame.new(0, top, z * (straight + inner * 0.45)), 2.4 * s)
+		end
 		for index, tier in { { 5, 1.6 }, { 3.8, 1.5 }, { 2.6, 1.3 } } do
-			cylinder(model, "Mountain", tier[1], tier[2], track * CFrame.new(0, (index - 1) * 1.4, 0), Color3.fromRGB(70, 170, 90):Lerp(WHITE, (index - 1) * 0.05))
+			cylinder(model, "Mountain", tier[1] * s, tier[2] * s, center * CFrame.new(0, top + (index - 1) * 1.4 * s, 0), Color3.fromRGB(70, 170, 90):Lerp(WHITE, (index - 1) * 0.05))
 		end
-		ball(model, "MountainSnow", 2.2, track * CFrame.new(0, 4.4, 0), WHITE)
+		ball(model, "MountainSnow", 2.2 * s, center * CFrame.new(0, top + 4.4 * s, 0), WHITE)
+	else
+		for k, x in { -0.45, 0.45 } do
+			pineTree(model, center * CFrame.new(x * inner, top, (k * 2 - 3) * straight * 0.5), 2.4 * s)
+		end
+		if level >= 2 then
+			cylinder(model, "Hill", inner * 1.1, 0.9, center * CFrame.new(0, top, 0), Color3.fromRGB(110, 200, 110))
+			ball(model, "HillTop", inner * 0.8, center * CFrame.new(0, top + 0.6, 0), Color3.fromRGB(110, 200, 110))
+		end
 	end
-	-- the train, each car standing on the track facing the way it goes
-	local wagons = if level >= 2 then 4 else 2
-	for index = 0, wagons do
-		local offset = index * 0.5
+	if level >= 3 then
+		-- the station sign on the table's room side (+X), facing into the room
+		local sign = center * CFrame.new(width - 0.9, top, 0) * CFrame.Angles(0, -math.pi / 2, 0)
+		for _, x in { -2.6, 2.6 } do
+			makeDecor(model, "SignPost", Vector3.new(0.3, 3.4, 0.3), sign * CFrame.new(x, 1.7, 0), Color3.fromRGB(70, 60, 90))
+		end
+		local panel = makeDecor(model, "StationSign", Vector3.new(6, 1.4, 0.3), sign * CFrame.new(0, 3.4, 0), Color3.fromRGB(40, 28, 60))
+		printOn(panel, Enum.NormalId.Front, "🚂 BRAINROT EXPRESS", Color3.fromRGB(255, 240, 180), TOY_COLORS[6], true)
+		printOn(panel, Enum.NormalId.Back, "🚂 BRAINROT EXPRESS", Color3.fromRGB(255, 240, 180), TOY_COLORS[6], true)
+		for _, y in { -0.82, 0.82 } do
+			makeDecor(model, "SignTube", Vector3.new(6.3, 0.18, 0.4), sign * CFrame.new(0, 3.4 + y, 0), TOY_COLORS[6]:Lerp(WHITE, 0.3), Enum.Material.Neon).CastShadow = false
+		end
+	end
+	if level >= 4 then
+		-- chasing lights round the rim
+		local rim = LoopPath.new(width + 0.3, width + 0.3 + straight, width + 0.3)
+		local count = math.floor(rim.Perimeter / 2.2)
+		for index = 1, count do
+			local at = rim:Point(index / count * rim.Perimeter)
+			bulb(model, center * CFrame.new(at + Vector3.new(0, top - 0.55, 0)), index)
+		end
+	end
+
+	-- the train, engine first, each car standing on the track facing the way it goes
+	local spacing = 3.1 * s
+	local cars = { "Engine" }
+	for _, cargo in spec.Wagons do
+		table.insert(cars, cargo)
+	end
+	local lift = 0.4 * s
+	for index, kind in cars do
+		local offset = (index - 1) * spacing
+		local point, heading = path:Point(-offset)
+		local at = track * CFrame.lookAt(point, point + heading) * CFrame.new(0, lift, 0)
 		local car = Instance.new("Model")
 		car.Name = "TrainCar"
-		local at = track * CFrame.Angles(0, -offset, 0) * CFrame.new(TRAIN_RADIUS, 0.4, 0) -- -Z: the way round
-		if index == 0 then
-			buildEngine(car, at, level >= 2)
+		if kind == "Engine" then
+			buildEngine(car, at, level >= 4, s)
 		else
-			buildWagon(car, at, index)
+			buildWagon(car, at, index, kind, s)
 		end
 		car:SetAttribute("Offset", offset)
 		car.WorldPivot = at
 		car.Parent = model
 	end
-	model:SetAttribute("Center", track * CFrame.new(0, 0.4, 0))
-	model:SetAttribute("Radius", TRAIN_RADIUS)
-	model:SetAttribute("Speed", if level >= 2 then 0.8 else 0.55)
+	model:SetAttribute("Center", track * CFrame.new(0, lift, 0))
+	model:SetAttribute("HalfX", radius)
+	model:SetAttribute("HalfZ", radius + straight)
+	model:SetAttribute("Corner", radius)
+	model:SetAttribute("Speed", spec.Speed)
 	tagged(model, "ToyTrain", model.Parent :: Instance)
 end
 
@@ -633,25 +778,37 @@ local function buildButtonJar(model: Model, floor: CFrame, level: number)
 end
 
 -- Giant Plushie (Plushie room, the front-right corner) ---------------------------------
--- A giant plush brainrot (Tung Tung Tung Sahur, in the room's fabric) sitting on a
--- big round cushion and looking into the room; level 2 is bigger, crowned in gold and
--- sparkling.
+-- A giant plush brainrot (Tung Tung Tung Sahur, in the room's fabric) on a big round
+-- cushion, looking into the room. Every level it grows and more little plushies (other
+-- brainrots) gather round its feet on the cushion; level 3 rings the cushion with
+-- chasing lights, level 4 crowns it in gold, sparkling, with golden piping.
 
+type PlushieLevel = { Scale: number, Cushion: number, Minis: number }
+local PLUSHIE_LEVELS: { PlushieLevel } = {
+	{ Scale = 2.4, Cushion = 11, Minis = 0 },
+	{ Scale = 3, Cushion = 13, Minis = 2 },
+	{ Scale = 3.5, Cushion = 15, Minis = 4 },
+	{ Scale = 4, Cushion = 16.4, Minis = 6 },
+}
 local PLUSHIE_ID = "TungTungTungSahur"
+local MINI_SCALE = 1.15
+-- the little ones in the order they join, and where round the big one's feet (degrees
+-- from the way it faces)
+local MINI_PLUSHIES = {
+	{ Id = "TralaleroTralala", Angle = -55 },
+	{ Id = "BallerinaCappuccina", Angle = 55 },
+	{ Id = "ChimpanziniBananini", Angle = -100 },
+	{ Id = "LiriliLarila", Angle = 100 },
+	{ Id = "BrrBrrPatapim", Angle = -18 },
+	{ Id = "TrippiTroppi", Angle = 18 },
+}
 
-local function buildGiantPlushie(model: Model, floor: CFrame, level: number)
-	local spot = floor * CFrame.new(58, 0, -50)
-	local cushion = if level >= 2 then 15 else 13
-	cylinder(model, "PlushieCushion", cushion, 1.8, spot, PLUSH_COLORS[1], Enum.Material.Fabric)
-	cylinder(model, "PlushieCushionPiping", cushion + 0.4, 0.4, spot * CFrame.new(0, 1.5, 0), WHITE, Enum.Material.Fabric)
-	-- facing into the room (toward its middle and the front)
-	local roomward = (floor * CFrame.new(20, 0, -20)).Position
-	local root = CFrame.lookAt((spot * CFrame.new(0, 1.8, 0)).Position, Vector3.new(roomward.X, spot.Y + 1.8, roomward.Z))
+-- A brainrot in the room's fabric, `scale` times its size, standing on `root`.
+local function plushie(id: string, scale: number, root: CFrame): Model
 	local brainrot = Instance.new("Model")
-	brainrot.Name = "Plushie"
-	if Brainrots.ById[PLUSHIE_ID] then
+	if Brainrots.ById[id] then
 		for _, partType in Brainrots.PartTypes do
-			local part = BrainrotModels.CreatePart(PLUSHIE_ID, partType, "PlushieRoom")
+			local part = BrainrotModels.CreatePart(id, partType, "PlushieRoom")
 			for _, child in part:GetChildren() do
 				child.Parent = brainrot
 			end
@@ -659,10 +816,41 @@ local function buildGiantPlushie(model: Model, floor: CFrame, level: number)
 		end
 	end
 	brainrot.WorldPivot = CFrame.identity
-	brainrot:ScaleTo(if level >= 2 then 4 else 3.3)
+	brainrot:ScaleTo(scale)
 	brainrot:PivotTo(root)
+	return brainrot
+end
+
+local function buildGiantPlushie(model: Model, floor: CFrame, level: number)
+	local spec = PLUSHIE_LEVELS[level]
+	local spot = floor * CFrame.new(58.5, 0, -49)
+	local cushion = spec.Cushion
+	cylinder(model, "PlushieCushion", cushion, 1.8, spot, PLUSH_COLORS[1], Enum.Material.Fabric)
+	cylinder(model, "PlushieCushionPiping", cushion + 0.4, 0.4, spot * CFrame.new(0, 1.5, 0), if level >= 4 then GOLD else WHITE, if level >= 4 then Enum.Material.Metal else Enum.Material.Fabric)
+	if level >= 3 then
+		-- chasing lights round the cushion's edge
+		local count = math.floor(cushion * math.pi / 2)
+		for index = 1, count do
+			local angle = index / count * math.pi * 2
+			bulb(model, spot * CFrame.new(math.cos(angle) * (cushion / 2 + 0.25), 0.9, math.sin(angle) * (cushion / 2 + 0.25)), index)
+		end
+	end
+	-- facing into the room (toward its middle and the front)
+	local roomward = (floor * CFrame.new(20, 0, -20)).Position
+	local top = spot * CFrame.new(0, 1.8, 0)
+	local root = CFrame.lookAt(top.Position, Vector3.new(roomward.X, top.Y, roomward.Z))
+	local brainrot = plushie(PLUSHIE_ID, spec.Scale, root)
+	brainrot.Name = "Plushie"
 	brainrot.Parent = model
-	if level >= 2 then
+	-- the little ones round its feet, each looking into the room too
+	for index = 1, spec.Minis do
+		local mini = MINI_PLUSHIES[index]
+		local at = root * CFrame.Angles(0, math.rad(mini.Angle), 0) * CFrame.new(0, 0, -(cushion / 2 - 1.9))
+		local little = plushie(mini.Id, MINI_SCALE, CFrame.new(at.Position) * root.Rotation)
+		little.Name = "MiniPlushie"
+		little.Parent = model
+	end
+	if level >= 4 then
 		-- a golden crown on its head, and sparkles all round
 		local box, size = brainrot:GetBoundingBox()
 		local crown = CFrame.new(box.X, box.Y + size.Y / 2 - 0.4, box.Z) * root.Rotation
@@ -693,11 +881,11 @@ local SPOTS: { [string]: Spot } = {
 	BubbleWrap = { Button = Vector3.new(-52.5, 0, -10), Tag = Vector3.new(-63, 14, -18), Build = buildBubbleWrap },
 	BoxConveyor = { Button = Vector3.new(30, 0, -52), Tag = Vector3.new(30, 19, -50), Build = buildBoxConveyor },
 	JackBox = { Button = Vector3.new(50, 0, -48), Tag = Vector3.new(59, 17, -50), Build = buildJackBox },
-	ToyTrain = { Button = Vector3.new(-60, 0, 48), Tag = Vector3.new(-60, 12, 36), Build = buildToyTrain },
+	ToyTrain = { Button = Vector3.new(-56, 0, 8), Tag = Vector3.new(-58, 15, 34), Build = buildToyTrain },
 	YarnSpinner = { Button = Vector3.new(-52.5, 0, -10), Tag = Vector3.new(-62, 20, -18), Build = buildYarnSpinner },
 	PillowPile = { Button = Vector3.new(-52, 0, -42), Tag = Vector3.new(-58, 14, -50), Build = buildPillowPile },
 	ButtonJar = { Button = Vector3.new(-61, 0, 41), Tag = Vector3.new(-61, 17, 50), Build = buildButtonJar },
-	GiantPlushie = { Button = Vector3.new(48, 0, -46), Tag = Vector3.new(45, 20, -46), Build = buildGiantPlushie },
+	GiantPlushie = { Button = Vector3.new(46.5, 0, -54), Tag = Vector3.new(45, 20, -46), Build = buildGiantPlushie },
 }
 
 -- Where a room upgrade's button goes, room space.

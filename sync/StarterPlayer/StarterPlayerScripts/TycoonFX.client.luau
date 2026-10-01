@@ -3,7 +3,10 @@
 	Makes the tycoons feel alive (GDD §13). Purely cosmetic, on this client only:
 	  * The belts roll: ribbed rubber and glowing arrows scroll toward the chute.
 	  * Freshly bought items pop into place piece by piece, bottom first, with a
-	    cha-ching and a puff (TycoonManager tags new parts with a Built time).
+	    cha-ching, a puff and a flash of golden light (TycoonManager tags new parts with
+	    a Built time). A room upgrade's new level drops in instead (Client/DropIn), and
+	    so does a whole factory when its plot is claimed (or rebuilt after a rebirth):
+	    each line and upgrade in turn, its Wave.
 	  * The Cash Pad piles up coins while money waits on it, glows, and bursts into a
 	    fountain of coins (flying into your Coins counter) when you collect.
 	  * Buttons you can afford get a bouncing arrow.
@@ -21,12 +24,15 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared:WaitForChild("Format"))
 local Sounds = require(Shared:WaitForChild("Config"):WaitForChild("Sounds"))
 local TycoonItems = require(Shared:WaitForChild("Config"):WaitForChild("TycoonItems"))
+local DropIn = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("DropIn"))
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
 
 local BELT_RIBS = "rbxassetid://17320090479"
 local BELT_ARROWS = "rbxassetid://7140341425"
 local BELT_SPEED = 6 -- studs per second
 local BUILD_WINDOW = 2 -- seconds: parts built longer ago than this just appear
+local ARRIVAL_WINDOW = 30 -- the same for a claimed plot's (it may still be loading)
+local WAVE_GAP = 0.9 -- seconds between a claimed plot's lines and upgrades dropping in
 local BUILD_STAGGER = 0.035 -- seconds between parts popping in
 local BUILD_POP_TIME = 0.35
 local COIN_COLOR = Color3.fromRGB(255, 215, 60)
@@ -138,6 +144,14 @@ local function playBuild(line: Model, parts: { BasePart })
 	Effects.puff(floor, Color3.fromRGB(255, 255, 255), 12, 1.2)
 	Effects.ring(floor, COIN_COLOR, math.max(high.X - low.X, high.Z - low.Z) * 0.6 + 3)
 	Effects.sparkle(center, COIN_COLOR, 20)
+	-- light: a golden flash, and the whole line shines for a moment once it's built
+	Effects.flash(center, COIN_COLOR, 5, math.max(high.X - low.X, high.Z - low.Z) + 14, 1)
+	task.delay(total, function()
+		if line.Parent then
+			Effects.tint(line, Color3.fromRGB(255, 235, 150), 0.7)
+			Effects.sparkle(center + Vector3.new(0, 2, 0), Color3.fromRGB(255, 255, 255), 16, 10)
+		end
+	end)
 	-- A little rising "pop pop pop" as it builds up.
 	local pops = math.min(#parts, 6)
 	for index = 1, pops do
@@ -153,27 +167,59 @@ local function playBuild(line: Model, parts: { BasePart })
 	end
 end
 
+-- A claimed plot's drop-in waits for your character (you may still be loading in).
+local function waitForCharacter()
+	local deadline = os.clock() + 10
+	while os.clock() < deadline do
+		local character = player.Character
+		if character and character:FindFirstChild("HumanoidRootPart") then
+			task.wait(0.3) -- for the camera to settle on it
+			return
+		end
+		task.wait(0.1)
+	end
+end
+
 local function queueBuild(part: BasePart)
 	local built = part:GetAttribute("Built")
-	if typeof(built) ~= "number" or workspace:GetServerTimeNow() - built > BUILD_WINDOW then
+	local wave = part:GetAttribute("Wave") -- set when a whole plot was furnished
+	local window = if typeof(wave) == "number" then ARRIVAL_WINDOW else BUILD_WINDOW
+	if typeof(built) ~= "number" or workspace:GetServerTimeNow() - built > window then
 		return
 	end
 	local line = lineOf(part)
 	if not line then
 		return
 	end
+	local itemId = part:GetAttribute("Item")
+	local item = if typeof(itemId) == "string" then TycoonItems.ById[itemId] else nil
+	local dropIn = typeof(wave) == "number" or (item ~= nil and item.Kind == "Decor")
 	local batch = pending[line]
 	if not batch then
 		batch = {}
 		pending[line] = batch
+		if dropIn then
+			line:SetAttribute("BuildingUntil", os.clock() + 15) -- until the drop-in sets its own
+		end
 		-- Everything an item builds arrives together; gather it for a moment.
 		task.delay(0.05, function()
 			pending[line] = nil
-			playBuild(line, batch :: { BasePart })
+			if typeof(wave) == "number" then
+				waitForCharacter()
+				DropIn.play(line, batch :: { BasePart }, { Delay = (wave - 1) * WAVE_GAP, Light = true })
+			elseif dropIn and item then
+				DropIn.play(line, batch :: { BasePart }, { Title = `{item.Name} Lv{item.Level}!` })
+			else
+				playBuild(line, batch :: { BasePart })
+			end
 		end)
 	end
-	fullSizes[part] = part.Size
-	part.Size = part.Size * 0.02 -- hidden until its turn
+	if dropIn then
+		DropIn.hide(part)
+	else
+		fullSizes[part] = part.Size
+		part.Size = part.Size * 0.02 -- hidden until its turn
+	end
 	table.insert(batch, part)
 end
 
@@ -181,10 +227,17 @@ local function watchLines(lines: Instance)
 	local function onDescendant(descendant: Instance)
 		if descendant:IsA("BasePart") then
 			if descendant.Name == "Belt" then
-				-- A belt that's popping in gets its skin once it's full size.
+				-- A belt that's popping (or dropping) in gets its skin once it's in place.
 				local built = descendant:GetAttribute("Built")
-				local fresh = typeof(built) == "number" and workspace:GetServerTimeNow() - built < BUILD_WINDOW
-				task.delay(if fresh then 1.5 else 0, function()
+				local fresh = typeof(built) == "number" and workspace:GetServerTimeNow() - built < ARRIVAL_WINDOW
+				task.spawn(function()
+					if fresh then
+						task.wait(1.5)
+						local line = lineOf(descendant)
+						while line and descendant.Parent and (tonumber(line:GetAttribute("BuildingUntil")) or 0) > os.clock() do
+							task.wait(0.2)
+						end
+					end
 					if descendant.Parent then
 						decorateBelt(descendant)
 					end

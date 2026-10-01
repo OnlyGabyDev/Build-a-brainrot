@@ -860,10 +860,16 @@ local function getDecorModel(plot: Plot, item: TycoonItems.Item): Model
 	return fresh
 end
 
+-- A whole plot being furnished at once (claimed, or rebuilt after a rebirth): clients
+-- drop it all in (TycoonFX, DropIn), each line and room upgrade in turn (its Wave),
+-- each piece in the order it was built (BuildIndex).
+type Arrival = { Waves: { [Model]: number }, Count: number, Order: number }
+
 -- Builds an item's parts onto its line (or a room upgrade's level into its room). Each
--- part is tagged with its item, and a freshly bought one also with the server time it
--- was built, so clients can play the build animation (TycoonFX) for new purchases only.
-local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?)
+-- part is tagged with its item, and a freshly bought one (or one in an `arrival`) also
+-- with the server time it was built, so clients can play the build animation
+-- (TycoonFX) for new things only.
+local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?, arrival: Arrival?)
 	local model = if item.Kind == "Decor" then getDecorModel(plot, item) else getLineModel(plot, item.LineId :: string)
 	local existing = {}
 	for _, descendant in model:GetDescendants() do
@@ -889,11 +895,31 @@ local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?)
 		BUILDERS[item.Kind](model, lineOrigin(plot, item.LineId :: string), item)
 	end
 	local now = workspace:GetServerTimeNow()
+	local wave: number? = nil
+	if arrival then
+		wave = arrival.Waves[model]
+		if not wave then
+			arrival.Count += 1
+			wave = arrival.Count
+			arrival.Waves[model] = wave
+		end
+	end
+	local order = 0
 	for _, descendant in model:GetDescendants() do
 		if not existing[descendant] and descendant:IsA("BasePart") then
 			descendant:SetAttribute("Item", item.Id)
-			if bought then
+			if arrival then
+				arrival.Order += 1
 				descendant:SetAttribute("Built", now)
+				descendant:SetAttribute("BuildIndex", arrival.Order)
+				descendant:SetAttribute("Wave", wave)
+			elseif bought then
+				descendant:SetAttribute("Built", now)
+				if item.Kind == "Decor" then
+					-- the order it was built in: a room upgrade drops in that way (DropIn)
+					order += 1
+					descendant:SetAttribute("BuildIndex", order)
+				end
 			end
 		end
 	end
@@ -1093,7 +1119,9 @@ end
 
 -- Builds everything the owner has bought (granting the free starting items of every
 -- unlocked zone first), then shows their next buttons.
+-- Builds everything the player owns into the plot, dropping it all in on clients.
 local function furnishPlot(plot: Plot, player: Player, data: DataManager.PlayerData)
+	local arrival: Arrival = { Waves = {}, Count = 0, Order = 0 }
 	for _, item in TycoonItems.List do
 		if item.Price == 0 and item.Requires == nil and isZoneUnlocked(data, item.Zone) then
 			DataManager.PurchaseItem(player, item.Id, 0)
@@ -1104,7 +1132,7 @@ local function furnishPlot(plot: Plot, player: Player, data: DataManager.PlayerD
 		-- (a room upgrade shows only its highest level)
 		local outgrown = item.Kind == "Decor" and purchased[`{item.Zone}_Decor_{item.Key}_{(item.Level :: number) + 1}`]
 		if purchased[item.Id] and not outgrown then
-			buildItem(plot, item)
+			buildItem(plot, item, nil, arrival)
 		end
 	end
 	refreshButtons(plot)
@@ -1226,6 +1254,18 @@ function TycoonManager.ResetPlot(player: Player)
 	plot.Collected = 0
 	updateCashLabel(plot)
 	furnishPlot(plot, player, data)
+end
+
+-- Studio testing (DevTools): builds a room upgrade's level as if just bought (so it
+-- drops in), without touching the player's data; ResetPlot puts the real one back.
+function TycoonManager.DevBuildUpgrade(player: Player, itemId: string): boolean
+	local plot = plotByPlayer[player]
+	local item = TycoonItems.ById[itemId]
+	if not (plot and item and item.Kind == "Decor") then
+		return false
+	end
+	buildItem(plot, item, true)
+	return true
 end
 
 -- Adds shipped Coins to the player's collector. They bank them on the Cash Pad, or

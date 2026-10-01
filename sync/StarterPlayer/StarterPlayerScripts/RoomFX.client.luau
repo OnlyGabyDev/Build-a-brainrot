@@ -8,8 +8,8 @@
 	    open and a brainrot head springs out on a coil in a burst of confetti with the
 	    upgrade's bonus, spills coins onto the Cash Pad, wobbles, and sinks back in.
 	  * BoxConveyor: the boxes ride round the rail near the ceiling.
-	  * ToyTrain: the train runs round its track, puffing smoke and whistling now and
-	    then.
+	  * ToyTrain: the train runs round its oval track (a LoopPath), puffing smoke and
+	    whistling now and then.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -22,6 +22,7 @@ local Config = Shared:WaitForChild("Config")
 local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
 local Brainrots = require(Config:WaitForChild("Brainrots"))
 local ConveyorPath = require(Shared:WaitForChild("ConveyorPath"))
+local LoopPath = require(Shared:WaitForChild("LoopPath"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
 
@@ -54,6 +55,11 @@ end
 local function numberOf(model: Instance, name: string, default: number): number
 	local value = model:GetAttribute(name)
 	return if typeof(value) == "number" then value else default
+end
+
+-- Whether the upgrade is still dropping in (DropIn sets BuildingUntil on this client).
+local function building(model: Instance): boolean
+	return numberOf(model, "BuildingUntil", 0) > os.clock()
 end
 
 -- "+39%" for a room upgrade's bonus (its Bonus attribute: 1.39).
@@ -302,10 +308,10 @@ end)
 -- Toy train -------------------------------------------------------------------------
 
 type Train = {
-	Center: CFrame,
-	Radius: number,
-	Speed: number,
-	Cars: { { Model: Model, Offset: number } },
+	Center: CFrame, -- the track's middle, at the cars' height
+	Path: LoopPath.LoopPath,
+	Speed: number, -- studs per second
+	Cars: { { Model: Model, Offset: number } }, -- Offset: studs behind the engine
 	Chimney: BasePart?,
 	NextPuff: number,
 	NextWhistle: number,
@@ -316,8 +322,8 @@ watch("ToyTrain", function(model)
 	local center = model:GetAttribute("Center")
 	local train: Train = {
 		Center = if typeof(center) == "CFrame" then center else model:GetPivot(),
-		Radius = numberOf(model, "Radius", 5),
-		Speed = numberOf(model, "Speed", 0.6),
+		Path = LoopPath.new(numberOf(model, "HalfX", 5), numberOf(model, "HalfZ", 5), numberOf(model, "Corner", 5)),
+		Speed = numberOf(model, "Speed", 3),
 		Cars = {},
 		Chimney = nil,
 		NextPuff = 0,
@@ -354,7 +360,7 @@ RunService.Heartbeat:Connect(function(dt)
 			if jack.Crank and jack.CrankRest then
 				jack.Crank:PivotTo(jack.CrankRest * CFrame.Angles(0, 0, jack.CrankAngle))
 			end
-			if not jack.Busy and now >= jack.Next then
+			if not jack.Busy and now >= jack.Next and not building(jack.Model) then
 				task.spawn(popJack, jack)
 			end
 		end
@@ -369,9 +375,10 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	for _, train in trains do
 		if near(train.Center.Position) then
-			local angle = now * train.Speed
+			local along = now * train.Speed
 			for _, car in train.Cars do
-				car.Model:PivotTo(train.Center * CFrame.Angles(0, angle - car.Offset, 0) * CFrame.new(train.Radius, 0, 0))
+				local point, heading = train.Path:Point(along - car.Offset)
+				car.Model:PivotTo(train.Center * CFrame.lookAt(point, point + heading))
 			end
 			local chimney = train.Chimney
 			if chimney and now >= train.NextPuff then

@@ -72,8 +72,10 @@ RoomUpgrades.List = {
 		Name = "Toy Train",
 		Zone = "ToyWorkshop",
 		Levels = {
-			{ Price = 150000, Multiplier = 1.5, Rebirths = 2 },
-			{ Price = 3000000, Multiplier = 2, Rebirths = 4 },
+			{ Price = 150000, Multiplier = 1.3, Rebirths = 2 },
+			{ Price = 600000, Multiplier = 1.3, Rebirths = 2 },
+			{ Price = 1500000, Multiplier = 1.35, Rebirths = 3 },
+			{ Price = 3000000, Multiplier = 1.35, Rebirths = 4 },
 		},
 	},
 
@@ -114,8 +116,10 @@ RoomUpgrades.List = {
 		Name = "Giant Plushie",
 		Zone = "PlushieRoom",
 		Levels = {
-			{ Price = 150000, Multiplier = 1.5, Rebirths = 3 },
-			{ Price = 2500000, Multiplier = 2, Rebirths = 5 },
+			{ Price = 150000, Multiplier = 1.3, Rebirths = 3 },
+			{ Price = 500000, Multiplier = 1.3, Rebirths = 3 },
+			{ Price = 1200000, Multiplier = 1.35, Rebirths = 4 },
+			{ Price = 2500000, Multiplier = 1.35, Rebirths = 5 },
 		},
 	},
 } :: { Upgrade }
