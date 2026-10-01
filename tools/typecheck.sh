@@ -2,8 +2,19 @@
 # Type-checks sync/ with luau-lsp (run from the repo root in Git Bash: sh tools/typecheck.sh).
 # Azul's sourcemap sometimes misses new files, so this checks against a copy of it
 # patched with every sync/ script it hasn't picked up yet.
-LSP="$HOME/.vscode/extensions/johnnymorganz.luau-lsp-1.70.1-win32-x64/bin/server.exe"
+# luau-lsp comes from the VS Code extension (Luau Language Server) or, without it, from
+# %LOCALAPPDATA%/luau-lsp: the release's luau-lsp.exe next to globalTypes.PluginSecurity.d.luau
+# (github.com/JohnnyMorganz/luau-lsp, scripts/ folder).
+LSP=$(ls "$HOME"/.vscode/extensions/johnnymorganz.luau-lsp-*/bin/server.exe 2>/dev/null | tail -n 1)
+[ -n "$LSP" ] || LSP="$LOCALAPPDATA/luau-lsp/luau-lsp.exe"
 DEFS="$APPDATA/Code/User/globalStorage/johnnymorganz.luau-lsp/globalTypes.PluginSecurity.d.luau"
+[ -f "$DEFS" ] || DEFS="$LOCALAPPDATA/luau-lsp/globalTypes.PluginSecurity.d.luau"
+for need in "$LSP" "$DEFS"; do
+	if [ ! -f "$need" ]; then
+		echo "typecheck FAILED: missing $need"
+		exit 1
+	fi
+done
 PATCHED="${TMPDIR:-/tmp}/brainrot-sourcemap.json"
 
 python - "$PATCHED" <<'PY'
