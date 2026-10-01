@@ -88,6 +88,9 @@ type StepAnimation = (build: Build, piece: Piece, duration: number) -> ()
 -- Packs the finished brainrot up at the Ship spot and sends it off, in `duration`
 -- seconds. Returns where the coins burst out.
 type FinishAnimation = (build: Build, brainrot: Model, ship: BasePart, duration: number) -> Vector3
+-- The zone's special upgrade (its Station3 `machine`) works on the brainrot at the end
+-- of the belt, in `duration` seconds.
+type SpecialAnimation = (build: Build, brainrot: Model, machine: BasePart, duration: number) -> ()
 
 type Style = {
 	-- Finds the zone's machines on a line and reads their resting poses. Nil if
@@ -95,6 +98,7 @@ type Style = {
 	Setup: (line: Model) -> any?,
 	Steps: { [string]: StepAnimation },
 	Finish: FinishAnimation?,
+	Special: SpecialAnimation?,
 }
 
 local effects = Effects.Folder
@@ -821,7 +825,6 @@ local function toyBoxFinish(build: Build, brainrot: Model, ship: BasePart, durat
 	Effects.sound(center, Sounds.Clunk, 0.35, vary(1.1))
 	squish(model)
 	puff(build, center + Vector3.new(0, TOY_BOX.Y / 2, 0), Color3.new(1, 1, 1), 6, 0.6)
-	Effects.popup(center + Vector3.new(0, TOY_BOX.Y / 2 + 2, 0), "PACKED!", POP_COLOR, 1.2, 0.6)
 
 	-- it wiggles: the toy inside is excited
 	task.wait(d * 0.05)
@@ -932,6 +935,157 @@ local function simpleFinish(_build: Build, brainrot: Model, ship: BasePart, dura
 	return base.Position + Vector3.new(0, 3, 0)
 end
 
+-- Special upgrades -----------------------------------------------------------
+-- Each zone's own last upgrade (Station3) stands over the end of the belt: as the
+-- brainrot arrives, it does its thing before the finishing stage, with its multiplier.
+
+-- The special machine's top gives a quick stamp, and its glow flashes.
+local function stampMachine(build: Build, machine: BasePart)
+	local glow = findPart(build.Line, "Station3Glow")
+	if glow then
+		local info = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
+		TweenService:Create(glow, info, { Color = POP_COLOR }):Play()
+	end
+	if isBuilding(build.Line) then
+		return
+	end
+	local rest = machine:GetAttribute("RestSize")
+	if typeof(rest) ~= "Vector3" then
+		rest = machine.Size
+		machine:SetAttribute("RestSize", rest)
+	end
+	local restSize = rest :: Vector3
+	machine.Size = restSize
+	local info = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
+	TweenService:Create(machine, info, { Size = Vector3.new(restSize.X * 1.05, restSize.Y * 0.8, restSize.Z * 1.05) }):Play()
+end
+
+local function specialPopup(build: Build, position: Vector3, color: Color3)
+	local item = TycoonItems.ById[`{build.Line.Name}_Station3`]
+	if item and item.Multiplier then
+		Effects.popup(position, `x{item.Multiplier}`, color, 1, 0.6)
+	end
+end
+
+-- Toy Workshop: the Toy Packer boxes the brainrot up in store packaging: a tray, a
+-- card back with a hanging tab, sides, a lid and a clear window in front, each piece
+-- dropping down out of the machine and slotting into place.
+local PACKAGE_COLORS = {
+	Color3.fromRGB(255, 95, 125),
+	Color3.fromRGB(70, 165, 255),
+	Color3.fromRGB(255, 185, 45),
+	Color3.fromRGB(150, 110, 255),
+}
+local WINDOW_COLOR = Color3.fromRGB(205, 235, 255)
+
+local function packerSpecial(build: Build, brainrot: Model, machine: BasePart, duration: number)
+	local frame, size = brainrot:GetBoundingBox()
+	local pivot = brainrot:GetPivot()
+	local base = pivot.Rotation + Vector3.new(frame.X, pivot.Y, frame.Z) -- the package's floor, under the brainrot
+	local width, height, depth = size.X + 1.2, size.Y + 0.9, math.max(size.Z + 1, 2.6)
+	local color = PACKAGE_COLORS[math.random(1, #PACKAGE_COLORS)]
+	local trim = color:Lerp(Color3.new(1, 1, 1), 0.35)
+
+	-- { part, where it ends up (from `base`), when it starts dropping (share of the packing) }
+	local pieces: { { Part: BasePart, Home: CFrame, Start: number } } = {}
+	local function piece(name: string, partSize: Vector3, home: CFrame, partColor: Color3, start: number): Part
+		local part = newPart(brainrot, name, partSize, base * home + Vector3.new(0, 8, 0), partColor)
+		part.Transparency = 1
+		table.insert(pieces, { Part = part, Home = home, Start = start })
+		return part
+	end
+	piece("PackageTray", Vector3.new(width, 0.4, depth), CFrame.new(0, 0.2, 0), trim, 0)
+	piece("PackageBack", Vector3.new(width, height, 0.3), CFrame.new(0, height / 2, depth / 2), color, 0.1)
+	local header = piece("PackageHeader", Vector3.new(width * 0.7, 1.8, 0.3), CFrame.new(0, height + 0.9, depth / 2), color, 0.1)
+	piece("PackageSide", Vector3.new(0.3, height, depth), CFrame.new(-width / 2, height / 2, 0), color, 0.22)
+	piece("PackageSide", Vector3.new(0.3, height, depth), CFrame.new(width / 2, height / 2, 0), color, 0.22)
+	piece("PackageLid", Vector3.new(width + 0.2, 0.3, depth + 0.2), CFrame.new(0, height, 0), trim, 0.34)
+	local window = piece("PackageWindow", Vector3.new(width - 0.3, height - 0.3, 0.15), CFrame.new(0, height / 2, -depth / 2), WINDOW_COLOR, 0.46)
+	window.Material = Enum.Material.Glass
+	window:SetAttribute("Clear", true)
+	-- a star on the hanging tab
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.LightInfluence = 0
+	gui.PixelsPerStud = 20
+	gui.Parent = header
+	local star = Instance.new("TextLabel")
+	star.Size = UDim2.fromScale(1, 0.8)
+	star.Position = UDim2.fromScale(0, 0.1)
+	star.BackgroundTransparency = 1
+	star.TextScaled = true
+	star.Text = "⭐"
+	star.Parent = gui
+
+	stampMachine(build, machine)
+	Effects.sound(base.Position, Sounds.Servo, 0.25, vary(1.3))
+	local drop, landed = 0.2, {} -- each piece drops for this share of the packing
+	run(duration * 0.75, function(a)
+		for index, entry in pieces do
+			local fall = math.clamp((a - entry.Start) / drop, 0, 1)
+			if fall > 0 then
+				entry.Part.Transparency = if entry.Part:GetAttribute("Clear") then 0.6 else 0
+				local e = ease(fall, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+				entry.Part.CFrame = base * entry.Home + Vector3.new(0, 8 * (1 - e), 0)
+				if fall >= 1 and not landed[index] then
+					landed[index] = true
+					if index == 1 or index == 4 or index == #pieces then
+						Effects.sound(entry.Part.Position, Sounds.Stamp, 0.25, vary(1.2 + index * 0.05))
+					end
+				end
+			end
+		end
+	end)
+	for _, entry in pieces do
+		entry.Part.CFrame = base * entry.Home
+	end
+	squish(brainrot)
+	local top = base.Position + Vector3.new(0, height + 2, 0)
+	sparkle(build, top, SPARKLE_COLOR, 12)
+	Effects.sound(top, Sounds.Pop, 0.3, vary(1.3))
+	Effects.popup(top + Vector3.new(0, 1.5, 0), "PACKED!", color, 1.2, 0.6)
+	specialPopup(build, top, color)
+	task.wait(duration * 0.2)
+end
+
+-- Plushie Sewing Room: the Bow Tier drops a big ribbon bow onto the brainrot's head.
+local BOW_COLOR = Color3.fromRGB(255, 110, 180)
+
+local function bowSpecial(build: Build, brainrot: Model, machine: BasePart, duration: number)
+	local frame, size = brainrot:GetBoundingBox()
+	local rotation = brainrot:GetPivot().Rotation
+	local head = rotation + (frame.Position + Vector3.new(0, size.Y / 2 + 0.5, 0))
+	local bow = Instance.new("Model")
+	bow.Name = "Bow"
+	local knot = newPart(bow, "BowKnot", Vector3.one * 1.1, head, BOW_COLOR, Enum.PartType.Ball)
+	knot.Material = Enum.Material.Fabric
+	for _, side in { -1, 1 } do
+		-- a loop each side: a flat disc tipped up and out
+		local loop = newPart(bow, "BowLoop", Vector3.new(0.5, 2.4, 2.4), head * CFrame.new(side * 1.25, 0.25, 0) * CFrame.Angles(0, math.pi / 2, side * math.rad(-20)), BOW_COLOR, Enum.PartType.Cylinder)
+		loop.Material = Enum.Material.Fabric
+		local tail = newPart(bow, "BowTail", Vector3.new(0.5, 1.6, 0.2), head * CFrame.new(side * 0.6, -0.8, -0.2) * CFrame.Angles(0, 0, side * math.rad(25)), BOW_COLOR:Lerp(Color3.new(1, 1, 1), 0.2))
+		tail.Material = Enum.Material.Fabric
+	end
+	bow.WorldPivot = head
+	bow.Parent = brainrot
+
+	stampMachine(build, machine)
+	Effects.sound(head.Position, Sounds.Sewing, 0.2, vary(1.5))
+	local from = head + Vector3.new(0, 7, 0)
+	bow:PivotTo(from)
+	run(duration * 0.45, function(a)
+		bow:PivotTo(from:Lerp(head, ease(a, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)) * CFrame.Angles(0, (1 - a) * math.pi * 2, 0))
+	end)
+	bow:PivotTo(head)
+	squish(brainrot)
+	sparkle(build, head.Position, Color3.fromRGB(255, 150, 210), 14)
+	Effects.sound(head.Position, Sounds.Squeak, 0.3, vary(1.2))
+	Effects.sound(head.Position, Sounds.Pop, 0.25, vary(1.4))
+	Effects.popup(head.Position + Vector3.new(0, 2.5, 0), "CUTE!", BOW_COLOR, 1.2, 0.6)
+	specialPopup(build, head.Position + Vector3.new(0, 1, 0), BOW_COLOR)
+	task.wait(duration * 0.4)
+end
+
 -- Assembly styles ------------------------------------------------------------
 -- One animation per part type, per zone. Each runs for its step's duration, starting
 -- as the part reaches the intake. The rarer the zone, the crazier it should be.
@@ -945,6 +1099,7 @@ end
 local ASSEMBLY_STYLES: { [string]: Style } = {
 	ToyWorkshop = {
 		Setup = setupToy,
+		Special = packerSpecial,
 		Finish = toyBoxFinish,
 		Steps = {
 			-- The legs boing off the belt and land on the pad.
@@ -1014,6 +1169,7 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 
 	PlushieRoom = {
 		Setup = setupSewing,
+		Special = bowSpecial,
 		Finish = fluffFinish,
 		Steps = {
 			-- The legs plop down from up high onto a soft cushion. Floof.
@@ -1187,7 +1343,8 @@ local function animateCycle(
 	zoneId: string,
 	value: number,
 	fullMatch: boolean,
-	cycleTime: number
+	cycleTime: number,
+	special: boolean
 )
 	local belt = findPart(line, "Belt")
 	local assembler = findPart(line, "Assembler")
@@ -1378,7 +1535,25 @@ local function animateCycle(
 		return
 	end
 
-	-- 5) The zone's finishing stage packs it up and sends it off: that's the payout.
+	-- 5) The zone's special upgrade, if the line has it, works on it at the belt's end.
+	if special then
+		local machine = findPart(line, "Station3")
+		local specialTime = Production.SpecialDuration(cycleTime)
+		if machine and style.Special then
+			local ok, err = pcall(style.Special, build, brainrot, machine, specialTime)
+			if not ok then
+				warn(`[ProductionVisuals] {zoneId} special failed: {err}`)
+			end
+		else
+			task.wait(specialTime) -- keep in step with the payout anyway
+		end
+		if cancelled() then
+			brainrot:Destroy()
+			return
+		end
+	end
+
+	-- 6) The zone's finishing stage packs it up and sends it off: that's the payout.
 	local ok, result = pcall(style.Finish or simpleFinish, build, brainrot, ship, Production.FinishDuration(cycleTime))
 	brainrot:Destroy()
 	if not line.Parent then
@@ -1411,11 +1586,11 @@ local function findLine(plot: Instance?, lineId: string): Model?
 	return if line and line:IsA("Model") then line else nil
 end
 
-Remotes.Event("Production").OnClientEvent:Connect(function(plot, lineId, parts, zoneId, value, fullMatch, cycleTime)
+Remotes.Event("Production").OnClientEvent:Connect(function(plot, lineId, parts, zoneId, value, fullMatch, cycleTime, special)
 	local line = findLine(plot, lineId)
 	local camera = workspace.CurrentCamera
 	if not (line and camera) or (camera.CFrame.Position - line:GetPivot().Position).Magnitude > RENDER_DISTANCE then
 		return
 	end
-	task.spawn(animateCycle, line, parts, zoneId, value, fullMatch, cycleTime or Production.BaseCycleTime)
+	task.spawn(animateCycle, line, parts, zoneId, value, fullMatch, cycleTime or Production.BaseCycleTime, special == true)
 end)

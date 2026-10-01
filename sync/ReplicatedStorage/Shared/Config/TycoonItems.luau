@@ -39,6 +39,8 @@ local LINE_ITEMS = {
 	{ Key = "Station1", Name = "Paint Booth", Kind = "Station", Multiplier = 1.5, Price = 1500 },
 	{ Key = "Speed2", Name = "Mega Turbo", Kind = "Speed", Multiplier = 1.5, Price = 4000 },
 	{ Key = "Station2", Name = "Glitter Blaster", Kind = "Station", Multiplier = 2, Price = 9000 },
+	-- the zone's own special upgrade, named by the zone (Zones.SpecialStation)
+	{ Key = "Station3", Name = "", Kind = "Station", Multiplier = 2, Price = 25000 },
 }
 
 -- Per line index within a zone: price to unlock the line, and multiplier on its items.
@@ -91,11 +93,18 @@ for _, zone in Zones.List do
 
 		local requires = line.UnlockItemId
 		for _, template in LINE_ITEMS do
+			local name = template.Name
+			if template.Key == "Station3" then
+				if not zone.SpecialStation then
+					continue
+				end
+				name = zone.SpecialStation
+			end
 			local id = `{lineId}_{template.Key}`
 			add(line, {
 				Id = id,
 				Key = template.Key,
-				Name = template.Name,
+				Name = name,
 				Kind = template.Kind,
 				Price = template.Price * LINE_PRICE_SCALES[index] * zone.PriceMultiplier,
 				Requires = requires,

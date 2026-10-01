@@ -7,7 +7,7 @@
 	All geometry is generated in code: FactoryBuilder builds each plot's building (a
 	room per zone, two per storey), and this module the lines inside. ProductionVisuals finds line parts by name (Belt, Assembler,
 	Ship, HeadDropper, BodyDropper, ArmsDropper, LegsDropper (with the Toy Workshop's
-	ceiling chutes, HeadChuteTop etc.), Beacon, Station1/2 and
+	ceiling chutes, HeadChuteTop etc.), Beacon, Station1/2/3 and
 	their Glow) and animates the Assembler's machines (Claw: Hand, Rod, FingerLeft,
 	FingerRight; PusherLeft and PusherRight: Fist, Rod): keep those names when swapping
 	in real art. TycoonFX finds Belt and CashPad (its Collected and Generation attributes).
@@ -52,7 +52,7 @@ local CASH_PAD_OFFSET = CFrame.new(0, FLOOR_TOP + 0.3, -40)
 -- Line origins sit on the floor. Parts flow from the droppers (+Z) to the chute (-Z).
 local LINE_X = { 0, -42, 42 }
 local DROPPER_Z = { Head = 40, Body = 31, Arms = 22, Legs = 13 }
-local STATION_Z = { Station1 = -7, Station2 = -14 }
+local STATION_Z = { Station1 = -7, Station2 = -12, Station3 = -17 } -- Station3: the zone's special, at the belt's end
 local SHIP_Z = -25 -- the finishing stage, just past the end of the belt
 local SPEED_X = { Speed1 = -1.5, Speed2 = 1.5 }
 -- Button spots relative to the line origin. A line shows one button at a time,
@@ -66,7 +66,8 @@ local BUTTON_OFFSETS = {
 	Speed1 = Vector3.new(11, 0, 4),
 	Speed2 = Vector3.new(11, 0, 4),
 	Station1 = Vector3.new(11, 0, -7),
-	Station2 = Vector3.new(11, 0, -14),
+	Station2 = Vector3.new(11, 0, -12),
+	Station3 = Vector3.new(11, 0, -18),
 }
 
 local PART_COLORS = {
@@ -389,6 +390,48 @@ local function buildFluffMachine(model: Model, spot: CFrame)
 	makeBillboard(ship, "☁️ SHIPPING", Vector2.new(8, 2), 9, 80)
 end
 
+-- Each zone's special upgrade (Station3, GDD §6) stands over the end of the belt at
+-- `spot` (on the floor); ProductionVisuals plays it as the brainrot arrives. Its part
+-- named Station3 is the machine's top.
+
+-- Toy Workshop: the Toy Packer boxes the brainrot up in store packaging (a card back, a
+-- clear window) before it goes into the toy box.
+local CARDBOARD_COLOR = Color3.fromRGB(215, 165, 110)
+local function buildPacker(model: Model, spot: CFrame, name: string)
+	for _, side in { -1, 1 } do
+		makePart(model, "PackerTower", Vector3.new(1.8, 9, 5), spot * CFrame.new(side * 5.8, 4.5, 0), CLAW_COLOR)
+		makeDecor(model, "PackerStripe", Vector3.new(1.9, 1, 5.1), spot * CFrame.new(side * 5.8, 6.5, 0), GANTRY_COLOR)
+	end
+	local top = makePart(model, "Station3", Vector3.new(13.4, 2.6, 5.6), spot * CFrame.new(0, 10.3, 0), GANTRY_COLOR)
+	makePart(model, "Station3Glow", Vector3.new(10, 0.3, 4.4), spot * CFrame.new(0, 8.85, 0), Color3.new(1, 1, 1), Enum.Material.Neon)
+	-- flat boxes waiting on top, and a roll of tape
+	for index, turn in { -0.08, 0.05, -0.02 } do
+		makeDecor(model, "PackerCardboard", Vector3.new(6, 0.5, 4.2), spot * CFrame.new(-1.5, 11.35 + index * 0.5, 0) * CFrame.Angles(0, turn, 0), CARDBOARD_COLOR)
+	end
+	local tape = makeDecor(model, "PackerTape", Vector3.new(1.2, 2.4, 2.4), spot * CFrame.new(4, 12.8, 0) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 225, 120))
+	tape.Shape = Enum.PartType.Cylinder
+	makeBillboard(top, string.upper(name), Vector2.new(8, 1.5), 3.6, 80)
+end
+
+-- Plushie Sewing Room: the Bow Tier ties a big ribbon bow on the brainrot's head before
+-- it goes into the fluff machine.
+local function buildBowTier(model: Model, spot: CFrame, name: string)
+	for _, side in { -1, 1 } do
+		makeColumn(model, "BowLeg", 1.4, 0, 9, spot * CFrame.new(side * 5.6, 0, 0), SEWING_COLOR)
+	end
+	local top = makePart(model, "Station3", Vector3.new(12.6, 1.8, 3.6), spot * CFrame.new(0, 9.9, 0), SEWING_LIGHT_COLOR)
+	makePart(model, "Station3Glow", Vector3.new(9.6, 0.3, 2.8), spot * CFrame.new(0, 8.85, 0), Color3.new(1, 1, 1), Enum.Material.Neon)
+	-- a big ribbon spool on top, its ribbon trailing down the front
+	local spool = makeDecor(model, "BowSpool", Vector3.new(6, 3, 3), spot * CFrame.new(0, 12.3, 0), FLUFF_PINK)
+	spool.Shape = Enum.PartType.Cylinder
+	for _, side in { -1, 1 } do
+		local rim = makeDecor(model, "BowSpoolRim", Vector3.new(0.4, 4, 4), spot * CFrame.new(side * 3.1, 12.3, 0), Color3.new(1, 1, 1))
+		rim.Shape = Enum.PartType.Cylinder
+	end
+	makeDecor(model, "BowRibbon", Vector3.new(1.6, 3.4, 0.1), spot * CFrame.new(0, 10.6, -1.9), FLUFF_PINK)
+	makeBillboard(top, string.upper(name), Vector2.new(8, 1.5), 4.6, 80)
+end
+
 local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Item) -> () } = {
 	Line = function(model, origin, item)
 		local colors = GANTRY_COLORS[item.Zone] or GANTRY_COLORS.ToyWorkshop
@@ -461,9 +504,18 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		makePart(model, item.Key, stripe, origin * CFrame.new(SPEED_X[item.Key], 1.05, 13), Color3.fromRGB(255, 230, 60), Enum.Material.Neon)
 	end,
 
-	-- An arch over the belt that brainrots ride through.
+	-- An arch over the belt that brainrots ride through, or the zone's special machine.
 	Station = function(model, origin, item)
 		local z = STATION_Z[item.Key]
+		if item.Key == "Station3" then
+			local spot = origin * CFrame.new(0, 0, z)
+			if item.Zone == "PlushieRoom" then
+				buildBowTier(model, spot, item.Name)
+			else
+				buildPacker(model, spot, item.Name)
+			end
+			return
+		end
 		local color = STATION_COLORS[item.Key]
 		local top = makePart(model, item.Key, Vector3.new(11.4, 1.5, 3), origin * CFrame.new(0, 8, z), color)
 		makePart(model, item.Key .. "LegLeft", Vector3.new(1, 7.25, 1), origin * CFrame.new(-5.2, 3.625, z), color)

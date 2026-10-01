@@ -39,6 +39,7 @@ type LineStats = {
 	Droppers: { [string]: boolean },
 	CycleTime: number,
 	ValueMultiplier: number,
+	Special: boolean, -- has its zone's special upgrade (Station3)
 }
 
 local productionRemote: RemoteEvent
@@ -86,6 +87,7 @@ local function getLineStats(player: Player, data: DataManager.PlayerData, line: 
 		Droppers = {},
 		CycleTime = Production.BaseCycleTime / Rebirths.SpeedMultiplier(data.Upgrades),
 		ValueMultiplier = Rebirths.IncomeMultiplier(data.Rebirths, data.Upgrades) * MonetizationManager.IncomeMultiplier(player),
+		Special = false,
 	}
 	for _, item in line.Items do
 		if purchased[item.Id] then
@@ -95,6 +97,7 @@ local function getLineStats(player: Player, data: DataManager.PlayerData, line: 
 				stats.CycleTime /= item.Multiplier :: number
 			elseif item.Kind == "Station" then
 				stats.ValueMultiplier *= item.Multiplier :: number
+				stats.Special = stats.Special or item.Key == "Station3"
 			end
 		end
 	end
@@ -274,11 +277,11 @@ local function ship(player: Player, plot: TycoonManager.Plot, line: TycoonItems.
 		return
 	end
 
-	productionRemote:FireAllClients(plot.Model, line.Id, parts, zone.Id, value, matchId ~= nil, stats.CycleTime)
+	productionRemote:FireAllClients(plot.Model, line.Id, parts, zone.Id, value, matchId ~= nil, stats.CycleTime, stats.Special)
 
 	-- Pay out when the client animation drops the brainrot into the chute.
 	local generation = plot.Generation
-	task.delay(Production.ShipDelay(parts, stats.CycleTime), function()
+	task.delay(Production.ShipDelay(parts, stats.CycleTime, stats.Special), function()
 		if TycoonManager.GetPlot(player) ~= plot or plot.Generation ~= generation then
 			return -- left, or the plot was reset (rebirth, dev Restore) mid-animation
 		end

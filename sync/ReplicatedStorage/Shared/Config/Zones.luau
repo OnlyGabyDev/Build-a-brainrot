@@ -25,6 +25,7 @@ export type Zone = {
 	GemMultiplier: number, -- × completion Gems
 	LineCount: number,
 	Style: Style,
+	SpecialStation: string?, -- the zone's own last upgrade on each line (GDD §6)
 	Available: boolean,
 }
 
@@ -42,6 +43,7 @@ Zones.List = {
 		GemMultiplier = 1,
 		LineCount = 3,
 		Style = { Scale = 0.7 },
+		SpecialStation = "Toy Packer",
 		Available = true,
 	},
 	{
@@ -55,6 +57,7 @@ Zones.List = {
 		GemMultiplier = 1.5,
 		LineCount = 3,
 		Style = { Scale = 0.8, Material = Enum.Material.Fabric },
+		SpecialStation = "Bow Tier",
 		Available = true,
 	},
 	{
