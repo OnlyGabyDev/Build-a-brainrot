@@ -24,6 +24,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
+local Brainrots = require(Config:WaitForChild("Brainrots"))
 local Format = require(Shared:WaitForChild("Format"))
 local Production = require(Config:WaitForChild("Production"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
@@ -84,6 +85,7 @@ type Build = {
 	Machines: any, -- whatever the zone style's Setup returned
 	Built: { Piece }, -- parts in place so far
 	FullMatch: boolean,
+	Parts: { [string]: string }, -- [partType] = brainrotId
 	Near: boolean, -- close enough to the camera for particles
 	Zone: string,
 }
@@ -1038,24 +1040,144 @@ local function specialPopup(build: Build, position: Vector3, color: Color3)
 	end
 end
 
--- Toy Workshop: the Toy Packer boxes the brainrot up in store packaging: a tray, a
--- card back with a hanging tab, sides, a lid and a clear window in front, each piece
--- dropping down out of the machine and slotting into place.
+-- Toy Workshop: the Toy Packer boxes the brainrot up in store packaging, like a toy
+-- on a shop shelf: a card back printed with a sunburst, a header with the BRAINROT
+-- TOYS logo, a hanging hole and a NEW! sticker, a name plate, and clear plastic over
+-- the front and sides with white glints across it. Each piece drops down out of the
+-- machine and slots into place, then a shine sweeps across the plastic.
 local PACKAGE_COLORS = {
 	Color3.fromRGB(255, 95, 125),
 	Color3.fromRGB(70, 165, 255),
-	Color3.fromRGB(255, 185, 45),
+	Color3.fromRGB(255, 170, 40),
 	Color3.fromRGB(150, 110, 255),
+	Color3.fromRGB(60, 200, 140),
 }
-local WINDOW_COLOR = Color3.fromRGB(205, 235, 255)
+local PLASTIC_COLOR = Color3.fromRGB(225, 242, 255)
+local LOGO_INK = Color3.fromRGB(45, 30, 70)
+
+local function canvas(part: BasePart, face: Enum.NormalId, pixels: number): SurfaceGui
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = pixels
+	gui.LightInfluence = 0
+	gui.Parent = part
+	return gui
+end
+
+local function frame(parent: Instance, size: UDim2, position: UDim2, color: Color3, transparency: number?): Frame
+	local box = Instance.new("Frame")
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Size = size
+	box.Position = position
+	box.BackgroundColor3 = color
+	box.BackgroundTransparency = transparency or 0
+	box.BorderSizePixel = 0
+	box.Parent = parent
+	return box
+end
+
+local function words(parent: Instance, text: string, size: UDim2, position: UDim2, color: Color3, stroke: Color3?, thickness: number?): TextLabel
+	local label = Instance.new("TextLabel")
+	label.AnchorPoint = Vector2.new(0.5, 0.5)
+	label.Size = size
+	label.Position = position
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = color
+	label.Text = text
+	label.Parent = parent
+	if stroke then
+		local outline = Instance.new("UIStroke")
+		outline.Color = stroke
+		outline.Thickness = thickness or 2
+		outline.Parent = label
+	end
+	return label
+end
+
+-- The card back's print: a sunburst over a soft gradient, sparkles in the corners.
+-- (Turned frames aren't cut off at a SurfaceGui's edges, so each ray is just long
+-- enough to reach the card's edges.)
+local CARD_PIXELS = 24
+local function printCard(part: BasePart, color: Color3)
+	local gui = canvas(part, Enum.NormalId.Front, CARD_PIXELS)
+	local back = frame(gui, UDim2.fromScale(1, 1), UDim2.fromScale(0.5, 0.5), Color3.new(1, 1, 1))
+	local shade = Instance.new("UIGradient")
+	shade.Rotation = 90
+	shade.Color = ColorSequence.new(color:Lerp(Color3.new(1, 1, 1), 0.45), color)
+	shade.Parent = back
+	local half = Vector2.new(part.Size.X, part.Size.Y) * CARD_PIXELS / 2
+	local thickness = half.X * 0.3
+	for index = 0, 5 do
+		local turn = math.rad(index * 30)
+		-- the ray runs along its own Y: how far it can go from the middle in that direction
+		local along = math.min(half.X / math.max(math.abs(math.sin(turn)), 1e-3), half.Y / math.max(math.abs(math.cos(turn)), 1e-3))
+		local ray = frame(back, UDim2.fromOffset(thickness, along * 2 - thickness * 0.6), UDim2.fromScale(0.5, 0.5), Color3.new(1, 1, 1), 0.72)
+		ray.Rotation = index * 30
+	end
+	for _, spot in { Vector2.new(0.14, 0.12), Vector2.new(0.86, 0.2), Vector2.new(0.12, 0.8), Vector2.new(0.88, 0.85) } do
+		words(back, "✦", UDim2.fromScale(0.16, 0.12), UDim2.fromScale(spot.X, spot.Y), Color3.fromRGB(255, 240, 150))
+	end
+end
+
+-- The header: the hanging hole, the logo, and a NEW! sticker.
+local function printHeader(part: BasePart, color: Color3)
+	local gui = canvas(part, Enum.NormalId.Front, 30)
+	local back = frame(gui, UDim2.fromScale(1, 1), UDim2.fromScale(0.5, 0.5), color)
+	local hole = frame(back, UDim2.fromScale(0.2, 0.16), UDim2.fromScale(0.5, 0.15), LOGO_INK)
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(1, 0)
+	round.Parent = hole
+	words(back, "BRAINROT", UDim2.fromScale(0.66, 0.4), UDim2.fromScale(0.42, 0.5), Color3.new(1, 1, 1), LOGO_INK, 3)
+	words(back, "★ TOYS ★", UDim2.fromScale(0.42, 0.24), UDim2.fromScale(0.42, 0.82), Color3.fromRGB(255, 225, 90), LOGO_INK, 2)
+	local sticker = frame(back, UDim2.fromScale(0.2, 0.5), UDim2.fromScale(0.88, 0.36), Color3.fromRGB(255, 220, 60))
+	sticker.Rotation = 14
+	local stickerRound = Instance.new("UICorner")
+	stickerRound.CornerRadius = UDim.new(1, 0)
+	stickerRound.Parent = sticker
+	words(sticker, "NEW!", UDim2.fromScale(0.86, 0.6), UDim2.fromScale(0.5, 0.5), Color3.fromRGB(255, 70, 110), Color3.new(1, 1, 1), 2)
+end
+
+-- Clear plastic's look: white glints slanting across it, a faint haze in one corner
+-- and a bright rim. Returns the glints' gradient (its Offset sweeps them across).
+local function glints(part: BasePart, face: Enum.NormalId): UIGradient
+	local gui = canvas(part, face, 24)
+	local sheen = frame(gui, UDim2.fromScale(1, 1), UDim2.fromScale(0.5, 0.5), Color3.new(1, 1, 1))
+	local gradient = Instance.new("UIGradient")
+	gradient.Rotation = -50
+	gradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.55),
+		NumberSequenceKeypoint.new(0.16, 1),
+		NumberSequenceKeypoint.new(0.34, 1),
+		NumberSequenceKeypoint.new(0.35, 0.15),
+		NumberSequenceKeypoint.new(0.43, 0.15),
+		NumberSequenceKeypoint.new(0.44, 1),
+		NumberSequenceKeypoint.new(0.5, 1),
+		NumberSequenceKeypoint.new(0.51, 0.45),
+		NumberSequenceKeypoint.new(0.54, 0.45),
+		NumberSequenceKeypoint.new(0.55, 1),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	gradient.Parent = sheen
+	local rim = Instance.new("UIStroke")
+	rim.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	rim.Color = Color3.new(1, 1, 1)
+	rim.Transparency = 0.25
+	rim.Thickness = 4
+	rim.Parent = sheen
+	return gradient
+end
 
 local function packerSpecial(build: Build, brainrot: Model, machine: BasePart, duration: number)
-	local frame, size = brainrot:GetBoundingBox()
+	local box, size = brainrot:GetBoundingBox()
 	local pivot = brainrot:GetPivot()
-	local base = pivot.Rotation + Vector3.new(frame.X, pivot.Y, frame.Z) -- the package's floor, under the brainrot
-	local width, height, depth = size.X + 1.2, size.Y + 0.9, math.max(size.Z + 1, 2.6)
+	local base = pivot.Rotation + Vector3.new(box.X, pivot.Y, box.Z) -- the package's floor, under the brainrot
+	local width, height, depth = size.X + 1.6, size.Y + 1.6, math.max(size.Z + 1.2, 3)
 	local color = PACKAGE_COLORS[math.random(1, #PACKAGE_COLORS)]
-	local trim = color:Lerp(Color3.new(1, 1, 1), 0.35)
+	local deep = color:Lerp(Color3.new(0, 0, 0), 0.18)
+	local plate = 1.3 -- the name plate under the window
 
 	-- { part, where it ends up (from `base`), when it starts dropping (share of the packing) }
 	local pieces: { { Part: BasePart, Home: CFrame, Start: number } } = {}
@@ -1065,37 +1187,48 @@ local function packerSpecial(build: Build, brainrot: Model, machine: BasePart, d
 		table.insert(pieces, { Part = part, Home = home, Start = start })
 		return part
 	end
-	piece("PackageTray", Vector3.new(width, 0.4, depth), CFrame.new(0, 0.2, 0), trim, 0)
-	piece("PackageBack", Vector3.new(width, height, 0.3), CFrame.new(0, height / 2, depth / 2), color, 0.1)
-	local header = piece("PackageHeader", Vector3.new(width * 0.7, 1.8, 0.3), CFrame.new(0, height + 0.9, depth / 2), color, 0.1)
-	piece("PackageSide", Vector3.new(0.3, height, depth), CFrame.new(-width / 2, height / 2, 0), color, 0.22)
-	piece("PackageSide", Vector3.new(0.3, height, depth), CFrame.new(width / 2, height / 2, 0), color, 0.22)
-	piece("PackageLid", Vector3.new(width + 0.2, 0.3, depth + 0.2), CFrame.new(0, height, 0), trim, 0.34)
-	local window = piece("PackageWindow", Vector3.new(width - 0.3, height - 0.3, 0.15), CFrame.new(0, height / 2, -depth / 2), WINDOW_COLOR, 0.46)
-	window.Material = Enum.Material.Glass
-	window:SetAttribute("Clear", true)
-	-- a star on the hanging tab
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.LightInfluence = 0
-	gui.PixelsPerStud = 20
-	gui.Parent = header
-	local star = Instance.new("TextLabel")
-	star.Size = UDim2.fromScale(1, 0.8)
-	star.Position = UDim2.fromScale(0, 0.1)
-	star.BackgroundTransparency = 1
-	star.TextScaled = true
-	star.Text = "⭐"
-	star.Parent = gui
+	local function plastic(name: string, partSize: Vector3, home: CFrame, face: Enum.NormalId): UIGradient
+		local part = piece(name, partSize, home, PLASTIC_COLOR, 0.46)
+		part.Reflectance = 0.15
+		part:SetAttribute("Clear", true)
+		return glints(part, face)
+	end
+
+	piece("PackageTray", Vector3.new(width, 0.5, depth), CFrame.new(0, 0.25, 0), deep, 0)
+	local back = piece("PackageBack", Vector3.new(width, height, 0.3), CFrame.new(0, height / 2, depth / 2), color, 0.1)
+	printCard(back, color)
+	local header = piece("PackageHeader", Vector3.new(width, 2.8, 0.3), CFrame.new(0, height + 1.4, depth / 2), deep, 0.1)
+	printHeader(header, deep)
+	piece("PackageLid", Vector3.new(width, 0.4, depth), CFrame.new(0, height - 0.2, 0), deep, 0.22)
+	-- the front frame: posts either side, a strip across the top, the name plate below
+	for _, side in { -1, 1 } do
+		piece("PackagePost", Vector3.new(0.5, height - 0.4, 0.4), CFrame.new(side * (width / 2 - 0.25), height / 2, -depth / 2), color, 0.3)
+	end
+	piece("PackageTop", Vector3.new(width, 0.5, 0.4), CFrame.new(0, height - 0.65, -depth / 2), color, 0.3)
+	local nameplate = piece("PackagePlate", Vector3.new(width, plate, 0.4), CFrame.new(0, 0.5 + plate / 2, -depth / 2), color, 0.3)
+	local gui = canvas(nameplate, Enum.NormalId.Front, 30)
+	local stripe = frame(gui, UDim2.fromScale(1, 1), UDim2.fromScale(0.5, 0.5), color)
+	local name = "MYSTERY MIX!"
+	if build.FullMatch and build.Parts then
+		local brainrotInfo = Brainrots.ById[build.Parts.Head]
+		name = if brainrotInfo then string.upper(brainrotInfo.Name) else name
+	end
+	words(stripe, name, UDim2.fromScale(0.94, 0.8), UDim2.fromScale(0.5, 0.5), Color3.new(1, 1, 1), LOGO_INK, 2)
+	-- the clear plastic: a front window and both sides
+	local inner = height - plate - 1.4
+	local sweep = plastic("PackageWindow", Vector3.new(width - 1, inner, 0.12), CFrame.new(0, 0.5 + plate + inner / 2, -depth / 2 - 0.05), Enum.NormalId.Front)
+	for _, side in { -1, 1 } do
+		plastic("PackageSideWindow", Vector3.new(0.12, height - 1.1, depth - 0.7), CFrame.new(side * (width / 2 - 0.05), height / 2, 0), if side < 0 then Enum.NormalId.Left else Enum.NormalId.Right)
+	end
 
 	stampMachine(build, machine)
 	Effects.sound(base.Position, Sounds.Servo, 0.25, vary(1.3))
 	local drop, landed = 0.2, {} -- each piece drops for this share of the packing
-	run(duration * 0.75, function(a)
+	run(duration * 0.7, function(a)
 		for index, entry in pieces do
 			local fall = math.clamp((a - entry.Start) / drop, 0, 1)
 			if fall > 0 then
-				entry.Part.Transparency = if entry.Part:GetAttribute("Clear") then 0.6 else 0
+				entry.Part.Transparency = if entry.Part:GetAttribute("Clear") then 0.72 else 0
 				local e = ease(fall, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 				entry.Part.CFrame = base * entry.Home + Vector3.new(0, 8 * (1 - e), 0)
 				if fall >= 1 and not landed[index] then
@@ -1111,12 +1244,16 @@ local function packerSpecial(build: Build, brainrot: Model, machine: BasePart, d
 		entry.Part.CFrame = base * entry.Home
 	end
 	squish(brainrot)
-	local top = base.Position + Vector3.new(0, height + 2, 0)
+	-- a shine sweeps across the plastic
+	sweep.Offset = Vector2.new(-0.9, 0)
+	TweenService:Create(sweep, TweenInfo.new(duration * 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Offset = Vector2.zero }):Play()
+	local top = base.Position + Vector3.new(0, height + 3, 0)
 	sparkle(build, top, SPARKLE_COLOR, 12)
+	sparkle(build, base.Position + Vector3.new(0, height / 2, 0), Color3.new(1, 1, 1), 8)
 	Effects.sound(top, Sounds.Pop, 0.3, vary(1.3))
 	Effects.popup(top + Vector3.new(0, 1.5, 0), "PACKED!", color, 1.2, 0.6)
 	specialPopup(build, top, color)
-	task.wait(duration * 0.2)
+	task.wait(duration * 0.3)
 end
 
 -- Plushie Sewing Room: the Bow Tier drops a big ribbon bow onto the brainrot's head.
@@ -1466,6 +1603,7 @@ local function animateCycle(
 		Machines = getMachines(line, style),
 		Built = {},
 		FullMatch = fullMatch,
+		Parts = parts,
 		Near = Effects.near(root.Position, FX_RANGE),
 		Zone = zoneId,
 	}
