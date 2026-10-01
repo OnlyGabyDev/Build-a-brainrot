@@ -61,6 +61,7 @@ local STITCHES = 6 -- needle stitches while sewing the body on
 local STITCH_HOVER = 1.5 -- studs the body starts above its place
 local DEFLATED = 0.35 -- the plushie head's starting scale, before it's stuffed
 local CHUTE_DROP = 3 -- studs the brainrot sinks into the chute as it ships
+local BELT_END_GAP = 2 -- studs from the end of the belt where the brainrot stops
 local FALL_TIME = 0.5 -- a part's bounce from its dropper's mouth onto the belt
 
 type Piece = {
@@ -84,12 +85,16 @@ type Build = {
 }
 
 type StepAnimation = (build: Build, piece: Piece, duration: number) -> ()
+-- Packs the finished brainrot up at the Ship spot and sends it off, in `duration`
+-- seconds. Returns where the coins burst out.
+type FinishAnimation = (build: Build, brainrot: Model, ship: BasePart, duration: number) -> Vector3
 
 type Style = {
 	-- Finds the zone's machines on a line and reads their resting poses. Nil if
 	-- they're missing, and then every part just hops into place.
 	Setup: (line: Model) -> any?,
 	Steps: { [string]: StepAnimation },
+	Finish: FinishAnimation?,
 }
 
 local effects = Effects.Folder
@@ -198,12 +203,15 @@ end
 -- Droppers and the beacon ----------------------------------------------------
 
 -- Ceiling chutes (the Toy Workshop's droppers, TycoonManager.buildChute) are rubbery:
--- their bands bulge as a part slides down past them, and the whole chute squashes and
--- stretches as it spits the part out, hanging from its collar in the ceiling.
+-- their bands bulge and light up as a part slides down past them, and the whole chute
+-- squashes and stretches as it spits the part out, hanging from its collar in the
+-- ceiling.
 type ChutePiece = {
 	Part: BasePart,
 	Rest: CFrame,
 	Size: Vector3,
+	Color: Color3,
+	Material: Enum.Material,
 	Axis: number, -- which of its Size's components runs up and down (1 = X, 2 = Y, 3 = Z)
 }
 type Chute = {
@@ -251,7 +259,7 @@ local function readChute(line: Model, top: BasePart): Chute
 		if stretches and child:IsA("BasePart") then
 			local frame = child.CFrame
 			local axis = if math.abs(frame.RightVector.Y) > 0.9 then 1 elseif math.abs(frame.LookVector.Y) > 0.9 then 3 else 2
-			local piece = { Part = child, Rest = frame, Size = child.Size, Axis = axis }
+			local piece = { Part = child, Rest = frame, Size = child.Size, Color = child.Color, Material = child.Material, Axis = axis }
 			table.insert(chute.Pieces, piece)
 			if name == prefix .. "ChuteBand" then
 				table.insert(chute.Bands, piece)
@@ -282,11 +290,15 @@ local function poseChute(chute: Chute, along: number, across: number)
 	end
 end
 
--- The bands near world height `y` swell, as if the tube were gulping a part down.
+-- The bands near world height `y` swell and glow, as if the tube were gulping a part
+-- down.
 local function bulgeChute(chute: Chute, y: number)
 	for _, band in chute.Bands do
 		local near = math.max(0, 1 - math.abs(band.Rest.Position.Y - y) / CHUTE_BULGE_REACH)
 		band.Part.Size = scaledSize(band, 1, 1 + CHUTE_BULGE * near)
+		local lit = near > 0.15
+		band.Part.Material = if lit then Enum.Material.Neon else band.Material
+		band.Part.Color = if lit then band.Color:Lerp(Color3.new(1, 1, 1), 0.25 * near) else band.Color
 	end
 end
 
@@ -662,6 +674,260 @@ local function stopSound(sound: Sound?)
 	end
 end
 
+-- Finishing stages -----------------------------------------------------------
+-- Past the end of the belt, each zone packs the brainrot up its own way (GDD §6),
+-- and the payout lands as it's sent off.
+
+local function newPart(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, shape: Enum.PartType?): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Size = size
+	part.CFrame = cframe
+	part.Color = color
+	part.Material = Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Shape = shape or Enum.PartType.Block
+	part.Parent = parent
+	return part
+end
+
+-- The world height of the top of `part`, however it's turned.
+local function topOf(part: BasePart): number
+	local frame, size = part.CFrame, part.Size
+	local half = (math.abs(frame.RightVector.Y) * size.X + math.abs(frame.UpVector.Y) * size.Y + math.abs(frame.LookVector.Y) * size.Z) / 2
+	return part.Position.Y + half
+end
+
+-- The brainrot hops from where it stands to `target`, shrinking to `factor` of its
+-- size on the way.
+local function hopShrinking(brainrot: Model, target: CFrame, duration: number, height: number, factor: number)
+	local start = brainrot:GetPivot()
+	local base = brainrot:GetScale()
+	run(duration, function(a)
+		brainrot:ScaleTo(base * (1 - (1 - factor) * a))
+		brainrot:PivotTo(start:Lerp(target, a) + Vector3.new(0, height * 4 * a * (1 - a), 0))
+	end)
+end
+
+-- Toy Workshop: a toy box pops up out of the trapdoor, flips its lid open, the toy
+-- jumps in, the lid slams, the box wiggles (the toy's excited) and drops back down.
+local TOY_BOX = Vector3.new(7, 5, 7)
+local TOY_BOX_COLORS = {
+	{ Color3.fromRGB(255, 90, 110), Color3.fromRGB(255, 215, 70) },
+	{ Color3.fromRGB(70, 165, 255), Color3.fromRGB(255, 255, 255) },
+	{ Color3.fromRGB(110, 210, 90), Color3.fromRGB(255, 215, 70) },
+	{ Color3.fromRGB(175, 115, 255), Color3.fromRGB(120, 230, 255) },
+}
+local LID_OPEN = math.rad(115)
+
+type ToyBox = {
+	Model: Model,
+	Lid: { { Part: BasePart, Offset: CFrame } }, -- from the hinge, shut
+	Hinge: CFrame, -- from the box's base: the lid's far edge
+}
+
+-- A toy box standing on `base` (-Z the way the belt runs: its lid hinges on that edge).
+local function makeToyBox(base: CFrame): ToyBox
+	local colors = TOY_BOX_COLORS[math.random(1, #TOY_BOX_COLORS)]
+	local model = Instance.new("Model")
+	model.Name = "ToyBox"
+	local height = TOY_BOX.Y
+	local body = newPart(model, "Body", TOY_BOX, base * CFrame.new(0, height / 2, 0), colors[1])
+	newPart(model, "Band", Vector3.new(TOY_BOX.X + 0.3, 0.7, TOY_BOX.Z + 0.3), base * CFrame.new(0, 0.35, 0), colors[2])
+	newPart(model, "Band", Vector3.new(TOY_BOX.X + 0.3, 0.5, TOY_BOX.Z + 0.3), base * CFrame.new(0, height - 0.25, 0), colors[2])
+	newPart(model, "Inside", Vector3.new(TOY_BOX.X - 1, 0.06, TOY_BOX.Z - 1), base * CFrame.new(0, height + 0.03, 0), Color3.fromRGB(70, 40, 80))
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = face
+		gui.LightInfluence = 0
+		gui.PixelsPerStud = 20
+		gui.Parent = body
+		local star = Instance.new("TextLabel")
+		star.Size = UDim2.fromScale(0.6, 0.6)
+		star.Position = UDim2.fromScale(0.2, 0.22)
+		star.BackgroundTransparency = 1
+		star.TextScaled = true
+		star.Text = "⭐"
+		star.Parent = gui
+	end
+
+	local hinge = CFrame.new(0, height, -TOY_BOX.Z / 2)
+	local lid = {}
+	local function lidPart(name: string, size: Vector3, offset: CFrame, color: Color3)
+		local part = newPart(model, name, size, base * hinge * offset, color)
+		table.insert(lid, { Part = part, Offset = offset })
+	end
+	lidPart("Lid", Vector3.new(TOY_BOX.X + 0.4, 0.8, TOY_BOX.Z + 0.4), CFrame.new(0, 0.4, TOY_BOX.Z / 2), colors[2])
+	lidPart("LidTop", Vector3.new(TOY_BOX.X - 1.6, 0.5, TOY_BOX.Z - 1.6), CFrame.new(0, 1, TOY_BOX.Z / 2), colors[1])
+	lidPart("Latch", Vector3.new(1.4, 0.9, 0.4), CFrame.new(0, 0.1, TOY_BOX.Z + 0.35), COIN_COLOR)
+	model.WorldPivot = base
+	model.Parent = effects
+	return { Model = model, Lid = lid, Hinge = hinge }
+end
+
+-- Swings the lid `angle` radians open (0 = shut).
+local function setLid(box: ToyBox, angle: number)
+	local hinge = box.Model:GetPivot() * box.Hinge * CFrame.Angles(-angle, 0, 0)
+	for _, piece in box.Lid do
+		piece.Part.CFrame = hinge * piece.Offset
+	end
+end
+
+local function toyBoxFinish(build: Build, brainrot: Model, ship: BasePart, duration: number): Vector3
+	local d = duration
+	local rotation = brainrot:GetPivot().Rotation
+	local base = rotation + Vector3.new(ship.Position.X, topOf(ship), ship.Position.Z)
+	local center = base.Position + Vector3.new(0, TOY_BOX.Y / 2, 0)
+	local box = makeToyBox(base)
+	local model = box.Model
+
+	-- up it pops, out of the trapdoor
+	model:ScaleTo(0.05)
+	Effects.sound(center, Sounds.Boing, 0.35, vary(1.25))
+	puff(build, base.Position + Vector3.new(0, 0.5, 0), DUST_COLOR, 8, 0.8)
+	run(d * 0.14, function(a)
+		model:ScaleTo(math.max(ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 0.05))
+	end)
+	model:ScaleTo(1)
+
+	-- the lid flips open, and the toy jumps in, shrinking to fit
+	Effects.sound(center, Sounds.Squeak, 0.2, vary(0.7))
+	task.spawn(run, d * 0.12, function(a)
+		if model.Parent then
+			setLid(box, LID_OPEN * ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+		end
+	end)
+	task.wait(d * 0.06)
+	Effects.sound(brainrot:GetPivot().Position, Sounds.Boing, 0.3, vary(1.05))
+	hopShrinking(brainrot, base * CFrame.new(0, 0.6, 0), d * 0.3, 6, 0.5)
+	brainrot:Destroy()
+	sparkle(build, center + Vector3.new(0, TOY_BOX.Y / 2, 0), SPARKLE_COLOR, 8)
+
+	-- slam!
+	run(d * 0.07, function(a)
+		setLid(box, LID_OPEN * (1 - ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.In)))
+	end)
+	setLid(box, 0)
+	Effects.sound(center, Sounds.Clunk, 0.35, vary(1.1))
+	squish(model)
+	puff(build, center + Vector3.new(0, TOY_BOX.Y / 2, 0), Color3.new(1, 1, 1), 6, 0.6)
+	Effects.popup(center + Vector3.new(0, TOY_BOX.Y / 2 + 2, 0), "PACKED!", POP_COLOR, 1.2, 0.6)
+
+	-- it wiggles: the toy inside is excited
+	task.wait(d * 0.05)
+	model:ScaleTo(1)
+	Effects.sound(center, Sounds.Squeak, 0.25, vary(1.3))
+	run(d * 0.18, function(a)
+		local wobble = math.sin(a * math.pi * 6) * 0.14 * (1 - a)
+		model:PivotTo(base * CFrame.Angles(wobble * 0.5, 0, wobble))
+	end)
+	model:PivotTo(base)
+
+	-- and down the trapdoor it goes
+	Effects.sound(center, Sounds.Whoosh, 0.25, vary(1.1))
+	run(d * 0.14, function(a)
+		local e = ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		model:ScaleTo(math.max(1 - 0.4 * e, 0.05))
+		model:PivotTo(base - Vector3.new(0, (TOY_BOX.Y + 1) * e, 0))
+	end)
+	model:Destroy()
+	puff(build, base.Position + Vector3.new(0, 0.5, 0), DUST_COLOR, 8, 0.8)
+	return base.Position + Vector3.new(0, 3, 0)
+end
+
+-- Plushie Sewing Room: the brainrot hops into the fluff machine's glass dome, fluff
+-- swirls round and round it until it's puffed up, and it sinks into the cushy base.
+local FLUFF_COLORS = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 225, 240), Color3.fromRGB(235, 240, 255) }
+local HEART_COLOR = Color3.fromRGB(255, 120, 190)
+local FLUFF_BALLS = 14
+
+local function fluffFinish(build: Build, brainrot: Model, ship: BasePart, duration: number): Vector3
+	local d = duration
+	local rotation = brainrot:GetPivot().Rotation
+	local base = rotation + Vector3.new(ship.Position.X, topOf(ship), ship.Position.Z)
+	local center = base.Position + Vector3.new(0, 2, 0)
+
+	-- in it hops, shrinking to fit under the dome
+	Effects.sound(brainrot:GetPivot().Position, Sounds.Boing, 0.3, vary(0.85))
+	hopShrinking(brainrot, base, d * 0.22, 6, 0.6)
+	local size = brainrot:GetScale()
+	puff(build, center, STUFFING_COLOR, 6)
+
+	-- fluff swirls around it, more and more, and it puffs up
+	local balls: { BasePart } = {}
+	for index = 1, FLUFF_BALLS do
+		local ball = newPart(effects, "Fluff", Vector3.one * (1.1 + (index % 3) * 0.35), CFrame.new(center), FLUFF_COLORS[index % #FLUFF_COLORS + 1], Enum.PartType.Ball)
+		ball.Material = Enum.Material.Fabric
+		ball.Transparency = 1
+		balls[index] = ball
+	end
+	local beats = 0
+	run(d * 0.48, function(a)
+		for index, ball in balls do
+			ball.Transparency = if a > (index - 1) / FLUFF_BALLS * 0.6 then 0 else 1
+			local angle = index * 2.4 + a * 14 * (if index % 2 == 0 then 1 else -1)
+			local radius = 2.3 + math.sin(a * 9 + index) * 0.5
+			local height = 0.6 + (index % 4) * 0.8 + math.sin(a * 12 + index * 1.7) * 0.5
+			ball.CFrame = CFrame.new(base.Position + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius))
+		end
+		brainrot:ScaleTo(size * (1 + 0.2 * ease(a) + 0.05 * math.sin(a * math.pi * 8)))
+		local beat = math.floor(a * 4)
+		if beat > beats then
+			beats = beat
+			Effects.sound(center, Sounds.Squeak, 0.22, 0.9 + beat * 0.15)
+			puff(build, center, STUFFING_COLOR, 3)
+		end
+	end)
+
+	-- all fluffed up!
+	sparkle(build, center + Vector3.new(0, 1, 0), HEART_COLOR, 14)
+	Effects.sound(center, Sounds.Pop, 0.35, vary(1.2))
+	Effects.popup(center + Vector3.new(0, 5, 0), "FLUFFY!", HEART_COLOR, 1.2, 0.6)
+	task.wait(d * 0.08)
+
+	-- down into the base, fluff and all
+	Effects.sound(center, Sounds.Whoosh, 0.22, vary(1.1))
+	local grown = brainrot:GetScale()
+	local start = brainrot:GetPivot()
+	local sink = CFrame.new(base.Position - Vector3.new(0, 1, 0))
+	run(d * 0.16, function(a)
+		local e = ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		brainrot:ScaleTo(math.max(grown * (1 - 0.95 * e), 0.02))
+		brainrot:PivotTo(start - Vector3.new(0, 2 * e, 0))
+		for _, ball in balls do
+			ball.CFrame = ball.CFrame:Lerp(sink, e)
+		end
+	end)
+	brainrot:Destroy()
+	for _, ball in balls do
+		ball:Destroy()
+	end
+	puff(build, center, STUFFING_COLOR, 10)
+	return center + Vector3.new(0, 4, 0)
+end
+
+-- Zones without a finish of their own: the brainrot hops onto the Ship spot and
+-- sinks away.
+local function simpleFinish(_build: Build, brainrot: Model, ship: BasePart, duration: number): Vector3
+	local rotation = brainrot:GetPivot().Rotation
+	local base = rotation + Vector3.new(ship.Position.X, topOf(ship), ship.Position.Z)
+	hopShrinking(brainrot, base, duration * 0.4, 3, 0.9)
+	local size = brainrot:GetScale()
+	run(duration * 0.3, function(a)
+		local e = ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		brainrot:ScaleTo(math.max(size * (1 - 0.9 * e), 0.05))
+		brainrot:PivotTo(base - Vector3.new(0, CHUTE_DROP * e, 0))
+	end)
+	brainrot:Destroy()
+	return base.Position + Vector3.new(0, 3, 0)
+end
+
 -- Assembly styles ------------------------------------------------------------
 -- One animation per part type, per zone. Each runs for its step's duration, starting
 -- as the part reaches the intake. The rarer the zone, the crazier it should be.
@@ -675,6 +941,7 @@ end
 local ASSEMBLY_STYLES: { [string]: Style } = {
 	ToyWorkshop = {
 		Setup = setupToy,
+		Finish = toyBoxFinish,
 		Steps = {
 			-- The legs boing off the belt and land on the pad.
 			Legs = function(build, piece, duration)
@@ -743,6 +1010,7 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 
 	PlushieRoom = {
 		Setup = setupSewing,
+		Finish = fluffFinish,
 		Steps = {
 			-- The legs plop down from up high onto a soft cushion. Floof.
 			Legs = function(build, piece, duration)
@@ -927,7 +1195,8 @@ local function animateCycle(
 	local rotation = belt.CFrame.Rotation
 	local beltTop = belt.Position.Y + belt.Size.Y / 2
 	local root = rotation + Vector3.new(assembler.Position.X, beltTop, assembler.Position.Z)
-	local shipRoot = rotation + Vector3.new(ship.Position.X, beltTop, ship.Position.Z)
+	-- the far end of the belt, where it runs out (its -Z end)
+	local beltEnd = rotation + belt.CFrame * Vector3.new(0, belt.Size.Y / 2, -belt.Size.Z / 2 + BELT_END_GAP)
 	local style = ASSEMBLY_STYLES[zoneId] or DEFAULT_STYLE
 	local build: Build = {
 		Line = line,
@@ -1080,7 +1349,7 @@ local function animateCycle(
 	end
 	setBeacon(line, false) -- in case the last step wasn't a head (no pop)
 
-	-- 4) Ride through the stations to the chute as one brainrot, then drop in.
+	-- 4) Ride through the stations to the end of the belt as one brainrot.
 	local brainrot = Instance.new("Model")
 	brainrot.Name = "Brainrot"
 	for _, piece in pieces do
@@ -1090,10 +1359,10 @@ local function animateCycle(
 	brainrot.WorldPivot = root
 	brainrot.Parent = effects
 
-	local passes = stationPasses(line, root.Position, shipRoot.Position)
+	local passes = stationPasses(line, root.Position, beltEnd.Position)
 	local nextPass = 1
 	run(Production.ShipTime, function(alpha)
-		brainrot:PivotTo(root:Lerp(shipRoot, alpha))
+		brainrot:PivotTo(root:Lerp(beltEnd, alpha))
 		local pass = passes[nextPass]
 		if pass and alpha >= pass.Alpha and line.Parent then
 			nextPass += 1
@@ -1105,7 +1374,16 @@ local function animateCycle(
 		return
 	end
 
-	local top = ship.Position + Vector3.new(0, ship.Size.Y / 2 + 2, 0)
+	-- 5) The zone's finishing stage packs it up and sends it off: that's the payout.
+	local ok, result = pcall(style.Finish or simpleFinish, build, brainrot, ship, Production.FinishDuration(cycleTime))
+	brainrot:Destroy()
+	if not line.Parent then
+		return
+	end
+	if not ok then
+		warn(`[ProductionVisuals] {zoneId} finish failed: {result}`)
+	end
+	local top = if ok then result :: Vector3 else ship.Position + Vector3.new(0, 3, 0)
 	local text = `+{Format.Number(value)} 💰` .. (if fullMatch then " x2!" else "")
 	Effects.popup(top + Vector3.new(0, 1, 0), text, if fullMatch then MATCH_COLOR else COIN_COLOR, 2.2, 1.4)
 	Effects.sound(top, Sounds.Whoosh, 0.2, vary(1.2))
@@ -1121,14 +1399,6 @@ local function animateCycle(
 		sparkle(build, top, COIN_COLOR, 10)
 	end
 
-	-- Sink into the chute, shrinking away.
-	local base = brainrot:GetScale()
-	run(0.25, function(alpha)
-		local e = ease(alpha, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-		brainrot:ScaleTo(base * math.max(1 - 0.9 * e, 0.05))
-		brainrot:PivotTo(shipRoot - Vector3.new(0, CHUTE_DROP * e, 0))
-	end)
-	brainrot:Destroy()
 end
 
 local function findLine(plot: Instance?, lineId: string): Model?

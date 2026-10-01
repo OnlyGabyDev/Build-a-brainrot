@@ -15,7 +15,8 @@ local Production = {
 	-- Client animation timings, in seconds.
 	DropTime = 0.8, -- dropper to belt: the Toy Workshop's parts slide down a ceiling chute first
 	SlideTime = 1.2, -- belt ride from the farthest dropper to the Assembler
-	ShipTime = 1.0, -- Assembler to shipping chute
+	ShipTime = 1.0, -- Assembler to the end of the belt
+	FinishTime = 1.6, -- the zone's finishing stage (packed in a toy box, fluffed up...)
 }
 
 export type Step = {
@@ -49,10 +50,17 @@ function Production.Schedule(parts: { [string]: string }, cycleTime: number): ({
 	return steps, time
 end
 
--- Seconds from a ship event until the brainrot drops into the chute (the payout).
+-- How long the finishing stage takes on a line that ships every `cycleTime` seconds:
+-- a fast line hurries it, so one brainrot is packed off before the next arrives.
+function Production.FinishDuration(cycleTime: number): number
+	return math.min(Production.FinishTime, cycleTime * 0.8)
+end
+
+-- Seconds from a ship event until the brainrot is shipped off (the payout), at the end
+-- of its finishing stage.
 function Production.ShipDelay(parts: { [string]: string }, cycleTime: number): number
 	local _, finished = Production.Schedule(parts, cycleTime)
-	return finished + Production.ShipTime
+	return finished + Production.ShipTime + Production.FinishDuration(cycleTime)
 end
 
 return Production

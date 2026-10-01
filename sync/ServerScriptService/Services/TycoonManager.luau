@@ -53,6 +53,7 @@ local CASH_PAD_OFFSET = CFrame.new(0, FLOOR_TOP + 0.3, -40)
 local LINE_X = { 0, -42, 42 }
 local DROPPER_Z = { Head = 40, Body = 31, Arms = 22, Legs = 13 }
 local STATION_Z = { Station1 = -7, Station2 = -14 }
+local SHIP_Z = -25 -- the finishing stage, just past the end of the belt
 local SPEED_X = { Speed1 = -1.5, Speed2 = 1.5 }
 -- Button spots relative to the line origin. A line shows one button at a time,
 -- so Speed1 and Speed2 can share a spot.
@@ -88,7 +89,6 @@ local FACE_TEXTURE = "rbxasset://textures/face.png"
 local SEWING_COLOR = Color3.fromRGB(255, 170, 205)
 local SEWING_LIGHT_COLOR = Color3.fromRGB(255, 235, 245)
 local THREAD_COLORS = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 150, 90) }
-local COIN_GLOW_COLOR = Color3.fromRGB(255, 215, 60)
 local AFFORDABLE_COLOR = Color3.fromRGB(80, 220, 100)
 local EXPENSIVE_COLOR = Color3.fromRGB(235, 80, 80)
 local BUTTON_COOLDOWN = 0.5
@@ -293,27 +293,103 @@ end
 -- on the floor under it. ProductionVisuals plays the slide.
 local CHUTE_TUBE = 5.6 -- across
 local CHUTE_COLLAR = 4 -- tall: it hides a part waiting to slide
+local CHUTE_BANDS = 5
+local PART_ICONS = { Head = "🧠", Body = "👕", Arms = "💪", Legs = "🦵" }
+
+-- A label on a face of `part`: the part type's icon, then its name, big, in white with
+-- a dark outline.
+local function labelFace(part: BasePart, face: Enum.NormalId, partType: string)
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Label"
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 25
+	gui.LightInfluence = 0
+	gui.Parent = part
+	local icon = Instance.new("TextLabel")
+	icon.Name = "Icon"
+	icon.Size = UDim2.fromScale(0.3, 0.9)
+	icon.Position = UDim2.fromScale(0.02, 0.05)
+	icon.BackgroundTransparency = 1
+	icon.TextScaled = true
+	icon.Text = PART_ICONS[partType] or ""
+	icon.Parent = gui
+	local name = Instance.new("TextLabel")
+	name.Name = "PartName"
+	name.Size = UDim2.fromScale(0.66, 0.8)
+	name.Position = UDim2.fromScale(0.32, 0.1)
+	name.BackgroundTransparency = 1
+	name.Font = Enum.Font.FredokaOne
+	name.TextScaled = true
+	name.TextColor3 = Color3.new(1, 1, 1)
+	name.Text = string.upper(partType)
+	name.Parent = gui
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 3
+	stroke.Color = Color3.fromRGB(45, 30, 60)
+	stroke.Parent = name
+end
+
 local function buildChute(model: Model, base: CFrame, partType: string, color: Color3)
 	local ceiling = FactoryBuilder.CeilingHeight
 	local light = color:Lerp(Color3.new(1, 1, 1), 0.35)
 	local nozzle = makePart(model, partType .. "Dropper", Vector3.new(6, 3, 6), base * CFrame.new(0, 9.5, 0), color)
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
+		labelFace(nozzle, face, partType)
+	end
 	makeDecor(model, partType .. "DropperRim", Vector3.new(6.3, 0.35, 6.3), base * CFrame.new(0, 8.1, 0), light, Enum.Material.Neon)
 	makeDecor(model, partType .. "DropperMouth", Vector3.new(4.2, 0.1, 4.2), base * CFrame.new(0, 7.9, 0), Color3.fromRGB(35, 25, 45))
-	local label = makeBillboard(nozzle, string.upper(partType), Vector2.new(5, 1.5), 0, 80)
-	local gui = label.Parent :: BillboardGui
-	gui.StudsOffsetWorldSpace = base.XVector * -5.6 + Vector3.new(0, 0.6, 0) -- beside the nozzle, clear of the tube
 
 	local tubeBottom, tubeTop = 11, ceiling - CHUTE_COLLAR
 	makeColumn(model, partType .. "ChuteNeck", CHUTE_TUBE + 1.4, tubeBottom, tubeBottom + 1.2, base, light)
 	local glass = makeColumn(model, partType .. "ChuteTube", CHUTE_TUBE, tubeBottom + 1.2, tubeTop, base, light, Enum.Material.Glass)
 	glass.Transparency = 0.55
-	for _, share in { 0.25, 0.55, 0.85 } do
-		local y = tubeBottom + 1.2 + (tubeTop - tubeBottom - 1.2) * share
-		makeColumn(model, partType .. "ChuteBand", CHUTE_TUBE + 0.6, y - 0.4, y + 0.4, base, color)
+	for index = 1, CHUTE_BANDS do
+		local y = tubeBottom + 1.2 + (tubeTop - tubeBottom - 1.2) * (index - 0.5) / CHUTE_BANDS
+		makeColumn(model, partType .. "ChuteBand", CHUTE_TUBE + 0.6, y - 0.35, y + 0.35, base, color)
 	end
 	makeColumn(model, partType .. "ChuteTop", CHUTE_TUBE + 1.8, tubeTop, ceiling, base, GANTRY_COLOR)
 	makeColumn(model, partType .. "ChuteRing", CHUTE_TUBE + 2.4, tubeTop - 0.3, tubeTop + 0.9, base, color)
 	makeColumn(model, partType .. "ChuteFlange", CHUTE_TUBE + 4, ceiling - 0.6, ceiling, base, light)
+	-- the label again on top, for when the ceiling fades away and you look down (it
+	-- hides in the ceiling otherwise)
+	local plate = makeDecor(model, partType .. "ChuteSign", Vector3.new(6.4, 0.1, 6.4), base * CFrame.new(0, ceiling + 0.08, 0) * CFrame.Angles(0, math.pi / 2, 0), color) -- turned so it reads from the front
+	plate.Transparency = 1
+	labelFace(plate, Enum.NormalId.Top, partType)
+end
+
+-- Finishing stages (GDD §6), past the end of the belt at `spot` (on the floor). The
+-- part named Ship is where ProductionVisuals plays the zone's finish and the coins
+-- burst out.
+
+-- Toy Workshop: a trapdoor in the floor. A toy box pops up out of it, the brainrot
+-- jumps in, the lid slams and the box drops back down through it.
+local function buildTrapdoor(model: Model, spot: CFrame)
+	makePart(model, "TrapdoorFrame", Vector3.new(9.6, 0.4, 9.6), spot * CFrame.new(0, 0.2, 0), GANTRY_COLOR)
+	local ship = makePart(model, "Ship", Vector3.new(8.4, 0.5, 8.4), spot * CFrame.new(0, 0.25, 0), CLAW_COLOR)
+	makeDecor(model, "TrapdoorSeam", Vector3.new(8.4, 0.52, 0.25), spot * CFrame.new(0, 0.25, 0), Color3.fromRGB(150, 100, 30))
+	for _, side in { -1, 1 } do
+		makeDecor(model, "TrapdoorHandle", Vector3.new(2, 0.6, 0.4), spot * CFrame.new(0, 0.3, side * 1), Color3.fromRGB(150, 100, 30))
+	end
+	makeBillboard(ship, "📦 SHIPPING", Vector2.new(8, 2), 9, 80)
+end
+
+-- Plushie Sewing Room: a fluff machine, a glass dome on a cushy base. The brainrot
+-- hops in, fluff swirls around it until it's puffy, and it sinks into the base.
+local FLUFF_PINK = Color3.fromRGB(255, 150, 200)
+local function buildFluffMachine(model: Model, spot: CFrame)
+	makeColumn(model, "FluffFoot", 9.8, 0, 0.6, spot, SEWING_COLOR)
+	local ship = makeColumn(model, "Ship", 9, 0.6, 2.6, spot, SEWING_LIGHT_COLOR)
+	ship.CanCollide = true
+	ship.CanQuery = true
+	makeColumn(model, "FluffTrim", 9.3, 2.2, 2.6, spot, FLUFF_PINK)
+	local dome = makeDecor(model, "FluffDome", Vector3.new(8.4, 8.4, 8.4), spot * CFrame.new(0, 2.6, 0), Color3.fromRGB(235, 245, 255), Enum.Material.Glass)
+	dome.Shape = Enum.PartType.Ball
+	dome.Transparency = 0.65
+	makeColumn(model, "FluffCap", 2.6, 6.6, 7.6, spot, FLUFF_PINK)
+	local knob = makeDecor(model, "FluffKnob", Vector3.new(1.6, 1.6, 1.6), spot * CFrame.new(0, 8.2, 0), SEWING_LIGHT_COLOR)
+	knob.Shape = Enum.PartType.Ball
+	makeBillboard(ship, "☁️ SHIPPING", Vector2.new(8, 2), 9, 80)
 end
 
 local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Item) -> () } = {
@@ -356,11 +432,14 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			buildPusher(model, origin, 1)
 		end
 
-		-- The shipping chute: a box with a dark hole in its top.
-		local ship = makePart(model, "Ship", Vector3.new(10, 6, 6), origin * CFrame.new(0, 3, -21), Color3.fromRGB(255, 140, 50))
-		makeDecor(model, "ChuteHole", Vector3.new(7.6, 0.1, 4), origin * CFrame.new(0, 6.05, -21), Color3.fromRGB(35, 25, 45))
-		makeDecor(model, "ChuteGlow", Vector3.new(8.4, 0.08, 4.8), origin * CFrame.new(0, 6.02, -21), COIN_GLOW_COLOR, Enum.Material.Neon)
-		makeBillboard(ship, "SHIPPING", Vector2.new(8, 2), 4.5, 80)
+		-- Shipping: past the end of the belt, the zone's finishing stage packs the
+		-- brainrot up and sends it off (ProductionVisuals plays it).
+		local spot = origin * CFrame.new(0, 0, SHIP_Z)
+		if item.Zone == "PlushieRoom" then
+			buildFluffMachine(model, spot)
+		else
+			buildTrapdoor(model, spot)
+		end
 	end,
 
 	Dropper = function(model, origin, item)
