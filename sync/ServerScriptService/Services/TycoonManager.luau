@@ -4,8 +4,8 @@
 	builds what they've purchased, shows the purchase buttons in unlock order, and runs
 	the collector + Cash Pad.
 
-	All geometry is generated here as colorful placeholders, so the game is playable
-	before any art exists. ProductionVisuals finds line parts by name (Belt, Assembler,
+	All geometry is generated in code: FactoryBuilder builds each plot's building (one
+	room per zone), and this module the lines inside. ProductionVisuals finds line parts by name (Belt, Assembler,
 	Ship, HeadDropper, BodyDropper, ArmsDropper, LegsDropper, Beacon, Station1/2 and
 	their Glow) and animates the Assembler's machines (Claw: Hand, Rod, FingerLeft,
 	FingerRight; PusherLeft and PusherRight: Fist, Rod): keep those names when swapping
@@ -24,6 +24,7 @@ local TycoonItems = require(Shared.Config.TycoonItems)
 local Zones = require(Shared.Config.Zones)
 
 local DataManager = require(script.Parent.DataManager)
+local FactoryBuilder = require(script.Parent.FactoryBuilder)
 local MonetizationManager = require(script.Parent.MonetizationManager)
 
 -- Layout ---------------------------------------------------------------------
@@ -31,14 +32,11 @@ local MonetizationManager = require(script.Parent.MonetizationManager)
 
 local PLOT_COUNT = 6
 local PLOT_RADIUS = 210 -- hub (world origin) to plot center
-local PLOT_SIZE = Vector3.new(140, 1, 120) -- one zone's floor
-local FLOOR_TOP = 1
+local PLOT_SIZE = FactoryBuilder.RoomSize -- one zone's floor
+local FLOOR_TOP = FactoryBuilder.FloorTop
 -- Each zone is a room of the factory, further back from the hub (GDD §10). By zone
 -- index: Z of the room's center. The Toy Workshop sits at the plot's center.
 local ZONE_Z = { 0, 120 }
-local ZONE_FLOORS = {
-	PlushieRoom = { Color = Color3.fromRGB(255, 205, 228), Material = Enum.Material.Fabric, Title = "🧸 PLUSHIE SEWING ROOM" },
-}
 local PLOT_COLORS = {
 	Color3.fromRGB(255, 214, 165),
 	Color3.fromRGB(190, 230, 255),
@@ -50,7 +48,6 @@ local PLOT_COLORS = {
 
 local SPAWN_OFFSET = CFrame.new(0, FLOOR_TOP + 4, -52) * CFrame.Angles(0, math.pi, 0) -- facing into the plot
 local CASH_PAD_OFFSET = CFrame.new(0, FLOOR_TOP + 0.3, -40)
-local SIGN_OFFSET = CFrame.new(0, FLOOR_TOP + 9, -61)
 
 -- Line origins sit on the floor. Parts flow from the droppers (+Z) to the chute (-Z).
 local LINE_X = { 0, -42, 42 }
@@ -105,7 +102,7 @@ export type Plot = {
 	SignLabel: TextLabel,
 	CashPad: BasePart,
 	CashLabel: TextLabel,
-	ZoneLabels: { [string]: TextLabel }, -- each back room's name + lock
+	Doorways: { [string]: FactoryBuilder.Doorway }, -- into each back room, by zone id
 	Owner: Player?,
 	Collected: number, -- Coins waiting on the Cash Pad
 	Generation: number, -- bumped on every reset or release, so payouts in flight can tell
@@ -462,32 +459,15 @@ local function newGeneration(plot: Plot)
 	plot.CashPad:SetAttribute("Generation", plot.Generation)
 end
 
--- Each back room's sign shows its name, with a lock until the owner unlocks it.
+-- Each back room's doorway stays shuttered, its sign showing a lock, until the owner
+-- unlocks the zone.
 local function updateZoneLabels(plot: Plot)
 	local data = plot.Owner and DataManager.GetData(plot.Owner)
-	for zoneId, label in plot.ZoneLabels do
+	for zoneId, doorway in plot.Doorways do
 		local zone = Zones.ById[zoneId]
-		local title = ZONE_FLOORS[zoneId].Title
-		label.Text = if data and data.Rebirths >= zone.UnlockRebirths then title else `{title}\n🔒 REBIRTH {zone.UnlockRebirths}`
+		local unlocked = data ~= nil and data.Rebirths >= zone.UnlockRebirths
+		FactoryBuilder.SetLocked(doorway, if unlocked then nil else `🔒 REBIRTH {zone.UnlockRebirths}`)
 	end
-end
-
--- A sign with text on its front face (-Z of `cframe`).
-local function makeSign(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, text: string): TextLabel
-	local sign = makePart(parent, name, size, cframe, Color3.new(1, 1, 1))
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.LightInfluence = 0
-	gui.Parent = sign
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
-	label.TextScaled = true
-	label.TextColor3 = color
-	label.Text = text
-	label.Parent = gui
-	return label
 end
 
 local function buildPlot(index: number, parent: Instance): Plot
@@ -500,28 +480,15 @@ local function buildPlot(index: number, parent: Instance): Plot
 	model.WorldPivot = cframe
 	model.Parent = parent
 
-	makePart(model, "Floor", PLOT_SIZE, cframe * CFrame.new(0, FLOOR_TOP - PLOT_SIZE.Y / 2, 0), PLOT_COLORS[index])
-
-	-- Back rooms for the later zones, each behind the last, with a sign over the entrance.
-	local zoneLabels = {}
-	for zoneId, style in ZONE_FLOORS do
-		local zone = Zones.ById[zoneId]
+	-- The factory building: a room per available zone, each behind the last.
+	local rooms: { FactoryBuilder.Room } = {}
+	for _, zone in Zones.List do
 		local z = ZONE_Z[zone.Index]
 		if zone.Available and z then
-			local floor = makePart(model, `{zoneId}Floor`, PLOT_SIZE, cframe * CFrame.new(0, FLOOR_TOP - PLOT_SIZE.Y / 2, z), style.Color, style.Material)
-			floor.TopSurface = Enum.SurfaceType.Smooth
-			local entrance = z - PLOT_SIZE.Z / 2
-			zoneLabels[zoneId] = makeSign(model, `{zoneId}Sign`, Vector3.new(34, 7, 1), cframe * CFrame.new(0, FLOOR_TOP + 14, entrance), Color3.fromRGB(255, 110, 180), style.Title)
-			for _, side in { -1, 1 } do
-				makePart(model, `{zoneId}SignPost`, Vector3.new(1.2, 17.5, 1.2), cframe * CFrame.new(16 * side, FLOOR_TOP + 8.75, entrance), style.Color)
-			end
+			table.insert(rooms, { ZoneId = zone.Id, Z = z })
 		end
 	end
-
-	local signLabel = makeSign(model, "Sign", Vector3.new(30, 6, 1), cframe * SIGN_OFFSET, Color3.fromRGB(255, 120, 200), "Empty Plot")
-	for _, side in { -1, 1 } do
-		makePart(model, "SignPost", Vector3.new(1, 6, 1), cframe * CFrame.new(12 * side, FLOOR_TOP + 3, -61), METAL_COLOR)
-	end
+	local factory = FactoryBuilder.Build(model, cframe, PLOT_COLORS[index], rooms)
 
 	local cashPad = makePart(model, "CashPad", Vector3.new(8, 0.6, 8), cframe * CASH_PAD_OFFSET, Color3.fromRGB(255, 215, 0), Enum.Material.Neon)
 	local cashLabel = makeBillboard(cashPad, "", Vector2.new(8, 3), 4, 100)
@@ -539,10 +506,10 @@ local function buildPlot(index: number, parent: Instance): Plot
 		CFrame = cframe,
 		LinesFolder = linesFolder,
 		ButtonsFolder = buttonsFolder,
-		SignLabel = signLabel,
+		SignLabel = factory.SignLabel,
 		CashPad = cashPad,
 		CashLabel = cashLabel,
-		ZoneLabels = zoneLabels,
+		Doorways = factory.Doorways,
 		Owner = nil,
 		Collected = 0,
 		Generation = 0,

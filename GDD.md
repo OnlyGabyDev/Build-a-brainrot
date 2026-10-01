@@ -228,7 +228,7 @@ We also track the **Rebirths** count (not a currency), which gates zones and rar
   - Shop: **Income** (+10%/lv), **Dropper Speed** (+5%/lv), **Luck** (+10%/lv: rarer tiers weigh more, boxes upgrade more often).
   - Box cap and box respawn don't fit shared boxes, so they're dropped. Walk Speed comes later.
 - Line setups of lines you haven't bought back since a rebirth are remembered, but don't hold their parts, so those parts are free for your other lines.
-- Each zone is a room of the factory, further back from the hub. Zone 2's room gets its free first line the moment it unlocks.
+- Each zone is a room of the factory, further back from the hub. Zone 2's room gets its free first line the moment it unlocks. ✅ The rooms are real buildings: walls, windows, a sawtooth roof that fades while you watch from above, and a shuttered doorway (🔒 REBIRTH N) into each locked room.
 
 ### Zones
 
@@ -464,6 +464,7 @@ StarterPlayer/StarterPlayerScripts/
   - All 15 brainrots have voxel art. The 14 *Steal a Brainrot* ones follow its renders; the Godly is our own **Supremo Brainrotto, the Risotto King** (§3).
   - Requested and planned: a themed **finishing stage**, **finishing upgrader** and **droppers** per zone, **Paint Booth options** and a **Photobooth** (§6); **Sprint** and **Custom Paint** gamepasses (§12).
   - The Toy Workshop's droppers will be **ceiling** chutes (§6).
+  - Real factory buildings (§10): each zone is a walled room with windows and a sawtooth roof that fades while you watch your lines from above. The entrance faces the hub under the owner's sign, and a locked back room's doorway stays shuttered until it unlocks. Next: the hub map, then room interiors.
   - Rebirths drop the brainrots still on the belts, with no payout (§10). Before, they paid into the fresh plot.
 - **v0.7 (2026-09-30):** Core-loop juice pass (§13): per-step assembly sounds and effects, station effects, flying coins, rolling belts, build-in animations, the Cash Pad coin pile, lighting with bloom, and background music.
 - **v0.6 (2026-09-30):**
