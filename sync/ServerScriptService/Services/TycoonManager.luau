@@ -31,7 +31,7 @@ local MonetizationManager = require(script.Parent.MonetizationManager)
 -- Plot space: origin on the ground at the plot's center, -Z (front) faces the hub.
 
 local PLOT_COUNT = 6
-local PLOT_RADIUS = 210 -- hub (world origin) to plot center
+local PLOT_RADIUS = 300 -- hub (world origin) to plot center; entrances at 240
 local PLOT_SIZE = FactoryBuilder.RoomSize -- one zone's floor
 local FLOOR_TOP = FactoryBuilder.FloorTop
 -- Each zone is a room of the factory, further back from the hub (GDD §10). By zone

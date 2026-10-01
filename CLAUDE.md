@@ -23,12 +23,13 @@ The user opens a new chat per task to save tokens. Take the first unchecked task
 
 ## Recipes
 - **Sounds:** `search_asset` with `assetType = "Audio"`, `scope = "creator_store"` and `facets = ["Pro Sound Effects"]` (or `["APM Music"]` for music). Their descriptions say what the sound is (you can't listen). Check that ids load on the Client (`ContentProvider:PreloadAsync`, then `TimeLength > 0`) before using them.
-- **Images/textures:** a Creator Store decal id doesn't load as a texture. Get the image id in Edit mode with `InsertService:LoadAsset(decalId)` and read the Decal's `Texture`. Preview thumbnails with curl from `thumbnails.roblox.com/v1/assets?assetIds=...&size=420x420&format=Png` and the Read tool.
+- **Images/textures:** a Creator Store decal id doesn't load as a texture. Get the image id in Edit mode with `InsertService:LoadAsset(decalId)` and read the Decal's `Texture`. Preview thumbnails with curl from `thumbnails.roblox.com/v1/assets?assetIds=...&size=420x420&format=Png` and the Read tool. Other people's models (e.g. a skybox) only insert with the MCP's `insert_asset`; read what you need and delete the copy.
+- **Terrain and the map:** see PROGRESS.md, *World notes* (terrain height rules, painting the ground, the MaterialVariant that lives in the place file).
 - **Textures on a Top face:** U runs along the part's X, V along its Z, and raising an offset slides the texture toward +X / +Z.
 - **World effects:** use `Client/Effects` (sound, sparkle, puff, confetti, ring, flash, tint, popup, coins); it culls by distance and cleans up after itself.
 
 ## The user's preferences
 - Keep it simple first. Propose ideas (log them in GDD §16) instead of building them unasked.
 - Assembly animations are **high priority**: every zone builds brainrots part by part (Legs → Body → Arms → Head), with its own themed, cute machines, and lots of sounds, particles and light (it's what players watch most).
-- Art: **build it ourselves first** (voxel brainrots referencing *Steal a Brainrot*'s designs, props, UI). Toolbox or paid packs only as a fallback. Avoid Roblox AI generation.
+- Art: **build it ourselves first** (voxel brainrots referencing *Steal a Brainrot*'s designs, props, UI). Creator Store textures, skyboxes and models are fine for polish; paid packs only as a fallback. Avoid Roblox AI generation. Visual references the user likes: *Pet Simulator 99* and *Adopt Me!* (fetch screenshots from their fandom wikis, like the brainrot renders).
 - The UI should be cute, friendly and **very** colorful (Pet Simulator style). The polish backlog is in GDD §15.

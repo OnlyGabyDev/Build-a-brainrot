@@ -24,12 +24,13 @@ local Rebirths = require(Shared.Config.Rebirths)
 local Remotes = require(Shared.Remotes)
 
 local DataManager = require(script.Parent.DataManager)
+local MapBuilder = require(script.Parent.MapBuilder)
 local MonetizationManager = require(script.Parent.MonetizationManager)
 local ProductionManager = require(script.Parent.ProductionManager)
 
 local PART_TYPES = Brainrots.PartTypes
 local REQUEST_COOLDOWN = 0.25 -- per player, for open requests
-local BOX_HEIGHT = 1.5 -- box center above the ground (the baseplate's top is Y = 0)
+local BOX_HEIGHT = 1.5 -- box center above the ground
 local LUCK_SYNC_INTERVAL = 2 -- seconds between refreshes of the "Luck" attribute
 
 export type Box = {
@@ -137,9 +138,13 @@ end
 -- Map loot boxes -------------------------------------------------------------
 
 local function randomBoxPosition(): Vector3
-	local angle = random:NextNumber(0, math.pi * 2)
 	local min, max = Loot.SpawnRadius.Min, Loot.SpawnRadius.Max
+	local spot = MapBuilder.FindSpot(min, max, random) -- on dry ground, hills included
+	if spot then
+		return spot + Vector3.new(0, BOX_HEIGHT, 0)
+	end
 	-- Square-root sampling spreads boxes evenly over the ring instead of bunching them.
+	local angle = random:NextNumber(0, math.pi * 2)
 	local radius = math.sqrt(random:NextNumber(min * min, max * max))
 	return Vector3.new(math.cos(angle) * radius, BOX_HEIGHT, math.sin(angle) * radius)
 end

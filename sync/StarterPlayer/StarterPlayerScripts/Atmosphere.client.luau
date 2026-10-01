@@ -1,11 +1,13 @@
 --[[
 	Atmosphere
 	The look and sound of the world (GDD §1, §13): a bright, warm, candy-colored
-	afternoon with bloom (so every Neon part glows), punchy color grading, a soft
-	pastel haze, and cheerful background music on shuffle with a mute button. The
-	giant statue in the hub's fountain (MapBuilder) turns slowly. Client only.
+	afternoon under a dreamy anime skybox (Creator Store), with bloom (so every Neon part
+	glows), punchy color grading, a soft pastel haze, and cheerful background music on
+	shuffle with a mute button. In the hub (MapBuilder), the statues turn slowly, the
+	balloons bob and the water's cartoon texture drifts. Client only.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -17,6 +19,16 @@ local Kit = require(Client:WaitForChild("UI"):WaitForChild("Kit"))
 
 local MUSIC_VOLUME = 0.3
 local STATUE_SPIN = 0.25 -- radians per second
+local SPIN_DISTANCE = 300 -- only statues this close to the camera turn
+-- "☁️ Cartoon Skybox Clouds Blue Fantasy Dreamy" (Creator Store 77395315546773)
+local SKYBOX = {
+	SkyboxBk = "rbxassetid://13107325341",
+	SkyboxDn = "rbxassetid://13107329809",
+	SkyboxFt = "rbxassetid://13107334845",
+	SkyboxLf = "rbxassetid://13107337703",
+	SkyboxRt = "rbxassetid://13107340396",
+	SkyboxUp = "rbxassetid://13107344387",
+}
 
 -- Lighting -------------------------------------------------------------------
 
@@ -32,47 +44,126 @@ local function effect(className: string, props: { [string]: any }): Instance
 	return instance
 end
 
-Lighting.ClockTime = 14.2
-Lighting.Brightness = 2
-Lighting.Ambient = Color3.fromRGB(95, 90, 110)
-Lighting.OutdoorAmbient = Color3.fromRGB(125, 120, 140)
-Lighting.ExposureCompensation = 0
-Lighting.EnvironmentDiffuseScale = 0.6
+Lighting.ClockTime = 14.5
+Lighting.Brightness = 2.4
+Lighting.Ambient = Color3.fromRGB(120, 105, 140)
+Lighting.OutdoorAmbient = Color3.fromRGB(150, 135, 170)
+Lighting.ColorShift_Top = Color3.fromRGB(255, 235, 215)
+Lighting.ExposureCompensation = 0.05
+Lighting.EnvironmentDiffuseScale = 0.7
 Lighting.EnvironmentSpecularScale = 0.5
-Lighting.ShadowSoftness = 0.35
+Lighting.ShadowSoftness = 0.5
 Lighting.GeographicLatitude = 30
 
 effect("BloomEffect", { Intensity = 0.6, Size = 24, Threshold = 1.9 })
 effect("ColorCorrectionEffect", {
-	Saturation = 0.18,
-	Contrast = 0.12,
-	Brightness = 0,
-	TintColor = Color3.fromRGB(255, 252, 248),
+	Saturation = 0.25,
+	Contrast = 0.1,
+	Brightness = 0.02,
+	TintColor = Color3.fromRGB(255, 250, 252),
 })
-effect("SunRaysEffect", { Intensity = 0.06, Spread = 0.7 })
+effect("SunRaysEffect", { Intensity = 0.05, Spread = 0.7 })
 effect("Atmosphere", {
-	Density = 0.22,
-	Offset = 0.25,
-	Color = Color3.fromRGB(215, 205, 255),
-	Decay = Color3.fromRGB(255, 190, 225),
+	Density = 0.16,
+	Offset = 0.2,
+	Color = Color3.fromRGB(210, 228, 255), -- the skybox's horizon
+	Decay = Color3.fromRGB(255, 210, 235),
 	Glare = 0,
-	Haze = 0.4,
+	Haze = 0.15,
 })
+effect("Sky", SKYBOX)
+local sky = Lighting:FindFirstChildOfClass("Sky") :: Sky
+sky.CelestialBodiesShown = false -- the skybox paints its own light
 local depth = Lighting:FindFirstChildOfClass("DepthOfFieldEffect")
 if depth then
 	depth.Enabled = false
 end
+local clouds = workspace.Terrain:FindFirstChildOfClass("Clouds")
+if clouds then
+	clouds.Enabled = false -- the skybox has its own clouds
+end
 
--- The hub's statue -------------------------------------------------------------
+-- The hub: statues, balloons, water -------------------------------------------------
 
-task.spawn(function()
-	local statue = workspace:WaitForChild("Hub"):WaitForChild("Statue")
-	if not statue:IsA("Model") then
-		return
+-- The giant statue in the fountain and every showcase statue turn slowly (the ones near
+-- the camera, anyway).
+local spinning: { [Model]: CFrame } = {} -- statue → its resting pivot
+local function spin(statue: Instance)
+	if statue:IsA("Model") then
+		spinning[statue] = statue:GetPivot()
 	end
-	local base = statue:GetPivot()
+end
+for _, statue in CollectionService:GetTagged("SpinningStatue") do
+	spin(statue)
+end
+CollectionService:GetInstanceAddedSignal("SpinningStatue"):Connect(spin)
+CollectionService:GetInstanceRemovedSignal("SpinningStatue"):Connect(function(statue)
+	spinning[statue :: Model] = nil
+end)
+task.spawn(function()
+	spin(workspace:WaitForChild("Hub"):WaitForChild("Statue"))
+end)
+RunService.RenderStepped:Connect(function()
+	local camera = workspace.CurrentCamera.CFrame.Position
+	local turn = CFrame.Angles(0, os.clock() * STATUE_SPIN, 0)
+	for statue, rest in spinning do
+		if (rest.Position - camera).Magnitude < SPIN_DISTANCE then
+			statue:PivotTo(rest * turn)
+		end
+	end
+end)
+
+-- The cartoon texture on the river and streams drifts along with the flow, each layer
+-- at its own speed, from where its stretch sits along the flow (MapBuilder.waterSkin).
+local flowing: { [Texture]: { Base: number, Drift: number } } = {}
+local function flow(texture: Instance)
+	if texture:IsA("Texture") then
+		local base, drift = texture:GetAttribute("Base"), texture:GetAttribute("Drift")
+		flowing[texture] = {
+			Base = if typeof(base) == "number" then base else 0,
+			Drift = if typeof(drift) == "number" then drift else 1,
+		}
+	end
+end
+for _, texture in CollectionService:GetTagged("FlowingWater") do
+	flow(texture)
+end
+CollectionService:GetInstanceAddedSignal("FlowingWater"):Connect(flow)
+CollectionService:GetInstanceRemovedSignal("FlowingWater"):Connect(function(texture)
+	flowing[texture :: Texture] = nil
+end)
+RunService.RenderStepped:Connect(function()
+	local now = os.clock()
+	for texture, layer in flowing do
+		-- a falling offset slides the texture toward -Z, downstream
+		texture.OffsetStudsV = (layer.Base - now * layer.Drift) % texture.StudsPerTileV
+	end
+end)
+
+-- Each balloon (and its string) bobs gently on its own rhythm.
+task.spawn(function()
+	local folder = workspace:WaitForChild("Hub"):WaitForChild("Balloons")
+	local parts: { BasePart } = {}
+	local rests: { CFrame } = {}
+	local phases: { number } = {}
+	local function track(part: Instance)
+		if part:IsA("BasePart") then
+			table.insert(parts, part)
+			table.insert(rests, part.CFrame)
+			-- a balloon and its string share a phase (they sit at the same X/Z)
+			table.insert(phases, (part.Position.X * 0.37 + part.Position.Z * 0.61) % (math.pi * 2))
+		end
+	end
+	for _, part in folder:GetChildren() do
+		track(part)
+	end
+	folder.ChildAdded:Connect(track)
 	RunService.RenderStepped:Connect(function()
-		statue:PivotTo(base * CFrame.Angles(0, os.clock() * STATUE_SPIN, 0))
+		local now = os.clock()
+		for index, part in parts do
+			local phase = phases[index]
+			part.CFrame = rests[index] + Vector3.new(0, math.sin(now * 1.3 + phase) * 1.2, 0)
+		end
 	end)
 end)
 

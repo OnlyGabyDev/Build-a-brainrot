@@ -110,7 +110,7 @@ All numbers are **placeholders**. Tune them in playtests.
 ## 5. Loot Boxes, Rolls & the Wheel 🟢
 
 **Map loot boxes**
-- Boxes spawn around the hub, between the plots. Each box has a visible **rarity** (color and glow) and a **part type** (label on top).
+- Boxes spawn across the valley: the plaza, the bridges and the grass between the factories' entrances, hills included (never on water). Each box has a visible **rarity** (color and glow) and a **part type** (label on top).
 - **Decision (v0.4):** boxes are **shared**. Anyone can grab any box, first come first served. This gets players out of their tycoons to interact (and later, use their gadgets on each other), and gives them something to do while saving up for the next purchase.
   - Box count grows with the server: 6 with one player, +2 per extra player, 20 max. A replacement spawns 10–20 s after one is opened.
   - Boxes only roll rarities that **someone in the server** has unlocked. Players who haven't unlocked a box's rarity see it locked (`🔒 Rebirth 4`) and can't open it, which is a visible reason to rebirth.
@@ -426,9 +426,9 @@ StarterPlayer/StarterPlayerScripts/
 **Polish backlog** (flagged, after the loop is complete):
 - The loot wheel looks ugly; redesign it.
 - All UI: much more effort, cute, friendly and VERY colorful, referencing the famous simulator games. The Index becomes a sticker book (§8 polish target).
-- ~~A real map to replace the baseplate hub, and real facility art~~ (v0.8: factory buildings and the hub map; room interiors and upper floors still to come).
+- ~~A real map to replace the baseplate hub~~ (v0.8: the world map, done). Real facility art: the factory buildings exist but the user finds them ugly; **redesign next** (4 rooms over 2 floors, *Pet Simulator 99* / *Adopt Me!* references), then room interiors.
 - Brainrot models (§3), per-rarity box effects (§5). ~~Sounds and music~~ (first pass done in v0.7; UI sounds and per-zone machine sounds can still grow).
-- Art sources, in order: **1) build the assets ourselves first** (voxel brainrots split into parts, props, UI styling, all made in Studio). **2) Only if that falls short:** paid or online asset packs (map, facility, UI), or paid brainrot sets (voxelized to match the style).
+- Art sources, in order: **1) build the assets ourselves first** (voxel brainrots split into parts, props, UI styling, all made in Studio). **2) Creator Store textures, skyboxes and models are fine for polish** (the user, v0.8: the map uses a store skybox and grass, water and paving textures). **3) Only if that falls short:** paid or online asset packs (map, facility, UI), or paid brainrot sets (voxelized to match the style).
 
 ---
 
@@ -469,8 +469,9 @@ StarterPlayer/StarterPlayerScripts/
   - Requested and planned: a themed **finishing stage**, **finishing upgrader** and **droppers** per zone, **Paint Booth options** and a **Photobooth** (§6); **Sprint** and **Custom Paint** gamepasses (§12).
   - The Toy Workshop's droppers will be **ceiling** chutes (§6).
   - Real factory buildings (§10): each zone is a walled room with windows and a sawtooth roof that fades while you watch your lines from above. The entrance faces the hub under the owner's sign, and a locked back room's doorway stays shuttered until it unlocks.
-  - The hub map (§15): grass, a round pastel plaza with a path in each factory's color, a fountain with a giant spinning Tralalero statue, lamps, flower bushes, groves between the factories, and a ring of hills around the valley.
-  - Direction (the user): the factory grows **upward** into a crazy *Hello Neighbor*–style building as zones unlock (§10).
+  - The world map (§15), after several rounds with the user (references: *Pet Simulator 99*, *Adopt Me!*): a bigger terrain valley with the factories spread out (radius 300), ringed by mountains. In the middle, a tiled plaza under a striped carousel tent (fountain, giant spinning Tralalero, flagstone carpets in each factory's color, hedges, bunting), ringed by a river with 6 arched bridges; winding flagstone paths in each factory's color lead to the entrances. Between the factories: hills, two streams ending in ponds (lily pads, reeds, rubber ducks), brainrot showcase statues, picnics, gardens, toy blocks, giant lollipops, ~190 trees, flowers. A dreamy anime skybox, warmer lighting, and Creator Store textures on the grass, water and paving. The center is where bosses could spawn later (§11).
+  - Loot boxes spawn across the whole valley, hills included (§5).
+  - Direction (the user): the factory grows **upward** into a crazy *Hello Neighbor*–style building as zones unlock (§10). Next: the factory redesign (4 rooms over 2 floors; the 2nd floor stays locked for now).
   - Rebirths drop the brainrots still on the belts, with no payout (§10). Before, they paid into the fresh plot.
 - **v0.7 (2026-09-30):** Core-loop juice pass (§13): per-step assembly sounds and effects, station effects, flying coins, rolling belts, build-in animations, the Cash Pad coin pile, lighting with bloom, and background music.
 - **v0.6 (2026-09-30):**

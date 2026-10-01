@@ -17,9 +17,11 @@ local FactoryBuilder = {}
 FactoryBuilder.RoomSize = Vector3.new(140, 1, 120) -- one zone's floor
 FactoryBuilder.FloorTop = 1
 
+FactoryBuilder.CeilingHeight = 28 -- above the floor (the Toy Workshop's chutes hang from it)
+
 local ROOM_SIZE = FactoryBuilder.RoomSize
 local FLOOR_TOP = FactoryBuilder.FloorTop
-local WALL_HEIGHT = 28
+local WALL_HEIGHT = FactoryBuilder.CeilingHeight
 local WALL_THICKNESS = 2
 local BAND_TOP = 8 -- the walls' lower band, up to the window sills
 local WINDOW_TOP = 21
