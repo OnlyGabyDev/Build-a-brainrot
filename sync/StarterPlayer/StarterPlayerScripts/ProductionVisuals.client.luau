@@ -197,10 +197,139 @@ end
 
 -- Droppers and the beacon ----------------------------------------------------
 
--- The dropper squashes and spits its part out with a plop and a puff.
-local function spit(line: Model, dropper: BasePart, near: boolean)
+-- Ceiling chutes (the Toy Workshop's droppers, TycoonManager.buildChute) are rubbery:
+-- their bands bulge as a part slides down past them, and the whole chute squashes and
+-- stretches as it spits the part out, hanging from its collar in the ceiling.
+type ChutePiece = {
+	Part: BasePart,
+	Rest: CFrame,
+	Size: Vector3,
+	Axis: number, -- which of its Size's components runs up and down (1 = X, 2 = Y, 3 = Z)
+}
+type Chute = {
+	Anchor: Vector3, -- where it hangs from: the bottom of its collar
+	Pieces: { ChutePiece }, -- everything that stretches: tube, bands, neck, nozzle
+	Bands: { ChutePiece },
+	Owner: {}?, -- the squash currently driving it
+}
+
+-- { seconds, height scale, width scale }: it gathers itself short and fat as it spits,
+-- stretches down after the part, and wobbles back.
+local CHUTE_SQUASH = {
+	{ 0, 1, 1 },
+	{ 0.07, 0.84, 1.16 },
+	{ 0.17, 1.12, 0.9 },
+	{ 0.27, 0.95, 1.06 },
+	{ 0.37, 1.02, 0.98 },
+	{ 0.46, 1, 1 },
+}
+local CHUTE_BULGE = 0.4 -- how much wider a band swells as a part passes
+local CHUTE_BULGE_REACH = 3.5 -- studs from the part where a band starts to swell
+
+local chutes: { [BasePart]: Chute } = setmetatable({}, { __mode = "k" }) :: any
+
+local function startsWith(name: string, prefix: string): boolean
+	return string.sub(name, 1, #prefix) == prefix
+end
+
+-- The chute whose collar is `top`, read once while it's at rest.
+local function readChute(line: Model, top: BasePart): Chute
+	local cached = chutes[top]
+	if cached then
+		return cached
+	end
+	local prefix = string.sub(top.Name, 1, #top.Name - #"ChuteTop") -- "Head", "Body", ...
+	local chute: Chute = {
+		Anchor = top.Position - Vector3.new(0, top.Size.X / 2, 0), -- the collar stands on its side: X is its height
+		Pieces = {},
+		Bands = {},
+		Owner = nil,
+	}
+	for _, child in line:GetChildren() do
+		local name = child.Name
+		local stretches = startsWith(name, prefix .. "Dropper") or name == prefix .. "ChuteTube" or name == prefix .. "ChuteBand" or name == prefix .. "ChuteNeck"
+		if stretches and child:IsA("BasePart") then
+			local frame = child.CFrame
+			local axis = if math.abs(frame.RightVector.Y) > 0.9 then 1 elseif math.abs(frame.LookVector.Y) > 0.9 then 3 else 2
+			local piece = { Part = child, Rest = frame, Size = child.Size, Axis = axis }
+			table.insert(chute.Pieces, piece)
+			if name == prefix .. "ChuteBand" then
+				table.insert(chute.Bands, piece)
+			end
+		end
+	end
+	chutes[top] = chute
+	return chute
+end
+
+-- Scales a piece's size: `along` up and down, `across` the other two ways.
+local function scaledSize(piece: ChutePiece, along: number, across: number): Vector3
+	local size = piece.Size
+	return Vector3.new(
+		size.X * (if piece.Axis == 1 then along else across),
+		size.Y * (if piece.Axis == 2 then along else across),
+		size.Z * (if piece.Axis == 3 then along else across)
+	)
+end
+
+-- Poses the whole chute stretched `along` its height and `across` its width, still
+-- hanging from its collar.
+local function poseChute(chute: Chute, along: number, across: number)
+	for _, piece in chute.Pieces do
+		local offset = piece.Rest.Position - chute.Anchor
+		piece.Part.CFrame = piece.Rest.Rotation + chute.Anchor + Vector3.new(offset.X * across, offset.Y * along, offset.Z * across)
+		piece.Part.Size = scaledSize(piece, along, across)
+	end
+end
+
+-- The bands near world height `y` swell, as if the tube were gulping a part down.
+local function bulgeChute(chute: Chute, y: number)
+	for _, band in chute.Bands do
+		local near = math.max(0, 1 - math.abs(band.Rest.Position.Y - y) / CHUTE_BULGE_REACH)
+		band.Part.Size = scaledSize(band, 1, 1 + CHUTE_BULGE * near)
+	end
+end
+
+local function squashChute(chute: Chute)
+	local token = {}
+	chute.Owner = token
+	local total = CHUTE_SQUASH[#CHUTE_SQUASH][1]
+	run(total, function(alpha)
+		if chute.Owner ~= token then
+			return
+		end
+		local t = alpha * total
+		for index = 2, #CHUTE_SQUASH do
+			local from, to = CHUTE_SQUASH[index - 1], CHUTE_SQUASH[index]
+			if t <= to[1] or index == #CHUTE_SQUASH then
+				local e = ease(math.clamp((t - from[1]) / (to[1] - from[1]), 0, 1), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+				poseChute(chute, from[2] + (to[2] - from[2]) * e, from[3] + (to[3] - from[3]) * e)
+				break
+			end
+		end
+	end)
+	if chute.Owner == token then
+		poseChute(chute, 1, 1)
+		chute.Owner = nil
+	end
+end
+
+-- The dropper squashes and spits its part out with a plop and a puff. A ceiling chute
+-- does its rubbery squash instead, with a bigger splash.
+local function spit(line: Model, dropper: BasePart, near: boolean, chute: Chute?)
 	local mouth = dropper.Position - Vector3.new(0, dropper.Size.Y / 2 + 0.3, 0)
 	Effects.sound(mouth, Sounds.Plop, 0.35, vary(1))
+	if chute then
+		Effects.sound(mouth, Sounds.Squeak, 0.3, vary(1.35))
+		Effects.sound(mouth, Sounds.Boing, 0.15, vary(1.7))
+		if near then
+			Effects.puff(mouth, dropper.Color:Lerp(Color3.new(1, 1, 1), 0.4), 10, 0.8)
+			Effects.sparkle(mouth, Color3.new(1, 1, 1), 8)
+			Effects.ring(mouth, dropper.Color:Lerp(Color3.new(1, 1, 1), 0.3), 4, 0.35)
+		end
+		task.spawn(squashChute, chute)
+		return
+	end
 	if near then
 		Effects.puff(mouth, dropper.Color:Lerp(Color3.new(1, 1, 1), 0.5), 5, 0.6)
 	end
@@ -883,19 +1012,33 @@ local function animateCycle(
 			if cancelled() then
 				return
 			end
-			local chute = piece.ChuteTop
-			if chute then
-				piece.Model:PivotTo(centeredAt(piece.Center, chute.Position))
-				Effects.sound(chute.Position, Sounds.Whoosh, 0.18, vary(1.5))
-				local nozzle = centeredAt(piece.Center, piece.Dropper.Position)
-				glide(piece.Model, nozzle, Production.DropTime - FALL_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			local top = piece.ChuteTop
+			local chute: Chute? = nil
+			if top then
+				-- down the glass tube from the ceiling, the bands gulping as it passes
+				-- (a chute that's still popping in just lets it slide)
+				chute = if isBuilding(line) then nil else readChute(line, top)
+				local from = centeredAt(piece.Center, top.Position)
+				local to = centeredAt(piece.Center, piece.Dropper.Position)
+				piece.Model:PivotTo(from)
+				Effects.sound(top.Position, Sounds.Whoosh, 0.18, vary(1.5))
+				run(Production.DropTime - FALL_TIME, function(alpha)
+					local pivot = from:Lerp(to, ease(alpha, Enum.EasingStyle.Quad, Enum.EasingDirection.In))
+					piece.Model:PivotTo(pivot)
+					if chute then
+						bulgeChute(chute, (pivot * CFrame.new(piece.Center)).Y)
+					end
+				end)
+				if chute then
+					bulgeChute(chute, -math.huge)
+				end
 			else
 				waitUntil(step.Start - ride - FALL_TIME)
 			end
 			if cancelled() then
 				return
 			end
-			spit(line, piece.Dropper, build.Near)
+			spit(line, piece.Dropper, build.Near, chute)
 			local below = piece.Dropper.Position
 			local landing = centeredAt(piece.Center, Vector3.new(below.X, beltTop + piece.Size.Y / 2, below.Z))
 			glide(piece.Model, landing, FALL_TIME, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
