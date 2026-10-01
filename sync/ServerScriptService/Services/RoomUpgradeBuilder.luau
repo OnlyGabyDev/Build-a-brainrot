@@ -677,6 +677,32 @@ local function buildGiantPlushie(model: Model, floor: CFrame, level: number)
 	end
 end
 
+-- Deliveries -----------------------------------------------------------------------
+-- Why a room upgrade makes money, shown: every few seconds it sends what it makes over
+-- to a line's machine (RoomFX flies it there): presents and boxes into the toy boxes,
+-- bubble wrap to the Toy Packer, yarn to the knitting machines, fluff to the fluff
+-- machine, buttons to the sewing machine, hearts all round. Each lands with its bonus.
+-- The Jack-in-the-Box instead spills coins to the Cash Pad each time it pops (RoomFX).
+
+type Delivery = {
+	Kind: string, -- what flies: Gift, Wrap, Box, Yarn, Fluff, Button, Heart
+	Target: string, -- the line part it lands on (Dropper parts' names end with it for Yarn)
+	Every: number, -- seconds, roughly
+	Source: Vector3?, -- room space; or
+	FromChild: string?, -- from one of its children with this name (a conveyor box, the train)
+}
+
+local DELIVERIES: { [string]: Delivery } = {
+	GiftTower = { Kind = "Gift", Target = "Ship", Every = 5, Source = Vector3.new(-60, 14, -52) },
+	BubbleWrap = { Kind = "Wrap", Target = "Station3", Every = 4, Source = Vector3.new(-63.5, 6, -14) },
+	BoxConveyor = { Kind = "Box", Target = "Ship", Every = 3, FromChild = "ConveyorBox" },
+	ToyTrain = { Kind = "Gift", Target = "Assembler", Every = 6, FromChild = "TrainCar" },
+	YarnSpinner = { Kind = "Yarn", Target = "KnitYarnBall", Every = 3, Source = Vector3.new(-62, 10, -13) },
+	PillowPile = { Kind = "Fluff", Target = "Ship", Every = 4, Source = Vector3.new(-60, 10, -52) },
+	ButtonJar = { Kind = "Button", Target = "NeedleHead", Every = 4, Source = Vector3.new(-61, 12, 50) },
+	GiantPlushie = { Kind = "Heart", Target = "Ship", Every = 5, Source = Vector3.new(58, 16, -50) },
+}
+
 -- API --------------------------------------------------------------------------------
 
 type Spot = {
@@ -707,9 +733,21 @@ function RoomUpgradeBuilder.TagSpot(key: string): Vector3
 	return SPOTS[key].Tag
 end
 
--- Builds a room upgrade at `level` into `model` (already in its room's Lines folder).
+-- Builds a room upgrade at `level` into `model` (already in its room's Lines folder),
+-- tagged RoomUpgrade with its delivery for RoomFX.
 function RoomUpgradeBuilder.Build(model: Model, floor: CFrame, key: string, level: number)
 	SPOTS[key].Build(model, floor, level)
+	local delivery = DELIVERIES[key]
+	if delivery then
+		model:SetAttribute("Delivery", delivery.Kind)
+		model:SetAttribute("Target", delivery.Target)
+		model:SetAttribute("Every", delivery.Every)
+		if delivery.Source then
+			model:SetAttribute("Source", (floor * CFrame.new(delivery.Source)).Position)
+		end
+		model:SetAttribute("FromChild", delivery.FromChild)
+	end
+	CollectionService:AddTag(model, "RoomUpgrade")
 end
 
 return RoomUpgradeBuilder

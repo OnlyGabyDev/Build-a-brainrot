@@ -463,7 +463,7 @@ StarterPlayer/StarterPlayerScripts/
 17. **Signature idle touches:** finished brainrots get a small idle animation or prop from their meme, like *Steal a Brainrot* does: Lirilì's floating clock, Tung tapping his bat, Tralalero's tail wag, Trippi's antennae wobble.
 18. **Themed droppers for the next zones** (§6), to pick from: *Plushie room:* a big sewing basket on a shelf that tosses each part in an arc, or a fluffy pillow that squishes and poofs the part out in a burst of feathers. *Clay Studio:* a play-dough press that squeezes a blob out, which pops into the part. *Vinyl Collectibles:* gacha capsules rolling out of a vending machine and popping open. *Candy Factory:* a gumball machine that drops each part as a gumball that cracks open.
 19. **Golden (shiny) parts** (the user, 2026-10-01): a general Rebirth Shop upgrade gives every room a chance to make **golden parts**, and rebirth-locked room upgrades raise the golden chance for the whole factory. In the Index (sticker book, §8) a golden part is stuck **over** the standard one, like a "shiny", which leaves room for more shiny tiers later (e.g. rainbow, diamond), maybe even shinies that pay out Gems.
-20. **A 4th line per room** (the user asked, "if it doesn't get too cluttered"): with the bigger raised lines, three lines plus the room upgrades along the walls fill a 140-wide room. A 4th line needs a wider room (the building's footprint) or a narrower line layout; to decide.
+20. ⏸️ **A 4th line per room** (parked by the user, 2026-10-01): it doesn't fit nicely in a 140-wide room with the bigger lines and the wall upgrades. Think about it later: bigger floors further up, or other kinds of droppers in some corners of a room.
 
 ---
 
