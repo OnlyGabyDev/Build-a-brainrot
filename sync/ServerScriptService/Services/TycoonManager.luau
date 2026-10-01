@@ -289,73 +289,70 @@ end
 
 -- The Toy Workshop's droppers are chutes from the ceiling (GDD §6): each part pops out
 -- of a collar in the ceiling (the ChuteTop), slides down a glass tube ringed with
--- colored bands, and the chunky nozzle (the Dropper) spits it onto the belt. `base` is
--- on the floor under it. ProductionVisuals plays the slide.
+-- colored bands, and the chunky nozzle (the Dropper) spits it onto the belt. A neon
+-- sign wrapped around the tube's middle like a bracelet (the ChuteBadge) says which part
+-- it drops. `base` is on the floor under it. ProductionVisuals plays the slide.
 local CHUTE_TUBE = 5.6 -- across
 local CHUTE_COLLAR = 4 -- tall: it hides a part waiting to slide
-local CHUTE_BANDS = 5
-local PART_ICONS = { Head = "🧠", Body = "👕", Arms = "💪", Legs = "🦵" }
+local CHUTE_BANDS = { 0.1, 0.27, 0.73, 0.9 } -- along the tube, clear of the badge in the middle
+local BADGE = Vector2.new(7.6, 2.6) -- each side of the neon bracelet
+local BADGE_BACK = Color3.fromRGB(40, 28, 60)
 
--- A label on a face of `part`: the part type's icon, then its name, big, in white with
--- a dark outline.
-local function labelFace(part: BasePart, face: Enum.NormalId, partType: string)
+-- One side of the neon bracelet: a dark panel with the part's name in glowing letters.
+local function badgeSide(model: Model, partType: string, cframe: CFrame, color: Color3)
+	local panel = makeDecor(model, partType .. "ChuteBadge", Vector3.new(BADGE.X, BADGE.Y, 0.4), cframe, BADGE_BACK)
 	local gui = Instance.new("SurfaceGui")
-	gui.Name = "Label"
-	gui.Face = face
+	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 25
+	gui.PixelsPerStud = 30
 	gui.LightInfluence = 0
-	gui.Parent = part
-	local icon = Instance.new("TextLabel")
-	icon.Name = "Icon"
-	icon.Size = UDim2.fromScale(0.3, 0.9)
-	icon.Position = UDim2.fromScale(0.02, 0.05)
-	icon.BackgroundTransparency = 1
-	icon.TextScaled = true
-	icon.Text = PART_ICONS[partType] or ""
-	icon.Parent = gui
-	local name = Instance.new("TextLabel")
-	name.Name = "PartName"
-	name.Size = UDim2.fromScale(0.66, 0.8)
-	name.Position = UDim2.fromScale(0.32, 0.1)
-	name.BackgroundTransparency = 1
-	name.Font = Enum.Font.FredokaOne
-	name.TextScaled = true
-	name.TextColor3 = Color3.new(1, 1, 1)
-	name.Text = string.upper(partType)
-	name.Parent = gui
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 3
-	stroke.Color = Color3.fromRGB(45, 30, 60)
-	stroke.Parent = name
+	gui.Brightness = 2.5 -- past 1, so it blooms like neon
+	gui.Parent = panel
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(0.9, 0.78)
+	label.Position = UDim2.fromScale(0.05, 0.11)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.7)
+	label.Text = string.upper(partType)
+	label.Parent = gui
+	local glow = Instance.new("UIStroke")
+	glow.Thickness = 3
+	glow.Color = color
+	glow.Parent = label
 end
 
 local function buildChute(model: Model, base: CFrame, partType: string, color: Color3)
 	local ceiling = FactoryBuilder.CeilingHeight
 	local light = color:Lerp(Color3.new(1, 1, 1), 0.35)
-	local nozzle = makePart(model, partType .. "Dropper", Vector3.new(6, 3, 6), base * CFrame.new(0, 9.5, 0), color)
-	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
-		labelFace(nozzle, face, partType)
-	end
+	makePart(model, partType .. "Dropper", Vector3.new(6, 3, 6), base * CFrame.new(0, 9.5, 0), color)
 	makeDecor(model, partType .. "DropperRim", Vector3.new(6.3, 0.35, 6.3), base * CFrame.new(0, 8.1, 0), light, Enum.Material.Neon)
 	makeDecor(model, partType .. "DropperMouth", Vector3.new(4.2, 0.1, 4.2), base * CFrame.new(0, 7.9, 0), Color3.fromRGB(35, 25, 45))
 
 	local tubeBottom, tubeTop = 11, ceiling - CHUTE_COLLAR
-	makeColumn(model, partType .. "ChuteNeck", CHUTE_TUBE + 1.4, tubeBottom, tubeBottom + 1.2, base, light)
-	local glass = makeColumn(model, partType .. "ChuteTube", CHUTE_TUBE, tubeBottom + 1.2, tubeTop, base, light, Enum.Material.Glass)
+	local glassBottom = tubeBottom + 1.2
+	makeColumn(model, partType .. "ChuteNeck", CHUTE_TUBE + 1.4, tubeBottom, glassBottom, base, light)
+	local glass = makeColumn(model, partType .. "ChuteTube", CHUTE_TUBE, glassBottom, tubeTop, base, light, Enum.Material.Glass)
 	glass.Transparency = 0.55
-	for index = 1, CHUTE_BANDS do
-		local y = tubeBottom + 1.2 + (tubeTop - tubeBottom - 1.2) * (index - 0.5) / CHUTE_BANDS
+	for _, share in CHUTE_BANDS do
+		local y = glassBottom + (tubeTop - glassBottom) * share
 		makeColumn(model, partType .. "ChuteBand", CHUTE_TUBE + 0.6, y - 0.35, y + 0.35, base, color)
 	end
 	makeColumn(model, partType .. "ChuteTop", CHUTE_TUBE + 1.8, tubeTop, ceiling, base, GANTRY_COLOR)
 	makeColumn(model, partType .. "ChuteRing", CHUTE_TUBE + 2.4, tubeTop - 0.3, tubeTop + 0.9, base, color)
 	makeColumn(model, partType .. "ChuteFlange", CHUTE_TUBE + 4, ceiling - 0.6, ceiling, base, light)
-	-- the label again on top, for when the ceiling fades away and you look down (it
-	-- hides in the ceiling otherwise)
-	local plate = makeDecor(model, partType .. "ChuteSign", Vector3.new(6.4, 0.1, 6.4), base * CFrame.new(0, ceiling + 0.08, 0) * CFrame.Angles(0, math.pi / 2, 0), color) -- turned so it reads from the front
-	plate.Transparency = 1
-	labelFace(plate, Enum.NormalId.Top, partType)
+
+	-- the neon bracelet: a sign on each side, framed top and bottom by neon strips
+	local middle = base * CFrame.new(0, (glassBottom + tubeTop) / 2, 0)
+	local reach = BADGE.X / 2 - 0.2
+	for turn = 0, 3 do
+		local side = middle * CFrame.Angles(0, turn * math.pi / 2, 0)
+		badgeSide(model, partType, side * CFrame.new(0, 0, -reach), color)
+		for _, y in { -1, 1 } do
+			makeDecor(model, partType .. "ChuteBadgeRim", Vector3.new(BADGE.X + 0.4, 0.3, 0.3), side * CFrame.new(0, y * (BADGE.Y / 2 + 0.15), -reach - 0.1), light, Enum.Material.Neon)
+		end
+	end
 end
 
 -- Finishing stages (GDD §6), past the end of the belt at `spot` (on the floor). The

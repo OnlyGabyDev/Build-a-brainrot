@@ -216,7 +216,7 @@ type ChutePiece = {
 }
 type Chute = {
 	Anchor: Vector3, -- where it hangs from: the bottom of its collar
-	Pieces: { ChutePiece }, -- everything that stretches: tube, bands, neck, nozzle
+	Pieces: { ChutePiece }, -- everything that stretches: tube, bands, badge, neck, nozzle
 	Bands: { ChutePiece },
 	Owner: {}?, -- the squash currently driving it
 }
@@ -255,7 +255,11 @@ local function readChute(line: Model, top: BasePart): Chute
 	}
 	for _, child in line:GetChildren() do
 		local name = child.Name
-		local stretches = startsWith(name, prefix .. "Dropper") or name == prefix .. "ChuteTube" or name == prefix .. "ChuteBand" or name == prefix .. "ChuteNeck"
+		local stretches = startsWith(name, prefix .. "Dropper")
+			or startsWith(name, prefix .. "ChuteBadge")
+			or name == prefix .. "ChuteTube"
+			or name == prefix .. "ChuteBand"
+			or name == prefix .. "ChuteNeck"
 		if stretches and child:IsA("BasePart") then
 			local frame = child.CFrame
 			local axis = if math.abs(frame.RightVector.Y) > 0.9 then 1 elseif math.abs(frame.LookVector.Y) > 0.9 then 3 else 2
