@@ -97,6 +97,7 @@ export type Plot = {
 	Index: number,
 	Model: Model,
 	CFrame: CFrame,
+	Color: Color3, -- the plot's pastel color
 	LinesFolder: Folder,
 	ButtonsFolder: Folder,
 	SignLabel: TextLabel,
@@ -504,6 +505,7 @@ local function buildPlot(index: number, parent: Instance): Plot
 		Index = index,
 		Model = model,
 		CFrame = cframe,
+		Color = PLOT_COLORS[index],
 		LinesFolder = linesFolder,
 		ButtonsFolder = buttonsFolder,
 		SignLabel = factory.SignLabel,
@@ -640,6 +642,11 @@ end
 
 function TycoonManager.GetPlot(player: Player): Plot?
 	return plotByPlayer[player]
+end
+
+-- Every plot, owned or not (MapBuilder lays the hub out around them).
+function TycoonManager.GetPlots(): { Plot }
+	return plots
 end
 
 -- Whether a world position is over any tycoon plot (any of its rooms). Plots are

@@ -81,6 +81,7 @@ local function vivid(color: Color3): Color3
 	local hue, saturation, value = color:ToHSV()
 	return Color3.fromHSV(hue, math.max(saturation, 0.6), math.max(value, 0.95))
 end
+FactoryBuilder.Vivid = vivid
 
 export type Room = {
 	ZoneId: string,

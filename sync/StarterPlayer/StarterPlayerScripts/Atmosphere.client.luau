@@ -2,12 +2,13 @@
 	Atmosphere
 	The look and sound of the world (GDD §1, §13): a bright, warm, candy-colored
 	afternoon with bloom (so every Neon part glows), punchy color grading, a soft
-	pastel haze, and cheerful background music on shuffle with a mute button.
-	Client only.
+	pastel haze, and cheerful background music on shuffle with a mute button. The
+	giant statue in the hub's fountain (MapBuilder) turns slowly. Client only.
 ]]
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Sounds"))
 local Client = ReplicatedStorage:WaitForChild("Client")
@@ -15,6 +16,7 @@ local Effects = require(Client:WaitForChild("Effects"))
 local Kit = require(Client:WaitForChild("UI"):WaitForChild("Kit"))
 
 local MUSIC_VOLUME = 0.3
+local STATUE_SPIN = 0.25 -- radians per second
 
 -- Lighting -------------------------------------------------------------------
 
@@ -60,6 +62,19 @@ local depth = Lighting:FindFirstChildOfClass("DepthOfFieldEffect")
 if depth then
 	depth.Enabled = false
 end
+
+-- The hub's statue -------------------------------------------------------------
+
+task.spawn(function()
+	local statue = workspace:WaitForChild("Hub"):WaitForChild("Statue")
+	if not statue:IsA("Model") then
+		return
+	end
+	local base = statue:GetPivot()
+	RunService.RenderStepped:Connect(function()
+		statue:PivotTo(base * CFrame.Angles(0, os.clock() * STATUE_SPIN, 0))
+	end)
+end)
 
 -- Music ----------------------------------------------------------------------
 

@@ -234,6 +234,10 @@ We also track the **Rebirths** count (not a currency), which gates zones and rar
 
 Zones aren't only floors. The factory **physically expands**: new floors, annexes, a giant lab bolted onto the side, an underground bunker, a rooftop launchpad. Progression is **slow and gradual**: each step is a small, believable upgrade over the last, and the jumps get more absurd as things get rarer.
 
+**The crazy building** (the user's direction, 2026-09-30): the factory grows **upward** as zones unlock, and the more it grows, the more it looks like a ramshackle, *Hello Neighbor*–style tower: floors stacked on floors, each in its own style (toy factory, sewing room, lab, bunker…), crooked add-ons bolted on, outside stairs and bridges, pipes and chimneys everywhere. Zones 1–2 are the ground floor (front room and back room); the next zones stack on top (and later sideways and underground, per the table). A late-game plot should be the craziest building on the map.
+- 💡 Proposed: the next locked floor shows on top as scaffolding with a 🔒 REBIRTH N sign, so players see what they're working toward.
+- Camera: like the ground floor's roof, every floor above the one you're on fades away while the camera is above it (a dollhouse cutaway), so the lines stay easy to watch.
+
 | # | Zone | Where | Edition (size & style) | Assembly animation | Unlock | Status |
 |---|---|---|---|---|---|---|
 | 1 | **Toy Workshop** | Ground floor | Toy: small, glossy plastic | ✅ Wooden robots build it: the legs hop onto the pad, a claw lifts the body onto them, two robots punch the arms in, and the claw screws the head on with a spin. *Pop!* | Start | 🟢 |
@@ -422,7 +426,7 @@ StarterPlayer/StarterPlayerScripts/
 **Polish backlog** (flagged, after the loop is complete):
 - The loot wheel looks ugly; redesign it.
 - All UI: much more effort, cute, friendly and VERY colorful, referencing the famous simulator games. The Index becomes a sticker book (§8 polish target).
-- A real map to replace the baseplate hub, and real facility art (the tycoon is placeholder blocks).
+- ~~A real map to replace the baseplate hub, and real facility art~~ (v0.8: factory buildings and the hub map; room interiors and upper floors still to come).
 - Brainrot models (§3), per-rarity box effects (§5). ~~Sounds and music~~ (first pass done in v0.7; UI sounds and per-zone machine sounds can still grow).
 - Art sources, in order: **1) build the assets ourselves first** (voxel brainrots split into parts, props, UI styling, all made in Studio). **2) Only if that falls short:** paid or online asset packs (map, facility, UI), or paid brainrot sets (voxelized to match the style).
 
@@ -464,7 +468,9 @@ StarterPlayer/StarterPlayerScripts/
   - All 15 brainrots have voxel art. The 14 *Steal a Brainrot* ones follow its renders; the Godly is our own **Supremo Brainrotto, the Risotto King** (§3).
   - Requested and planned: a themed **finishing stage**, **finishing upgrader** and **droppers** per zone, **Paint Booth options** and a **Photobooth** (§6); **Sprint** and **Custom Paint** gamepasses (§12).
   - The Toy Workshop's droppers will be **ceiling** chutes (§6).
-  - Real factory buildings (§10): each zone is a walled room with windows and a sawtooth roof that fades while you watch your lines from above. The entrance faces the hub under the owner's sign, and a locked back room's doorway stays shuttered until it unlocks. Next: the hub map, then room interiors.
+  - Real factory buildings (§10): each zone is a walled room with windows and a sawtooth roof that fades while you watch your lines from above. The entrance faces the hub under the owner's sign, and a locked back room's doorway stays shuttered until it unlocks.
+  - The hub map (§15): grass, a round pastel plaza with a path in each factory's color, a fountain with a giant spinning Tralalero statue, lamps, flower bushes, groves between the factories, and a ring of hills around the valley.
+  - Direction (the user): the factory grows **upward** into a crazy *Hello Neighbor*–style building as zones unlock (§10).
   - Rebirths drop the brainrots still on the belts, with no payout (§10). Before, they paid into the fresh plot.
 - **v0.7 (2026-09-30):** Core-loop juice pass (§13): per-step assembly sounds and effects, station effects, flying coins, rolling belts, build-in animations, the Cash Pad coin pile, lighting with bloom, and background music.
 - **v0.6 (2026-09-30):**
