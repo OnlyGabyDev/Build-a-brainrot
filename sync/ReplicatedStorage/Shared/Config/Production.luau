@@ -14,7 +14,7 @@ local Production = {
 
 	-- Client animation timings, in seconds.
 	DropTime = 1.0, -- dropper to belt, the last 0.5 s the fall itself: first a part slides down
-	-- a Toy Workshop chute, or a Plushie robot crochets it
+	-- a Toy Workshop chute, or a Plushie knitting machine knits it
 	SlideTime = 1.2, -- belt ride from the farthest dropper to the Assembler
 	ShipTime = 1.0, -- Assembler to the end of the belt
 	SpecialTime = 0.9, -- the zone's special upgrade at the end of the belt (Toy Packer, Bow Tier)

@@ -159,13 +159,16 @@ local ROOM_STYLES: { [string]: RoomStyle } = {
 	PlushieRoom = {
 		Title = "🧸 PLUSHIE SEWING ROOM",
 		SignColor = Color3.fromRGB(255, 110, 180),
-		Floor = Color3.fromRGB(255, 205, 228),
+		-- a quilted pink floor, lavender striped walls over a hot-pink band
+		Floor = Color3.fromRGB(245, 150, 195),
 		FloorMaterial = Enum.Material.Fabric,
-		Wall = Color3.fromRGB(255, 228, 242),
-		Band = Color3.fromRGB(255, 170, 205),
+		Wall = Color3.fromRGB(200, 175, 255),
+		Band = Color3.fromRGB(240, 105, 170),
 		BandMaterial = Enum.Material.Fabric,
-		Trim = Color3.fromRGB(255, 120, 190),
-		Ceiling = Color3.fromRGB(255, 236, 246),
+		Trim = WHITE,
+		Ceiling = Color3.fromRGB(255, 232, 246),
+		Wallpaper = Color3.fromRGB(218, 198, 255),
+		Checker = Color3.fromRGB(255, 180, 218),
 	},
 	ClayStudio = {
 		Title = "🎨 CLAY STUDIO",

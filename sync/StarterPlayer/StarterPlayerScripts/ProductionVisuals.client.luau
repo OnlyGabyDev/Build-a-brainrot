@@ -69,7 +69,7 @@ type Piece = {
 	Center: Vector3, -- the part's center relative to its pivot
 	Size: Vector3,
 	PartType: string,
-	Scale: number, -- its full size (a crochet robot's part starts tiny)
+	Scale: number, -- its full size (a knitted part starts tiny)
 	Dropper: BasePart,
 	ChuteTop: BasePart?, -- a ceiling chute's collar, where the part starts its slide
 	Hanger: BasePart?, -- what a hanging dropper (chute, pillow) hangs from: it squashes
@@ -166,6 +166,12 @@ end
 local function findPart(parent: Instance?, name: string): BasePart?
 	local part = parent and parent:FindFirstChild(name)
 	return if part and part:IsA("BasePart") then part else nil
+end
+
+-- Half the world height of `part`, however it's turned.
+local function halfHeight(part: BasePart): number
+	local frame, size = part.CFrame, part.Size
+	return (math.abs(frame.RightVector.Y) * size.X + math.abs(frame.UpVector.Y) * size.Y + math.abs(frame.LookVector.Y) * size.Z) / 2
 end
 
 -- Stretches a rod (length along its Z axis) between two points.
@@ -337,78 +343,68 @@ local function squashChute(chute: Chute)
 	end
 end
 
--- The Plushie room's crochet robots (TycoonManager.buildKnitter): their hooks flurry
--- and the robot rocks while it crochets a part out of its yarn ball.
-type Knitter = {
-	Arms: { { Parts: { BasePart }, Rests: { CFrame }, Shoulder: Vector3 } }, -- each hook (and bead), and the point it swings about
-	Axis: Vector3, -- the robot's left to right, which its hooks swing about
-	Head: Model?, -- the robot, which rocks
-	HeadRest: CFrame?,
+-- The Plushie room's sock-knitting machines (TycoonManager.buildKnittingMachine):
+-- while one knits a part, its needle ring whirls round the head, the yarn ball on top
+-- rolls as it feeds the head, and the crank on the column turns.
+type KnitSpinner = { Model: Model, Rest: CFrame, Axis: Vector3, Speed: number }
+type Knitting = { Spinners: { KnitSpinner } }
+
+local KNIT_SPINS = { -- each moving bit: the axis it turns about (its own), radians per second
+	KnitRing = { Vector3.yAxis, 24 },
+	KnitYarn = { Vector3.xAxis, -12 },
+	KnitCrank = { Vector3.xAxis, 14 },
 }
 
-local knitters: { [BasePart]: Knitter } = setmetatable({}, { __mode = "k" }) :: any
+local knittings: { [BasePart]: Knitting } = setmetatable({}, { __mode = "k" }) :: any
 
--- The `partType` robot crocheting from `yarn`, read once while it's at rest.
-local function readKnitter(line: Model, partType: string, yarn: BasePart): Knitter
-	local cached = knitters[yarn]
+-- The `partType` machine knitting through `head`, read once while it's at rest.
+local function readKnitting(line: Model, partType: string, head: BasePart): Knitting
+	local cached = knittings[head]
 	if cached then
 		return cached
 	end
-	local knitter: Knitter = { Arms = {}, Axis = Vector3.xAxis, Head = nil, HeadRest = nil }
-	local shoulders = {}
-	for _, side in { "Left", "Right" } do
-		local hook = findPart(line, partType .. "KnitHook" .. side)
-		if hook then
-			local handle = (hook.CFrame * CFrame.new(0, 0, hook.Size.Z / 2)).Position -- a hook points its -Z at the yarn
-			local parts, rests = { hook }, { hook.CFrame }
-			local bead = findPart(line, partType .. "KnitBead" .. side)
-			if bead then
-				table.insert(parts, bead)
-				table.insert(rests, bead.CFrame)
-			end
-			table.insert(knitter.Arms, { Parts = parts, Rests = rests, Shoulder = handle })
-			table.insert(shoulders, handle)
+	local knitting: Knitting = { Spinners = {} }
+	for suffix, spin in KNIT_SPINS do
+		local model = line:FindFirstChild(partType .. suffix)
+		if model and model:IsA("Model") then
+			table.insert(knitting.Spinners, { Model = model, Rest = model:GetPivot(), Axis = spin[1], Speed = spin[2] })
 		end
 	end
-	if #shoulders == 2 and (shoulders[2] - shoulders[1]).Magnitude > 0.01 then
-		knitter.Axis = (shoulders[2] - shoulders[1]).Unit
-	end
-	local head = line:FindFirstChild(partType .. "KnitterBot")
-	if head and head:IsA("Model") then
-		knitter.Head = head
-		knitter.HeadRest = head:GetPivot()
-	end
-	knitters[yarn] = knitter
-	return knitter
+	knittings[head] = knitting
+	return knitting
 end
 
--- Poses the robot `t` seconds into its crocheting, or at rest (nil).
-local function poseKnitter(knitter: Knitter, t: number?)
-	for index, arm in knitter.Arms do
-		local angle = if t then math.sin(t * 30 + index * math.pi) * 0.45 else 0
-		local turn = CFrame.new(arm.Shoulder) * CFrame.fromAxisAngle(knitter.Axis, angle) * CFrame.new(-arm.Shoulder)
-		for k, part in arm.Parts do
-			part.CFrame = turn * arm.Rests[k]
-		end
-	end
-	local head, rest = knitter.Head, knitter.HeadRest
-	if head and rest then
-		-- rocks side to side from its base, with a little hop on each stitch
-		local hop = if t then math.abs(math.sin(t * 15)) * 0.25 else 0
-		head:PivotTo(rest * CFrame.new(0, hop, 0) * CFrame.Angles(0, 0, if t then math.sin(t * 12) * 0.12 else 0))
+-- Poses the machine `t` seconds into its knitting, or at rest (nil).
+local function poseKnitting(knitting: Knitting, t: number?)
+	for _, spinner in knitting.Spinners do
+		spinner.Model:PivotTo(if t then spinner.Rest * CFrame.fromAxisAngle(spinner.Axis, t * spinner.Speed) else spinner.Rest)
 	end
 end
 
 -- The dropper squashes and spits its part out with a plop and a puff. A ceiling chute
--- does its rubbery squash instead, with a bigger splash; a crochet robot just tosses it.
+-- does its rubbery squash instead, with a bigger splash; a knitting machine's head
+-- squishes as it lets the part go in a puff of fluff.
 local function spit(line: Model, dropper: BasePart, near: boolean, chute: Chute?)
-	local mouth = dropper.Position - Vector3.new(0, dropper.Size.Y / 2 + 0.3, 0)
-	if dropper:GetAttribute("Knitter") then
-		local top = dropper.Position + Vector3.new(0, dropper.Size.Y / 2, 0)
-		Effects.sound(top, Sounds.Boing, 0.3, vary(1.2))
+	local mouth = dropper.Position - Vector3.new(0, halfHeight(dropper) + 0.3, 0)
+	if dropper:GetAttribute("Knitting") then
+		Effects.sound(mouth, Sounds.Plop, 0.3, vary(1.1))
+		Effects.sound(mouth, Sounds.Squeak, 0.2, vary(1.4))
 		if near then
-			Effects.puff(top, dropper.Color:Lerp(Color3.new(1, 1, 1), 0.3), 8, 0.6)
-			Effects.sparkle(top, Color3.new(1, 1, 1), 6)
+			Effects.puff(mouth, Color3.new(1, 1, 1), 10, 0.6)
+			Effects.puff(mouth, dropper.Color:Lerp(Color3.new(1, 1, 1), 0.4), 6, 0.7)
+			Effects.sparkle(mouth, Color3.fromRGB(255, 190, 230), 8)
+		end
+		if not isBuilding(line) then
+			-- the head is a cylinder on its side: its X runs up and down
+			local rest = dropper:GetAttribute("RestSize")
+			if typeof(rest) ~= "Vector3" then
+				rest = dropper.Size
+				dropper:SetAttribute("RestSize", rest)
+			end
+			local restSize = rest :: Vector3
+			dropper.Size = restSize
+			local info = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
+			TweenService:Create(dropper, info, { Size = Vector3.new(restSize.X * 0.85, restSize.Y * 1.12, restSize.Z * 1.12) }):Play()
 		end
 		return
 	end
@@ -784,9 +780,7 @@ end
 
 -- The world height of the top of `part`, however it's turned.
 local function topOf(part: BasePart): number
-	local frame, size = part.CFrame, part.Size
-	local half = (math.abs(frame.RightVector.Y) * size.X + math.abs(frame.UpVector.Y) * size.Y + math.abs(frame.LookVector.Y) * size.Z) / 2
-	return part.Position.Y + half
+	return part.Position.Y + halfHeight(part)
 end
 
 -- The brainrot hops from where it stands to `target`, shrinking to `factor` of its
@@ -1525,10 +1519,12 @@ local function animateCycle(
 			Home = root * CFrame.new(layout[partType]),
 			Travel = math.max(flat.Magnitude - INTAKE_GAP, 0),
 		}
-		if dropper:GetAttribute("Knitter") then
-			model:ScaleTo(piece.Scale * 0.05) -- a speck in the yarn ball, until it's crocheted
+		if dropper:GetAttribute("Knitting") then
+			model:ScaleTo(piece.Scale * 0.05) -- a speck in the knitting head, until it's knitted
+			model:PivotTo(centeredAt(center * 0.05, dropper.Position))
+		else
+			model:PivotTo(centeredAt(center, dropper.Position)) -- starts hidden inside the dropper
 		end
-		model:PivotTo(centeredAt(center, dropper.Position)) -- starts hidden inside the dropper
 		model.Parent = effects
 		maxTravel = math.max(maxTravel, piece.Travel)
 		pieces[partType] = piece
@@ -1584,26 +1580,30 @@ local function animateCycle(
 				if chute then
 					bulgeChute(chute, -math.huge)
 				end
-			elseif piece.Dropper:GetAttribute("Knitter") then
-				-- the robot crochets it out of the yarn ball: it grows up out of the top
-				local yarn = piece.Dropper
-				local knitter = if isBuilding(line) then nil else readKnitter(line, piece.PartType, yarn)
-				local from = centeredAt(piece.Center, yarn.Position)
-				local to = centeredAt(piece.Center, yarn.Position + Vector3.new(0, yarn.Size.Y / 2 + piece.Size.Y / 2, 0))
-				local sewing = Effects.sound(yarn.Position, Sounds.Sewing, 0.25, vary(1.6))
+			elseif piece.Dropper:GetAttribute("Knitting") then
+				-- the machine knits it: it grows down out of the head's mouth, its top
+				-- tucked in the mouth, while the needles whirl and the yarn feeds in
+				local head = piece.Dropper
+				local knitting = if isBuilding(line) then nil else readKnitting(line, piece.PartType, head)
+				local mouth = head.Position - Vector3.new(0, halfHeight(head), 0)
+				local sewing = Effects.sound(mouth, Sounds.Sewing, 0.25, vary(1.6))
 				local began = os.clock()
+				local function hang(factor: number)
+					piece.Model:ScaleTo(piece.Scale * factor)
+					piece.Model:PivotTo(centeredAt(piece.Center * factor, mouth - Vector3.new(0, piece.Size.Y * factor / 2, 0)))
+				end
 				run(Production.DropTime - FALL_TIME, function(alpha)
-					local e = ease(alpha, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-					piece.Model:ScaleTo(piece.Scale * math.max(e, 0.05))
-					piece.Model:PivotTo(from:Lerp(to, math.min(e, 1)))
-					if knitter then
-						poseKnitter(knitter, os.clock() - began)
+					hang(math.max(ease(alpha, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), 0.05))
+					if knitting then
+						poseKnitting(knitting, os.clock() - began)
+					end
+					if build.Near and math.random() < 0.15 then
+						Effects.sparkle(mouth, head.Color:Lerp(Color3.new(1, 1, 1), 0.5), 1)
 					end
 				end)
-				piece.Model:ScaleTo(piece.Scale)
-				piece.Model:PivotTo(to)
-				if knitter then
-					poseKnitter(knitter, nil)
+				hang(1)
+				if knitting then
+					poseKnitting(knitting, nil)
 				end
 				stopSound(sewing)
 			else
@@ -1614,12 +1614,7 @@ local function animateCycle(
 			end
 			spit(line, piece.Dropper, build.Near, chute)
 			local landing = centeredAt(piece.Center, beltPoint(piece.Dropper.Position) + Vector3.new(0, piece.Size.Y / 2, 0))
-			if piece.Dropper:GetAttribute("Knitter") then
-				hop(piece.Model, landing, FALL_TIME, 3.5) -- tossed onto the belt
-				Effects.sound(landing.Position, Sounds.Squeak, 0.2, vary(1.1))
-			else
-				glide(piece.Model, landing, FALL_TIME, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
-			end
+			glide(piece.Model, landing, FALL_TIME, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
 			waitUntil(step.Start - ride)
 			if cancelled() then
 				return
