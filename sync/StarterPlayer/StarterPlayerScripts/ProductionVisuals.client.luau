@@ -337,12 +337,12 @@ local function squashChute(chute: Chute)
 	end
 end
 
--- The Plushie room's crochet robots (TycoonManager.buildKnitter): their arms and hooks
--- flurry and their head bobs while they crochet a part out of their yarn ball.
+-- The Plushie room's crochet robots (TycoonManager.buildKnitter): their hooks flurry
+-- and the robot rocks while it crochets a part out of its yarn ball.
 type Knitter = {
-	Arms: { { Parts: { BasePart }, Rests: { CFrame }, Shoulder: Vector3 } }, -- each with its hook
-	Axis: Vector3, -- the robot's left to right, which its arms swing about
-	Head: Model?,
+	Arms: { { Parts: { BasePart }, Rests: { CFrame }, Shoulder: Vector3 } }, -- each hook (and bead), and the point it swings about
+	Axis: Vector3, -- the robot's left to right, which its hooks swing about
+	Head: Model?, -- the robot, which rocks
 	HeadRest: CFrame?,
 }
 
@@ -357,23 +357,23 @@ local function readKnitter(line: Model, partType: string, yarn: BasePart): Knitt
 	local knitter: Knitter = { Arms = {}, Axis = Vector3.xAxis, Head = nil, HeadRest = nil }
 	local shoulders = {}
 	for _, side in { "Left", "Right" } do
-		local arm = findPart(line, partType .. "KnitArm" .. side)
-		if arm then
-			local shoulder = (arm.CFrame * CFrame.new(0, 0, arm.Size.Z / 2)).Position -- the arm points its -Z at the hand
-			local parts, rests = { arm }, { arm.CFrame }
-			local hook = findPart(line, partType .. "KnitHook" .. side)
-			if hook then
-				table.insert(parts, hook)
-				table.insert(rests, hook.CFrame)
+		local hook = findPart(line, partType .. "KnitHook" .. side)
+		if hook then
+			local handle = (hook.CFrame * CFrame.new(0, 0, hook.Size.Z / 2)).Position -- a hook points its -Z at the yarn
+			local parts, rests = { hook }, { hook.CFrame }
+			local bead = findPart(line, partType .. "KnitBead" .. side)
+			if bead then
+				table.insert(parts, bead)
+				table.insert(rests, bead.CFrame)
 			end
-			table.insert(knitter.Arms, { Parts = parts, Rests = rests, Shoulder = shoulder })
-			table.insert(shoulders, shoulder)
+			table.insert(knitter.Arms, { Parts = parts, Rests = rests, Shoulder = handle })
+			table.insert(shoulders, handle)
 		end
 	end
 	if #shoulders == 2 and (shoulders[2] - shoulders[1]).Magnitude > 0.01 then
 		knitter.Axis = (shoulders[2] - shoulders[1]).Unit
 	end
-	local head = line:FindFirstChild(partType .. "KnitterHead")
+	local head = line:FindFirstChild(partType .. "KnitterBot")
 	if head and head:IsA("Model") then
 		knitter.Head = head
 		knitter.HeadRest = head:GetPivot()
@@ -385,7 +385,7 @@ end
 -- Poses the robot `t` seconds into its crocheting, or at rest (nil).
 local function poseKnitter(knitter: Knitter, t: number?)
 	for index, arm in knitter.Arms do
-		local angle = if t then math.sin(t * 30 + index * math.pi) * 0.35 else 0
+		local angle = if t then math.sin(t * 30 + index * math.pi) * 0.45 else 0
 		local turn = CFrame.new(arm.Shoulder) * CFrame.fromAxisAngle(knitter.Axis, angle) * CFrame.new(-arm.Shoulder)
 		for k, part in arm.Parts do
 			part.CFrame = turn * arm.Rests[k]
@@ -393,7 +393,9 @@ local function poseKnitter(knitter: Knitter, t: number?)
 	end
 	local head, rest = knitter.Head, knitter.HeadRest
 	if head and rest then
-		head:PivotTo(rest * CFrame.Angles(0, 0, if t then math.sin(t * 12) * 0.15 else 0))
+		-- rocks side to side from its base, with a little hop on each stitch
+		local hop = if t then math.abs(math.sin(t * 15)) * 0.25 else 0
+		head:PivotTo(rest * CFrame.new(0, hop, 0) * CFrame.Angles(0, 0, if t then math.sin(t * 12) * 0.12 else 0))
 	end
 end
 

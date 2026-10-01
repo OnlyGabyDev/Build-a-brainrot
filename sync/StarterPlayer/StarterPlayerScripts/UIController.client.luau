@@ -1,8 +1,9 @@
 --[[
 	UIController
 	The HUD (GDD §13): Coins, Gems and Rolls counters (Player attributes set by
-	DataManager), the menu buttons, and a "Configure line" prompt on the robot of each
-	of your own assembly lines. The menus live in ReplicatedStorage/Client/UI.
+	DataManager), the menu buttons, and a "Configure line" prompt on the tablet beside
+	each of your own assembly lines: it flies the camera onto the tablet's screen and
+	opens the Line menu there. The menus live in ReplicatedStorage/Client/UI.
 ]]
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -31,6 +32,10 @@ local COUNTERS = {
 	{ Stat = "Rolls", Icon = "🎲", Colors = Kit.Colors.Rolls },
 }
 local LINE_REACH = 28 -- a bit under the server's reach, so an open here always works
+local TABLET_DISTANCE = 3.4 -- studs from the tablet's screen to the camera, flown in
+local TABLET_FOV = 50
+local FLY_IN = TweenInfo.new(0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local FLY_OUT = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 local VIP_TAG = '<font color="#FFD23C">[VIP]</font> '
 
 local player = Players.LocalPlayer
@@ -192,6 +197,45 @@ end)
 
 -- Line prompts ---------------------------------------------------------------
 
+-- Your character stands still while you're at a tablet (anchored on this client only:
+-- you own your character's physics, so it just stays put).
+local function setFrozen(frozen: boolean)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		root.Anchored = frozen
+	end
+end
+
+-- Flies the camera onto a line's tablet screen and opens the Line menu right there, as
+-- if on the tablet, then flies back once the menu closes.
+local atTablet = false
+local function useTablet(screen: BasePart, lineId: string)
+	if atTablet then
+		return
+	end
+	atTablet = true
+	local camera = workspace.CurrentCamera
+	local home, homeFov = camera.CFrame, camera.FieldOfView
+	local spot = (screen.CFrame * CFrame.new(0, 0, -TABLET_DISTANCE)).Position -- out in front of its screen
+	local target = CFrame.lookAt(spot, screen.Position, screen.CFrame.UpVector)
+	setFrozen(true)
+	camera.CameraType = Enum.CameraType.Scriptable
+	Kit.click()
+	TweenService:Create(camera, FLY_IN, { CFrame = target, FieldOfView = TABLET_FOV }):Play()
+	task.wait(FLY_IN.Time * 0.75)
+	LineMenu.Open(lineId)
+	-- the menu stays open until you close it (or open another one)
+	repeat
+		task.wait(0.1)
+	until not LineMenu.IsOpen()
+	TweenService:Create(camera, FLY_OUT, { CFrame = home, FieldOfView = homeFov }):Play()
+	task.wait(FLY_OUT.Time)
+	camera.CameraType = Enum.CameraType.Custom
+	setFrozen(false)
+	atTablet = false
+end
+
 -- The part that carries a line's prompt (TycoonManager tags one per zone's machines).
 local function findPromptAnchor(line: Instance): BasePart?
 	local deadline = os.clock() + 10
@@ -214,14 +258,14 @@ local function addLinePrompt(line: Instance)
 	local prompt = Kit.new("ProximityPrompt", {
 		Name = "ConfigurePrompt",
 		ActionText = "Configure line",
-		ObjectText = "Assembly line",
+		ObjectText = "Line tablet",
 		HoldDuration = 0,
 		MaxActivationDistance = 12,
 		RequiresLineOfSight = false,
 		Parent = head,
 	})
 	prompt.Triggered:Connect(function()
-		LineMenu.Open(line.Name)
+		task.spawn(useTablet, head, line.Name)
 	end)
 end
 

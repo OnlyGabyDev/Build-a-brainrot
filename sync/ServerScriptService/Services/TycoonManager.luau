@@ -19,6 +19,7 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Format = require(Shared.Format)
@@ -231,9 +232,6 @@ local function buildPusher(parent: Model, origin: CFrame, side: number)
 	face.Texture = FACE_TEXTURE
 	face.Face = if side < 0 then Enum.NormalId.Right else Enum.NormalId.Left -- looks at the pad
 	face.Parent = head
-	if side > 0 then
-		head:SetAttribute("PromptAnchor", true) -- the "Configure line" prompt lives here
-	end
 
 	local shoulder = (origin * CFrame.new(x - 0.7 * side, 2.2, 0)).Position
 	local fist = (origin * CFrame.new(4.1 * side, 2.2, 0)).Position
@@ -255,10 +253,7 @@ local function buildSewingMachine(parent: Model, origin: CFrame)
 	for index, side in { -1, 1 } do
 		local suffix = if side < 0 then "Left" else "Right"
 		local x = 5.6 * side
-		local pedestal = makePart(parent, `Pedestal{suffix}`, Vector3.new(1.4, 1.6, 1.4), origin * CFrame.new(x, 0.8, 0), SEWING_LIGHT_COLOR)
-		if side > 0 then
-			pedestal:SetAttribute("PromptAnchor", true)
-		end
+		makePart(parent, `Pedestal{suffix}`, Vector3.new(1.4, 1.6, 1.4), origin * CFrame.new(x, 0.8, 0), SEWING_LIGHT_COLOR)
 		local spool = makePart(parent, `Spool{suffix}`, Vector3.new(1.4, 1.8, 1.8), origin * CFrame.new(x, 2.3, 0) * CFrame.Angles(0, 0, math.pi / 2), THREAD_COLORS[index])
 		spool.Shape = Enum.PartType.Cylinder -- rotated so the spool stands upright
 		local tip = (origin * CFrame.new(x - 1.2 * side, 2.3, 0)).Position
@@ -371,36 +366,36 @@ local function buildChute(model: Model, base: CFrame, partType: string, color: C
 end
 
 -- Plushie Sewing Room: the droppers are little crochet robots sitting on cushions
--- beside the belt, each with a ball of yarn in its part's color (the Dropper) and a
--- neon sign up on a pole behind it saying which part it makes. When a part's turn comes, the
--- robot crochets like mad (ProductionVisuals: its KnitArms, KnitHooks and KnitterHead),
--- the part grows out of the yarn ball and the robot tosses it onto the belt.
+-- beside the belt (a Creator Store robot kept in ServerStorage.Assets.KnitterBot, which
+-- lives in the place file), each with a ball of yarn in its part's color (the Dropper),
+-- two gold crochet hooks, and a neon sign up on a pole behind it saying which part it
+-- makes. When a part's turn comes, the robot rocks and crochets like mad
+-- (ProductionVisuals: the KnitterBot model and the KnitHooks), the part grows out of
+-- the yarn ball and gets tossed onto the belt.
 local KNITTER_X = -9 -- the robot's middle, beside the belt (it faces the belt, +X)
+local KNITTER_SCALE = 1.5
 local HOOK_COLOR = Color3.fromRGB(255, 205, 80)
 local function buildKnitter(model: Model, base: CFrame, partType: string, color: Color3)
 	local spot = base * CFrame.new(KNITTER_X, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0) -- its -Z faces the belt
-	makeColumn(model, partType .. "KnitterCushion", 3.6, 0, 1.2, spot, FLUFF_PINK, Enum.Material.Fabric)
-	makePart(model, partType .. "KnitterBody", Vector3.new(2.6, 2.6, 2.2), spot * CFrame.new(0, 2.5, 0), SEWING_LIGHT_COLOR)
-	makeDecor(model, partType .. "KnitterPole", Vector3.new(0.3, 4.6, 0.3), spot * CFrame.new(0, 5.6, 1.4), HOOK_COLOR)
-	buildBadge(model, partType, spot * CFrame.new(0, 8.9, 1.4), color, 0.7)
+	local cushionTop = 1
+	makeColumn(model, partType .. "KnitterCushion", 3.8, 0, cushionTop, spot, FLUFF_PINK, Enum.Material.Fabric)
+	makeDecor(model, partType .. "KnitterPole", Vector3.new(0.3, 5.6, 0.3), spot * CFrame.new(0, 5.3, 2.1), HOOK_COLOR)
+	buildBadge(model, partType, spot * CFrame.new(0, 8.9, 2.1), color, 0.7)
 
-	-- the head (in its own model so it can bob): ears, an antenna with a pom-pom, a face
-	local head = Instance.new("Model")
-	head.Name = partType .. "KnitterHead"
-	local skull = makeDecor(head, "Head", Vector3.new(2.4, 1.9, 2.2), spot * CFrame.new(0, 4.8, 0), SEWING_COLOR)
-	local face = Instance.new("Decal")
-	face.Texture = FACE_TEXTURE
-	face.Face = Enum.NormalId.Front
-	face.Parent = skull
-	for _, side in { -1, 1 } do
-		local ear = makeDecor(head, "Ear", Vector3.one * 0.9, spot * CFrame.new(side * 1.05, 5.75, 0), SEWING_COLOR)
-		ear.Shape = Enum.PartType.Ball
+	-- the robot (the template's face looks down its pivot's -Z, like the spot's: the belt)
+	local template = ServerStorage:FindFirstChild("Assets") and (ServerStorage :: any).Assets:FindFirstChild("KnitterBot")
+	if template then
+		local bot = template:Clone()
+		bot.Name = partType .. "KnitterBot"
+		bot:ScaleTo(KNITTER_SCALE)
+		bot:PivotTo(spot * CFrame.new(0, cushionTop, 0.2))
+		-- its pivot isn't at its feet: sit it down on the cushion by its bounding box
+		local box, size = bot:GetBoundingBox()
+		bot:PivotTo(bot:GetPivot() + Vector3.new(0, (spot * CFrame.new(0, cushionTop, 0)).Y - (box.Y - size.Y / 2), 0))
+		bot.Parent = model
+	else
+		warn("[TycoonManager] ServerStorage.Assets.KnitterBot is missing: the crochet robots stay empty cushions")
 	end
-	makeDecor(head, "Antenna", Vector3.new(0.15, 0.9, 0.15), spot * CFrame.new(0, 6.2, 0), HOOK_COLOR)
-	local pompom = makeDecor(head, "PomPom", Vector3.one * 0.7, spot * CFrame.new(0, 6.75, 0), color, Enum.Material.Fabric)
-	pompom.Shape = Enum.PartType.Ball
-	head.WorldPivot = spot * CFrame.new(0, 3.85, 0)
-	head.Parent = model
 
 	-- the yarn ball it crochets from, in a little basket in front of it
 	local yarn = spot * CFrame.new(0, 2, -3)
@@ -413,16 +408,18 @@ local function buildKnitter(model: Model, base: CFrame, partType: string, color:
 		wrap.Shape = Enum.PartType.Cylinder
 	end
 
-	-- two arms reaching for the yarn, a crochet hook in each hand
+	-- two crochet hooks held over the yarn, a bead on each handle, and a strand of yarn
+	-- running up to them
 	for _, side in { -1, 1 } do
 		local suffix = if side < 0 then "Left" else "Right"
-		local shoulder = (spot * CFrame.new(side * 1.45, 3.2, -0.2)).Position
-		local hand = (spot * CFrame.new(side * 0.75, 2.7, -1.9)).Position
-		local arm = makeDecor(model, partType .. "KnitArm" .. suffix, Vector3.new(0.45, 0.45, (hand - shoulder).Magnitude), CFrame.lookAt((shoulder + hand) / 2, hand), SEWING_COLOR)
-		arm.CanQuery = false
-		local tip = (spot * CFrame.new(side * 0.25, 3.3, -2.9)).Position
-		makeDecor(model, partType .. "KnitHook" .. suffix, Vector3.new(0.15, 0.15, (tip - hand).Magnitude), CFrame.lookAt((hand + tip) / 2, tip), HOOK_COLOR, Enum.Material.Metal)
+		local handle = (spot * CFrame.new(side * 0.8, 3.1, -1.5)).Position
+		local tip = (spot * CFrame.new(side * 0.2, 3.5, -2.8)).Position
+		makeDecor(model, partType .. "KnitHook" .. suffix, Vector3.new(0.22, 0.22, (tip - handle).Magnitude), CFrame.lookAt((handle + tip) / 2, tip), HOOK_COLOR, Enum.Material.Metal)
+		local bead = makeDecor(model, partType .. "KnitBead" .. suffix, Vector3.one * 0.5, CFrame.new(handle), color:Lerp(Color3.new(1, 1, 1), 0.2))
+		bead.Shape = Enum.PartType.Ball
 	end
+	local from, to = (yarn * CFrame.new(0, 1.1, -0.2)).Position, (spot * CFrame.new(0, 3.5, -2.75)).Position
+	makeDecor(model, partType .. "KnitterStrand", Vector3.new(0.12, 0.12, (to - from).Magnitude), CFrame.lookAt((from + to) / 2, to), color, Enum.Material.Fabric)
 end
 
 -- Finishing stages (GDD §6), past the end of the belt at `spot` (on the floor). The
@@ -534,9 +531,88 @@ local function buildPlushieArch(model: Model, spot: CFrame, item: TycoonItems.It
 	makeBillboard(top, string.upper(item.Name), Vector2.new(8, 1.5), if item.Key == "Station1" then 4.2 else 4.6, 80)
 end
 
+-- The line's tablet (GDD §6): a little stand beside the Assembler holding a tablet,
+-- themed per zone. Its screen (TabletScreen, PromptAnchor) carries the "Configure
+-- line" prompt; UIController flies the camera onto it and opens the Line menu there.
+local TABLET_SPOT = Vector3.new(8.8, 0, -1.5) -- from the line's origin, by the button path
+local TABLET_FACING = Vector3.new(math.cos(math.rad(25)), 0, -math.sin(math.rad(25))) -- toward the path, a little to the front
+local TABLET_SCREEN = Vector2.new(3.2, 2.4)
+local TABLET_TILT = math.rad(30) -- leaning back, screen up toward you
+local SCREEN_COLOR = Color3.fromRGB(28, 22, 48)
+
+-- The screen's idle picture: a gear and the line's number in neon.
+local function tabletScreen(screen: BasePart, lineIndex: number, color: Color3)
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Idle"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.LightInfluence = 0
+	gui.Brightness = 2
+	gui.Parent = screen
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(0.9, 0.8)
+	label.Position = UDim2.fromScale(0.05, 0.1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.6)
+	label.Text = `⚙️\nLINE {lineIndex}`
+	label.Parent = gui
+	local glow = Instance.new("UIStroke")
+	glow.Thickness = 3
+	glow.Color = color
+	glow.Parent = label
+end
+
+local function buildTablet(model: Model, origin: CFrame, item: TycoonItems.Item, lineIndex: number)
+	local spot = origin * CFrame.lookAt(TABLET_SPOT, TABLET_SPOT + TABLET_FACING) -- its -Z faces you
+	local plushie = item.Zone == "PlushieRoom"
+	local frameColor = if plushie then SEWING_COLOR else GANTRY_COLOR
+	local glowColor = if plushie then FLUFF_PINK else Color3.fromRGB(255, 220, 70)
+	if plushie then
+		-- a cushion, and a big thread spool for a stand
+		makeColumn(model, "TabletCushion", 2.6, 0, 0.7, spot, FLUFF_PINK, Enum.Material.Fabric)
+		makeColumn(model, "TabletSpoolEnd", 2, 0.7, 1.1, spot, WOOD_LIGHT_COLOR, Enum.Material.Wood)
+		local thread = makeColumn(model, "TabletSpool", 1.4, 1.1, 3.4, spot, THREAD_COLORS[1], Enum.Material.Fabric)
+		thread.CanCollide = true
+		makeColumn(model, "TabletSpoolEnd", 2, 3.4, 3.8, spot, WOOD_LIGHT_COLOR, Enum.Material.Wood)
+	else
+		-- two toy blocks stacked up
+		makePart(model, "TabletBase", Vector3.new(2.2, 0.5, 2.2), spot * CFrame.new(0, 0.25, 0), frameColor)
+		makePart(model, "TabletBlock", Vector3.new(1.6, 1.6, 1.6), spot * CFrame.new(0, 1.3, 0), Color3.fromRGB(255, 90, 110))
+		makePart(model, "TabletBlock", Vector3.new(1.5, 1.5, 1.5), spot * CFrame.new(0, 2.85, 0) * CFrame.Angles(0, math.rad(20), 0), CLAW_COLOR)
+		makeDecor(model, "TabletMount", Vector3.new(0.8, 0.5, 0.8), spot * CFrame.new(0, 3.85, 0), METAL_COLOR)
+	end
+	local tablet = spot * CFrame.new(0, 4.9, 0) * CFrame.Angles(TABLET_TILT, 0, 0)
+	local body = makeDecor(model, "TabletBody", Vector3.new(TABLET_SCREEN.X + 0.6, TABLET_SCREEN.Y + 0.6, 0.35), tablet, frameColor)
+	local screen = makeDecor(model, "TabletScreen", Vector3.new(TABLET_SCREEN.X, TABLET_SCREEN.Y, 0.1), tablet * CFrame.new(0, 0, -0.2), SCREEN_COLOR)
+	screen.CanQuery = true -- the prompt sits on it
+	screen:SetAttribute("PromptAnchor", true)
+	tabletScreen(screen, lineIndex, glowColor)
+	local button = makeDecor(model, "TabletButton", Vector3.new(0.3, 0.3, 0.1), tablet * CFrame.new(0, -TABLET_SCREEN.Y / 2 - 0.15, -0.2), glowColor, Enum.Material.Neon)
+	button.Shape = Enum.PartType.Ball
+	if plushie then
+		-- a little heart on the frame
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Back
+		gui.LightInfluence = 0
+		gui.PixelsPerStud = 20
+		gui.Parent = body
+		local heart = Instance.new("TextLabel")
+		heart.Size = UDim2.fromScale(0.4, 0.5)
+		heart.Position = UDim2.fromScale(0.3, 0.25)
+		heart.BackgroundTransparency = 1
+		heart.TextScaled = true
+		heart.Text = "💖"
+		heart.Parent = gui
+	end
+end
+
 local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Item) -> () } = {
 	Line = function(model, origin, item)
 		local colors = GANTRY_COLORS[item.Zone] or GANTRY_COLORS.ToyWorkshop
+		buildTablet(model, origin, item, TycoonItems.LinesById[item.LineId].Index)
 		makePart(model, "Belt", Vector3.new(8, 1, 62), origin * CFrame.new(0, 0.5, 13), Color3.fromRGB(60, 60, 70))
 		for _, side in { -1, 1 } do
 			local rail = if side < 0 then "RailLeft" else "RailRight"
