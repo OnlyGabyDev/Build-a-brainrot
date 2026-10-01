@@ -483,6 +483,14 @@ local function shippingCrates(parent: Instance, at: CFrame)
 	local cardboard = Color3.fromRGB(210, 160, 105)
 	local tape = Color3.fromRGB(240, 205, 130)
 	local prints = { "BRAINROT\nTOYS ★", "FRAGILE!", "⬆ ⬆", "BRAINROT\nTOYS ★" }
+	-- in a box only as tall as its lines: in a square one, TextScaled breaks a word to
+	-- get bigger letters ("FRA GILE!")
+	local function stamp(box: BasePart, face: Enum.NormalId, text: string)
+		local printed = label(box, face, text, Color3.fromRGB(150, 70, 40), nil, 30)
+		local height = if string.find(text, "\n") then 0.6 else 0.35
+		printed.Size = UDim2.fromScale(0.92, height)
+		printed.Position = UDim2.fromScale(0.04, (1 - height) / 2)
+	end
 	for index, crate in {
 		{ At = Vector3.new(0, 0, -2.4), Size = Vector3.new(4.6, 4.2, 4.6), Turn = 0.08 },
 		{ At = Vector3.new(0.2, 0, 2.4), Size = Vector3.new(4.4, 3.8, 4.4), Turn = -0.12 },
@@ -491,8 +499,8 @@ local function shippingCrates(parent: Instance, at: CFrame)
 	} do
 		local box = makeDecor(parent, "Crate", crate.Size, at * CFrame.new(crate.At + Vector3.new(0, crate.Size.Y / 2, 0)) * CFrame.Angles(0, crate.Turn, 0), cardboard)
 		makeDecor(parent, "CrateTape", Vector3.new(crate.Size.X + 0.1, 0.5, crate.Size.Z * 0.25), box.CFrame * CFrame.new(0, crate.Size.Y / 2, 0), tape)
-		label(box, Enum.NormalId.Left, prints[index], Color3.fromRGB(150, 70, 40), nil, 12)
-		label(box, Enum.NormalId.Front, prints[(index % #prints) + 1], Color3.fromRGB(150, 70, 40), nil, 12)
+		stamp(box, Enum.NormalId.Left, prints[index])
+		stamp(box, Enum.NormalId.Front, prints[(index % #prints) + 1])
 	end
 end
 

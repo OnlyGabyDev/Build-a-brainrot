@@ -5,16 +5,11 @@
 	  * BubbleWrap: the bubbles pop one at a time (they flatten with a pop and a puff,
 	    and plump back up a little later); from level 2 the press thumps as they go.
 	  * JackInTheBox: the crank turns; every few seconds it whirs faster, the lid flips
-	    open and a brainrot head springs out on a coil in a burst of confetti, wobbles,
-	    and sinks back in.
+	    open and a brainrot head springs out on a coil in a burst of confetti with the
+	    upgrade's bonus, spills coins onto the Cash Pad, wobbles, and sinks back in.
 	  * BoxConveyor: the boxes ride round the rail near the ceiling.
 	  * ToyTrain: the train runs round its track, puffing smoke and whistling now and
 	    then.
-	  * RoomUpgrade (all of them): every few seconds each sends what it makes flying
-	    over to a machine on one of its room's lines (presents and boxes to the toy
-	    boxes, bubble wrap to the Toy Packer, yarn to the knitting machines, fluff,
-	    buttons, hearts) and it lands with the upgrade's bonus, so you can see why it
-	    makes money. The Jack-in-the-Box spills coins onto the Cash Pad when it pops.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -33,14 +28,6 @@ local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("E
 local NEAR = 180 -- studs from the camera
 local WHITE = Color3.new(1, 1, 1)
 local BONUS_COLOR = Color3.fromRGB(255, 220, 70)
-local FLYER_COLORS = {
-	Color3.fromRGB(255, 80, 100),
-	Color3.fromRGB(255, 200, 40),
-	Color3.fromRGB(50, 150, 255),
-	Color3.fromRGB(80, 205, 90),
-	Color3.fromRGB(160, 95, 255),
-	Color3.fromRGB(255, 110, 180),
-}
 
 local function near(position: Vector3): boolean
 	return Effects.near(position, NEAR)
@@ -350,196 +337,10 @@ end, function(model)
 	trains[model] = nil
 end)
 
--- Deliveries ---------------------------------------------------------------------------
-
-type Upgrade = { Model: Model, Next: number }
-local upgrades: { [Model]: Upgrade } = {}
-
-watch("RoomUpgrade", function(model)
-	upgrades[model] = { Model = model, Next = os.clock() + 1 + math.random() * numberOf(model, "Every", 4) }
-end, function(model)
-	upgrades[model] = nil
-end)
-
--- The lines in the upgrade's room (siblings in its plot's Lines folder).
-local function roomLines(model: Model): { Model }
-	local found = {}
-	local zone = model:GetAttribute("Zone")
-	local lines = model.Parent
-	if not (lines and typeof(zone) == "string") then
-		return found
-	end
-	for _, line in lines:GetChildren() do
-		if line:IsA("Model") and string.sub(line.Name, 1, #zone + 1) == zone .. "_" and not string.find(line.Name, "_Decor_", 1, true) then
-			table.insert(found, line)
-		end
-	end
-	return found
-end
-
--- Where on `line` a delivery lands: the part named `target` (any whose name ends with
--- it, for the knitting machines' yarn balls), else the line's Ship.
-local function findTarget(line: Model, target: string): BasePart?
-	local matches = {}
-	for _, part in line:GetDescendants() do
-		if part:IsA("BasePart") and (part.Name == target or (target == "KnitYarnBall" and string.sub(part.Name, -#target) == target)) then
-			table.insert(matches, part)
-		end
-	end
-	if #matches > 0 then
-		return matches[math.random(1, #matches)]
-	end
-	local ship = line:FindFirstChild("Ship")
-	return if ship and ship:IsA("BasePart") then ship else nil
-end
-
-local function flyerPart(model: Model, size: Vector3, offset: CFrame, color: Color3, shape: Enum.PartType?, material: Enum.Material?): Part
-	local part = Instance.new("Part")
-	part.Anchored = true
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.CastShadow = false
-	part.Size = size
-	part.CFrame = offset
-	part.Color = color
-	part.Shape = shape or Enum.PartType.Block
-	part.Material = material or Enum.Material.SmoothPlastic
-	part.Parent = model
-	return part
-end
-
--- What a delivery looks like, built round the origin, and its main color.
-local function makeFlyer(kind: string): (Model, Color3)
-	local model = Instance.new("Model")
-	model.Name = "Delivery"
-	local color = FLYER_COLORS[math.random(1, #FLYER_COLORS)]
-	local core: Part
-	if kind == "Gift" then
-		core = flyerPart(model, Vector3.one * 1.4, CFrame.identity, color)
-		flyerPart(model, Vector3.new(1.45, 1.45, 0.3), CFrame.identity, WHITE)
-		flyerPart(model, Vector3.new(0.3, 1.45, 1.45), CFrame.identity, WHITE)
-	elseif kind == "Box" then
-		color = Color3.fromRGB(210, 160, 105)
-		core = flyerPart(model, Vector3.one * 1.6, CFrame.identity, color)
-		flyerPart(model, Vector3.new(1.65, 0.3, 0.5), CFrame.new(0, 0.7, 0), Color3.fromRGB(240, 205, 130))
-	elseif kind == "Wrap" then
-		color = Color3.fromRGB(190, 230, 255)
-		core = flyerPart(model, Vector3.new(2.2, 0.15, 2.2), CFrame.identity, color)
-		core.Transparency = 0.3
-		for x = -1, 1, 2 do
-			for z = -1, 1, 2 do
-				flyerPart(model, Vector3.one * 0.6, CFrame.new(x * 0.5, 0.1, z * 0.5), WHITE, Enum.PartType.Ball).Transparency = 0.3
-			end
-		end
-	elseif kind == "Yarn" then
-		core = flyerPart(model, Vector3.one * 1.4, CFrame.identity, color, Enum.PartType.Ball, Enum.Material.Fabric)
-		flyerPart(model, Vector3.new(0.3, 1.5, 1.5), CFrame.Angles(0, 0.5, math.rad(70)), color:Lerp(WHITE, 0.3), Enum.PartType.Cylinder, Enum.Material.Fabric)
-	elseif kind == "Fluff" then
-		color = WHITE
-		core = flyerPart(model, Vector3.one * 1.4, CFrame.identity, color, Enum.PartType.Ball, Enum.Material.Fabric)
-		flyerPart(model, Vector3.one * 1, CFrame.new(0.7, -0.2, 0.2), color, Enum.PartType.Ball, Enum.Material.Fabric)
-		flyerPart(model, Vector3.one * 1, CFrame.new(-0.6, -0.1, -0.3), color, Enum.PartType.Ball, Enum.Material.Fabric)
-	elseif kind == "Button" then
-		core = flyerPart(model, Vector3.new(0.35, 1.5, 1.5), CFrame.identity, color, Enum.PartType.Cylinder)
-	else -- a glowing heart
-		color = Color3.fromRGB(255, 90, 170)
-		core = flyerPart(model, Vector3.new(1, 1, 0.8), CFrame.new(0, -0.3, 0) * CFrame.Angles(0, 0, math.rad(45)), color, nil, Enum.Material.Neon)
-		for _, x in { -0.38, 0.38 } do
-			flyerPart(model, Vector3.one * 1, CFrame.new(x, 0.15, 0), color, Enum.PartType.Ball, Enum.Material.Neon)
-		end
-	end
-	model.PrimaryPart = core
-	-- a sparkly trail behind it
-	local top, bottom = Instance.new("Attachment"), Instance.new("Attachment")
-	top.Position = Vector3.new(0, 0.35, 0)
-	bottom.Position = Vector3.new(0, -0.35, 0)
-	top.Parent = core
-	bottom.Parent = core
-	local trail = Instance.new("Trail")
-	trail.Attachment0 = top
-	trail.Attachment1 = bottom
-	trail.Lifetime = 0.35
-	trail.LightEmission = 1
-	trail.Color = ColorSequence.new(WHITE, color)
-	trail.Transparency = NumberSequence.new(0.2, 1)
-	trail.Parent = core
-	return model, color
-end
-
--- Flies `kind` from `from` over to `part` in an arc, spinning, and pops the bonus there.
-local function deliver(model: Model, kind: string, from: Vector3, part: BasePart)
-	local flyer, color = makeFlyer(kind)
-	local to = part.Position + Vector3.new(0, part.Size.Y / 2 + 0.5, 0)
-	local distance = (to - from).Magnitude
-	local duration = math.clamp(distance / 28, 0.7, 1.8)
-	local height = 3 + distance * 0.12
-	flyer:PivotTo(CFrame.new(from))
-	flyer.Parent = Effects.Folder
-	Effects.sound(from, Sounds.Whoosh, 0.15, 1.6 + math.random() * 0.3)
-	local start = os.clock()
-	local spin = Vector3.new(math.random() * 6 - 3, 6, math.random() * 6 - 3)
-	while true do
-		local a = math.min((os.clock() - start) / duration, 1)
-		local at = from:Lerp(to, a) + Vector3.new(0, height * 4 * a * (1 - a), 0)
-		flyer:PivotTo(CFrame.new(at) * CFrame.Angles(spin.X * a, spin.Y * a, spin.Z * a))
-		if a >= 1 then
-			break
-		end
-		RunService.Heartbeat:Wait()
-	end
-	flyer:Destroy()
-	Effects.sparkle(to, color, 8)
-	Effects.sound(to, Sounds.Pop, 0.2, 1.5 + math.random() * 0.3)
-	Effects.popup(to + Vector3.new(0, 2.5, 0), bonusText(model), BONUS_COLOR, 0.9, 0.6)
-end
-
-local function sendDelivery(upgrade: Upgrade)
-	local model = upgrade.Model
-	local kind = model:GetAttribute("Delivery")
-	local target = model:GetAttribute("Target")
-	if typeof(kind) ~= "string" or typeof(target) ~= "string" then
-		return
-	end
-	local from: Vector3? = nil
-	local source = model:GetAttribute("Source")
-	local child = model:GetAttribute("FromChild")
-	if typeof(source) == "Vector3" then
-		from = source
-	elseif typeof(child) == "string" then
-		local candidates = {}
-		for _, thing in model:GetChildren() do
-			if thing.Name == child and thing:IsA("Model") then
-				table.insert(candidates, thing)
-			end
-		end
-		if #candidates > 0 then
-			local picked = candidates[math.random(1, #candidates)]
-			local box, size = picked:GetBoundingBox()
-			from = box.Position - Vector3.new(0, size.Y * 0.2, 0)
-		end
-	end
-	local lines = roomLines(model)
-	if not from or #lines == 0 or not near(from) then
-		return
-	end
-	local part = findTarget(lines[math.random(1, #lines)], target)
-	if part then
-		task.spawn(deliver, model, kind, from, part)
-	end
-end
-
 -- The loop ----------------------------------------------------------------------------
 
 RunService.Heartbeat:Connect(function(dt)
 	local now = os.clock()
-	for _, upgrade in upgrades do
-		if now >= upgrade.Next then
-			local every = numberOf(upgrade.Model, "Every", 4)
-			upgrade.Next = now + every * (0.75 + math.random() * 0.5)
-			sendDelivery(upgrade)
-		end
-	end
 	for _, wrap in wraps do
 		local bubble = wrap.Bubbles[1]
 		if now >= wrap.Next and bubble and near(bubble.Position) then

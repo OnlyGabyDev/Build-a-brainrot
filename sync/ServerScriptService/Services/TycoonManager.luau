@@ -872,7 +872,8 @@ local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?)
 	if item.Kind == "Decor" then
 		local floor = roomFloor(plot, item.Zone)
 		RoomUpgradeBuilder.Build(model, floor, item.Key, item.Level :: number)
-		-- its bonus so far (every level up to this one), shown over it and on what it sends
+		-- its bonus so far (every level up to this one), shown over it (and by the
+		-- Jack-in-the-Box when it pops)
 		local bonus = 1
 		for _, level in TycoonItems.DecorByZone[item.Zone] do
 			if level.Key == item.Key and (level.Level :: number) <= (item.Level :: number) then
@@ -880,7 +881,6 @@ local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?)
 			end
 		end
 		model:SetAttribute("Bonus", bonus)
-		model:SetAttribute("Zone", item.Zone)
 		local anchor = makeDecor(model, "BonusTag", Vector3.one, floor * CFrame.new(RoomUpgradeBuilder.TagSpot(item.Key)), WHITE)
 		anchor.Transparency = 1
 		local tag = makeBillboard(anchor, `{item.Name} Lv{item.Level}\n+{math.floor((bonus - 1) * 100 + 0.5)}% room 💰`, Vector2.new(9, 2.4), 0, 70)

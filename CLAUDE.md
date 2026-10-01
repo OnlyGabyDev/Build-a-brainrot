@@ -27,6 +27,7 @@ The user opens a new chat per task to save tokens. Take the first unchecked task
 - **Images/textures:** a Creator Store decal id doesn't load as a texture. Get the image id in Edit mode with `InsertService:LoadAsset(decalId)` and read the Decal's `Texture`. Preview thumbnails with curl from `thumbnails.roblox.com/v1/assets?assetIds=...&size=420x420&format=Png` and the Read tool. Other people's models (e.g. a skybox) only insert with the MCP's `insert_asset`; read what you need and delete the copy.
 - **Terrain and the map:** see PROGRESS.md, *World notes* (terrain height rules, painting the ground, the MaterialVariant that lives in the place file).
 - **Textures on a Top face:** U runs along the part's X, V along its Z, and raising an offset slides the texture toward +X / +Z.
+- **Gold:** `Metal` with no `Reflectance` (reflectance mixes in the pale sky and turns gold to cream).
 - **World effects:** use `Client/Effects` (sound, sparkle, puff, confetti, ring, flash, tint, popup, coins); it culls by distance and cleans up after itself.
 
 ## The user's preferences

@@ -27,7 +27,9 @@ local RoomUpgradeBuilder = {}
 
 local WHITE = Color3.new(1, 1, 1)
 local INK = Color3.fromRGB(45, 30, 60)
-local GOLD = Color3.fromRGB(255, 200, 60)
+-- Solid gold is Metal with no Reflectance: reflectance mixes in the pale sky and turns
+-- gold to cream.
+local GOLD = Color3.fromRGB(255, 190, 40)
 local WOOD = Color3.fromRGB(225, 175, 120)
 local TOY_COLORS = {
 	Color3.fromRGB(255, 80, 100), -- red
@@ -206,8 +208,7 @@ local function buildGiftTower(model: Model, floor: CFrame, level: number)
 		local crown = Instance.new("Model")
 		crown.Name = "GoldenGift"
 		local at = floor * CFrame.new(-60, 17, -52) * CFrame.Angles(0, 0.6, 0)
-		local gold = present(crown, at, Vector3.new(3.4, 3, 3.4), GOLD, WHITE, Enum.Material.SmoothPlastic)
-		gold.Reflectance = 0.25
+		local gold = present(crown, at, Vector3.new(3.4, 3, 3.4), GOLD, WHITE, Enum.Material.Metal)
 		sparkles(gold, GOLD, 8, 1)
 		glow(gold, GOLD, 16)
 		crown.WorldPivot = at
@@ -304,7 +305,7 @@ local function buildBoxConveyor(model: Model, floor: CFrame, level: number)
 		local color = if golden then GOLD else TOY_COLORS[index % #TOY_COLORS + 1]
 		local gift = present(box, hook * CFrame.new(0, -4.2, 0), Vector3.new(2.6, 2.6, 2.6), color, if golden then WHITE else TOY_COLORS[(index + 2) % #TOY_COLORS + 1])
 		if golden then
-			gift.Reflectance = 0.25
+			gift.Material = Enum.Material.Metal
 			sparkles(gift, GOLD, 3)
 		end
 		box:SetAttribute("Phase", phase)
@@ -385,7 +386,9 @@ local function buildEngine(car: Model, at: CFrame, golden: boolean)
 	local boiler = if golden then GOLD else TOY_COLORS[1]
 	makeDecor(car, "Chassis", Vector3.new(1.4, 0.5, 2.8), at * CFrame.new(0, 0.6, 0), dark)
 	local tube = roller(car, "Boiler", 1.3, 1.7, at * CFrame.new(0, 1.45, -0.45) * CFrame.Angles(0, math.pi / 2, 0), boiler)
-	tube.Reflectance = if golden then 0.25 else 0
+	if golden then
+		tube.Material = Enum.Material.Metal
+	end
 	roller(car, "Smokebox", 1.35, 0.3, at * CFrame.new(0, 1.45, -1.35) * CFrame.Angles(0, math.pi / 2, 0), dark)
 	cylinder(car, "Chimney", 0.55, 0.9, at * CFrame.new(0, 2.05, -0.9), dark)
 	makeDecor(car, "Cab", Vector3.new(1.4, 1.5, 1.1), at * CFrame.new(0, 1.6, 0.8), TOY_COLORS[3])
@@ -508,7 +511,7 @@ local function buildYarnSpinner(model: Model, floor: CFrame, level: number)
 		local color = if level >= 3 then PLUSH_COLORS[index % #PLUSH_COLORS + 1] else rim
 		makeDecor(wheel, "WheelSpoke", Vector3.new(0.25, radius, 0.25) * s, hub * CFrame.fromMatrix(radial * radius * s / 2, Vector3.xAxis, radial), color, if level >= 3 then nil else Enum.Material.Wood)
 	end
-	roller(wheel, "WheelHub", 1 * s, 1.2 * s, hub, if golden then GOLD else PLUSH_COLORS[1])
+	roller(wheel, "WheelHub", 1 * s, 1.2 * s, hub, if golden then GOLD else PLUSH_COLORS[1], if golden then Enum.Material.Metal else nil)
 	spinner(wheel, model, hub * CFrame.Angles(0, math.pi / 2, 0), 1.6)
 	-- the bobbin at the other end, winding yarn (it spins fast), on two little posts
 	local bobbinY, bobbinZ = 7.6, 4.2
@@ -583,7 +586,7 @@ local function buildPillowPile(model: Model, floor: CFrame, level: number)
 	for _, stack in POUFS do
 		if stack[1] <= level then
 			local golden = stack[7] == 0
-			pouf(model, floor * CFrame.new(stack[2], stack[3], stack[4]), stack[5], stack[6], if golden then GOLD else PLUSH_COLORS[stack[7]], if golden then Enum.Material.SmoothPlastic else nil)
+			pouf(model, floor * CFrame.new(stack[2], stack[3], stack[4]), stack[5], stack[6], if golden then GOLD else PLUSH_COLORS[stack[7]], if golden then Enum.Material.Metal else nil)
 			if golden then
 				local top = makeDecor(model, "PoufSparkle", Vector3.one, floor * CFrame.new(stack[2], stack[3] + stack[6] + 0.5, stack[4]), WHITE)
 				top.Transparency = 1
@@ -664,11 +667,11 @@ local function buildGiantPlushie(model: Model, floor: CFrame, level: number)
 		local box, size = brainrot:GetBoundingBox()
 		local crown = CFrame.new(box.X, box.Y + size.Y / 2 - 0.4, box.Z) * root.Rotation
 		local across = math.min(size.X, size.Z) * 0.6
-		cylinder(model, "Crown", across, 1.8, crown, GOLD).Reflectance = 0.3
+		cylinder(model, "Crown", across, 1.8, crown, GOLD, Enum.Material.Metal)
 		for index = 0, 5 do
 			local angle = index / 6 * math.pi * 2
 			local point = crown * CFrame.new(math.cos(angle) * across * 0.42, 1.8, math.sin(angle) * across * 0.42)
-			makeDecor(model, "CrownPoint", Vector3.new(0.7, 1.6, 0.7), point * CFrame.new(0, 0.6, 0), GOLD).Reflectance = 0.3
+			makeDecor(model, "CrownPoint", Vector3.new(0.7, 1.6, 0.7), point * CFrame.new(0, 0.6, 0), GOLD, Enum.Material.Metal)
 			ball(model, "CrownGem", 0.8, point * CFrame.new(0, 1.5, 0), PLUSH_COLORS[index % #PLUSH_COLORS + 1], Enum.Material.Neon)
 		end
 		local sparkler = makeDecor(model, "PlushieSparkle", Vector3.new(size.X, 1, size.Z), CFrame.new(box.Position), WHITE)
@@ -676,32 +679,6 @@ local function buildGiantPlushie(model: Model, floor: CFrame, level: number)
 		sparkles(sparkler, Color3.fromRGB(255, 220, 140), 8, 1)
 	end
 end
-
--- Deliveries -----------------------------------------------------------------------
--- Why a room upgrade makes money, shown: every few seconds it sends what it makes over
--- to a line's machine (RoomFX flies it there): presents and boxes into the toy boxes,
--- bubble wrap to the Toy Packer, yarn to the knitting machines, fluff to the fluff
--- machine, buttons to the sewing machine, hearts all round. Each lands with its bonus.
--- The Jack-in-the-Box instead spills coins to the Cash Pad each time it pops (RoomFX).
-
-type Delivery = {
-	Kind: string, -- what flies: Gift, Wrap, Box, Yarn, Fluff, Button, Heart
-	Target: string, -- the line part it lands on (Dropper parts' names end with it for Yarn)
-	Every: number, -- seconds, roughly
-	Source: Vector3?, -- room space; or
-	FromChild: string?, -- from one of its children with this name (a conveyor box, the train)
-}
-
-local DELIVERIES: { [string]: Delivery } = {
-	GiftTower = { Kind = "Gift", Target = "Ship", Every = 5, Source = Vector3.new(-60, 14, -52) },
-	BubbleWrap = { Kind = "Wrap", Target = "Station3", Every = 4, Source = Vector3.new(-63.5, 6, -14) },
-	BoxConveyor = { Kind = "Box", Target = "Ship", Every = 3, FromChild = "ConveyorBox" },
-	ToyTrain = { Kind = "Gift", Target = "Assembler", Every = 6, FromChild = "TrainCar" },
-	YarnSpinner = { Kind = "Yarn", Target = "KnitYarnBall", Every = 3, Source = Vector3.new(-62, 10, -13) },
-	PillowPile = { Kind = "Fluff", Target = "Ship", Every = 4, Source = Vector3.new(-60, 10, -52) },
-	ButtonJar = { Kind = "Button", Target = "NeedleHead", Every = 4, Source = Vector3.new(-61, 12, 50) },
-	GiantPlushie = { Kind = "Heart", Target = "Ship", Every = 5, Source = Vector3.new(58, 16, -50) },
-}
 
 -- API --------------------------------------------------------------------------------
 
@@ -712,7 +689,7 @@ type Spot = {
 }
 
 local SPOTS: { [string]: Spot } = {
-	GiftTower = { Button = Vector3.new(-52, 0, -42), Tag = Vector3.new(-58, 21, -50), Build = buildGiftTower },
+	GiftTower = { Button = Vector3.new(-52, 0, -42), Tag = Vector3.new(-50, 18, -42), Build = buildGiftTower },
 	BubbleWrap = { Button = Vector3.new(-52.5, 0, -10), Tag = Vector3.new(-63, 14, -18), Build = buildBubbleWrap },
 	BoxConveyor = { Button = Vector3.new(30, 0, -52), Tag = Vector3.new(30, 19, -50), Build = buildBoxConveyor },
 	JackBox = { Button = Vector3.new(50, 0, -48), Tag = Vector3.new(59, 17, -50), Build = buildJackBox },
@@ -720,7 +697,7 @@ local SPOTS: { [string]: Spot } = {
 	YarnSpinner = { Button = Vector3.new(-52.5, 0, -10), Tag = Vector3.new(-62, 20, -18), Build = buildYarnSpinner },
 	PillowPile = { Button = Vector3.new(-52, 0, -42), Tag = Vector3.new(-58, 14, -50), Build = buildPillowPile },
 	ButtonJar = { Button = Vector3.new(-61, 0, 41), Tag = Vector3.new(-61, 17, 50), Build = buildButtonJar },
-	GiantPlushie = { Button = Vector3.new(48, 0, -46), Tag = Vector3.new(58, 25, -50), Build = buildGiantPlushie },
+	GiantPlushie = { Button = Vector3.new(48, 0, -46), Tag = Vector3.new(45, 20, -46), Build = buildGiantPlushie },
 }
 
 -- Where a room upgrade's button goes, room space.
@@ -733,21 +710,9 @@ function RoomUpgradeBuilder.TagSpot(key: string): Vector3
 	return SPOTS[key].Tag
 end
 
--- Builds a room upgrade at `level` into `model` (already in its room's Lines folder),
--- tagged RoomUpgrade with its delivery for RoomFX.
+-- Builds a room upgrade at `level` into `model` (already in its room's Lines folder).
 function RoomUpgradeBuilder.Build(model: Model, floor: CFrame, key: string, level: number)
 	SPOTS[key].Build(model, floor, level)
-	local delivery = DELIVERIES[key]
-	if delivery then
-		model:SetAttribute("Delivery", delivery.Kind)
-		model:SetAttribute("Target", delivery.Target)
-		model:SetAttribute("Every", delivery.Every)
-		if delivery.Source then
-			model:SetAttribute("Source", (floor * CFrame.new(delivery.Source)).Position)
-		end
-		model:SetAttribute("FromChild", delivery.FromChild)
-	end
-	CollectionService:AddTag(model, "RoomUpgrade")
 end
 
 return RoomUpgradeBuilder
