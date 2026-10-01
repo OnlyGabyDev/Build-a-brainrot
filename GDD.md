@@ -163,6 +163,7 @@ Each **zone** has several assembly lines (**3 in the Toy Workshop**). Players bu
 - Line configurations are **remembered across rebirths**.
 - **Finishing stage** 🟡 (requested 2026-09-30): every zone ends its line with its own themed, cute last step. Toy Workshop: the brainrot hops down to the floor, a toy box pops up and opens, the toy jumps in and the box closes. Plushie room: it gets filled with foam. Robot Plant: a wind-up key turns and the brainrot starts moving. Each new zone gets one.
 - **Finishing upgrader** 🟡: after the finishing stage, one more upgrade station with the zone's own theme.
+- **Themed droppers** 🟡 (requested 2026-09-30): every zone's droppers match its theme, like its other machines. Toy Workshop: chutes in the wall or the ceiling drop the parts onto the belt (§16.15). The other zones' droppers are still to be decided.
 - **Paint Booth options** 🟡: the player picks the paint color, or turns the booth off. A gamepass (§12) paints each limb a different color.
 - **Photobooth** 🟡 (on every floor): saves a brainrot exactly as the player painted it, to use as a colorful statue, a photo in the factory, an in-game icon, or all of them. The photo's background matches the floor it was taken on.
 
@@ -443,7 +444,7 @@ StarterPlayer/StarterPlayerScripts/
 12. ✅ **Remote line config as a gamepass perk:** decided and built, bundled with Auto-Collect (§12).
 13. **Control Room computer:** a computer on a higher floor that configures every line in the whole facility from one place.
 14. **The facility grows up and out:** each expansion adds floors and side wings, and the whole place looks more and more like a dreamy science factory.
-15. **Toy Workshop chutes:** parts slide out of chutes onto the belt instead of dropping from boxes.
+15. ✅ **Toy Workshop chutes:** parts slide out of chutes onto the belt instead of dropping from boxes. Decided: part of the themed droppers (§6).
 16. **Per-rarity box effects:** unique looks, particles, spawn and open animations per rarity. Godly boxes arrive through a black hole (§5).
 17. **Signature idle touches:** finished brainrots get a small idle animation or prop from their meme, like *Steal a Brainrot* does: Lirilì's floating clock, Tung tapping his bat, Tralalero's tail wag, Trippi's antennae wobble.
 
@@ -461,7 +462,7 @@ StarterPlayer/StarterPlayerScripts/
 ## Changelog
 - **v0.8 (2026-09-30):**
   - All 15 brainrots have voxel art. The 14 *Steal a Brainrot* ones follow its renders; the Godly is our own **Supremo Brainrotto, the Risotto King** (§3).
-  - Requested and planned: a themed **finishing stage** and **finishing upgrader** per zone, **Paint Booth options** and a **Photobooth** (§6); **Sprint** and **Custom Paint** gamepasses (§12).
+  - Requested and planned: a themed **finishing stage**, **finishing upgrader** and **droppers** per zone, **Paint Booth options** and a **Photobooth** (§6); **Sprint** and **Custom Paint** gamepasses (§12).
 - **v0.7 (2026-09-30):** Core-loop juice pass (§13): per-step assembly sounds and effects, station effects, flying coins, rolling belts, build-in animations, the Cash Pad coin pile, lighting with bloom, and background music.
 - **v0.6 (2026-09-30):**
   - Monetization built: 5 gamepasses with config-driven perks, Gem, Roll and wheel-spin products granted once per receipt, the Daily Wheel (jackpot is 500 Gems instead of a Mythic box), and a Shop that shows odds before purchase.

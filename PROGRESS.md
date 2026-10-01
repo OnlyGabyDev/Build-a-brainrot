@@ -5,7 +5,7 @@ _Last updated: 2026-09-30. Keep this current: it's how a new chat picks up the w
 **New chat? Read [CLAUDE.md](CLAUDE.md) first, then take the first unchecked task in the [Task queue](#task-queue).** One task per chat: finish it (type-check, playtest, commit and push), tick it off here, add anything the next chat needs, and tell the user it's done.
 
 ## Where we are
-The core game is **complete and playtested** (GDD §15, sprint steps 1–12). We're in **step 13: polish**. The core loop's juice pass (sounds, effects, lights) is done, and **all 15 brainrots have voxel art**. Next: a bug fix, then the user's new requests (themed finishing stages, Paint Booth options, Photobooth, Sprint pass).
+The core game is **complete and playtested** (GDD §15, sprint steps 1–12). We're in **step 13: polish**. The core loop's juice pass (sounds, effects, lights) is done, and **all 15 brainrots have voxel art**. Next: a bug fix, then the user's new requests (themed finishing stages and droppers, Paint Booth options, Sprint pass, Photobooth).
 
 ### Built (all playtested in Studio)
 | Area | What works | Where |
@@ -34,17 +34,16 @@ Roughly in priority order (the user: polish first, and the core loop matters mos
 - [x] **Brainrots E: the Godly** (2026-09-30): Supremo Brainrotto, the Risotto King (the user picked it from 3 concepts): a crowned pink brain with googly eyes and a mustache in a golden risotto pot with rainbow steam, a giant spoon and fork, chef boots. `VoxelArt` got per-color `Materials` for the Neon glow.
 - [ ] **Bug: payouts in flight survive a plot reset.** `ProductionManager.ship` pays with `task.delay`, and `TycoonManager.ResetPlot` (rebirths and DevTools `Restore`) doesn't cancel it, so brainrots still on the belt pay into the fresh plot afterwards. In testing, the Godly leaked ~54K Coins past a `Restore`. Fix idea: a `Generation` number on the plot, bumped by `ResetPlot` and checked in the delayed payout. Small; do it first.
 - [ ] **Finishing stage + finishing upgrader** (GDD §6, the user's request; assembly animations are HIGH priority): every zone gets a themed last step after the stations, then one more themed upgrade station. Toy Workshop: the brainrot hops to the floor, a toy box pops up and opens, the toy jumps in, and the box closes. Plushie room: filled with foam. Robot Plant (later): a wind-up key turns and it moves. Start with the Toy Workshop and the Plushie room.
+- [ ] **Themed droppers** (GDD §6, the user's request): every zone's droppers match its theme, like the rest of its machines. Toy Workshop: **chutes** that drop the parts onto the belt, coming out of the **wall or the ceiling** (the user hasn't picked; propose one, or show both). Other zones: not decided yet, so propose ideas to the user before building. The drop animation is part of the show (HIGH priority), so keep the squash, sounds and timing of the current droppers (`ProductionVisuals`).
 - [ ] **Paint Booth options** (GDD §6, §12): pick the paint color or turn the booth off, plus a **Custom Paint** gamepass to paint each limb differently.
 - [ ] **Sprint gamepass** (GDD §12): hold Shift to run. Small.
 - [ ] **UI: the sticker-book Index** (GDD §8 polish target): big popped-out brainrots on rarity backgrounds, round edition buttons (gray/blue/green), more color everywhere. Needs the brainrot art first.
 - [ ] **UI: the loot wheel** (the user finds it ugly) plus UI juice: sounds on opens/reveals, bouncier panels, the whole HUD more Pet Simulator–style (GDD §13, §15).
-- [ ] **Facility and map:** real factory rooms instead of flat plots, and a hub map instead of the baseplate (GDD §15). Build it ourselves in code first (see CLAUDE.md, art preferences).
+- [ ] **Facility and map:** real factory rooms instead of flat plots, and a hub map instead of the baseplate (GDD §15). Build it ourselves in code first (see CLAUDE.md, art preferences). Every line machine stays themed to its zone (droppers, assembler, finishing stage; see the tasks above), so the rooms should fit them (e.g. walls or ceilings for the Toy Workshop's chutes).
 - [ ] **Per-rarity loot box looks and effects** (GDD §5, §16.16): a Godly box arrives through a black hole.
 - [ ] **Photobooth on every floor** (GDD §6): save a brainrot as the player painted it, for a colorful statue, a factory photo and/or an in-game icon, on a background themed to the floor. Best after the Paint Booth options and the facility.
 
-**Needs the user:**
-- Claude can't hear audio, so every sound was picked by its library description. Ask the user to listen in a playtest and name any sound to swap; the ids are all in `Config/Sounds`.
-- Because of the bug above, the art playtests left the user's Studio profile with **+62,340 Coins** (4,407 before the session, 66,747 after; nothing else changed). Claude's direct write to the DataStore to undo it was blocked, so the user decides whether to fix it.
+**Needs the user:** Claude can't hear audio, so every sound was picked by its library description. Ask the user to listen in a playtest and name any sound to swap; the ids are all in `Config/Sounds`.
 
 ## Voxel brainrots how-to
 The pipeline works: the voxel Tralalero already runs on the lines in game (60 fps, no errors).
@@ -82,6 +81,6 @@ After each brainrot: `sh tools/typecheck.sh`, a preview screenshot, then commit 
 
 ## Known quirks
 - Azul's sourcemap can miss new modules; `tools/typecheck.sh` works around it.
-- Studio test data lives in the `PlayerData_Studio` DataStore. The user's profile has 2 lines, and 66.7K Coins (see Needs the user); Snapshot/Restore around spending tests. `ListVersionsAsync` on key `Player_<UserId>` shows the save history.
+- Studio test data lives in the `PlayerData_Studio` DataStore. The user's profile has 2 lines and 66.7K Coins (the bug above leaked 62K during the art playtests; the user said to keep them). Snapshot/Restore around spending tests. `ListVersionsAsync` on key `Player_<UserId>` shows the save history.
 - `get_console_output` often comes back empty even when things run fine; probe state with `execute_luau` instead.
 - Playtest FPS reads ~15 while Studio isn't the focused window, even on the old lines. Compare against a baseline before blaming new content.
