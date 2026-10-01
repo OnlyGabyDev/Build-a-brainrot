@@ -68,8 +68,11 @@ type Piece = {
 	Model: Model,
 	Center: Vector3, -- the part's center relative to its pivot
 	Size: Vector3,
+	PartType: string,
+	Scale: number, -- its full size (a crochet robot's part starts tiny)
 	Dropper: BasePart,
 	ChuteTop: BasePart?, -- a ceiling chute's collar, where the part starts its slide
+	Hanger: BasePart?, -- what a hanging dropper (chute, pillow) hangs from: it squashes
 	Waiting: CFrame, -- pivot while it waits at the intake
 	Home: CFrame, -- pivot in the assembled brainrot
 	Travel: number, -- belt distance, dropper to intake
@@ -82,6 +85,7 @@ type Build = {
 	Built: { Piece }, -- parts in place so far
 	FullMatch: boolean,
 	Near: boolean, -- close enough to the camera for particles
+	Zone: string,
 }
 
 type StepAnimation = (build: Build, piece: Piece, duration: number) -> ()
@@ -206,10 +210,9 @@ end
 
 -- Droppers and the beacon ----------------------------------------------------
 
--- Ceiling chutes (the Toy Workshop's droppers, TycoonManager.buildChute) are rubbery:
--- their bands bulge and light up as a part slides down past them, and the whole chute
--- squashes and stretches as it spits the part out, hanging from its collar in the
--- ceiling.
+-- The Toy Workshop's ceiling chutes (TycoonManager.buildChute) are rubbery: their bands
+-- bulge and light up as a part slides down past them, and the whole chute squashes and
+-- stretches as it spits the part out, hanging from its collar in the ceiling.
 type ChutePiece = {
 	Part: BasePart,
 	Rest: CFrame,
@@ -244,13 +247,13 @@ local function startsWith(name: string, prefix: string): boolean
 	return string.sub(name, 1, #prefix) == prefix
 end
 
--- The chute whose collar is `top`, read once while it's at rest.
-local function readChute(line: Model, top: BasePart): Chute
+-- The `prefix` ("Head", "Body", ...) dropper hanging from `top`, read once while it's at
+-- rest.
+local function readChute(line: Model, top: BasePart, prefix: string): Chute
 	local cached = chutes[top]
 	if cached then
 		return cached
 	end
-	local prefix = string.sub(top.Name, 1, #top.Name - #"ChuteTop") -- "Head", "Body", ...
 	local chute: Chute = {
 		Anchor = top.Position - Vector3.new(0, top.Size.X / 2, 0), -- the collar stands on its side: X is its height
 		Pieces = {},
@@ -334,15 +337,87 @@ local function squashChute(chute: Chute)
 	end
 end
 
+-- The Plushie room's crochet robots (TycoonManager.buildKnitter): their arms and hooks
+-- flurry and their head bobs while they crochet a part out of their yarn ball.
+type Knitter = {
+	Arms: { { Parts: { BasePart }, Rests: { CFrame }, Shoulder: Vector3 } }, -- each with its hook
+	Axis: Vector3, -- the robot's left to right, which its arms swing about
+	Head: Model?,
+	HeadRest: CFrame?,
+}
+
+local knitters: { [BasePart]: Knitter } = setmetatable({}, { __mode = "k" }) :: any
+
+-- The `partType` robot crocheting from `yarn`, read once while it's at rest.
+local function readKnitter(line: Model, partType: string, yarn: BasePart): Knitter
+	local cached = knitters[yarn]
+	if cached then
+		return cached
+	end
+	local knitter: Knitter = { Arms = {}, Axis = Vector3.xAxis, Head = nil, HeadRest = nil }
+	local shoulders = {}
+	for _, side in { "Left", "Right" } do
+		local arm = findPart(line, partType .. "KnitArm" .. side)
+		if arm then
+			local shoulder = (arm.CFrame * CFrame.new(0, 0, arm.Size.Z / 2)).Position -- the arm points its -Z at the hand
+			local parts, rests = { arm }, { arm.CFrame }
+			local hook = findPart(line, partType .. "KnitHook" .. side)
+			if hook then
+				table.insert(parts, hook)
+				table.insert(rests, hook.CFrame)
+			end
+			table.insert(knitter.Arms, { Parts = parts, Rests = rests, Shoulder = shoulder })
+			table.insert(shoulders, shoulder)
+		end
+	end
+	if #shoulders == 2 and (shoulders[2] - shoulders[1]).Magnitude > 0.01 then
+		knitter.Axis = (shoulders[2] - shoulders[1]).Unit
+	end
+	local head = line:FindFirstChild(partType .. "KnitterHead")
+	if head and head:IsA("Model") then
+		knitter.Head = head
+		knitter.HeadRest = head:GetPivot()
+	end
+	knitters[yarn] = knitter
+	return knitter
+end
+
+-- Poses the robot `t` seconds into its crocheting, or at rest (nil).
+local function poseKnitter(knitter: Knitter, t: number?)
+	for index, arm in knitter.Arms do
+		local angle = if t then math.sin(t * 30 + index * math.pi) * 0.35 else 0
+		local turn = CFrame.new(arm.Shoulder) * CFrame.fromAxisAngle(knitter.Axis, angle) * CFrame.new(-arm.Shoulder)
+		for k, part in arm.Parts do
+			part.CFrame = turn * arm.Rests[k]
+		end
+	end
+	local head, rest = knitter.Head, knitter.HeadRest
+	if head and rest then
+		head:PivotTo(rest * CFrame.Angles(0, 0, if t then math.sin(t * 12) * 0.15 else 0))
+	end
+end
+
 -- The dropper squashes and spits its part out with a plop and a puff. A ceiling chute
--- does its rubbery squash instead, with a bigger splash.
+-- does its rubbery squash instead, with a bigger splash; a crochet robot just tosses it.
 local function spit(line: Model, dropper: BasePart, near: boolean, chute: Chute?)
 	local mouth = dropper.Position - Vector3.new(0, dropper.Size.Y / 2 + 0.3, 0)
+	if dropper:GetAttribute("Knitter") then
+		local top = dropper.Position + Vector3.new(0, dropper.Size.Y / 2, 0)
+		Effects.sound(top, Sounds.Boing, 0.3, vary(1.2))
+		if near then
+			Effects.puff(top, dropper.Color:Lerp(Color3.new(1, 1, 1), 0.3), 8, 0.6)
+			Effects.sparkle(top, Color3.new(1, 1, 1), 6)
+		end
+		return
+	end
 	Effects.sound(mouth, Sounds.Plop, 0.35, vary(1))
 	if chute then
 		Effects.sound(mouth, Sounds.Squeak, 0.3, vary(1.35))
 		Effects.sound(mouth, Sounds.Boing, 0.15, vary(1.7))
 		if near then
+			if dropper:GetAttribute("Feathers") then
+				Effects.puff(mouth, Color3.new(1, 1, 1), 14, 0.5) -- a pillow: feathers everywhere
+			end
 			Effects.puff(mouth, dropper.Color:Lerp(Color3.new(1, 1, 1), 0.4), 10, 0.8)
 			Effects.sparkle(mouth, Color3.new(1, 1, 1), 8)
 			Effects.ring(mouth, dropper.Color:Lerp(Color3.new(1, 1, 1), 0.3), 4, 0.35)
@@ -1298,6 +1373,34 @@ local STATION_FX: { [string]: (build: Build, arch: BasePart, brainrot: Model, ce
 	end,
 }
 
+-- Zones can give the stations their own effects (and TycoonManager their own arches).
+local DYE_COLORS = {
+	Color3.fromRGB(255, 120, 190),
+	Color3.fromRGB(150, 110, 255),
+	Color3.fromRGB(90, 200, 255),
+	Color3.fromRGB(255, 200, 80),
+}
+local ZONE_STATION_FX: { [string]: { [string]: (build: Build, arch: BasePart, brainrot: Model, center: Vector3) -> () } } = {
+	PlushieRoom = {
+		-- the Dye Bath dips it in fabric dye: a splash of color and bubbles
+		Station1 = function(build, arch, brainrot, center)
+			local color = DYE_COLORS[math.random(1, #DYE_COLORS)]
+			Effects.tint(brainrot, color, 0.8)
+			puff(build, center, color, 12, 0.6)
+			puff(build, arch.Position + Vector3.new(0, 2, 0), color, 6, 0.5)
+			Effects.sound(center, Sounds.Squeak, 0.25, vary(0.8))
+			Effects.sound(center, Sounds.Whoosh, 0.15, vary(1.4))
+		end,
+		-- the Sequin Shower rains sequins from its disco ball
+		Station2 = function(build, arch, brainrot, center)
+			Effects.tint(brainrot, Color3.fromRGB(255, 190, 235), 0.7)
+			sparkle(build, arch.Position + Vector3.new(0, 2.4, 0), Color3.fromRGB(255, 170, 230), 18)
+			sparkle(build, center, Color3.fromRGB(220, 230, 255), 14)
+			Effects.sound(center, Sounds.Coin, 0.35, vary(1.9))
+		end,
+	},
+}
+
 -- The stations on a line, as the share of the ride where the brainrot passes under.
 local function stationPasses(line: Model, from: Vector3, to: Vector3): { StationPass }
 	local passes = {}
@@ -1322,7 +1425,9 @@ end
 local function stationPass(build: Build, pass: StationPass, brainrot: Model)
 	local box = brainrot:GetBoundingBox()
 	local center = box.Position
-	STATION_FX[pass.Key](build, pass.Arch, brainrot, center)
+	local zoneFx = ZONE_STATION_FX[build.Zone]
+	local fx = (if zoneFx then zoneFx[pass.Key] else nil) or STATION_FX[pass.Key]
+	fx(build, pass.Arch, brainrot, center)
 
 	local glow = findPart(build.Line, pass.Key .. "Glow")
 	if glow then
@@ -1366,6 +1471,7 @@ local function animateCycle(
 		Built = {},
 		FullMatch = fullMatch,
 		Near = Effects.near(root.Position, FX_RANGE),
+		Zone = zoneId,
 	}
 
 	-- Everything is scheduled against one clock, so the parts and machines stay in sync.
@@ -1382,6 +1488,13 @@ local function animateCycle(
 		return (rotation + position) * CFrame.new(-center)
 	end
 
+	-- The middle of the belt's top, level with `at` along the belt (where a part dropped
+	-- or tossed from there lands).
+	local function beltPoint(at: Vector3): Vector3
+		local along = belt.CFrame:PointToObjectSpace(at).Z
+		return belt.CFrame:PointToWorldSpace(Vector3.new(0, belt.Size.Y / 2, along))
+	end
+
 	local steps = Production.Schedule(parts, cycleTime)
 	local layout = BrainrotModels.Layout(parts, zoneId)
 	local pieces: { [string]: Piece } = {}
@@ -1393,19 +1506,26 @@ local function animateCycle(
 			continue
 		end
 		local model, center, size = BrainrotModels.CreatePart(parts[partType], partType, zoneId)
-		local flat = Vector3.new(dropper.Position.X - root.X, 0, dropper.Position.Z - root.Z)
+		local landing = beltPoint(dropper.Position)
+		local flat = Vector3.new(landing.X - root.X, 0, landing.Z - root.Z)
 		local direction = if flat.Magnitude > 0 then flat.Unit else Vector3.zero
 		local intake = root.Position + direction * INTAKE_GAP + Vector3.new(0, size.Y / 2, 0)
 		local piece: Piece = {
 			Model = model,
 			Center = center,
 			Size = size,
+			PartType = partType,
+			Scale = model:GetScale(),
 			Dropper = dropper,
 			ChuteTop = findPart(line, partType .. "ChuteTop"),
+			Hanger = findPart(line, partType .. "ChuteTop") or findPart(line, partType .. "Hanger"),
 			Waiting = centeredAt(center, intake),
 			Home = root * CFrame.new(layout[partType]),
 			Travel = math.max(flat.Magnitude - INTAKE_GAP, 0),
 		}
+		if dropper:GetAttribute("Knitter") then
+			model:ScaleTo(piece.Scale * 0.05) -- a speck in the yarn ball, until it's crocheted
+		end
 		model:PivotTo(centeredAt(center, dropper.Position)) -- starts hidden inside the dropper
 		model.Parent = effects
 		maxTravel = math.max(maxTravel, piece.Travel)
@@ -1442,12 +1562,12 @@ local function animateCycle(
 			if cancelled() then
 				return
 			end
+			-- (a dropper that's still popping in doesn't squash)
+			local hanger = piece.Hanger
+			local chute = if hanger and not isBuilding(line) then readChute(line, hanger, piece.PartType) else nil
 			local top = piece.ChuteTop
-			local chute: Chute? = nil
 			if top then
 				-- down the glass tube from the ceiling, the bands gulping as it passes
-				-- (a chute that's still popping in just lets it slide)
-				chute = if isBuilding(line) then nil else readChute(line, top)
 				local from = centeredAt(piece.Center, top.Position)
 				local to = centeredAt(piece.Center, piece.Dropper.Position)
 				piece.Model:PivotTo(from)
@@ -1462,6 +1582,28 @@ local function animateCycle(
 				if chute then
 					bulgeChute(chute, -math.huge)
 				end
+			elseif piece.Dropper:GetAttribute("Knitter") then
+				-- the robot crochets it out of the yarn ball: it grows up out of the top
+				local yarn = piece.Dropper
+				local knitter = if isBuilding(line) then nil else readKnitter(line, piece.PartType, yarn)
+				local from = centeredAt(piece.Center, yarn.Position)
+				local to = centeredAt(piece.Center, yarn.Position + Vector3.new(0, yarn.Size.Y / 2 + piece.Size.Y / 2, 0))
+				local sewing = Effects.sound(yarn.Position, Sounds.Sewing, 0.25, vary(1.6))
+				local began = os.clock()
+				run(Production.DropTime - FALL_TIME, function(alpha)
+					local e = ease(alpha, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+					piece.Model:ScaleTo(piece.Scale * math.max(e, 0.05))
+					piece.Model:PivotTo(from:Lerp(to, math.min(e, 1)))
+					if knitter then
+						poseKnitter(knitter, os.clock() - began)
+					end
+				end)
+				piece.Model:ScaleTo(piece.Scale)
+				piece.Model:PivotTo(to)
+				if knitter then
+					poseKnitter(knitter, nil)
+				end
+				stopSound(sewing)
 			else
 				waitUntil(step.Start - ride - FALL_TIME)
 			end
@@ -1469,9 +1611,13 @@ local function animateCycle(
 				return
 			end
 			spit(line, piece.Dropper, build.Near, chute)
-			local below = piece.Dropper.Position
-			local landing = centeredAt(piece.Center, Vector3.new(below.X, beltTop + piece.Size.Y / 2, below.Z))
-			glide(piece.Model, landing, FALL_TIME, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+			local landing = centeredAt(piece.Center, beltPoint(piece.Dropper.Position) + Vector3.new(0, piece.Size.Y / 2, 0))
+			if piece.Dropper:GetAttribute("Knitter") then
+				hop(piece.Model, landing, FALL_TIME, 3.5) -- tossed onto the belt
+				Effects.sound(landing.Position, Sounds.Squeak, 0.2, vary(1.1))
+			else
+				glide(piece.Model, landing, FALL_TIME, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+			end
 			waitUntil(step.Start - ride)
 			if cancelled() then
 				return

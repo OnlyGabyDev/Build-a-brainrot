@@ -26,6 +26,7 @@ export type Zone = {
 	LineCount: number,
 	Style: Style,
 	SpecialStation: string?, -- the zone's own last upgrade on each line (GDD §6)
+	StationNames: { [string]: string }?, -- its own names for the upgrade stations (by key)
 	Available: boolean,
 }
 
@@ -58,6 +59,7 @@ Zones.List = {
 		LineCount = 3,
 		Style = { Scale = 0.8, Material = Enum.Material.Fabric },
 		SpecialStation = "Bow Tier",
+		StationNames = { Station1 = "Dye Bath", Station2 = "Sequin Shower" },
 		Available = true,
 	},
 	{

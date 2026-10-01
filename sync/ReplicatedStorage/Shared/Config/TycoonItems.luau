@@ -93,7 +93,7 @@ for _, zone in Zones.List do
 
 		local requires = line.UnlockItemId
 		for _, template in LINE_ITEMS do
-			local name = template.Name
+			local name = if zone.StationNames then zone.StationNames[template.Key] or template.Name else template.Name
 			if template.Key == "Station3" then
 				if not zone.SpecialStation then
 					continue

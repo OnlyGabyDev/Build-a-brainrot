@@ -13,7 +13,8 @@ local Production = {
 	AssemblyShare = 0.9,
 
 	-- Client animation timings, in seconds.
-	DropTime = 0.8, -- dropper to belt: the Toy Workshop's parts slide down a ceiling chute first
+	DropTime = 1.0, -- dropper to belt, the last 0.5 s the fall itself: first a part slides down
+	-- a Toy Workshop chute, or a Plushie robot crochets it
 	SlideTime = 1.2, -- belt ride from the farthest dropper to the Assembler
 	ShipTime = 1.0, -- Assembler to the end of the belt
 	SpecialTime = 0.9, -- the zone's special upgrade at the end of the belt (Toy Packer, Bow Tier)

@@ -16,6 +16,7 @@
 	animation; every item part gets Item = its item id.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -90,6 +91,7 @@ local FACE_TEXTURE = "rbxasset://textures/face.png"
 local SEWING_COLOR = Color3.fromRGB(255, 170, 205)
 local SEWING_LIGHT_COLOR = Color3.fromRGB(255, 235, 245)
 local THREAD_COLORS = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 150, 90) }
+local FLUFF_PINK = Color3.fromRGB(255, 150, 200)
 local AFFORDABLE_COLOR = Color3.fromRGB(80, 220, 100)
 local EXPENSIVE_COLOR = Color3.fromRGB(235, 80, 80)
 local BUTTON_COOLDOWN = 0.5
@@ -299,9 +301,8 @@ local CHUTE_BANDS = { 0.1, 0.27, 0.73, 0.9 } -- along the tube, clear of the bad
 local BADGE = Vector2.new(7.6, 2.6) -- each side of the neon bracelet
 local BADGE_BACK = Color3.fromRGB(40, 28, 60)
 
--- One side of the neon bracelet: a dark panel with the part's name in glowing letters.
-local function badgeSide(model: Model, partType: string, cframe: CFrame, color: Color3)
-	local panel = makeDecor(model, partType .. "ChuteBadge", Vector3.new(BADGE.X, BADGE.Y, 0.4), cframe, BADGE_BACK)
+-- The part's name in glowing neon letters on `panel`'s front face.
+local function neonLabel(panel: BasePart, partType: string, color: Color3)
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -324,6 +325,28 @@ local function badgeSide(model: Model, partType: string, cframe: CFrame, color: 
 	glow.Parent = label
 end
 
+-- One side of the neon sign: a dark panel with the part's name in glowing letters.
+local function badgeSide(model: Model, partType: string, cframe: CFrame, size: Vector2, color: Color3)
+	local panel = makeDecor(model, partType .. "ChuteBadge", Vector3.new(size.X, size.Y, 0.4), cframe, BADGE_BACK)
+	neonLabel(panel, partType, color)
+end
+
+-- The neon sign around a dropper's tube or pole (`middle`: its center), `scale` times
+-- the usual size: a panel on each
+-- side, framed top and bottom by neon strips. Named ChuteBadge so it squashes along.
+local function buildBadge(model: Model, partType: string, middle: CFrame, color: Color3, scale: number?)
+	local size = BADGE * (scale or 1)
+	local light = color:Lerp(Color3.new(1, 1, 1), 0.35)
+	local reach = size.X / 2 - 0.2
+	for turn = 0, 3 do
+		local side = middle * CFrame.Angles(0, turn * math.pi / 2, 0)
+		badgeSide(model, partType, side * CFrame.new(0, 0, -reach), size, color)
+		for _, y in { -1, 1 } do
+			makeDecor(model, partType .. "ChuteBadgeRim", Vector3.new(size.X + 0.4, 0.3, 0.3), side * CFrame.new(0, y * (size.Y / 2 + 0.15), -reach - 0.1), light, Enum.Material.Neon)
+		end
+	end
+end
+
 local function buildChute(model: Model, base: CFrame, partType: string, color: Color3)
 	local ceiling = FactoryBuilder.CeilingHeight
 	local light = color:Lerp(Color3.new(1, 1, 1), 0.35)
@@ -344,15 +367,61 @@ local function buildChute(model: Model, base: CFrame, partType: string, color: C
 	makeColumn(model, partType .. "ChuteRing", CHUTE_TUBE + 2.4, tubeTop - 0.3, tubeTop + 0.9, base, color)
 	makeColumn(model, partType .. "ChuteFlange", CHUTE_TUBE + 4, ceiling - 0.6, ceiling, base, light)
 
-	-- the neon bracelet: a sign on each side, framed top and bottom by neon strips
-	local middle = base * CFrame.new(0, (glassBottom + tubeTop) / 2, 0)
-	local reach = BADGE.X / 2 - 0.2
-	for turn = 0, 3 do
-		local side = middle * CFrame.Angles(0, turn * math.pi / 2, 0)
-		badgeSide(model, partType, side * CFrame.new(0, 0, -reach), color)
-		for _, y in { -1, 1 } do
-			makeDecor(model, partType .. "ChuteBadgeRim", Vector3.new(BADGE.X + 0.4, 0.3, 0.3), side * CFrame.new(0, y * (BADGE.Y / 2 + 0.15), -reach - 0.1), light, Enum.Material.Neon)
-		end
+	buildBadge(model, partType, base * CFrame.new(0, (glassBottom + tubeTop) / 2, 0), color)
+end
+
+-- Plushie Sewing Room: the droppers are little crochet robots sitting on cushions
+-- beside the belt, each with a ball of yarn in its part's color (the Dropper) and a
+-- neon sign up on a pole behind it saying which part it makes. When a part's turn comes, the
+-- robot crochets like mad (ProductionVisuals: its KnitArms, KnitHooks and KnitterHead),
+-- the part grows out of the yarn ball and the robot tosses it onto the belt.
+local KNITTER_X = -9 -- the robot's middle, beside the belt (it faces the belt, +X)
+local HOOK_COLOR = Color3.fromRGB(255, 205, 80)
+local function buildKnitter(model: Model, base: CFrame, partType: string, color: Color3)
+	local spot = base * CFrame.new(KNITTER_X, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0) -- its -Z faces the belt
+	makeColumn(model, partType .. "KnitterCushion", 3.6, 0, 1.2, spot, FLUFF_PINK, Enum.Material.Fabric)
+	makePart(model, partType .. "KnitterBody", Vector3.new(2.6, 2.6, 2.2), spot * CFrame.new(0, 2.5, 0), SEWING_LIGHT_COLOR)
+	makeDecor(model, partType .. "KnitterPole", Vector3.new(0.3, 4.6, 0.3), spot * CFrame.new(0, 5.6, 1.4), HOOK_COLOR)
+	buildBadge(model, partType, spot * CFrame.new(0, 8.9, 1.4), color, 0.7)
+
+	-- the head (in its own model so it can bob): ears, an antenna with a pom-pom, a face
+	local head = Instance.new("Model")
+	head.Name = partType .. "KnitterHead"
+	local skull = makeDecor(head, "Head", Vector3.new(2.4, 1.9, 2.2), spot * CFrame.new(0, 4.8, 0), SEWING_COLOR)
+	local face = Instance.new("Decal")
+	face.Texture = FACE_TEXTURE
+	face.Face = Enum.NormalId.Front
+	face.Parent = skull
+	for _, side in { -1, 1 } do
+		local ear = makeDecor(head, "Ear", Vector3.one * 0.9, spot * CFrame.new(side * 1.05, 5.75, 0), SEWING_COLOR)
+		ear.Shape = Enum.PartType.Ball
+	end
+	makeDecor(head, "Antenna", Vector3.new(0.15, 0.9, 0.15), spot * CFrame.new(0, 6.2, 0), HOOK_COLOR)
+	local pompom = makeDecor(head, "PomPom", Vector3.one * 0.7, spot * CFrame.new(0, 6.75, 0), color, Enum.Material.Fabric)
+	pompom.Shape = Enum.PartType.Ball
+	head.WorldPivot = spot * CFrame.new(0, 3.85, 0)
+	head.Parent = model
+
+	-- the yarn ball it crochets from, in a little basket in front of it
+	local yarn = spot * CFrame.new(0, 2, -3)
+	makeColumn(model, partType .. "KnitterBasket", 2.9, 0, 0.8, spot * CFrame.new(0, 0, -3), WOOD_LIGHT_COLOR, Enum.Material.Wood)
+	local ball = makePart(model, partType .. "Dropper", Vector3.one * 2.4, yarn, color, Enum.Material.Fabric)
+	ball.Shape = Enum.PartType.Ball
+	ball:SetAttribute("Knitter", true)
+	for _, turn in { 0.5, -0.6 } do
+		local wrap = makeDecor(model, partType .. "KnitterYarnWrap", Vector3.new(0.3, 2.5, 2.5), yarn * CFrame.Angles(0, turn, math.rad(70)), color:Lerp(Color3.new(1, 1, 1), 0.3), Enum.Material.Fabric)
+		wrap.Shape = Enum.PartType.Cylinder
+	end
+
+	-- two arms reaching for the yarn, a crochet hook in each hand
+	for _, side in { -1, 1 } do
+		local suffix = if side < 0 then "Left" else "Right"
+		local shoulder = (spot * CFrame.new(side * 1.45, 3.2, -0.2)).Position
+		local hand = (spot * CFrame.new(side * 0.75, 2.7, -1.9)).Position
+		local arm = makeDecor(model, partType .. "KnitArm" .. suffix, Vector3.new(0.45, 0.45, (hand - shoulder).Magnitude), CFrame.lookAt((shoulder + hand) / 2, hand), SEWING_COLOR)
+		arm.CanQuery = false
+		local tip = (spot * CFrame.new(side * 0.25, 3.3, -2.9)).Position
+		makeDecor(model, partType .. "KnitHook" .. suffix, Vector3.new(0.15, 0.15, (tip - hand).Magnitude), CFrame.lookAt((hand + tip) / 2, tip), HOOK_COLOR, Enum.Material.Metal)
 	end
 end
 
@@ -374,7 +443,6 @@ end
 
 -- Plushie Sewing Room: a fluff machine, a glass dome on a cushy base. The brainrot
 -- hops in, fluff swirls around it until it's puffy, and it sinks into the base.
-local FLUFF_PINK = Color3.fromRGB(255, 150, 200)
 local function buildFluffMachine(model: Model, spot: CFrame)
 	makeColumn(model, "FluffFoot", 9.8, 0, 0.6, spot, SEWING_COLOR)
 	local ship = makeColumn(model, "Ship", 9, 0.6, 2.6, spot, SEWING_LIGHT_COLOR)
@@ -430,6 +498,40 @@ local function buildBowTier(model: Model, spot: CFrame, name: string)
 	end
 	makeDecor(model, "BowRibbon", Vector3.new(1.6, 3.4, 0.1), spot * CFrame.new(0, 10.6, -1.9), FLUFF_PINK)
 	makeBillboard(top, string.upper(name), Vector2.new(8, 1.5), 4.6, 80)
+end
+
+-- The Plushie room's upgrade arches (`spot`: on the floor under the arch): soft pink
+-- legs topped with yarn balls, and on the beam the Dye Bath's bucket of fabric dye, or
+-- the Sequin Shower's spinning disco ball.
+local function buildPlushieArch(model: Model, spot: CFrame, item: TycoonItems.Item)
+	for _, side in { -1, 1 } do
+		makeColumn(model, item.Key .. (if side < 0 then "LegLeft" else "LegRight"), 1.4, 0, 7.25, spot * CFrame.new(side * 5.2, 0, 0), SEWING_COLOR)
+		local yarn = makeDecor(model, item.Key .. "Yarn", Vector3.one * 1.8, spot * CFrame.new(side * 6.2, 9.2, 0), THREAD_COLORS[if side < 0 then 1 else 2], Enum.Material.Fabric)
+		yarn.Shape = Enum.PartType.Ball
+	end
+	local top = makePart(model, item.Key, Vector3.new(11.4, 1.5, 3), spot * CFrame.new(0, 8, 0), SEWING_LIGHT_COLOR, Enum.Material.Fabric)
+	makePart(model, item.Key .. "Glow", Vector3.new(9, 0.3, 2.4), spot * CFrame.new(0, 7.1, 0), Color3.new(1, 1, 1), Enum.Material.Neon)
+	if item.Key == "Station1" then
+		makeColumn(model, "DyeBucket", 3.6, 8.75, 11.2, spot, Color3.fromRGB(200, 215, 235), Enum.Material.Metal)
+		makeColumn(model, "DyeBucketRim", 3.9, 10.9, 11.3, spot, FLUFF_PINK)
+		makeColumn(model, "Dye", 3.2, 11.2, 11.35, spot, Color3.fromRGB(150, 110, 255), Enum.Material.Neon)
+	else
+		local ball = Instance.new("Model")
+		ball.Name = "DiscoBall"
+		local disco = makeDecor(ball, "DiscoBall", Vector3.one * 3, spot * CFrame.new(0, 10.4, 0), Color3.fromRGB(225, 230, 245), Enum.Material.Foil)
+		disco.Shape = Enum.PartType.Ball
+		disco.Reflectance = 0.4
+		for index = 0, 5 do
+			local angle = index * math.pi / 3
+			makeDecor(ball, "DiscoTile", Vector3.new(0.6, 0.6, 0.1), spot * CFrame.new(math.cos(angle) * 1.45, 10.4 + (index % 2 - 0.5) * 0.8, math.sin(angle) * 1.45) * CFrame.Angles(0, -angle - math.pi / 2, 0), Color3.fromRGB(255, 180, 230), Enum.Material.Neon)
+		end
+		-- it spins about its upright axis (Atmosphere turns Spinners about their pivot's Z)
+		ball.WorldPivot = spot * CFrame.new(0, 10.4, 0) * CFrame.Angles(math.pi / 2, 0, 0)
+		ball:SetAttribute("Speed", 1.2)
+		CollectionService:AddTag(ball, "Spinner")
+		ball.Parent = model
+	end
+	makeBillboard(top, string.upper(item.Name), Vector2.new(8, 1.5), if item.Key == "Station1" then 4.2 else 4.6, 80)
 end
 
 local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Item) -> () } = {
@@ -488,6 +590,9 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		if item.Zone == "ToyWorkshop" then
 			buildChute(model, origin * CFrame.new(0, 0, z), partType, PART_COLORS[partType])
 			return
+		elseif item.Zone == "PlushieRoom" then
+			buildKnitter(model, origin * CFrame.new(0, 0, z), partType, PART_COLORS[partType])
+			return
 		end
 		local dropper = makePart(model, partType .. "Dropper", Vector3.new(6, 4, 6), origin * CFrame.new(0, 10, z), PART_COLORS[partType])
 		makePart(model, partType .. "DropperPillar", Vector3.new(1.2, 12.8, 1.2), origin * CFrame.new(-6, 6.4, z), METAL_COLOR)
@@ -514,6 +619,10 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			else
 				buildPacker(model, spot, item.Name)
 			end
+			return
+		end
+		if item.Zone == "PlushieRoom" then
+			buildPlushieArch(model, origin * CFrame.new(0, 0, z), item)
 			return
 		end
 		local color = STATION_COLORS[item.Key]
