@@ -1,24 +1,28 @@
 --[[
 	Every tycoon purchase button, generated from the zones (GDD §6).
 	Ids: line "ToyWorkshop_1", its unlock "ToyWorkshop_1_Line", its items
-	"ToyWorkshop_1_Head", "ToyWorkshop_1_Speed1", ...
+	"ToyWorkshop_1_Head", "ToyWorkshop_1_Speed1", ...; room upgrades (Config/RoomUpgrades)
+	"ToyWorkshop_Decor_GiftTower_1", one per level.
 	Buttons appear one after another: each item requires the previous one.
 	Prices are placeholders to tune in playtests.
 ]]
 
+local RoomUpgrades = require(script.Parent.RoomUpgrades)
 local Zones = require(script.Parent.Zones)
 
 export type Item = {
 	Id: string,
 	Key: string, -- "Line", "Head", "Speed1", ... (used for layout)
 	Name: string,
-	Kind: string, -- "Line" | "Dropper" | "Speed" | "Station"
+	Kind: string, -- "Line" | "Dropper" | "Speed" | "Station" | "Decor" (a room upgrade's level)
 	Price: number,
 	Requires: string?, -- item that must be bought first
 	Zone: string,
-	LineId: string,
+	LineId: string?, -- every kind but Decor
 	PartType: string?, -- Dropper only
-	Multiplier: number?, -- Speed: cycle speed ×, Station: ship value ×
+	Multiplier: number?, -- Speed: cycle speed ×, Station: ship value ×, Decor: the room's ship value ×
+	Level: number?, -- Decor only
+	Rebirths: number?, -- Decor only: rebirths needed to buy it
 }
 
 export type Line = {
@@ -55,12 +59,17 @@ TycoonItems.List = {} :: { Item }
 TycoonItems.ById = {} :: { [string]: Item }
 TycoonItems.Lines = {} :: { Line }
 TycoonItems.LinesById = {} :: { [string]: Line }
+TycoonItems.DecorByZone = {} :: { [string]: { Item } } -- every room upgrade level, per zone
 
-local function add(line: Line, item: Item)
+local function register(item: Item)
 	assert(not TycoonItems.ById[item.Id], `Duplicate tycoon item {item.Id}`)
 	table.insert(TycoonItems.List, item)
-	table.insert(line.Items, item)
 	TycoonItems.ById[item.Id] = item
+end
+
+local function add(line: Line, item: Item)
+	register(item)
+	table.insert(line.Items, item)
 end
 
 for _, zone in Zones.List do
@@ -118,6 +127,34 @@ for _, zone in Zones.List do
 
 		table.insert(TycoonItems.Lines, line)
 		TycoonItems.LinesById[lineId] = line
+	end
+end
+
+-- Room upgrades: a button per level, each after the one before.
+for _, upgrade in RoomUpgrades.List do
+	local zone = Zones.ById[upgrade.Zone]
+	if not (zone and zone.Available) then
+		continue
+	end
+	local decor = TycoonItems.DecorByZone[zone.Id] or {}
+	TycoonItems.DecorByZone[zone.Id] = decor
+	local requires: string? = nil
+	for level, info in upgrade.Levels do
+		local item: Item = {
+			Id = `{zone.Id}_Decor_{upgrade.Key}_{level}`,
+			Key = upgrade.Key,
+			Name = upgrade.Name,
+			Kind = "Decor",
+			Price = info.Price * zone.PriceMultiplier,
+			Requires = requires,
+			Zone = zone.Id,
+			Multiplier = info.Multiplier,
+			Level = level,
+			Rebirths = info.Rebirths,
+		}
+		register(item)
+		table.insert(decor, item)
+		requires = item.Id
 	end
 end
 

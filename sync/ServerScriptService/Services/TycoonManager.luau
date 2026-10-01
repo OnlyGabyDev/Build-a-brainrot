@@ -31,6 +31,7 @@ local Zones = require(Shared.Config.Zones)
 local DataManager = require(script.Parent.DataManager)
 local FactoryBuilder = require(script.Parent.FactoryBuilder)
 local MonetizationManager = require(script.Parent.MonetizationManager)
+local RoomUpgradeBuilder = require(script.Parent.RoomUpgradeBuilder)
 
 -- Layout ---------------------------------------------------------------------
 -- Plot space: origin on the ground at the plot's center, -Z (front) faces the hub.
@@ -109,6 +110,7 @@ local BELT_COLOR = Color3.fromRGB(60, 60, 70)
 local RAIL_COLOR = Color3.fromRGB(255, 170, 60)
 local AFFORDABLE_COLOR = Color3.fromRGB(80, 220, 100)
 local EXPENSIVE_COLOR = Color3.fromRGB(235, 80, 80)
+local LOCKED_COLOR = Color3.fromRGB(150, 145, 165) -- a room upgrade that needs more rebirths
 local BUTTON_COOLDOWN = 0.5
 
 export type Plot = {
@@ -837,16 +839,55 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 	end,
 }
 
--- Builds an item's parts onto its line. Each part is tagged with its item, and a
--- freshly bought one also with the server time it was built, so clients can play the
--- build animation (TycoonFX) for new purchases only.
+-- A zone's room: the center of its floor, in the world.
+local function roomFloor(plot: Plot, zoneId: string): CFrame
+	return plot.CFrame * FactoryBuilder.RoomCFrame(Zones.ById[zoneId].Index)
+end
+
+-- A room upgrade's Model (in the Lines folder, so TycoonFX plays its build animation
+-- too). Each level replaces the one before with a fresh Model, so clients see it
+-- tagged anew (RoomFX).
+local function getDecorModel(plot: Plot, item: TycoonItems.Item): Model
+	local name = `{item.Zone}_Decor_{item.Key}`
+	local old = plot.LinesFolder:FindFirstChild(name)
+	if old then
+		old:Destroy()
+	end
+	local fresh = Instance.new("Model")
+	fresh.Name = name
+	fresh.ModelStreamingMode = Enum.ModelStreamingMode.Atomic -- RoomFX needs the whole thing at once
+	fresh.Parent = plot.LinesFolder
+	return fresh
+end
+
+-- Builds an item's parts onto its line (or a room upgrade's level into its room). Each
+-- part is tagged with its item, and a freshly bought one also with the server time it
+-- was built, so clients can play the build animation (TycoonFX) for new purchases only.
 local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?)
-	local model = getLineModel(plot, item.LineId)
+	local model = if item.Kind == "Decor" then getDecorModel(plot, item) else getLineModel(plot, item.LineId :: string)
 	local existing = {}
 	for _, descendant in model:GetDescendants() do
 		existing[descendant] = true
 	end
-	BUILDERS[item.Kind](model, lineOrigin(plot, item.LineId), item)
+	if item.Kind == "Decor" then
+		local floor = roomFloor(plot, item.Zone)
+		RoomUpgradeBuilder.Build(model, floor, item.Key, item.Level :: number)
+		-- its bonus so far (every level up to this one), shown over it and on what it sends
+		local bonus = 1
+		for _, level in TycoonItems.DecorByZone[item.Zone] do
+			if level.Key == item.Key and (level.Level :: number) <= (item.Level :: number) then
+				bonus *= level.Multiplier :: number
+			end
+		end
+		model:SetAttribute("Bonus", bonus)
+		model:SetAttribute("Zone", item.Zone)
+		local anchor = makeDecor(model, "BonusTag", Vector3.one, floor * CFrame.new(RoomUpgradeBuilder.TagSpot(item.Key)), WHITE)
+		anchor.Transparency = 1
+		local tag = makeBillboard(anchor, `{item.Name} Lv{item.Level}\n+{math.floor((bonus - 1) * 100 + 0.5)}% room 💰`, Vector2.new(9, 2.4), 0, 70)
+		tag.TextColor3 = Color3.fromRGB(255, 225, 90)
+	else
+		BUILDERS[item.Kind](model, lineOrigin(plot, item.LineId :: string), item)
+	end
 	local now = workspace:GetServerTimeNow()
 	for _, descendant in model:GetDescendants() do
 		if not existing[descendant] and descendant:IsA("BasePart") then
@@ -864,10 +905,22 @@ local function priceText(price: number): string
 	return if price == 0 then "FREE" else `💰 {Format.Number(price)}`
 end
 
+-- A room upgrade level the owner hasn't the rebirths for yet: its button shows, gray,
+-- with what it needs.
+local function isLocked(plot: Plot, item: TycoonItems.Item): boolean
+	local data = plot.Owner and DataManager.GetData(plot.Owner)
+	return (item.Rebirths or 0) > (if data then data.Rebirths else 0)
+end
+
 local function updateButtonColors(plot: Plot)
 	local coins = if plot.Owner then DataManager.GetCurrency(plot.Owner, "Coins") else 0
 	for itemId, button in plot.Buttons do
-		button.Color = if coins >= TycoonItems.ById[itemId].Price then AFFORDABLE_COLOR else EXPENSIVE_COLOR
+		local item = TycoonItems.ById[itemId]
+		if isLocked(plot, item) then
+			button.Color = LOCKED_COLOR
+		else
+			button.Color = if coins >= item.Price then AFFORDABLE_COLOR else EXPENSIVE_COLOR
+		end
 	end
 end
 
@@ -875,7 +928,7 @@ local refreshButtons: (plot: Plot) -> ()
 
 local function onButtonTouched(plot: Plot, item: TycoonItems.Item, hit: BasePart)
 	local player = getPlayerFromHit(hit)
-	if not player or player ~= plot.Owner or not plot.Buttons[item.Id] then
+	if not player or player ~= plot.Owner or not plot.Buttons[item.Id] or isLocked(plot, item) then
 		return
 	end
 	local now = os.clock()
@@ -891,10 +944,23 @@ local function onButtonTouched(plot: Plot, item: TycoonItems.Item, hit: BasePart
 end
 
 local function createButton(plot: Plot, item: TycoonItems.Item)
-	local offset = BUTTON_OFFSETS[item.Key]
-	local cframe = lineOrigin(plot, item.LineId) * CFrame.new(offset.X, 0.2, offset.Z)
+	local cframe: CFrame
+	local text: string
+	if item.Kind == "Decor" then
+		-- a room upgrade's button sits by its spot in the room
+		local spot = RoomUpgradeBuilder.ButtonSpot(item.Key)
+		cframe = roomFloor(plot, item.Zone) * CFrame.new(spot.X, 0.2, spot.Z)
+		local title = `{item.Name} Lv{item.Level}`
+		text = if isLocked(plot, item)
+			then `{title}\n🔒 REBIRTH {item.Rebirths}`
+			else `{title}\n{priceText(item.Price)}\nx{item.Multiplier} room income`
+	else
+		local offset = BUTTON_OFFSETS[item.Key]
+		cframe = lineOrigin(plot, item.LineId :: string) * CFrame.new(offset.X, 0.2, offset.Z)
+		text = `{item.Name}\n{priceText(item.Price)}`
+	end
 	local button = makePart(plot.ButtonsFolder, item.Id, Vector3.new(5, 0.4, 5), cframe, AFFORDABLE_COLOR, Enum.Material.Neon)
-	makeBillboard(button, `{item.Name}\n{priceText(item.Price)}`, Vector2.new(7, 2.5), 3, 60)
+	makeBillboard(button, text, if item.Kind == "Decor" then Vector2.new(7.5, 3.4) else Vector2.new(7, 2.5), 3, 60)
 	button.Touched:Connect(function(hit)
 		onButtonTouched(plot, item, hit)
 	end)
@@ -1034,7 +1100,10 @@ local function furnishPlot(plot: Plot, player: Player, data: DataManager.PlayerD
 		end
 	end
 	for _, item in TycoonItems.List do
-		if data.Tycoon.Purchased[item.Id] then
+		local purchased = data.Tycoon.Purchased
+		-- (a room upgrade shows only its highest level)
+		local outgrown = item.Kind == "Decor" and purchased[`{item.Zone}_Decor_{item.Key}_{(item.Level :: number) + 1}`]
+		if purchased[item.Id] and not outgrown then
 			buildItem(plot, item)
 		end
 	end

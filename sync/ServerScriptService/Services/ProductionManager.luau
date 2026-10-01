@@ -101,6 +101,12 @@ local function getLineStats(player: Player, data: DataManager.PlayerData, line: 
 			end
 		end
 	end
+	-- the room's upgrades boost every line in it
+	for _, item in TycoonItems.DecorByZone[line.Zone] or {} do
+		if purchased[item.Id] then
+			stats.ValueMultiplier *= item.Multiplier :: number
+		end
+	end
 	return stats
 end
 

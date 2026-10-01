@@ -210,27 +210,22 @@ local function pendantLamp(parent: Instance, at: CFrame, drop: number, color: Co
 	ball(parent, "LampBulb", 1.6, shade * CFrame.new(0, -1.5, 0), Color3.fromRGB(255, 240, 190), Enum.Material.Neon).CastShadow = false
 end
 
--- A mobile hanging from the ceiling (`at`: the point on the ceiling): two crossed
--- sticks, a little thing dangling from each end (`things` builds one at a CFrame, by
--- index), slowly turning.
-local function mobile(parent: Instance, at: CFrame, drop: number, stick: Color3, things: (model: Model, at: CFrame, index: number) -> ())
-	makeDecor(parent, "MobileCord", Vector3.new(0.12, drop, 0.12), at * CFrame.new(0, -drop / 2, 0), WHITE)
-	local hub = at * CFrame.new(0, -drop, 0)
-	local model = Instance.new("Model")
-	model.Name = "Mobile"
-	ball(model, "MobileHub", 1, hub, stick)
-	for turn = 0, 1 do
-		makeDecor(model, "MobileStick", Vector3.new(10, 0.3, 0.3), hub * CFrame.Angles(0, turn * math.pi / 2, 0), stick, Enum.Material.Wood)
+-- A two-sided neon sign hanging from the ceiling on two chains (`at`: the point on the
+-- ceiling over its middle, -Z one of its faces), its bottom `drop` below the ceiling.
+local function hangingSign(parent: Instance, at: CFrame, drop: number, size: Vector2, text: string, color: Color3)
+	local middle = at * CFrame.new(0, -drop + size.Y / 2, 0)
+	local panel = makeDecor(parent, "HangingSign", Vector3.new(size.X, size.Y, 0.4), middle, SIGN_BACK)
+	label(panel, Enum.NormalId.Front, text, color:Lerp(WHITE, 0.65), color)
+	label(panel, Enum.NormalId.Back, text, color:Lerp(WHITE, 0.65), color)
+	local tube = color:Lerp(WHITE, 0.3)
+	for _, y in { -1, 1 } do
+		makeDecor(parent, "NeonTube", Vector3.new(size.X + 0.6, 0.35, 0.6), middle * CFrame.new(0, y * (size.Y / 2 + 0.15), 0), tube, Enum.Material.Neon)
 	end
-	for index = 1, 4 do
-		local angle = index * math.pi / 2
-		local tip = hub * CFrame.new(math.cos(angle) * 4.8, 0, math.sin(angle) * 4.8)
-		local hang = 1.4 + (index % 2) * 1.4
-		makeDecor(model, "MobileString", Vector3.new(0.08, hang, 0.08), tip * CFrame.new(0, -hang / 2, 0), WHITE)
-		things(model, tip * CFrame.new(0, -hang - 1, 0), index)
+	for _, x in { -1, 1 } do
+		makeDecor(parent, "NeonTube", Vector3.new(0.35, size.Y + 0.6, 0.6), middle * CFrame.new(x * (size.X / 2 + 0.15), 0, 0), tube, Enum.Material.Neon)
+		local top = (middle * CFrame.new(x * size.X * 0.35, size.Y / 2 + 0.3, 0)).Position
+		rod(parent, "SignChain", 0.15, top, (at * CFrame.new(x * size.X * 0.35, 0, 0)).Position, Color3.fromRGB(190, 195, 210), Enum.Material.Metal)
 	end
-	-- it turns about its upright axis (Atmosphere turns Spinners about their pivot's Z)
-	spinner(model, parent, hub * CFrame.Angles(math.pi / 2, 0, 0), 0.35)
 end
 
 -- A flat star (`at`: its middle, facing along its Z), `size` across.
@@ -353,15 +348,31 @@ local WOOD = Color3.fromRGB(225, 175, 120)
 local INK = Color3.fromRGB(55, 40, 60)
 
 -- Little toys for the shelves (`at`: on the shelf, -Z toward the room).
-local function rubberDuck(parent: Instance, at: CFrame)
-	local yellow = Color3.fromRGB(255, 220, 60)
-	ball(parent, "DuckBody", 2.2, at * CFrame.new(0, 1.05, 0.1), yellow)
-	ball(parent, "DuckTail", 0.9, at * CFrame.new(0, 1.7, 1.05), yellow)
-	ball(parent, "DuckHead", 1.5, at * CFrame.new(0, 2.35, -0.45), yellow)
-	makeDecor(parent, "DuckBeak", Vector3.new(0.8, 0.35, 0.7), at * CFrame.new(0, 2.2, -1.3), Color3.fromRGB(255, 140, 40))
-	for _, x in { -0.35, 0.35 } do
-		ball(parent, "DuckEye", 0.28, at * CFrame.new(x, 2.6, -1.1), INK)
+
+-- A collectible blind box: a colored card box with a clear window, a little figure
+-- inside, a hanging tab on top.
+local function miniPackage(parent: Instance, at: CFrame, color: Color3)
+	makeDecor(parent, "MiniBox", Vector3.new(2, 2.8, 1.2), at * CFrame.new(0, 1.4, 0.1), color)
+	makeDecor(parent, "MiniBoxTab", Vector3.new(1.2, 0.6, 0.15), at * CFrame.new(0, 3.1, 0.6), color:Lerp(Color3.new(0, 0, 0), 0.2))
+	ball(parent, "MiniFigure", 0.9, at * CFrame.new(0, 1.9, -0.35), color:Lerp(WHITE, 0.55))
+	cylinder(parent, "MiniFigureBody", 0.7, 0.8, at * CFrame.new(0, 0.7, -0.35), color:Lerp(WHITE, 0.3))
+	local window = makeDecor(parent, "MiniWindow", Vector3.new(1.6, 2, 0.1), at * CFrame.new(0, 1.55, -0.55), Color3.fromRGB(220, 240, 255))
+	window.Transparency = 0.55
+	window.Reflectance = 0.2
+end
+
+-- A tin wind-up robot: boxy body and head, an antenna, a key in its back.
+local function windupRobot(parent: Instance, at: CFrame, color: Color3)
+	local metal = Color3.fromRGB(205, 210, 225)
+	makeDecor(parent, "RobotBody", Vector3.new(1.6, 1.6, 1.1), at * CFrame.new(0, 1.2, 0), color, Enum.Material.Metal)
+	makeDecor(parent, "RobotHead", Vector3.new(1.2, 1, 1), at * CFrame.new(0, 2.5, 0), metal, Enum.Material.Metal)
+	for _, x in { -0.3, 0.3 } do
+		ball(parent, "RobotEye", 0.3, at * CFrame.new(x, 2.55, -0.5), Color3.fromRGB(120, 230, 255), Enum.Material.Neon)
+		makeDecor(parent, "RobotLeg", Vector3.new(0.45, 0.45, 0.6), at * CFrame.new(x * 1.6, 0.22, 0), metal, Enum.Material.Metal)
 	end
+	makeDecor(parent, "RobotAntenna", Vector3.new(0.12, 0.6, 0.12), at * CFrame.new(0, 3.3, 0), metal)
+	ball(parent, "RobotAntennaTip", 0.35, at * CFrame.new(0, 3.65, 0), Color3.fromRGB(255, 80, 100), Enum.Material.Neon)
+	makeDecor(parent, "RobotKey", Vector3.new(0.9, 0.5, 0.12), at * CFrame.new(0, 1.3, 0.75), Color3.fromRGB(255, 200, 60))
 end
 
 local function toyCar(parent: Instance, at: CFrame, color: Color3)
@@ -388,12 +399,6 @@ local function toyRocket(parent: Instance, at: CFrame)
 	end
 end
 
-local function blockStack(parent: Instance, at: CFrame, seed: number)
-	for index, spot in { Vector3.new(-0.8, 0.7, 0), Vector3.new(0.8, 0.7, 0.1), Vector3.new(0, 2.1, 0) } do
-		makeDecor(parent, "ToyBlock", Vector3.one * 1.4, at * CFrame.new(spot) * CFrame.Angles(0, (index - 2) * 0.25, 0), TOY_COLORS[(index + seed) % #TOY_COLORS + 1])
-	end
-end
-
 local function beachBall(parent: Instance, at: CFrame)
 	local center = at * CFrame.new(0, 1.2, 0)
 	ball(parent, "BeachBall", 2.4, center, Color3.fromRGB(255, 95, 110))
@@ -403,35 +408,24 @@ local function beachBall(parent: Instance, at: CFrame)
 	end
 end
 
-local function spinningTop(parent: Instance, at: CFrame, color: Color3)
-	cylinder(parent, "TopTip", 0.4, 0.5, at, Color3.fromRGB(80, 70, 90))
-	cylinder(parent, "TopBody", 2.4, 0.8, at * CFrame.new(0, 0.5, 0), color)
-	cylinder(parent, "TopBand", 2.6, 0.3, at * CFrame.new(0, 0.75, 0), WHITE)
-	cylinder(parent, "TopUpper", 1.6, 0.6, at * CFrame.new(0, 1.3, 0), color)
-	cylinder(parent, "TopHandle", 0.4, 1.1, at * CFrame.new(0, 1.9, 0), WOOD)
-end
-
 local SHELF_TOYS: { (parent: Instance, at: CFrame, index: number) -> () } = {
-	function(parent, at)
-		rubberDuck(parent, at)
-	end,
 	function(parent, at, index)
-		toyCar(parent, at, TOY_COLORS[index % #TOY_COLORS + 1])
+		miniPackage(parent, at, TOY_COLORS[index % #TOY_COLORS + 1])
 	end,
 	function(parent, at)
 		toyRocket(parent, at)
 	end,
 	function(parent, at, index)
-		blockStack(parent, at, index)
+		windupRobot(parent, at, TOY_COLORS[(index + 2) % #TOY_COLORS + 1])
+	end,
+	function(parent, at, index)
+		toyCar(parent, at, TOY_COLORS[index % #TOY_COLORS + 1])
+	end,
+	function(parent, at, index)
+		miniPackage(parent, at, TOY_COLORS[(index + 3) % #TOY_COLORS + 1])
 	end,
 	function(parent, at)
 		beachBall(parent, at)
-	end,
-	function(parent, at)
-		teddy(parent, at, Color3.fromRGB(200, 140, 90), 1)
-	end,
-	function(parent, at, index)
-		spinningTop(parent, at, TOY_COLORS[index % #TOY_COLORS + 1])
 	end,
 }
 
@@ -439,34 +433,84 @@ local function shelfToy(parent: Instance, at: CFrame, index: number)
 	SHELF_TOYS[(index - 1) % #SHELF_TOYS + 1](parent, at, index)
 end
 
--- A giant stacking-ring toy (`at`: its foot), rainbow rings down a wooden pole.
-local function ringStacker(parent: Instance, at: CFrame)
-	cylinder(parent, "StackerBase", 7, 1.4, at, Color3.fromRGB(255, 95, 110))
-	cylinder(parent, "StackerPole", 1.2, 11, at * CFrame.new(0, 1.4, 0), WOOD, Enum.Material.Wood)
-	for index, color in { TOY_COLORS[6], TOY_COLORS[2], TOY_COLORS[4], TOY_COLORS[3], TOY_COLORS[5] } do
-		local diameter = 6.6 - (index - 1) * 0.8
-		local y = 1.4 + (index - 1) * 1.75
-		cylinder(parent, "StackerRing", diameter, 1.6, at * CFrame.new(0, y, 0), color)
-		cylinder(parent, "StackerRingRim", diameter + 0.3, 0.5, at * CFrame.new(0, y + 0.55, 0), color:Lerp(WHITE, 0.25))
+-- An arcade claw machine (`at`: its foot, -Z its front): a cabinet with a joystick and
+-- a glowing button, a glass case of plush prizes with the claw hanging over them, and a
+-- lit-up header with chasing bulbs.
+local function clawMachine(parent: Instance, at: CFrame, color: Color3)
+	local dark = color:Lerp(Color3.new(0, 0, 0), 0.35)
+	makeDecor(parent, "ClawCabinet", Vector3.new(5.6, 4.4, 5.6), at * CFrame.new(0, 2.2, 0), color)
+	makeDecor(parent, "ClawCabinetTrim", Vector3.new(5.8, 0.35, 5.8), at * CFrame.new(0, 4.3, 0), TOY_COLORS[2], Enum.Material.Neon)
+	makeDecor(parent, "ClawPrizeDoor", Vector3.new(1.8, 1.4, 0.2), at * CFrame.new(1.2, 1.2, -2.85), INK)
+	makeDecor(parent, "ClawStick", Vector3.new(0.25, 1, 0.25), at * CFrame.new(-1.2, 4.9, -2.3), Color3.fromRGB(60, 50, 70))
+	ball(parent, "ClawStickKnob", 0.7, at * CFrame.new(-1.2, 5.45, -2.3), TOY_COLORS[1])
+	ball(parent, "ClawButton", 0.9, at * CFrame.new(0.4, 4.5, -2.4), TOY_COLORS[4], Enum.Material.Neon)
+	-- the glass case, its corner posts, and the prizes in it
+	local glass = makeDecor(parent, "ClawGlass", Vector3.new(5.2, 6, 5.2), at * CFrame.new(0, 7.4, 0), Color3.fromRGB(215, 240, 255), Enum.Material.Glass)
+	glass.Transparency = 0.7
+	for _, corner in { Vector2.new(-1, -1), Vector2.new(-1, 1), Vector2.new(1, -1), Vector2.new(1, 1) } do
+		makeDecor(parent, "ClawPost", Vector3.new(0.4, 6, 0.4), at * CFrame.new(corner.X * 2.65, 7.4, corner.Y * 2.65), dark)
 	end
-	ball(parent, "StackerTop", 2.6, at * CFrame.new(0, 11.5, 0), Color3.fromRGB(255, 120, 190))
+	for index = 1, 9 do
+		local angle = index * 2.3
+		ball(parent, "ClawPrize", 1.2 + (index % 3) * 0.2, at * CFrame.new(math.cos(angle) * 1.4, 5.1 + (index % 2) * 0.6, math.sin(angle) * 1.4), TOY_COLORS[index % #TOY_COLORS + 1], Enum.Material.Fabric)
+	end
+	makeDecor(parent, "ClawRod", Vector3.new(0.2, 2, 0.2), at * CFrame.new(0.6, 9.4, 0.4), Color3.fromRGB(205, 210, 225), Enum.Material.Metal)
+	makeDecor(parent, "ClawHand", Vector3.new(0.9, 0.5, 0.9), at * CFrame.new(0.6, 8.2, 0.4), TOY_COLORS[2])
+	for index = 0, 2 do
+		local finger = at * CFrame.new(0.6, 7.6, 0.4) * CFrame.Angles(0, index * math.pi * 2 / 3, 0)
+		makeDecor(parent, "ClawFinger", Vector3.new(0.15, 1, 0.15), finger * CFrame.new(0, 0, -0.45) * CFrame.Angles(math.rad(-20), 0, 0), Color3.fromRGB(205, 210, 225), Enum.Material.Metal)
+	end
+	-- the header: a neon CLAW sign front and back, bulbs chasing round its edge
+	local header = makeDecor(parent, "ClawHeader", Vector3.new(5.8, 1.8, 5.8), at * CFrame.new(0, 11.3, 0), dark)
+	label(header, Enum.NormalId.Front, "CLAW", TOY_COLORS[2]:Lerp(WHITE, 0.5), TOY_COLORS[2])
+	label(header, Enum.NormalId.Back, "CLAW", TOY_COLORS[2]:Lerp(WHITE, 0.5), TOY_COLORS[2])
+	local count = 0
+	for side = 0, 3 do
+		local edge = at * CFrame.Angles(0, side * math.pi / 2, 0)
+		for k = 0, 3 do
+			count += 1
+			local bulb = ball(parent, "ClawBulb", 0.55, edge * CFrame.new(-2.2 + k * 1.47, 12.4, -2.95), Color3.fromRGB(255, 215, 130), Enum.Material.Neon)
+			bulb.CastShadow = false
+			bulb:SetAttribute("Index", count)
+			CollectionService:AddTag(bulb, "Marquee")
+		end
+	end
 end
 
--- A giant wooden alphabet block (`at`: under its middle), its letter on every side.
-local function abcBlock(parent: Instance, at: CFrame, size: number, color: Color3, letter: string)
-	local block = makeDecor(parent, "AbcBlock", Vector3.one * size, at * CFrame.new(0, size / 2, 0), color)
-	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right, Enum.NormalId.Top } do
-		label(block, face, letter, WHITE, nil, 12)
+-- A stack of shipping crates (`at`: on the floor under the stack): cardboard boxes
+-- with tape, printed with the BRAINROT TOYS logo, FRAGILE and arrows.
+local function shippingCrates(parent: Instance, at: CFrame)
+	local cardboard = Color3.fromRGB(210, 160, 105)
+	local tape = Color3.fromRGB(240, 205, 130)
+	local prints = { "BRAINROT\nTOYS ★", "FRAGILE!", "⬆ ⬆", "BRAINROT\nTOYS ★" }
+	for index, crate in {
+		{ At = Vector3.new(0, 0, -2.4), Size = Vector3.new(4.6, 4.2, 4.6), Turn = 0.08 },
+		{ At = Vector3.new(0.2, 0, 2.4), Size = Vector3.new(4.4, 3.8, 4.4), Turn = -0.12 },
+		{ At = Vector3.new(0, 4.2, -1.8), Size = Vector3.new(3.8, 3.4, 3.8), Turn = 0.3 },
+		{ At = Vector3.new(0.4, 3.8, 2.6), Size = Vector3.new(3, 2.6, 3), Turn = -0.25 },
+	} do
+		local box = makeDecor(parent, "Crate", crate.Size, at * CFrame.new(crate.At + Vector3.new(0, crate.Size.Y / 2, 0)) * CFrame.Angles(0, crate.Turn, 0), cardboard)
+		makeDecor(parent, "CrateTape", Vector3.new(crate.Size.X + 0.1, 0.5, crate.Size.Z * 0.25), box.CFrame * CFrame.new(0, crate.Size.Y / 2, 0), tape)
+		label(box, Enum.NormalId.Left, prints[index], Color3.fromRGB(150, 70, 40), nil, 12)
+		label(box, Enum.NormalId.Front, prints[(index % #prints) + 1], Color3.fromRGB(150, 70, 40), nil, 12)
 	end
 end
 
--- Foam play mats down a walkway (centered on `x`, from `fromZ` to `toZ`): puzzle tiles
--- in four bright colors, two across.
-local function playMat(parent: Instance, floor: CFrame, x: number, fromZ: number, toZ: number)
-	local tile = 6
-	for row = 0, math.floor((toZ - fromZ) / tile) - 1 do
-		for column = 0, 1 do
-			makeDecor(parent, "PlayMat", Vector3.new(tile - 0.2, 0.12, tile - 0.2), floor * CFrame.new(x + (column - 0.5) * tile, 0.06, fromZ + (row + 0.5) * tile), TOY_COLORS[(row + column * 2) % 4 + 1])
+-- A toy race track down a walkway (centered on `x`, from `fromZ` to `toZ`): an orange
+-- lane with blue bumpers, a dashed white middle line and a checkered finish line.
+local function raceTrack(parent: Instance, floor: CFrame, x: number, fromZ: number, toZ: number)
+	local length = toZ - fromZ
+	local middle = (fromZ + toZ) / 2
+	makeDecor(parent, "Track", Vector3.new(10, 0.12, length), floor * CFrame.new(x, 0.06, middle), Color3.fromRGB(255, 125, 25))
+	for _, side in { -1, 1 } do
+		makeDecor(parent, "TrackBumper", Vector3.new(0.7, 0.4, length), floor * CFrame.new(x + side * 5.1, 0.2, middle), Color3.fromRGB(40, 120, 255))
+	end
+	for z = fromZ + 2, toZ - 2, 4 do
+		makeDecor(parent, "TrackDash", Vector3.new(0.35, 0.13, 2), floor * CFrame.new(x, 0.07, z), WHITE)
+	end
+	for row = 0, 1 do
+		for column = 0, 9 do
+			makeDecor(parent, "TrackFinish", Vector3.new(1, 0.14, 1), floor * CFrame.new(x - 4.5 + column, 0.08, toZ - 1.5 + row), if (row + column) % 2 == 0 then INK else WHITE)
 		end
 	end
 end
@@ -525,17 +569,6 @@ local function toyClock(parent: Instance, face: CFrame, diameter: number)
 	ball(parent, "ClockPin", 1, face * CFrame.new(0, 0, -1.45), TOY_COLORS[2])
 end
 
--- The things dangling from the Toy Workshop's mobiles.
-local function toyMobileThing(model: Model, at: CFrame, index: number)
-	if index % 2 == 1 then
-		star(model, at, 2.2, TOY_COLORS[if index == 1 then 2 else 3])
-	elseif index == 2 then
-		ball(model, "MobileBall", 1.8, at, TOY_COLORS[1])
-	else
-		makeDecor(model, "MobileBlock", Vector3.one * 1.5, at * CFrame.Angles(0.4, 0.6, 0), TOY_COLORS[4])
-	end
-end
-
 local function buildToy(parent: Instance, floor: CFrame)
 	-- the sign over the entrance, and flags round the walls up by the ceiling (clear of
 	-- the doorway's sign on the back wall)
@@ -552,13 +585,13 @@ local function buildToy(parent: Instance, floor: CFrame)
 		bunting(parent, at(21, 26, z), at(66, 26, z), TOY_COLORS, 1.6)
 	end
 
-	-- foam play mats down the walkways between the lines, lamps and mobiles over them
+	-- toy race tracks down the walkways between the lines, lamps and neon signs over them
 	for index, x in { -17.6, 24.4 } do
-		playMat(parent, floor, x, -25, 47)
+		raceTrack(parent, floor, x, -25, 47)
 		for k, z in { -32, -2, 30 } do
 			pendantLamp(parent, floor * CFrame.new(x, 28, z), 5, TOY_COLORS[(index + k) % #TOY_COLORS + 1])
 		end
-		mobile(parent, floor * CFrame.new(x, 28, 14), 4, WOOD, toyMobileThing)
+		hangingSign(parent, floor * CFrame.new(x, 28, 14), 6, Vector2.new(11, 2.6), if index == 1 then "⚡ 100% BRAINROT ⚡" else "★ TOY FACTORY ★", TOY_COLORS[if index == 1 then 2 else 3])
 	end
 	for index, x in { -60, 62.5 } do
 		pendantLamp(parent, floor * CFrame.new(x, 28, 0), 6, TOY_COLORS[index + 3])
@@ -575,18 +608,16 @@ local function buildToy(parent: Instance, floor: CFrame)
 	poster(parent, wallFace(floor, { 20, 12, -58 }), Vector2.new(7, 9), TOY_COLORS[1], WHITE, "🐊", "BOMBARDIRO!")
 	poster(parent, wallFace(floor, { -68, 16, -50 }), Vector2.new(7, 9), TOY_COLORS[5], WHITE, "☕", "BALLERINA!")
 	poster(parent, wallFace(floor, { 68, 16, -50 }), Vector2.new(7, 9), TOY_COLORS[4], WHITE, "🍌", "CHIMPANZINI!")
-	poster(parent, wallFace(floor, { -68, 14, 50 }), Vector2.new(7, 9), TOY_COLORS[6], WHITE, "🪵", "TUNG TUNG!")
+	poster(parent, wallFace(floor, { -68, 14, 50 }), Vector2.new(7, 9), TOY_COLORS[6], WHITE, "🥁", "TUNG TUNG!")
 	poster(parent, wallFace(floor, { 68, 14, 50 }), Vector2.new(7, 9), TOY_COLORS[2], WHITE, "🐘", "LIRILÌ!")
 
 	-- the back wall: a pegboard of giant toy tools, and a big clock
 	toolBoard(parent, wallFace(floor, { -40, 15, 59 }), 24)
 	toyClock(parent, wallFace(floor, { 40, 15, 59 }), 12)
 
-	-- giant toys standing by the walls
-	ringStacker(parent, floor * CFrame.new(-61, 0, -35))
-	abcBlock(parent, floor * CFrame.new(62.5, 0, -39.6), 4.6, TOY_COLORS[1], "A")
-	abcBlock(parent, floor * CFrame.new(62.5, 0, -34.7) * CFrame.Angles(0, 0.2, 0), 4.6, TOY_COLORS[3], "B")
-	abcBlock(parent, floor * CFrame.new(62.5, 4.6, -37.2) * CFrame.Angles(0, -0.3, 0), 4, TOY_COLORS[2], "C")
+	-- an arcade claw machine by the left wall, shipping crates by the right one
+	clawMachine(parent, floor * CFrame.new(-61, 0, -35) * CFrame.Angles(0, -math.pi / 2, 0), TOY_COLORS[5])
+	shippingCrates(parent, floor * CFrame.new(62.5, 0, -37))
 
 	-- balloons either side of the entrance, tied to toy blocks
 	for index, x in { -19, 19 } do
@@ -660,45 +691,21 @@ local function pinCushion(parent: Instance, at: CFrame)
 	end
 end
 
--- A bunny plushie sitting on `at` (-Z its front).
-local function bunny(parent: Instance, at: CFrame, color: Color3)
-	local inner = Color3.fromRGB(255, 160, 200)
-	ball(parent, "BunnyBody", 2, at * CFrame.new(0, 1, 0), color, Enum.Material.Fabric)
-	ball(parent, "BunnyHead", 1.6, at * CFrame.new(0, 2.4, -0.1), color, Enum.Material.Fabric)
-	for _, x in { -1, 1 } do
-		local ear = at * CFrame.new(x * 0.35, 3.7, 0) * CFrame.Angles(0, 0, x * math.rad(-12))
-		makeDecor(parent, "BunnyEar", Vector3.new(0.6, 1.9, 0.4), ear, color, Enum.Material.Fabric)
-		makeDecor(parent, "BunnyEarInner", Vector3.new(0.3, 1.4, 0.1), ear * CFrame.new(0, 0, -0.22), inner, Enum.Material.Fabric)
-		ball(parent, "BunnyEye", 0.25, at * CFrame.new(x * 0.32, 2.55, -0.82), INK)
-		ball(parent, "BunnyFoot", 0.8, at * CFrame.new(x * 0.55, 0.35, -0.75), WHITE, Enum.Material.Fabric)
-	end
-	ball(parent, "BunnyNose", 0.3, at * CFrame.new(0, 2.3, -0.92), inner)
-end
-
--- A heart cushion (`at`: on what it sits on, -Z its front), `size` across.
-local function heartPillow(parent: Instance, at: CFrame, color: Color3, size: number)
-	local s = size / 2.4
-	for _, x in { -1, 1 } do
-		ball(parent, "HeartLobe", 1.4 * s, at * CFrame.new(x * 0.5 * s, 1.75 * s, 0), color, Enum.Material.Fabric)
-	end
-	makeDecor(parent, "HeartPoint", Vector3.new(1.4, 1.4, 1.1) * s, at * CFrame.new(0, 1.05 * s, 0) * CFrame.Angles(0, 0, math.rad(45)), color, Enum.Material.Fabric)
-end
-
 local SHELF_PLUSHIES: { (parent: Instance, at: CFrame, index: number) -> () } = {
 	function(parent, at)
 		teddy(parent, at, Color3.fromRGB(205, 150, 105), 1)
 	end,
 	function(parent, at, index)
-		bunny(parent, at, if index % 2 == 0 then WHITE else Color3.fromRGB(255, 225, 240))
+		miniPackage(parent, at, PLUSH_COLORS[index % #PLUSH_COLORS + 1])
 	end,
 	function(parent, at, index)
-		heartPillow(parent, at, PLUSH_COLORS[index % #PLUSH_COLORS + 1], 2.6)
+		yarnBall(parent, at * CFrame.new(-0.6, 0, 0), 2, PLUSH_COLORS[index % #PLUSH_COLORS + 1])
 	end,
 	function(parent, at, index)
 		teddy(parent, at, PLUSH_COLORS[index % #PLUSH_COLORS + 1], 0.9)
 	end,
 	function(parent, at, index)
-		yarnBall(parent, at * CFrame.new(-0.6, 0, 0), 2, PLUSH_COLORS[index % #PLUSH_COLORS + 1])
+		miniPackage(parent, at, PLUSH_COLORS[(index + 2) % #PLUSH_COLORS + 1])
 	end,
 }
 
@@ -775,15 +782,6 @@ local function cloudLamp(parent: Instance, at: CFrame, drop: number)
 	end
 end
 
--- The things dangling from the Plushie room's mobiles.
-local function plushMobileThing(model: Model, at: CFrame, index: number)
-	if index % 2 == 1 then
-		star(model, at, 2, PLUSH_COLORS[if index == 1 then 4 else 3], Enum.Material.Fabric)
-	else
-		heartPillow(model, at * CFrame.new(0, -1.2, 0), PLUSH_COLORS[if index == 2 then 1 else 2], 2.2)
-	end
-end
-
 -- A basket of yarn with knitting needles stuck in it (`at`: its foot).
 local function yarnBasket(parent: Instance, at: CFrame)
 	cylinder(parent, "Basket", 6.4, 3, at, WOOD, Enum.Material.Wood)
@@ -814,13 +812,13 @@ local function buildPlushie(parent: Instance, floor: CFrame)
 		pomGarland(parent, at(20, 26, z), at(66, 26, z), PLUSH_COLORS, 1.6)
 	end
 
-	-- patchwork rugs down the walkways between the lines, cloud lamps and mobiles over them
-	for _, x in { -19.6, 22.4 } do
+	-- patchwork rugs down the walkways between the lines, cloud lamps and neon signs over them
+	for index, x in { -19.6, 22.4 } do
 		quiltRug(parent, floor, x, -25, 45)
 		for _, z in { -32, -2, 30 } do
 			cloudLamp(parent, floor * CFrame.new(x, 28, z), 3.5)
 		end
-		mobile(parent, floor * CFrame.new(x, 28, 14), 4, WOOD, plushMobileThing)
+		hangingSign(parent, floor * CFrame.new(x, 28, 14), 6, Vector2.new(11, 2.6), if index == 1 then "✂ HANDMADE ROT ✂" else "★ PLUSH FACTORY ★", PLUSH_COLORS[if index == 1 then 1 else 2])
 	end
 
 	-- the walls: a quilt on the back wall, hoops and giant buttons, plushie shelves

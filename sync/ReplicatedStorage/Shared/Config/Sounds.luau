@@ -23,6 +23,9 @@ return {
 	Cash = "rbxassetid://120891770644830", -- cha-ching: brainrot shipped, coins collected, item bought
 	Jingle = "rbxassetid://9040476898", -- a full match ships (a happy sting)
 
+	-- Room upgrades
+	Whistle = "rbxassetid://9119628055", -- the toy train's steam whistle
+
 	-- Background music, shuffled
 	Music = {
 		"rbxassetid://1837478883", -- Cutie Pie
