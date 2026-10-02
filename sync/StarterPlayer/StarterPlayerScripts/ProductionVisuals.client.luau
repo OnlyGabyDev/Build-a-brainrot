@@ -10,16 +10,21 @@
 	Every zone has its own style in ASSEMBLY_STYLES (GDD §10): machines found on the
 	line (built by TycoonManager) plus one animation per part type.
 	  * Toy Workshop: the legs boing onto the pad, the claw whirs the body onto them,
-	    two wooden robots BONK the arms into place, and the claw ratchets the head on.
-	    Pop!
+	    two punch presses BONK the arms into place with boxing gloves, and the claw
+	    ratchets the head on. Pop!
 	  * Plushie Sewing Room: the legs plop onto a cushion, the needle stitches the body
 	    on, thread spools reel the arms in, and the needle pumps the head full of
 	    stuffing. Pop!
+	Then the finished brainrot shows itself off (ta-da: a spin under a spotlight, its
+	name tag pops up) before it rides on: it's the star of the line, so it's big, gets
+	an outline on your own lines, and keeps its name tag until it's packed off.
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -27,6 +32,7 @@ local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
 local Brainrots = require(Config:WaitForChild("Brainrots"))
 local Format = require(Shared:WaitForChild("Format"))
 local Production = require(Config:WaitForChild("Production"))
+local Rarities = require(Config:WaitForChild("Rarities"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local TycoonItems = require(Config:WaitForChild("TycoonItems"))
@@ -50,20 +56,24 @@ local PAINT_COLORS = {
 }
 local GLITTER_COLOR = Color3.fromRGB(255, 230, 120)
 
-local INTAKE_GAP = 4 -- studs before the pad where parts wait to be picked up
+local INTAKE_GAP = 5.5 -- studs before the pad where parts wait to be picked up
 local HOP_HEIGHT = 2.5
 local SQUISH = 0.85 -- scale at the bottom of a squash
 local LOOSE = 1.25 -- the arms arrive this much too big, until they're pushed/reeled in
 local GRIP_DEPTH = 0.3 -- how far the claw's grip sinks into the top of a part
 local CLAW_CLEARANCE = 0.6 -- studs between a carried part and what it passes over
 local FINGERS_CLOSED = 0.65 -- finger spread when gripping, as a share of open
-local FIST_HALF = 0.4
 local STITCHES = 6 -- needle stitches while sewing the body on
 local STITCH_HOVER = 1.5 -- studs the body starts above its place
 local DEFLATED = 0.35 -- the plushie head's starting scale, before it's stuffed
 local CHUTE_DROP = 3 -- studs the brainrot sinks into the chute as it ships
 local BELT_END_GAP = 2 -- studs from the end of the belt where the brainrot stops
 local FALL_TIME = 0.5 -- a part's bounce from its dropper's mouth onto the belt
+local SHOW_GAP = 5.5 -- studs down the belt from the pad where the brainrot shows itself off
+local SHOW_HEIGHT = 3 -- how high it springs up as it spins
+local SPOTLIGHT_COLOR = Color3.fromRGB(255, 245, 205)
+local OUTLINE_COLOR = Color3.fromRGB(40, 25, 70) -- a cartoon ink line round your own brainrots
+local TAG_STROKE = Color3.fromRGB(30, 25, 45)
 
 type Piece = {
 	Model: Model,
@@ -88,6 +98,9 @@ type Build = {
 	Parts: { [string]: string }, -- [partType] = brainrotId
 	Near: boolean, -- close enough to the camera for particles
 	Zone: string,
+	Name: string, -- what it's called (a mash-up for mixed builds)
+	Rarity: string, -- its rarest part's tier
+	Own: boolean, -- on the local player's plot
 }
 
 type StepAnimation = (build: Build, piece: Piece, duration: number) -> ()
@@ -558,6 +571,8 @@ type Pusher = {
 	Rod: BasePart,
 	Shoulder: Vector3,
 	Rest: CFrame,
+	Riders: { { Part: BasePart, Offset: CFrame } }, -- the glove's cuff and thumb, from the fist
+	Lamp: BasePart?,
 }
 
 type ToyMachines = { Claw: Claw, PusherLeft: Pusher, PusherRight: Pusher }
@@ -567,11 +582,19 @@ local function readPusher(model: Instance?): Pusher?
 	if not (fist and rod) then
 		return nil
 	end
+	local riders = {}
+	for _, child in (model :: Instance):GetChildren() do
+		if child:IsA("BasePart") and child ~= fist and startsWith(child.Name, "Fist") then
+			table.insert(riders, { Part = child, Offset = fist.CFrame:ToObjectSpace(child.CFrame) })
+		end
+	end
 	return {
 		Fist = fist,
 		Rod = rod,
 		Shoulder = rod.CFrame * Vector3.new(0, 0, rod.Size.Z / 2), -- the fist is at the -Z end
 		Rest = fist.CFrame,
+		Riders = riders,
+		Lamp = findPart(model, "PusherLamp"),
 	}
 end
 
@@ -622,6 +645,9 @@ end
 
 local function setFist(pusher: Pusher, cframe: CFrame)
 	pusher.Fist.CFrame = cframe
+	for _, rider in pusher.Riders do
+		rider.Part.CFrame = cframe * rider.Offset
+	end
 	placeRod(pusher.Rod, pusher.Shoulder, cframe.Position)
 end
 
@@ -935,7 +961,7 @@ local function fluffFinish(build: Build, brainrot: Model, ship: BasePart, durati
 
 	-- in it hops, shrinking to fit under the dome
 	Effects.sound(brainrot:GetPivot().Position, Sounds.Boing, 0.3, vary(0.85))
-	hopShrinking(brainrot, base, d * 0.22, 6, 0.6)
+	hopShrinking(brainrot, base, d * 0.22, 6, 0.5)
 	local size = brainrot:GetScale()
 	puff(build, center, STUFFING_COLOR, 6)
 
@@ -952,8 +978,8 @@ local function fluffFinish(build: Build, brainrot: Model, ship: BasePart, durati
 		for index, ball in balls do
 			ball.Transparency = if a > (index - 1) / FLUFF_BALLS * 0.6 then 0 else 1
 			local angle = index * 2.4 + a * 14 * (if index % 2 == 0 then 1 else -1)
-			local radius = 2.3 + math.sin(a * 9 + index) * 0.5
-			local height = 0.6 + (index % 4) * 0.8 + math.sin(a * 12 + index * 1.7) * 0.5
+			local radius = 3.2 + math.sin(a * 9 + index) * 0.6
+			local height = 0.8 + (index % 4) * 1 + math.sin(a * 12 + index * 1.7) * 0.5
 			ball.CFrame = CFrame.new(base.Position + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius))
 		end
 		brainrot:ScaleTo(size * (1 + 0.2 * ease(a) + 0.05 * math.sin(a * math.pi * 8)))
@@ -968,7 +994,7 @@ local function fluffFinish(build: Build, brainrot: Model, ship: BasePart, durati
 	-- all fluffed up!
 	sparkle(build, center + Vector3.new(0, 1, 0), HEART_COLOR, 14)
 	Effects.sound(center, Sounds.Pop, 0.35, vary(1.2))
-	Effects.popup(center + Vector3.new(0, 5, 0), "FLUFFY!", HEART_COLOR, 1.2, 0.6)
+	Effects.popup(center + Vector3.new(0, 6, 0), "FLUFFY!", HEART_COLOR, 1.2, 0.6)
 	task.wait(d * 0.08)
 
 	-- down into the base, fluff and all
@@ -1208,11 +1234,7 @@ local function packerSpecial(build: Build, brainrot: Model, machine: BasePart, d
 	local nameplate = piece("PackagePlate", Vector3.new(width, plate, 0.4), CFrame.new(0, 0.5 + plate / 2, -depth / 2), color, 0.3)
 	local gui = canvas(nameplate, Enum.NormalId.Front, 30)
 	local stripe = frame(gui, UDim2.fromScale(1, 1), UDim2.fromScale(0.5, 0.5), color)
-	local name = "MYSTERY MIX!"
-	if build.FullMatch and build.Parts then
-		local brainrotInfo = Brainrots.ById[build.Parts.Head]
-		name = if brainrotInfo then string.upper(brainrotInfo.Name) else name
-	end
+	local name = string.upper(build.Name)
 	words(stripe, name, UDim2.fromScale(0.94, 0.8), UDim2.fromScale(0.5, 0.5), Color3.new(1, 1, 1), LOGO_INK, 2)
 	-- the clear plastic: a front window and both sides
 	local inner = height - plate - 1.4
@@ -1333,7 +1355,7 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 				hopInLoose(piece, duration * 0.35)
 
 				local center = build.Root:PointToObjectSpace(homeCenter(piece))
-				local reach = piece.Size.X / 2 + FIST_HALF
+				local reach = piece.Size.X / 2 + machines.PusherLeft.Fist.Size.X / 2
 				local punches = {
 					[machines.PusherLeft] = build.Root * CFrame.new(center.X - reach, center.Y, center.Z),
 					[machines.PusherRight] = build.Root * CFrame.new(center.X + reach, center.Y, center.Z),
@@ -1348,8 +1370,11 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 				end)
 				model:ScaleTo(base)
 				place(build, piece, SPARKLE_COLOR, 12, Sounds.Clunk, 0.35)
-				for _, target in punches do
+				for pusher, target in punches do
 					sparkle(build, target.Position, BONK_COLOR, 6)
+					if pusher.Lamp and build.Near then
+						Effects.flash(pusher.Lamp.Position, Color3.fromRGB(255, 170, 40), 3, 8, 0.3)
+					end
 				end
 				Effects.popup(homeCenter(piece) + Vector3.new(0, 1.5, 0), "BONK!", BONK_COLOR, 1, 0.5)
 
@@ -1573,6 +1598,175 @@ local function stationPass(build: Build, pass: StationPass, brainrot: Model)
 	end
 end
 
+-- The show ------------------------------------------------------------------
+-- The finished brainrot is the star of the line: it shows itself off under a
+-- spotlight, a name tag (its name, its rarest tier) rides over it until it's packed
+-- off, and on your own lines it gets a cartoon outline so it stands out from the busy,
+-- colorful machines.
+
+type Star = { Tag: BillboardGui?, Outline: Highlight?, Light: PointLight? }
+
+local localPlayer = Players.LocalPlayer
+
+local function isOwnLine(line: Model): boolean
+	local plot = line.Parent and line.Parent.Parent
+	return plot ~= nil and plot.Name == `Plot{localPlayer:GetAttribute("PlotIndex")}`
+end
+
+-- The name tag over the brainrot: its name, and its rarest tier in that tier's color
+-- (Godly in a rainbow). It pops in with a bounce.
+local function makeTag(build: Build, brainrot: Model): BillboardGui
+	local anchor = newPart(brainrot, "TagAnchor", Vector3.one * 0.2, brainrot:GetPivot(), Color3.new(1, 1, 1))
+	anchor.Transparency = 1
+	local _, size = brainrot:GetBoundingBox()
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "NameTag"
+	gui.Size = UDim2.fromScale(9, 2.6)
+	gui.StudsOffset = Vector3.new(0, size.Y + 2.2, 0)
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0
+	gui.MaxDistance = 110
+	gui.Adornee = anchor
+	gui.Parent = anchor
+
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0.2
+	scale.Parent = gui
+	local name = Instance.new("TextLabel")
+	name.Size = UDim2.fromScale(1, 0.62)
+	name.BackgroundTransparency = 1
+	name.Font = Enum.Font.FredokaOne
+	name.TextScaled = true
+	name.TextColor3 = Color3.new(1, 1, 1)
+	name.Text = build.Name
+	name.Parent = gui
+	local nameStroke = Instance.new("UIStroke")
+	nameStroke.Thickness = 3
+	nameStroke.Color = TAG_STROKE
+	nameStroke.Parent = name
+
+	local rarity = Rarities.ById[build.Rarity]
+	local tier = Instance.new("TextLabel")
+	tier.Size = UDim2.fromScale(1, 0.38)
+	tier.Position = UDim2.fromScale(0, 0.62)
+	tier.BackgroundTransparency = 1
+	tier.Font = Enum.Font.FredokaOne
+	tier.TextScaled = true
+	tier.TextColor3 = if rarity then rarity.Color else Color3.new(1, 1, 1)
+	tier.Text = if build.FullMatch then `⭐ {string.upper(build.Rarity)} ⭐` else string.upper(build.Rarity)
+	tier.Parent = gui
+	local tierStroke = Instance.new("UIStroke")
+	tierStroke.Thickness = 2.5
+	tierStroke.Color = TAG_STROKE
+	tierStroke.Parent = tier
+	if build.Rarity == "Godly" then
+		local rainbow = Instance.new("UIGradient")
+		rainbow.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 90, 90)),
+			ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 220, 60)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(90, 230, 120)),
+			ColorSequenceKeypoint.new(0.75, Color3.fromRGB(80, 170, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 110, 255)),
+		})
+		rainbow.Parent = tier
+	end
+	TweenService:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	return gui
+end
+
+-- Makes the finished brainrot the star: a name tag on lines near the camera, and on
+-- your own lines an outline and a soft glow of its own.
+local function crown(build: Build, brainrot: Model): Star
+	local star: Star = {}
+	if not build.Near then
+		return star
+	end
+	star.Tag = makeTag(build, brainrot)
+	if build.Own then
+		local outline = Instance.new("Highlight")
+		outline.FillTransparency = 1
+		outline.OutlineColor = OUTLINE_COLOR
+		outline.OutlineTransparency = 0
+		outline.DepthMode = Enum.HighlightDepthMode.Occluded
+		outline.Parent = brainrot
+		star.Outline = outline
+		local light = Instance.new("PointLight")
+		light.Color = SPOTLIGHT_COLOR
+		light.Brightness = 0.8
+		light.Range = 9
+		light.Shadows = false
+		light.Parent = (star.Tag :: BillboardGui).Parent
+		star.Light = light
+	end
+	return star
+end
+
+-- Its moment is over (it's being packed off): the tag shrinks away, the outline goes.
+local function uncrown(star: Star)
+	if star.Outline then
+		star.Outline:Destroy()
+	end
+	if star.Light then
+		star.Light:Destroy()
+	end
+	local tag = star.Tag
+	if tag and tag.Parent then
+		local scale = tag:FindFirstChildOfClass("UIScale")
+		if scale then
+			TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Scale = 0 }):Play()
+		end
+		Debris:AddItem(tag, 0.25)
+	end
+end
+
+-- Ta-da! The brainrot steps off the pad to `spot`, springs up spinning under a beam of
+-- light (sparkles, a ring, a chime), and lands with a squash, in `duration` seconds.
+local function showOff(build: Build, brainrot: Model, from: CFrame, spot: CFrame, duration: number)
+	local d = duration
+	run(d * 0.2, function(a)
+		brainrot:PivotTo(from:Lerp(spot, ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)))
+	end)
+
+	local beam: BasePart? = nil
+	local glow: BasePart? = nil
+	if build.Near then
+		local height = 16
+		beam = newPart(effects, "Spotlight", Vector3.new(height, 7, 7), spot * CFrame.new(0, height / 2, 0) * CFrame.Angles(0, 0, math.pi / 2), SPOTLIGHT_COLOR, Enum.PartType.Cylinder)
+		glow = newPart(effects, "SpotlightPool", Vector3.new(0.1, 8, 8), spot * CFrame.new(0, 0.06, 0) * CFrame.Angles(0, 0, math.pi / 2), SPOTLIGHT_COLOR, Enum.PartType.Cylinder)
+		for _, part in { beam :: BasePart, glow :: BasePart } do
+			part.Material = Enum.Material.Neon
+			part.Transparency = 1
+			TweenService:Create(part, TweenInfo.new(d * 0.15), { Transparency = if part == beam then 0.86 else 0.55 }):Play()
+		end
+		Effects.flash(spot.Position + Vector3.new(0, 4, 0), SPOTLIGHT_COLOR, 2.5, 16, d * 0.8)
+		sparkle(build, spot.Position + Vector3.new(0, 3, 0), POP_COLOR, 16)
+		Effects.ring(spot.Position + Vector3.new(0, 0.1, 0), POP_COLOR, 5)
+	end
+	Effects.sound(spot.Position, Sounds.Coin, 0.3, vary(1.5))
+	Effects.sound(spot.Position, Sounds.Boing, 0.25, vary(1.3))
+
+	local base = brainrot:GetScale()
+	run(d * 0.55, function(a)
+		local e = ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+		local lift = SHOW_HEIGHT * math.sin(a * math.pi)
+		brainrot:ScaleTo(base * (1 + 0.12 * math.sin(a * math.pi)))
+		brainrot:PivotTo(spot * CFrame.new(0, lift, 0) * CFrame.Angles(0, e * math.pi * 2, 0))
+	end)
+	brainrot:ScaleTo(base)
+	brainrot:PivotTo(spot)
+	squish(brainrot)
+	puff(build, spot.Position + Vector3.new(0, 0.4, 0), DUST_COLOR, 6, 0.6)
+	Effects.sound(spot.Position, Sounds.Stamp, 0.2, vary(1.2))
+
+	for _, part in { beam, glow } do
+		if part then
+			TweenService:Create(part, TweenInfo.new(d * 0.2), { Transparency = 1 }):Play()
+			Debris:AddItem(part, d * 0.25)
+		end
+	end
+	task.wait(d * 0.25)
+end
+
 -- One production cycle -------------------------------------------------------
 
 local function animateCycle(
@@ -1606,6 +1800,9 @@ local function animateCycle(
 		Parts = parts,
 		Near = Effects.near(root.Position, FX_RANGE),
 		Zone = zoneId,
+		Name = Brainrots.NameOf(parts),
+		Rarity = Brainrots.TopRarity(parts),
+		Own = isOwnLine(line),
 	}
 
 	-- Everything is scheduled against one clock, so the parts and machines stay in sync.
@@ -1791,7 +1988,7 @@ local function animateCycle(
 	end
 	setBeacon(line, false) -- in case the last step wasn't a head (no pop)
 
-	-- 4) Ride through the stations to the end of the belt as one brainrot.
+	-- 4) Ta-da: as one brainrot, it steps off the pad and shows itself off.
 	local brainrot = Instance.new("Model")
 	brainrot.Name = "Brainrot"
 	for _, piece in pieces do
@@ -1801,10 +1998,20 @@ local function animateCycle(
 	brainrot.WorldPivot = root
 	brainrot.Parent = effects
 
-	local passes = stationPasses(line, root.Position, beltEnd.Position)
+	local path = beltEnd.Position - root.Position
+	local showSpot = root + path.Unit * math.min(SHOW_GAP, path.Magnitude / 3)
+	local star = crown(build, brainrot)
+	showOff(build, brainrot, root, showSpot, Production.ShowDuration(cycleTime))
+	if cancelled() then
+		brainrot:Destroy()
+		return
+	end
+
+	-- 5) It rides through the stations to the end of the belt.
+	local passes = stationPasses(line, showSpot.Position, beltEnd.Position)
 	local nextPass = 1
 	run(Production.ShipTime, function(alpha)
-		brainrot:PivotTo(root:Lerp(beltEnd, alpha))
+		brainrot:PivotTo(showSpot:Lerp(beltEnd, alpha))
 		local pass = passes[nextPass]
 		if pass and alpha >= pass.Alpha and line.Parent then
 			nextPass += 1
@@ -1816,7 +2023,8 @@ local function animateCycle(
 		return
 	end
 
-	-- 5) The zone's special upgrade, if the line has it, works on it at the belt's end.
+	-- 6) The zone's special upgrade, if the line has it, works on it at the belt's end.
+	uncrown(star)
 	if special then
 		local machine = findPart(line, "Station3")
 		local specialTime = Production.SpecialDuration(cycleTime)
@@ -1834,7 +2042,7 @@ local function animateCycle(
 		end
 	end
 
-	-- 6) The zone's finishing stage packs it up and sends it off: that's the payout.
+	-- 7) The zone's finishing stage packs it up and sends it off: that's the payout.
 	local ok, result = pcall(style.Finish or simpleFinish, build, brainrot, ship, Production.FinishDuration(cycleTime))
 	brainrot:Destroy()
 	if not line.Parent then

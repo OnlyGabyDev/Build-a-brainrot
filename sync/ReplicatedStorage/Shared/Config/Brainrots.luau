@@ -63,4 +63,54 @@ for _, brainrot in Brainrots.List do
 end
 assert(Brainrots.ById[Brainrots.StarterId], "StarterId must be in the roster")
 
+local function words(name: string): { string }
+	local list = {}
+	for word in string.gmatch(name, "%S+") do
+		table.insert(list, word)
+	end
+	return list
+end
+
+-- The name of a build ([partType] = brainrotId): its own name when every part comes from
+-- one brainrot, or a mash-up of its head's first word and its body's last one ("Tung
+-- Tralala"; a short first word takes the next one along: "La Vaca Sahur").
+function Brainrots.NameOf(parts: { [string]: string }): string
+	local first = parts.Head or parts.Body or parts.Arms or parts.Legs
+	local second: string? = nil
+	for _, partType in { "Body", "Legs", "Arms", "Head" } do
+		local id = parts[partType]
+		if id and id ~= first then
+			second = id
+			break
+		end
+	end
+	local one = first and Brainrots.ById[first]
+	if not one then
+		return "???"
+	end
+	local other = second and Brainrots.ById[second]
+	if not other then
+		return one.Name
+	end
+	local head, tail = words(one.Name), words(other.Name)
+	local start = head[1]
+	if #start <= 2 and head[2] then
+		start ..= " " .. head[2]
+	end
+	return `{start} {tail[#tail]}`
+end
+
+-- The rarest tier among a build's parts.
+function Brainrots.TopRarity(parts: { [string]: string }): string
+	local best, rank = "Common", -1
+	for _, id in parts do
+		local brainrot = Brainrots.ById[id]
+		local rarity = brainrot and Rarities.ById[brainrot.Rarity]
+		if rarity and rarity.Rank > rank then
+			best, rank = rarity.Id, rarity.Rank
+		end
+	end
+	return best
+end
+
 return Brainrots

@@ -16,9 +16,10 @@ local Production = {
 	DropTime = 1.0, -- dropper to belt, the last 0.5 s the fall itself: first a part slides down
 	-- a Toy Workshop chute, or a Plushie knitting machine knits it
 	SlideTime = 1.2, -- belt ride from the farthest dropper to the Assembler
-	ShipTime = 1.0, -- Assembler to the end of the belt
-	SpecialTime = 0.9, -- the zone's special upgrade at the end of the belt (Toy Packer, Bow Tier)
-	FinishTime = 1.6, -- the zone's finishing stage (packed in a toy box, fluffed up...)
+	ShowTime = 1.2, -- ta-da: the finished brainrot steps off the pad and shows itself off
+	ShipTime = 1.6, -- from there to the end of the belt, under the stations
+	SpecialTime = 1.3, -- the zone's special upgrade at the end of the belt (Toy Packer, Bow Tier)
+	FinishTime = 2.0, -- the zone's finishing stage (packed in a toy box, fluffed up...)
 }
 
 export type Step = {
@@ -63,12 +64,18 @@ function Production.SpecialDuration(cycleTime: number): number
 	return math.min(Production.SpecialTime, cycleTime * 0.8)
 end
 
+-- How long the ta-da takes (hurried likewise: the next brainrot steps off the pad one
+-- cycle later).
+function Production.ShowDuration(cycleTime: number): number
+	return math.min(Production.ShowTime, cycleTime * 0.6)
+end
+
 -- Seconds from a ship event until the brainrot is shipped off (the payout), at the end
 -- of its finishing stage. `special`: the line has its zone's special upgrade.
 function Production.ShipDelay(parts: { [string]: string }, cycleTime: number, special: boolean?): number
 	local _, finished = Production.Schedule(parts, cycleTime)
 	local specialTime = if special then Production.SpecialDuration(cycleTime) else 0
-	return finished + Production.ShipTime + specialTime + Production.FinishDuration(cycleTime)
+	return finished + Production.ShowDuration(cycleTime) + Production.ShipTime + specialTime + Production.FinishDuration(cycleTime)
 end
 
 return Production

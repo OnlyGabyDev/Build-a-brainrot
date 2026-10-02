@@ -3,7 +3,8 @@
 	edition (size + style) on its own assembly lines. Completions are tracked per zone.
 
 	`Available = false` zones are designed but not built yet (no tycoon items/geometry).
-	Style: Scale multiplies model size; Material/Reflectance/Transparency override the
+	Style: Scale multiplies model size (big enough that the player's brainrot is the star of
+	its line, not a speck in the machines); Material/Reflectance/Transparency override the
 	brainrot's look when set (nil keeps the model's own look).
 ]]
 
@@ -43,7 +44,7 @@ Zones.List = {
 		PriceMultiplier = 1,
 		GemMultiplier = 1,
 		LineCount = 3,
-		Style = { Scale = 0.7 },
+		Style = { Scale = 1.15 },
 		SpecialStation = "Toy Packer",
 		Available = true,
 	},
@@ -57,7 +58,7 @@ Zones.List = {
 		PriceMultiplier = 3,
 		GemMultiplier = 1.5,
 		LineCount = 3,
-		Style = { Scale = 0.8, Material = Enum.Material.Fabric },
+		Style = { Scale = 1.25, Material = Enum.Material.Fabric },
 		SpecialStation = "Bow Tier",
 		StationNames = { Station1 = "Dye Bath", Station2 = "Sequin Shower" },
 		Available = true,
@@ -72,7 +73,7 @@ Zones.List = {
 		PriceMultiplier = 8,
 		GemMultiplier = 2,
 		LineCount = 3,
-		Style = { Scale = 0.85, Material = Enum.Material.Sand },
+		Style = { Scale = 1.3, Material = Enum.Material.Sand },
 		Available = false,
 	},
 	{
@@ -85,7 +86,7 @@ Zones.List = {
 		PriceMultiplier = 20,
 		GemMultiplier = 3,
 		LineCount = 3,
-		Style = { Scale = 1, Material = Enum.Material.SmoothPlastic, Reflectance = 0.25 },
+		Style = { Scale = 1.4, Material = Enum.Material.SmoothPlastic, Reflectance = 0.25 },
 		Available = false,
 	},
 	{
@@ -98,7 +99,7 @@ Zones.List = {
 		PriceMultiplier = 50,
 		GemMultiplier = 4.5,
 		LineCount = 3,
-		Style = { Scale = 1.1, Material = Enum.Material.Glass, Transparency = 0.2 },
+		Style = { Scale = 1.5, Material = Enum.Material.Glass, Transparency = 0.2 },
 		Available = false,
 	},
 	{
@@ -111,7 +112,7 @@ Zones.List = {
 		PriceMultiplier = 120,
 		GemMultiplier = 6.5,
 		LineCount = 3,
-		Style = { Scale = 1.3, Material = Enum.Material.DiamondPlate },
+		Style = { Scale = 1.7, Material = Enum.Material.DiamondPlate },
 		Available = false,
 	},
 	{
@@ -124,7 +125,7 @@ Zones.List = {
 		PriceMultiplier = 300,
 		GemMultiplier = 10,
 		LineCount = 3,
-		Style = { Scale = 1.6 },
+		Style = { Scale = 2 },
 		Available = false,
 	},
 	{
@@ -137,7 +138,7 @@ Zones.List = {
 		PriceMultiplier = 700,
 		GemMultiplier = 15,
 		LineCount = 3,
-		Style = { Scale = 1.6, Material = Enum.Material.ForceField },
+		Style = { Scale = 2, Material = Enum.Material.ForceField },
 		Available = false,
 	},
 	{

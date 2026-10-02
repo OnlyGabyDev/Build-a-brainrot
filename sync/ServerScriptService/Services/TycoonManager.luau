@@ -95,11 +95,10 @@ local STATION_COLORS = {
 }
 local METAL_COLOR = Color3.fromRGB(90, 90, 100)
 local GANTRY_COLOR = Color3.fromRGB(150, 90, 255)
-local WOOD_COLOR = Color3.fromRGB(205, 150, 95)
 local WOOD_LIGHT_COLOR = Color3.fromRGB(235, 190, 130)
 local CLAW_COLOR = Color3.fromRGB(255, 200, 60)
-local FIST_COLOR = Color3.fromRGB(235, 80, 80)
-local FACE_TEXTURE = "rbxasset://textures/face.png"
+local GLOVE_COLOR = Color3.fromRGB(235, 55, 70)
+local CHROME_COLOR = Color3.fromRGB(215, 220, 235)
 local SEWING_COLOR = Color3.fromRGB(240, 105, 170) -- the Plushie room's machines: hot pink...
 local SEWING_LIGHT_COLOR = Color3.fromRGB(255, 240, 248) -- ...with cream...
 local LAVENDER_COLOR = Color3.fromRGB(165, 125, 240) -- ...and lavender
@@ -299,8 +298,9 @@ end
 
 -- The Assembler: a gantry over the pad (the deck at the line's origin), with the
 -- zone's machines under it, a lamp that lights the pad and a beacon that flashes while
--- it builds. Its beam's bottom is GANTRY_BOTTOM above the deck.
-local GANTRY_BOTTOM = 10
+-- it builds. Its beam's bottom is GANTRY_BOTTOM above the deck (well over the tallest
+-- brainrot, so the claw can lift a head over it).
+local GANTRY_BOTTOM = 13
 local GANTRY_PILLAR = Vector2.new(7.6, 5.6) -- the pillars' X and Z from the pad
 local SIDE_X = 7.6 -- the pushers and spools stand on pedestals this far from the pad
 
@@ -332,7 +332,7 @@ end
 
 -- The Toy Workshop's claw hangs from the gantry. Its grip point (under the hand) rests
 -- CLAW_REST above the deck; the rod stretches up to the gantry as it moves.
-local CLAW_REST = 6
+local CLAW_REST = 9
 
 local function buildClaw(parent: Model, origin: CFrame)
 	local claw = Instance.new("Model")
@@ -346,28 +346,48 @@ local function buildClaw(parent: Model, origin: CFrame)
 	claw.Parent = parent
 end
 
--- A wooden toy robot on a pedestal beside the pad that punches the arms into place. Its
--- rod runs from the shoulder to the fist, with the fist at the rod's -Z end.
+-- The Toy Workshop's punch presses: a chunky machine each side of the pad, in the claw's
+-- colors, with a piston barrel aimed at the pad and a big red boxing glove on a chrome
+-- rod that BONKs the arms into place. The rod runs from the barrel's mouth to the glove
+-- (the Fist, at the rod's -Z end); the glove's cuff and thumb (FistCuff, FistThumb) ride
+-- along with the Fist, and the lamp on top (PusherLamp) flashes as it punches.
+local PUSHER_X = 8.4 -- the press's middle, from the pad (clear of the tablet)
+local PUNCH_Y = 3 -- the glove at rest, above the deck
+
 local function buildPusher(parent: Model, origin: CFrame, side: number)
 	local pusher = Instance.new("Model")
 	pusher.Name = if side < 0 then "PusherLeft" else "PusherRight"
-	local deck = deckOf(origin)
-	local x = SIDE_X * side
-	local feet = DECK - 1 -- it stands a little below the belt, so its fist punches just over it
-	makePart(pusher, "Pedestal", Vector3.new(2.4, feet, 2.4), origin * CFrame.new(x, feet / 2, 0), GANTRY_COLOR)
-	makeDecor(pusher, "PedestalTrim", Vector3.new(2.5, 0.4, 2.5), origin * CFrame.new(x, feet - 0.3, 0), CLAW_COLOR)
-	local stand = origin * CFrame.new(x, feet, 0)
-	makePart(pusher, "Body", Vector3.new(1.4, 2.6, 1.6), stand * CFrame.new(0, 1.3, 0), WOOD_COLOR, Enum.Material.Wood)
-	local head = makePart(pusher, "Head", Vector3.new(1.3, 1.1, 1.3), stand * CFrame.new(0, 3.15, 0), WOOD_LIGHT_COLOR, Enum.Material.Wood)
-	local face = Instance.new("Decal")
-	face.Texture = FACE_TEXTURE
-	face.Face = if side < 0 then Enum.NormalId.Right else Enum.NormalId.Left -- looks at the pad
-	face.Parent = head
+	local x = PUSHER_X * side
+	local inward = -side -- toward the pad, along X
+	local at = origin * CFrame.new(x, 0, 0)
 
-	local shoulder = (deck * CFrame.new(x - 0.7 * side, 1.2, 0)).Position
-	local fist = (deck * CFrame.new(4.4 * side, 1.2, 0)).Position
-	makePart(pusher, "Fist", Vector3.new(0.8, 0.8, 0.8), origin.Rotation + fist, FIST_COLOR)
-	local rod = makePart(pusher, "Rod", Vector3.new(0.35, 0.35, (fist - shoulder).Magnitude), CFrame.lookAt((shoulder + fist) / 2, fist), METAL_COLOR)
+	-- a round foot, the housing with a white stripe and a yellow cap, a lamp on top
+	makeColumn(pusher, "PusherFoot", 3, 0, 0.6, at, Color3.fromRGB(85, 45, 160))
+	local housingTop = DECK + PUNCH_Y + 1.4
+	makePart(pusher, "PusherHousing", Vector3.new(2.4, housingTop - 0.6, 2.6), at * CFrame.new(0, 0.6 + (housingTop - 0.6) / 2, 0), GANTRY_COLOR)
+	makeDecor(pusher, "PusherStripe", Vector3.new(2.5, 0.5, 2.7), at * CFrame.new(0, DECK - 0.5, 0), WHITE)
+	makeDecor(pusher, "PusherCap", Vector3.new(2.7, 0.6, 2.9), at * CFrame.new(0, housingTop + 0.3, 0), CLAW_COLOR)
+	makeBall(pusher, "PusherLamp", 1, at * CFrame.new(0, housingTop + 0.9, 0), Color3.fromRGB(255, 170, 40), Enum.Material.Neon)
+
+	-- the piston barrel aimed at the pad, a yellow ring at its mouth
+	local barrelY = DECK + PUNCH_Y
+	local barrelLength = 2.2
+	local mouthX = inward * (0.8 + barrelLength) -- from the press's middle
+	local barrel = makeDecor(pusher, "PusherBarrel", Vector3.new(barrelLength, 1.8, 1.8), at * CFrame.new(mouthX - inward * barrelLength / 2, barrelY, 0), WHITE)
+	barrel.Shape = Enum.PartType.Cylinder
+	local muzzle = makeDecor(pusher, "PusherMuzzle", Vector3.new(0.4, 2.1, 2.1), at * CFrame.new(mouthX, barrelY, 0), CLAW_COLOR)
+	muzzle.Shape = Enum.PartType.Cylinder
+
+	-- the glove, just out of the barrel: its cuff toward the barrel, its thumb up front
+	local shoulder = (at * CFrame.new(mouthX, barrelY, 0)).Position
+	local glove = origin.Rotation + (at * CFrame.new(mouthX + inward, barrelY, 0)).Position
+	local fist = makePart(pusher, "Fist", Vector3.one * 1.5, glove, GLOVE_COLOR)
+	fist.Shape = Enum.PartType.Ball
+	fist.CanCollide = false
+	local cuff = makeDecor(pusher, "FistCuff", Vector3.new(0.7, 1.3, 1.3), glove * CFrame.new(-inward * 0.75, 0, 0), WHITE)
+	cuff.Shape = Enum.PartType.Cylinder
+	makeBall(pusher, "FistThumb", 0.65, glove * CFrame.new(inward * 0.15, 0.5, -0.55), GLOVE_COLOR)
+	local rod = makePart(pusher, "Rod", Vector3.new(0.5, 0.5, (glove.Position - shoulder).Magnitude), CFrame.lookAt((shoulder + glove.Position) / 2, glove.Position), CHROME_COLOR, Enum.Material.Metal)
 	rod.CanCollide = false
 	pusher.Parent = parent
 end
@@ -375,12 +395,12 @@ end
 -- The Plushie Sewing Room's Assembler: a sewing-machine head whose needle stitches
 -- parts on, and two thread spools on pedestals beside the pad that reel the arms in.
 -- Each thread runs from its spool toward the pad, with its free end at the rod's -Z end.
-local NEEDLE_REST = 6 -- the needle's tip at rest, above the deck
+local NEEDLE_REST = 9 -- the needle's tip at rest, above the deck
 
 local function buildSewingMachine(parent: Model, origin: CFrame)
 	local deck = deckOf(origin)
 	makePart(parent, "NeedleHead", Vector3.new(2, 1.8, 2), deck * CFrame.new(0, GANTRY_BOTTOM - 0.9, 0), SEWING_LIGHT_COLOR)
-	local needle = makePart(parent, "Needle", Vector3.new(0.28, 2.6, 0.28), deck * CFrame.new(0, NEEDLE_REST + 1.3, 0), Color3.fromRGB(215, 215, 230), Enum.Material.Metal)
+	local needle = makePart(parent, "Needle", Vector3.new(0.28, 3.8, 0.28), deck * CFrame.new(0, NEEDLE_REST + 1.9, 0), Color3.fromRGB(215, 215, 230), Enum.Material.Metal)
 	needle.CanCollide = false
 	for index, side in { -1, 1 } do
 		local suffix = if side < 0 then "Left" else "Right"
@@ -585,22 +605,25 @@ end
 -- Plushie Sewing Room: a fluff machine, a glass dome on a cushy hot-pink base, a few
 -- fluff balls waiting inside. The brainrot hops in, fluff swirls around it until it's
 -- puffy, and it sinks into the base.
+local FLUFF_DOME = 11 -- across: the brainrot puffs up inside it
+
 local function buildFluffMachine(model: Model, spot: CFrame)
-	makeColumn(model, "FluffFoot", 10.4, 0, 1, spot, LAVENDER_COLOR, Enum.Material.Fabric)
-	local ship = makeColumn(model, "Ship", 9.4, 1, DECK, spot, SEWING_COLOR, Enum.Material.Fabric)
+	makeColumn(model, "FluffFoot", FLUFF_DOME + 2, 0, 1, spot, LAVENDER_COLOR, Enum.Material.Fabric)
+	local ship = makeColumn(model, "Ship", FLUFF_DOME + 1, 1, DECK, spot, SEWING_COLOR, Enum.Material.Fabric)
 	ship.CanCollide = true
 	ship.CanQuery = true
-	makeColumn(model, "FluffTrim", 9.8, DECK - 0.6, DECK + 0.3, spot, WHITE)
+	makeColumn(model, "FluffTrim", FLUFF_DOME + 1.4, DECK - 0.6, DECK + 0.3, spot, WHITE)
 	local deck = deckOf(spot)
-	for index, offset in { Vector3.new(-2, 0, 1.2), Vector3.new(1.8, 0, 1.6), Vector3.new(0.4, 0, -2.2), Vector3.new(-1.2, 0, -1), Vector3.new(2.4, 0, -0.6) } do
-		local size = 1.2 + (index % 3) * 0.3
+	for index, offset in { Vector3.new(-2.6, 0, 1.5), Vector3.new(2.3, 0, 2), Vector3.new(0.5, 0, -2.8), Vector3.new(-1.6, 0, -1.3), Vector3.new(3, 0, -0.8) } do
+		local size = 1.4 + (index % 3) * 0.35
 		makeBall(model, "FluffBall", size, deck * CFrame.new(offset + Vector3.new(0, 0.3 + size / 2, 0)), if index % 2 == 0 then WHITE else Color3.fromRGB(255, 225, 240), Enum.Material.Fabric)
 	end
-	local dome = makeBall(model, "FluffDome", 8.4, deck * CFrame.new(0, 0.3, 0), Color3.fromRGB(205, 235, 255), Enum.Material.Glass)
+	local dome = makeBall(model, "FluffDome", FLUFF_DOME, deck * CFrame.new(0, 0.3, 0), Color3.fromRGB(205, 235, 255), Enum.Material.Glass)
 	dome.Transparency = 0.7
-	makeColumn(model, "FluffCap", 2.8, DECK + 4.3, DECK + 5.2, spot, SEWING_COLOR)
-	makeBall(model, "FluffKnob", 1.8, deck * CFrame.new(0, 5.9, 0), WHITE, Enum.Material.Fabric)
-	makeBillboard(ship, "☁️ SHIPPING", Vector2.new(8, 2), 9, 80)
+	local top = FLUFF_DOME / 2 + 0.3 -- the dome's top, above the deck
+	makeColumn(model, "FluffCap", 3.2, DECK + top - 0.4, DECK + top + 0.6, spot, SEWING_COLOR)
+	makeBall(model, "FluffKnob", 2, deck * CFrame.new(0, top + 1.3, 0), WHITE, Enum.Material.Fabric)
+	makeBillboard(ship, "☁️ SHIPPING", Vector2.new(8, 2), 11, 80)
 end
 
 -- Each zone's special upgrade (Station3, GDD §6) stands over the end of the belt at
@@ -610,13 +633,14 @@ end
 -- Toy Workshop: the Toy Packer boxes the brainrot up in store packaging (a card back, a
 -- clear plastic window) before it goes into the toy box.
 local CARDBOARD_COLOR = Color3.fromRGB(215, 165, 110)
+local SPECIAL_LIFT = 5 -- the special machines' tops, this much over the old 8 above the deck
 local function buildPacker(model: Model, spot: CFrame, name: string)
-	local deck = deckOf(spot)
-	local height = DECK + 8
+	local deck = deckOf(spot) * CFrame.new(0, SPECIAL_LIFT, 0)
+	local height = DECK + 8 + SPECIAL_LIFT
 	for _, side in { -1, 1 } do
 		makePart(model, "PackerTower", Vector3.new(2, height, 5.4), spot * CFrame.new(side * SIDE_X, height / 2, 0), CLAW_COLOR)
-		makeDecor(model, "PackerStripe", Vector3.new(2.1, 1, 5.5), spot * CFrame.new(side * SIDE_X, DECK + 5.5, 0), GANTRY_COLOR)
-		makeDecor(model, "PackerStripe", Vector3.new(2.1, 0.5, 5.5), spot * CFrame.new(side * SIDE_X, DECK + 4.4, 0), WHITE)
+		makeDecor(model, "PackerStripe", Vector3.new(2.1, 1, 5.5), spot * CFrame.new(side * SIDE_X, DECK + 5.5 + SPECIAL_LIFT, 0), GANTRY_COLOR)
+		makeDecor(model, "PackerStripe", Vector3.new(2.1, 0.5, 5.5), spot * CFrame.new(side * SIDE_X, DECK + 4.4 + SPECIAL_LIFT, 0), WHITE)
 	end
 	local top = makePart(model, "Station3", Vector3.new(17.6, 2.8, 6), deck * CFrame.new(0, 9.4, 0), GANTRY_COLOR)
 	makePart(model, "Station3Glow", Vector3.new(13, 0.3, 4.6), deck * CFrame.new(0, 7.85, 0), WHITE, Enum.Material.Neon)
@@ -643,11 +667,12 @@ end
 -- it goes into the fluff machine. A giant bow sits on its arch, with the ribbon spool
 -- behind it.
 local function buildBowTier(model: Model, spot: CFrame, name: string)
-	local deck = deckOf(spot)
-	local height = DECK + 8
+	local deck = deckOf(spot) * CFrame.new(0, SPECIAL_LIFT, 0)
+	local height = DECK + 8 + SPECIAL_LIFT
 	for _, side in { -1, 1 } do
 		makeColumn(model, "BowLeg", 1.8, 0, height, spot * CFrame.new(side * SIDE_X, 0, 0), LAVENDER_COLOR)
 		makeColumn(model, "BowLegStripe", 2, DECK + 3, DECK + 3.6, spot * CFrame.new(side * SIDE_X, 0, 0), WHITE)
+		makeColumn(model, "BowLegStripe", 2, DECK + 8, DECK + 8.6, spot * CFrame.new(side * SIDE_X, 0, 0), WHITE)
 	end
 	local top = makePart(model, "Station3", Vector3.new(17, 1.8, 3.8), deck * CFrame.new(0, 8.9, 0), LAVENDER_COLOR)
 	makeDecor(model, "Station3Stripe", Vector3.new(17.1, 0.45, 3.9), deck * CFrame.new(0, 8.9, 0), WHITE)
@@ -670,7 +695,7 @@ end
 -- room's have lavender legs topped with yarn balls and, on the beam, the Dye Bath's
 -- bucket of fabric dye or the Sequin Shower's spinning disco ball.
 local ARCH_X = 7 -- its legs, from the belt's middle
-local ARCH_TOP = 7 -- the beam's middle, above the deck
+local ARCH_TOP = 10.5 -- the beam's middle, above the deck (clear of the tallest brainrot)
 
 local function buildArch(model: Model, spot: CFrame, item: TycoonItems.Item, color: Color3, legColor: Color3, material: Enum.Material?): BasePart
 	local deck = deckOf(spot)
