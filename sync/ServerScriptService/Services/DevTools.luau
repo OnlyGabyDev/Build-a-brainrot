@@ -11,6 +11,7 @@
 	  dev:Invoke("ShowOnLine", player, "TrippiTroppi", lineId) -- to see its art on a line
 	  dev:Invoke("BuildUpgrade", player, "ToyWorkshop_Decor_ToyTrain_2") -- a room upgrade level drops in
 	  dev:Invoke("ResetPlot", player)  -- rebuilds the tycoon from the data
+	  dev:Invoke("SetPurchased", player, "Floor_3", false) -- un-buys an item (free) and rebuilds
 
 	Never created in live servers.
 ]]
@@ -54,6 +55,15 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 		return TycoonManager.DevBuildUpgrade(player, itemId)
 	end,
 	ResetPlot = function(player)
+		TycoonManager.ResetPlot(player)
+		return true
+	end,
+	-- Marks a tycoon item bought or not (free), then rebuilds the plot from the data.
+	-- It saves, so Snapshot first.
+	SetPurchased = function(player, itemId, purchased)
+		if not DataManager.DevSetPurchased(player, itemId, purchased == true) then
+			return false
+		end
 		TycoonManager.ResetPlot(player)
 		return true
 	end,

@@ -3,7 +3,8 @@
 	Ids: line "ToyWorkshop_1", its unlock "ToyWorkshop_1_Line", its items
 	"ToyWorkshop_1_Head", "ToyWorkshop_1_Speed1", ...; room upgrades (Config/RoomUpgrades)
 	"ToyWorkshop_Decor_GiftTower_1", one per level; line upgrade tracks (Config/LineUpgrades)
-	"ToyWorkshop_1_UpDroppers_1", one per level, bought from the line's tablet (no button).
+	"ToyWorkshop_1_UpDroppers_1", one per level, bought from the line's tablet (no button);
+	floors "Floor_3", one per storey above the first two (a button out front).
 	Buttons appear one after another: each item requires the previous one.
 	Prices are placeholders to tune in playtests.
 ]]
@@ -16,15 +17,15 @@ export type Item = {
 	Id: string,
 	Key: string, -- "Line", "Head", "Speed1", ... (used for layout)
 	Name: string,
-	Kind: string, -- "Line" | "Dropper" | "Speed" | "Station" | "Decor" (a room upgrade's level) | "Track" (a line upgrade's level)
+	Kind: string, -- "Line" | "Dropper" | "Speed" | "Station" | "Decor" (a room upgrade's level) | "Track" (a line upgrade's level) | "Floor" (a storey)
 	Price: number,
 	Requires: string?, -- item that must be bought first
 	Zone: string,
 	LineId: string?, -- every kind but Decor
 	PartType: string?, -- Dropper only
 	Multiplier: number?, -- Speed: cycle speed ×, Station: ship value ×, Decor: the room's ship value ×
-	Level: number?, -- Decor and Track
-	Rebirths: number?, -- Decor only: rebirths needed to buy it
+	Level: number?, -- Decor and Track; a Floor's storey
+	Rebirths: number?, -- Decor and Floor: rebirths needed to buy it
 }
 
 export type Line = {
@@ -63,6 +64,7 @@ TycoonItems.Lines = {} :: { Line }
 TycoonItems.LinesById = {} :: { [string]: Line }
 TycoonItems.DecorByZone = {} :: { [string]: { Item } } -- every room upgrade level, per zone
 TycoonItems.TracksByLine = {} :: { [string]: { [string]: { Item } } } -- [lineId][track] = its levels, in order
+TycoonItems.Floors = {} :: { Item } -- the storeys to buy, in order
 
 local function register(item: Item)
 	assert(not TycoonItems.ById[item.Id], `Duplicate tycoon item {item.Id}`)
@@ -184,6 +186,44 @@ for _, upgrade in RoomUpgrades.List do
 		table.insert(decor, item)
 		requires = item.Id
 	end
+end
+
+-- Floors (GDD §10): the factory starts with 2 storeys; each one above is bought from a
+-- button out front, in order, and drops in (TycoonManager). Its rooms' zones unlock as
+-- usual. Placeholder prices.
+local FLOORS = {
+	{ Storey = 3, Name = "3rd Floor: Candy Factory", Price = 250000, Rebirths = 1 },
+}
+do
+	local previous: string? = nil
+	for _, floor in FLOORS do
+		local item: Item = {
+			Id = `Floor_{floor.Storey}`,
+			Key = `Floor{floor.Storey}`,
+			Name = floor.Name,
+			Kind = "Floor",
+			Price = floor.Price,
+			Requires = previous,
+			Zone = Zones.List[1].Id, -- open from the start: only its rebirths lock it
+			Level = floor.Storey,
+			Rebirths = floor.Rebirths,
+		}
+		register(item)
+		table.insert(TycoonItems.Floors, item)
+		previous = item.Id
+	end
+end
+
+-- How many storeys a factory has with `purchased`'s floors, starting from `base`.
+function TycoonItems.StoreysOf(purchased: { [string]: boolean }, base: number): number
+	local storeys = base
+	for _, floor in TycoonItems.Floors do
+		if not purchased[floor.Id] then
+			break
+		end
+		storeys = floor.Level :: number
+	end
+	return storeys
 end
 
 -- How many levels of a line's upgrade `track` are bought (they're bought in order).

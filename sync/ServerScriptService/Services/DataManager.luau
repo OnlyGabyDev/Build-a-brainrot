@@ -623,6 +623,17 @@ function DataManager.DevSnapshot(player: Player): PlayerData?
 end
 
 -- Puts a snapshot back and re-replicates everything. The caller rebuilds the tycoon.
+-- Marks a tycoon item bought or not, for free (Studio tests; DevTools SetPurchased).
+function DataManager.DevSetPurchased(player: Player, itemId: string, purchased: boolean): boolean
+	assert(IS_STUDIO, "DevSetPurchased is Studio-only")
+	local profile = profiles[player]
+	if not profile then
+		return false
+	end
+	profile.Data.Tycoon.Purchased[itemId] = if purchased then true else nil
+	return true
+end
+
 function DataManager.DevRestore(player: Player, snapshot: PlayerData): boolean
 	assert(IS_STUDIO, "DevRestore is Studio-only")
 	local profile = profiles[player]

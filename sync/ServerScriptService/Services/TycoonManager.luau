@@ -53,6 +53,8 @@ local PLOT_COLORS = {
 }
 
 local SPAWN_OFFSET = CFrame.new(0, FLOOR_TOP + 4, -54) * CFrame.Angles(0, math.pi, 0) -- facing into the plot
+local FLOOR_BUTTON = Vector3.new(-30, 0, -78) -- the next floor's button, on the lawn out front
+local OLD_BUILDING_DELAY = 2 -- seconds the old building stays (minus its top) while the new one streams in
 local CASH_PAD_OFFSET = CFrame.new(0, FLOOR_TOP + 0.3, -46)
 
 -- Line origins sit on the floor. Parts flow from the droppers (+Z) to the finishing
@@ -118,6 +120,8 @@ export type Plot = {
 	Model: Model,
 	CFrame: CFrame,
 	Color: Color3, -- the plot's pastel color
+	Building: Model, -- the factory (FactoryBuilder), rebuilt when it grows a floor
+	Storeys: number,
 	LinesFolder: Folder,
 	ButtonsFolder: Folder,
 	SignLabel: TextLabel,
@@ -1062,7 +1066,13 @@ type Arrival = { Waves: { [Model]: number }, Count: number, Order: number }
 -- part is tagged with its item, and a freshly bought one (or one in an `arrival`) also
 -- with the server time it was built, so clients can play the build animation
 -- (TycoonFX) for new things only.
+local syncBuilding: (plot: Plot, dropIn: boolean) -> ()
+
 local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?, arrival: Arrival?)
+	if item.Kind == "Floor" then
+		syncBuilding(plot, bought == true or arrival ~= nil)
+		return
+	end
 	local model = if item.Kind == "Decor"
 		then getDecorModel(plot, item)
 		elseif item.Kind == "Track" then getTrackModel(plot, item)
@@ -1179,7 +1189,13 @@ end
 local function createButton(plot: Plot, item: TycoonItems.Item)
 	local cframe: CFrame
 	local text: string
-	if item.Kind == "Decor" then
+	if item.Kind == "Floor" then
+		-- the next floor's button, on the lawn in front of the factory
+		cframe = plot.CFrame * CFrame.new(FLOOR_BUTTON.X, 0.2, FLOOR_BUTTON.Z)
+		text = if isLocked(plot, item)
+			then `🏗️ {item.Name}\n🔒 REBIRTH {item.Rebirths}`
+			else `🏗️ {item.Name}\n{priceText(item.Price)}`
+	elseif item.Kind == "Decor" then
 		-- a room upgrade's button sits by its spot in the room
 		local spot = RoomUpgradeBuilder.ButtonSpot(item.Key)
 		cframe = roomFloor(plot, item.Zone) * CFrame.new(spot.X, 0.2, spot.Z)
@@ -1192,8 +1208,9 @@ local function createButton(plot: Plot, item: TycoonItems.Item)
 		cframe = lineOrigin(plot, item.LineId :: string) * CFrame.new(offset.X, 0.2, offset.Z)
 		text = `{item.Name}\n{priceText(item.Price)}`
 	end
-	local button = makePart(plot.ButtonsFolder, item.Id, Vector3.new(5, 0.4, 5), cframe, AFFORDABLE_COLOR, Enum.Material.Neon)
-	makeBillboard(button, text, if item.Kind == "Decor" then Vector2.new(7.5, 3.4) else Vector2.new(7, 2.5), 3, 60)
+	local big = item.Kind == "Floor"
+	local button = makePart(plot.ButtonsFolder, item.Id, if big then Vector3.new(8, 0.4, 8) else Vector3.new(5, 0.4, 5), cframe, AFFORDABLE_COLOR, Enum.Material.Neon)
+	makeBillboard(button, text, if big then Vector2.new(12, 3.6) elseif item.Kind == "Decor" then Vector2.new(7.5, 3.4) else Vector2.new(7, 2.5), if big then 4 else 3, if big then 150 else 60)
 	button.Touched:Connect(function(hit)
 		onButtonTouched(plot, item, hit)
 	end)
@@ -1258,6 +1275,49 @@ local function updateZoneLabels(plot: Plot)
 	end
 end
 
+-- (Re)builds the plot's factory `storeys` high. With `dropFrom`, the storeys from there
+-- up (and the roof) drop in on clients (FactoryBuilder.PrepareDropIn, TycoonFX). The old
+-- building's top goes at once; the rest of it stays a moment while the new one streams
+-- in (they're the same down there), so the plot never blinks empty.
+local function rebuildBuilding(plot: Plot, storeys: number, dropFrom: number?)
+	local old = plot.Building
+	local keep = math.min(storeys, plot.Storeys) -- the old storeys the new building shares
+	local building = Instance.new("Model")
+	building.Name = "Building"
+	local factory = FactoryBuilder.Build(building, plot.CFrame, plot.Color, storeys)
+	if dropFrom then
+		FactoryBuilder.PrepareDropIn(building, plot.CFrame, dropFrom)
+	end
+	building.Parent = plot.Model
+	plot.Building = building
+	plot.Storeys = storeys
+	plot.SignLabel = factory.SignLabel
+	plot.Doorways = factory.Doorways
+	plot.SignLabel.Text = if plot.Owner then `{plot.Owner.DisplayName}'s Brainrot Factory` else "Empty Plot"
+	updateZoneLabels(plot)
+	for _, child in old:GetChildren() do
+		local level = child:GetAttribute("Level")
+		if typeof(level) == "number" and level > keep then
+			child:Destroy()
+		end
+	end
+	task.delay(OLD_BUILDING_DELAY, function()
+		old:Destroy()
+	end)
+end
+
+-- Makes the plot's factory as tall as its owner's floors (2 storeys, without one). A
+-- new floor drops in when `dropIn`.
+syncBuilding = function(plot: Plot, dropIn: boolean)
+	local data = plot.Owner and DataManager.GetData(plot.Owner)
+	local storeys = if data
+		then TycoonItems.StoreysOf(data.Tycoon.Purchased, FactoryBuilder.BaseStoreys)
+		else FactoryBuilder.BaseStoreys
+	if storeys ~= plot.Storeys then
+		rebuildBuilding(plot, storeys, if dropIn and storeys > plot.Storeys then plot.Storeys + 1 else nil)
+	end
+end
+
 local function buildPlot(index: number, parent: Instance): Plot
 	local angle = (index - 1) / PLOT_COUNT * math.pi * 2
 	local center = Vector3.new(math.sin(angle), 0, math.cos(angle)) * PLOT_RADIUS
@@ -1268,7 +1328,10 @@ local function buildPlot(index: number, parent: Instance): Plot
 	model.WorldPivot = cframe
 	model.Parent = parent
 
-	local factory = FactoryBuilder.Build(model, cframe, PLOT_COLORS[index])
+	local building = Instance.new("Model")
+	building.Name = "Building"
+	local factory = FactoryBuilder.Build(building, cframe, PLOT_COLORS[index], FactoryBuilder.BaseStoreys)
+	building.Parent = model
 
 	local cashPad = makePart(model, "CashPad", Vector3.new(8, 0.6, 8), cframe * CASH_PAD_OFFSET, Color3.fromRGB(255, 215, 0), Enum.Material.Neon)
 	local cashLabel = makeBillboard(cashPad, "", Vector2.new(8, 3), 4, 100)
@@ -1285,6 +1348,8 @@ local function buildPlot(index: number, parent: Instance): Plot
 		Model = model,
 		CFrame = cframe,
 		Color = PLOT_COLORS[index],
+		Building = building,
+		Storeys = FactoryBuilder.BaseStoreys,
 		LinesFolder = linesFolder,
 		ButtonsFolder = buttonsFolder,
 		SignLabel = factory.SignLabel,
@@ -1329,6 +1394,7 @@ end
 -- unlocked zone first), then shows their next buttons.
 -- Builds everything the player owns into the plot, dropping it all in on clients.
 local function furnishPlot(plot: Plot, player: Player, data: DataManager.PlayerData)
+	syncBuilding(plot, true) -- as tall as its floors (a rebirth takes them away)
 	local arrival: Arrival = { Waves = {}, Count = 0, Order = 0 }
 	for _, item in TycoonItems.List do
 		if item.Price == 0 and item.Requires == nil and isZoneUnlocked(data, item.Zone) then
@@ -1407,6 +1473,7 @@ local function releasePlot(player: Player)
 	plot.Owner = nil
 	plot.Collected = 0
 	plot.SignLabel.Text = "Empty Plot"
+	syncBuilding(plot, false) -- back to 2 storeys
 	updateCashLabel(plot)
 	updateZoneLabels(plot)
 end

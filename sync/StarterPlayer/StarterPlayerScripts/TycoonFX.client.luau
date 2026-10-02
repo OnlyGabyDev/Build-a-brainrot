@@ -557,9 +557,76 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 end)
 
+-- Floors -------------------------------------------------------------------------
+
+-- When a factory grows a floor, the server rebuilds it with the new storey (and the roof)
+-- stamped to drop in (FactoryBuilder.PrepareDropIn). Hide those parts as they stream in,
+-- then drop them chunk by chunk, bottom first: the storey, then the roof on top of it.
+local FLOOR_WINDOW = 10 -- seconds after the rebuild that it still drops in
+local FLOOR_GATHER = 0.6 -- seconds to gather the parts as they stream in
+local FLOOR_LAYER_GAP = 2.4 -- seconds between one layer's drop and the next's
+
+local function watchBuilding(building: Instance)
+	if not (building:IsA("Model") and building.Name == "Building") then
+		return
+	end
+	local at, from = building:GetAttribute("DropAt"), building:GetAttribute("DropFrom")
+	if typeof(at) ~= "number" or typeof(from) ~= "number" or workspace:GetServerTimeNow() - at > FLOOR_WINDOW then
+		return
+	end
+	local byLayer: { [Model]: { BasePart } } = {}
+	-- the layer (a Cutaway model right under the building) a part belongs to
+	local function layerOf(part: Instance): Model?
+		local node = part.Parent
+		while node and node ~= building do
+			if node:IsA("Model") and node.Parent == building and typeof(node:GetAttribute("Level")) == "number" then
+				return node
+			end
+			node = node.Parent
+		end
+		return nil
+	end
+	local function take(part: Instance)
+		if part:IsA("BasePart") and part:GetAttribute("Built") then
+			local layer = layerOf(part)
+			if layer then
+				DropIn.hide(part)
+				local parts = byLayer[layer] or {}
+				byLayer[layer] = parts
+				table.insert(parts, part)
+			end
+		end
+	end
+	for _, part in building:GetDescendants() do
+		take(part)
+	end
+	local connection = building.DescendantAdded:Connect(take)
+	task.delay(FLOOR_GATHER, function()
+		connection:Disconnect()
+		local layers = {}
+		for layer in byLayer do
+			table.insert(layers, layer)
+		end
+		table.sort(layers, function(a, b)
+			return (a:GetAttribute("Level") :: number) < (b:GetAttribute("Level") :: number)
+		end)
+		for index, layer in layers do
+			DropIn.play(layer, byLayer[layer], {
+				Delay = (index - 1) * FLOOR_LAYER_GAP,
+				Light = index < #layers,
+				Title = if index == #layers then "🏗️ NEW FLOOR!" else nil,
+			})
+		end
+	end)
+end
+
 -- Plots ------------------------------------------------------------------------
 
 local function watchPlot(plot: Instance)
+	for _, child in plot:GetChildren() do
+		watchBuilding(child)
+	end
+	plot.ChildAdded:Connect(watchBuilding)
 	task.spawn(function()
 		watchLines(plot:WaitForChild("Lines"))
 	end)

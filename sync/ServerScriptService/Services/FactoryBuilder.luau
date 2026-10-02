@@ -1,8 +1,9 @@
 --[[
 	FactoryBuilder
 	Builds each plot's factory building around its lines (GDD §10): a toy-house tower
-	that grows a storey at a time, all in the plot's own color at a different strength
-	per storey. The ground floor (Toy Workshop front, Plushie room back) is brick with
+	that grows a storey at a time (it starts with 2; more are bought, and each new one
+	drops in: PrepareDropIn), all in the plot's own color at a different strength per
+	storey. The ground floor (Toy Workshop front, Plushie room back) is brick with
 	chunky trims and flower boxes; the 2nd floor (Clay Studio, Vinyl Collectibles)
 	lighter wood siding with bold shutters, flower boxes and a little balcony; the 3rd
 	floor (Candy Factory, over the front half only) a candy shop: white stripes, a
@@ -85,7 +86,13 @@ local STOREYS = 0
 for _, spot in FactoryBuilder.Layout do
 	STOREYS = math.max(STOREYS, spot.Storey)
 end
-local ROOF_BASE = floorY(STOREYS + 1) + 0.5 -- where the roof meets the walls
+-- The factory starts with BaseStoreys and grows a storey at a time as floors are bought
+-- (TycoonManager); Build puts the roof on whichever storey is its top. These two follow
+-- the building being built.
+FactoryBuilder.BaseStoreys = 2
+FactoryBuilder.MaxStoreys = STOREYS
+local topStorey = STOREYS
+local roofBase = floorY(topStorey + 1) + 0.5 -- where the roof meets the walls
 
 -- Creator Store textures (each decal's image id), white so they take a tint.
 local BRICK_TEXTURE = "rbxassetid://74130396057975" -- decal 92246549548513
@@ -512,7 +519,7 @@ local function makeCutaway(model: Model, name: string, level: number, cframe: CF
 	cutaway.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	cutaway.WorldPivot = cframe * CFrame.new(0, FLOOR_TOP, (FRONT_Z + BACK_Z) / 2)
 	cutaway:SetAttribute("Level", level)
-	cutaway:SetAttribute("Area", Vector3.new(ROOM_SIZE.X, STOREYS * STOREY, BACK_Z - FRONT_Z))
+	cutaway:SetAttribute("Area", Vector3.new(ROOM_SIZE.X, topStorey * STOREY, BACK_Z - FRONT_Z))
 	cutaway:SetAttribute("StoreyHeight", STOREY)
 	cutaway:SetAttribute("CeilingHeight", CEILING)
 	CollectionService:AddTag(cutaway, "Cutaway")
@@ -856,17 +863,21 @@ end
 
 -- The outside stairs up the +X wall: a flight to the 2nd floor's side door (under a
 -- crooked little porch roof, in `upper`: it goes with the 2nd floor in the cutaway),
--- then another on to the terrace over the back half. Plot space. Returns where the
--- top landing is along Z.
-local function buildStairs(parent: Instance, upper: Instance, cframe: CFrame, palette: Palette): (number, number)
+-- then, `toTerrace`, another on to the terrace over the back half (the 2nd floor's
+-- landing is the top one without it). Plot space. Returns where the top landing is
+-- along Z.
+local function buildStairs(parent: Instance, upper: Instance, cframe: CFrame, palette: Palette, toTerrace: boolean): (number, number)
 	local doorFrom, doorTo = SIDE_DOOR_Z - 9, SIDE_DOOR_Z + 9
 	local top2, top3 = floorY(2), floorY(3)
 	local steps = math.floor(top2) - 1
 	buildFlight(parent, cframe, doorFrom - steps * 2, 0, top2)
-	buildLanding(parent, cframe, doorFrom, doorTo, top2, false)
-	local terraceFrom = buildFlight(parent, cframe, doorTo, top2, top3)
-	local terraceTo = terraceFrom + 18
-	buildLanding(parent, cframe, terraceFrom, terraceTo, top3, true)
+	buildLanding(parent, cframe, doorFrom, doorTo, top2, not toTerrace)
+	local terraceFrom, terraceTo = doorFrom, doorTo
+	if toTerrace then
+		terraceFrom = buildFlight(parent, cframe, doorTo, top2, top3)
+		terraceTo = terraceFrom + 18
+		buildLanding(parent, cframe, terraceFrom, terraceTo, top3, true)
+	end
 
 	-- the crooked porch roof over the door, on two posts
 	local roofLow, roofHigh = top2 + 21, top2 + 23.5
@@ -910,13 +921,13 @@ end
 -- A round turret on a corner (`base`: on the ground at its center), on a corbel,
 -- with a window per storey and a crooked stepped cone roof with a flag.
 local function buildTurret(parent: Instance, base: CFrame, outward: Vector3, palette: Palette)
-	local bottom, top = floorY(2) - 2.5, ROOF_BASE + 14
+	local bottom, top = floorY(2) - 2.5, roofBase + 14
 	makeCylinder(parent, "Corbel", 6, 2, base * CFrame.new(0, bottom - 6.5, 0), palette.Dark)
 	makeCylinder(parent, "Corbel", 10, 2, base * CFrame.new(0, bottom - 4.5, 0), palette.Dark)
 	makeCylinder(parent, "Corbel", 14, 2.5, base * CFrame.new(0, bottom - 2.5, 0), palette.Dark)
 	makeCylinder(parent, "Turret", 16, top - bottom, base * CFrame.new(0, bottom, 0), palette.Accent)
-	local windows = { ROOF_BASE + 6 }
-	for storey = 2, STOREYS do
+	local windows = { roofBase + 6 }
+	for storey = 2, topStorey do
 		makeCylinder(parent, "TurretBand", 16.8, 1.2, base * CFrame.new(0, floorY(storey + 1) - 2, 0), palette.Dark)
 		table.insert(windows, floorY(storey) + 15)
 	end
@@ -1059,23 +1070,23 @@ end
 -- The roof over the top storey (from `fromZ` to `toZ`): a gable facing the hub with
 -- the clock in it, the ridge running front to back. Plot space.
 local function buildRoof(layer: Instance, cframe: CFrame, fromZ: number, toZ: number, palette: Palette)
-	local wallTop = floorY(STOREYS + 1)
+	local wallTop = floorY(topStorey + 1)
 	local frontFrom, frontTo = fromZ - 4, toZ + 1
 	local middle = (frontFrom + frontTo) / 2
-	local ridge = (cframe * CFrame.new(0, ROOF_BASE + FRONT_RISE, middle)).Position
+	local ridge = (cframe * CFrame.new(0, roofBase + FRONT_RISE, middle)).Position
 	local drop = OVERHANG * FRONT_RISE / HALF_X
 	for _, side in { -1, 1 } do
-		local eave = (cframe * CFrame.new(side * (HALF_X + OVERHANG), ROOF_BASE - drop, middle)).Position
+		local eave = (cframe * CFrame.new(side * (HALF_X + OVERHANG), roofBase - drop, middle)).Position
 		buildSlope(layer, ridge, eave, cframe.ZVector, frontTo - frontFrom, palette)
 	end
 	local cap = makeDecor(layer, "RidgeCap", Vector3.new(frontTo - frontFrom + 1.6, 2.6, 2.6), CFrame.fromMatrix(ridge + Vector3.new(0, 0.3, 0), cframe.ZVector, Vector3.yAxis), palette.Dark)
 	cap.Shape = Enum.PartType.Cylinder
-	local height = ROOF_BASE + FRONT_RISE - wallTop
+	local height = roofBase + FRONT_RISE - wallTop
 	buildGable(layer, cframe * CFrame.new(0, wallTop, fromZ + WALL / 2), ROOM_SIZE.X, height, palette.Siding)
 	buildGable(layer, cframe * CFrame.new(0, wallTop, toZ - WALL / 2) * CFrame.Angles(0, math.pi, 0), ROOM_SIZE.X, height, palette.Siding)
 	buildClock(layer, cframe * CFrame.new(0, wallTop + 10, fromZ), palette)
 	-- a pinwheel on the gable's peak, facing the hub
-	buildPinwheel(layer, cframe * CFrame.new(0, ROOF_BASE + FRONT_RISE + 1, frontFrom + 1.5), 7, 13)
+	buildPinwheel(layer, cframe * CFrame.new(0, roofBase + FRONT_RISE + 1, frontFrom + 1.5), 7, 13)
 end
 
 -- A giant lollipop (`at`: the foot of its stick, -Z the way it faces), its white
@@ -1346,7 +1357,7 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 		if isLast then
 			-- the back wall; the top storey's opens onto the terrace behind it
 			local back = center * CFrame.new(0, 0, halfZ - WALL / 2) * CFrame.Angles(0, math.pi, 0)
-			local terraceDoor = storey == STOREYS and storey > 1
+			local terraceDoor = storey == topStorey and storey > 1
 			local openings = if terraceDoor then { { X = 0, Width = TERRACE_DOOR.X, Height = TERRACE_DOOR.Y } } else {}
 			buildOuterWall(layer, back, inner, openings, facade.Windows, room, storey, palette, false)
 			if terraceDoor then
@@ -1363,7 +1374,7 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 	-- cornice under the roof), with icing dripping off the candy floor's.
 	local depth = toZ - fromZ
 	local middleZ = (fromZ + toZ) / 2
-	local isTop = storey == STOREYS
+	local isTop = storey == topStorey
 	local bandHeight, bandOut = if isTop then 2.5 else 3, if isTop then 2 else 1.4
 	local bandTop = if isTop then STOREY - 0.5 else STOREY
 	local function ring(name: string, height: number, out: number, y: number, color: Color3, skipEntrance: boolean)
@@ -1434,19 +1445,25 @@ end
 
 -- API ------------------------------------------------------------------------------
 
--- Builds the factory for a plot at `cframe`: a room for each zone in the layout,
--- open or not. `color` is the plot's own pastel color, which tints the whole outside.
-function FactoryBuilder.Build(model: Model, cframe: CFrame, color: Color3): Factory
+-- Builds the factory for a plot at `cframe`, `height` storeys high (all of them if nil): a
+-- room for each zone in the layout up there, open or not, and the roof on top. `color`
+-- is the plot's own pastel color, which tints the whole outside.
+function FactoryBuilder.Build(model: Model, cframe: CFrame, color: Color3, height: number?): Factory
+	topStorey = math.clamp(height or STOREYS, 1, STOREYS)
+	roofBase = floorY(topStorey + 1) + 0.5
 	local factory: Factory = { SignLabel = (nil :: any) :: TextLabel, Doorways = {} }
 	local palette = paletteOf(color)
 	local layers: { Instance } = { model }
-	for level = 2, STOREYS + 1 do
-		local name = if level > STOREYS then "Roof" else `Storey{level}`
+	for level = 2, topStorey + 1 do
+		local name = if level > topStorey then "Roof" else `Storey{level}`
 		table.insert(layers, makeCutaway(model, name, level, cframe))
 	end
 
 	local storeys: { { Room } } = {}
 	for index, spot in FactoryBuilder.Layout do
+		if spot.Storey > topStorey then
+			continue -- not built yet
+		end
 		local zoneId = Zones.List[index].Id
 		storeys[spot.Storey] = storeys[spot.Storey] or {}
 		table.insert(storeys[spot.Storey], { ZoneId = zoneId, Z = spot.Z, Style = ROOM_STYLES[zoneId] or ROOM_STYLES.ToyWorkshop })
@@ -1458,9 +1475,9 @@ function FactoryBuilder.Build(model: Model, cframe: CFrame, color: Color3): Fact
 		buildStorey(layers, cframe, storey, rooms, palette, factory)
 	end
 
-	local stairsFrom, stairsTo = buildStairs(model, layers[2], cframe, palette)
+	local stairsFrom, stairsTo = buildStairs(model, layers[2], cframe, palette, topStorey >= 3)
 	-- a terrace on every room with nothing above it (below the top storey)
-	for storey = 1, STOREYS - 1 do
+	for storey = 1, topStorey - 1 do
 		for _, room in storeys[storey] do
 			local covered = false
 			for _, upstairs in storeys[storey + 1] do
@@ -1471,9 +1488,9 @@ function FactoryBuilder.Build(model: Model, cframe: CFrame, color: Color3): Fact
 			end
 		end
 	end
-	local top = storeys[STOREYS]
-	buildRoof(layers[STOREYS + 1], cframe, top[1].Z - ROOM_SIZE.Z / 2, top[#top].Z + ROOM_SIZE.Z / 2, palette)
-	buildTurret(layers[STOREYS + 1], cframe * CFrame.new(-HALF_X - 2, 0, FRONT_Z - 2), (cframe:VectorToWorldSpace(Vector3.new(-1, 0, -1))).Unit, palette)
+	local top = storeys[topStorey]
+	buildRoof(layers[topStorey + 1], cframe, top[1].Z - ROOM_SIZE.Z / 2, top[#top].Z + ROOM_SIZE.Z / 2, palette)
+	buildTurret(layers[topStorey + 1], cframe * CFrame.new(-HALF_X - 2, 0, FRONT_Z - 2), (cframe:VectorToWorldSpace(Vector3.new(-1, 0, -1))).Unit, palette)
 	for index, z in { FRONT_Z + ROOM_SIZE.Z + 10, BACK_Z - 10 } do
 		local pipeColor = if index == 1 then palette.Accent else Color3.fromRGB(210, 222, 240)
 		buildPipe(layers, cframe * CFrame.new(-HALF_X - 3, 0, z) * CFrame.Angles(0, math.pi, 0), floorY(3) - 4, pipeColor, palette.Dark)
@@ -1488,6 +1505,75 @@ function FactoryBuilder.Build(model: Model, cframe: CFrame, color: Color3): Fact
 		end
 	end
 	return factory
+end
+
+-- Readies a freshly built factory's storeys from `fromLevel` up (and its roof) to drop in
+-- on clients (TycoonFX, DropIn): each of those layers' loose parts is grouped into
+-- chunks on a grid (in plot space, `cframe`), which fall one after another, bottom
+-- first, layer by layer; every part is stamped with its chunk's place in line
+-- (BuildIndex) and the time (Built), and the model with DropFrom and DropAt.
+local CHUNK = Vector3.new(47, 15, 40)
+
+function FactoryBuilder.PrepareDropIn(model: Model, cframe: CFrame, fromLevel: number)
+	local now = workspace:GetServerTimeNow()
+	local layers = {}
+	for _, child in model:GetChildren() do
+		local level = child:GetAttribute("Level")
+		if child:IsA("Model") and typeof(level) == "number" and level >= fromLevel then
+			table.insert(layers, child)
+		end
+	end
+	table.sort(layers, function(a, b)
+		return (a:GetAttribute("Level") :: number) < (b:GetAttribute("Level") :: number)
+	end)
+	local order = 0
+	for _, layer in layers do
+		local function cellOf(position: Vector3): Vector3
+			local offset = cframe:PointToObjectSpace(position)
+			return Vector3.new(math.floor(offset.X / CHUNK.X), math.floor(offset.Y / CHUNK.Y), math.floor(offset.Z / CHUNK.Z))
+		end
+		-- the pieces: a chunk Model per cell for the loose parts, and the layer's own
+		-- sub-Models (spinners, balloons) as they are
+		local chunks: { [Vector3]: Model } = {}
+		local pieces: { { Model: Model, Cell: Vector3 } } = {}
+		for _, child in layer:GetChildren() do
+			if child:IsA("BasePart") then
+				local cell = cellOf(child.Position)
+				local chunk = chunks[cell]
+				if not chunk then
+					chunk = Instance.new("Model")
+					chunk.Name = "Chunk"
+					chunks[cell] = chunk
+					table.insert(pieces, { Model = chunk, Cell = cell })
+				end
+				child.Parent = chunk
+			elseif child:IsA("Model") then
+				table.insert(pieces, { Model = child, Cell = cellOf(child:GetPivot().Position) })
+			end
+		end
+		for _, chunk in chunks do
+			chunk.Parent = layer
+		end
+		table.sort(pieces, function(a, b)
+			if a.Cell.Y ~= b.Cell.Y then
+				return a.Cell.Y < b.Cell.Y
+			elseif a.Cell.Z ~= b.Cell.Z then
+				return a.Cell.Z < b.Cell.Z
+			end
+			return a.Cell.X < b.Cell.X
+		end)
+		for _, piece in pieces do
+			order += 1
+			for _, part in piece.Model:GetDescendants() do
+				if part:IsA("BasePart") then
+					part:SetAttribute("BuildIndex", order)
+					part:SetAttribute("Built", now)
+				end
+			end
+		end
+	end
+	model:SetAttribute("DropFrom", fromLevel)
+	model:SetAttribute("DropAt", now)
 end
 
 -- Shows a room's sign with `lock` under it and locks its glass door, or opens the

@@ -265,7 +265,7 @@ Zones aren't only floors. The factory **physically expands**: new floors, annexe
 
 **Decided, not built yet (the user, 2026-10-02):**
 - **The first run holds every room up to the Candy Factory.** The Toy Workshop, the Plushie room, the Clay Studio and Vinyl Collectibles are all bought with Coins before the first rebirth; the Candy Factory needs Rebirth 1. Reaching the first rebirth should take **at least ~3 hours**, with many upgrades along the way. (The table's unlock column is the old plan.)
-- **Floors are bought.** The factory may start with 2 storeys, but further floors are bought as you play, for the sense of discovering new things; each new floor plays a **drop-in** as it's built (like the room upgrades', §6).
+- ✅ **Floors are bought** (v1.7). The factory starts with 2 storeys; the next ones are bought from a big button on the lawn out front (the 3rd floor, the Candy Factory's: 250K placeholder, 🔒 Rebirth 1), for the sense of discovering new things. The new storey **drops in**: the old roof lifts away and the storey falls into place chunk by chunk, bottom first, then the roof lands on top ("🏗️ NEW FLOOR!"). Floors reset on rebirth like the rest of the tycoon.
 - **From the Candy Factory on, assembly animations must be far superior** to the first run's rooms (the user accepts the current ones for those).
 - **Rebirth will reset the whole factory but unlock many cool new upgrades per rebirth**, like minigames (e.g. a claw machine in the Toy Workshop). Rebirth work comes only after the main loop, the HUD, the bosses and the gadgets.
 
