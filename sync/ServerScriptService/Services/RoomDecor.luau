@@ -959,8 +959,13 @@ end
 
 local function potteryWheel(parent: Instance, at: CFrame, scale: number)
 	cylinder(parent, "WheelBase", 6 * scale, 3 * scale, at, Color3.fromRGB(120, 140, 170))
-	cylinder(parent, "WheelPlate", 5 * scale, 0.5 * scale, at * CFrame.new(0, 3 * scale, 0), Color3.fromRGB(200, 205, 215), Enum.Material.Metal)
-	ball(parent, "ClayLump", 3.2 * scale, at * CFrame.new(0, 4.6 * scale, 0), CLAY, Enum.Material.Sand)
+	-- the plate and its lump of clay turn (a Spinner about the upright)
+	local wheel = Instance.new("Model")
+	wheel.Name = "PotteryWheel"
+	cylinder(wheel, "WheelPlate", 5 * scale, 0.5 * scale, at * CFrame.new(0, 3 * scale, 0), Color3.fromRGB(200, 205, 215), Enum.Material.Metal)
+	ball(wheel, "ClayLump", 3.2 * scale, at * CFrame.new(0, 4.6 * scale, 0), CLAY, Enum.Material.Sand)
+	ball(wheel, "ClayLumpTop", 1.4 * scale, at * CFrame.new(0.6 * scale, 5.9 * scale, 0), CLAY_LIGHT, Enum.Material.Sand)
+	spinner(wheel, parent, at * CFrame.new(0, 3 * scale, 0) * CFrame.Angles(math.pi / 2, 0, 0), 2.5)
 	cylinder(parent, "Stool", 3 * scale, 2.5 * scale, at * CFrame.new(5 * scale, 0, 0), Color3.fromRGB(225, 180, 125), Enum.Material.Wood)
 end
 
@@ -1002,7 +1007,73 @@ local function splat(parent: Instance, face: CFrame, size: number, color: Color3
 	blob(size * 0.22, -size * 0.15, -size)
 end
 
+-- A painter's drop cloth down a walkway (centered on `x`, from `fromZ` to `toZ`): canvas
+-- spattered with paint, its edges hemmed.
+local function dropCloth(parent: Instance, floor: CFrame, x: number, fromZ: number, toZ: number)
+	local length, width = toZ - fromZ, 10
+	local middle = floor * CFrame.new(x, 0, (fromZ + toZ) / 2)
+	makeDecor(parent, "DropCloth", Vector3.new(width, 0.1, length), middle * CFrame.new(0, 0.05, 0), Color3.fromRGB(245, 235, 215), Enum.Material.Fabric)
+	for _, side in { -1, 1 } do
+		makeDecor(parent, "DropClothHem", Vector3.new(0.5, 0.14, length), middle * CFrame.new(side * (width / 2 - 0.25), 0.07, 0), Color3.fromRGB(215, 200, 175), Enum.Material.Fabric)
+	end
+	local random = Random.new(math.floor(x * 7 + fromZ))
+	for index = 1, math.floor(length / 5) do
+		local size = random:NextNumber(1, 3)
+		local spot = middle * CFrame.new(random:NextNumber(-width / 2 + 1.5, width / 2 - 1.5), 0.12, random:NextNumber(-length / 2 + 1, length / 2 - 1))
+		local drop = makeDecor(parent, "PaintSpatter", Vector3.new(0.06, size, size), spot * CFrame.Angles(0, 0, math.pi / 2), PAINT_COLORS[index % #PAINT_COLORS + 1])
+		drop.Shape = Enum.PartType.Cylinder
+	end
+end
+
+-- A film studio light on a stand (`at`: its foot, -Z where it points), a real spotlight.
+local function studioLight(parent: Instance, at: CFrame)
+	for index = 0, 2 do
+		local angle = index / 3 * math.pi * 2
+		local toe = (at * CFrame.new(math.cos(angle) * 2.4, 0, math.sin(angle) * 2.4)).Position
+		local top = (at * CFrame.new(0, 3, 0)).Position
+		rod(parent, "LightLeg", 0.3, toe, top, Color3.fromRGB(50, 45, 60))
+	end
+	makeDecor(parent, "LightPole", Vector3.new(0.4, 11, 0.4), at * CFrame.new(0, 8.5, 0), Color3.fromRGB(50, 45, 60))
+	local head = at * CFrame.new(0, 14.5, 0) * CFrame.Angles(math.rad(-25), 0, 0)
+	local housing = makeDecor(parent, "LightHousing", Vector3.new(3, 3, 3.4), head, Color3.fromRGB(45, 40, 55))
+	makeDecor(parent, "LightLens", Vector3.new(2.4, 2.4, 0.2), head * CFrame.new(0, 0, -1.75), Color3.fromRGB(255, 245, 215), Enum.Material.Neon)
+	for _, side in { -1, 1 } do
+		makeDecor(parent, "LightFlap", Vector3.new(0.15, 2.8, 1.2), head * CFrame.new(side * 1.6, 0, -2.2) * CFrame.Angles(0, side * math.rad(25), 0), Color3.fromRGB(45, 40, 55))
+	end
+	local light = Instance.new("SpotLight")
+	light.Face = Enum.NormalId.Front
+	light.Angle = 60
+	light.Range = 40
+	light.Brightness = 1.2
+	light.Color = Color3.fromRGB(255, 240, 215)
+	light.Parent = housing
+end
+
 local function buildClay(parent: Instance, floor: CFrame)
+	-- the sign over the side door off the outside stairs (X = +70, Z = 31), and chasing
+	-- string lights round the walls by the ceiling
+	neonSign(parent, wallFace(floor, { 68, 22.5, 31 }), Vector2.new(22, 4.4), "🎬 CLAY STUDIO 🎬", Color3.fromRGB(255, 140, 70))
+	local function at(x: number, y: number, z: number): Vector3
+		return (floor * CFrame.new(x, y, z)).Position
+	end
+	local index = 0
+	index = stringLights(parent, at(-66, 26, -57), at(-66, 26, 0), 1.6, index)
+	index = stringLights(parent, at(-66, 26, 0), at(-66, 26, 57), 1.6, index)
+	index = stringLights(parent, at(-66, 26, 57), at(-21, 26, 57), 1.6, index)
+	index = stringLights(parent, at(21, 26, 57), at(66, 26, 57), 1.6, index)
+	index = stringLights(parent, at(66, 26, 57), at(66, 26, 44), 1.2, index)
+	index = stringLights(parent, at(66, 26, 18), at(66, 26, -57), 1.6, index)
+	stringLights(parent, at(66, 26, -57), at(-66, 26, -57), 2, index)
+
+	-- drop cloths down the walkways, lamps and neon signs over them
+	for index_, x in { -19.6, 22.4 } do
+		dropCloth(parent, floor, x, -25, 45)
+		for k, z in { -32, -2, 30 } do
+			pendantLamp(parent, floor * CFrame.new(x, 28, z), 5, PAINT_COLORS[(index_ + k) % #PAINT_COLORS + 1])
+		end
+		hangingSign(parent, floor * CFrame.new(x, 28, 14), 6, Vector2.new(12, 2.6), if index_ == 1 then "🎬 LIGHTS, CAMERA, CLAY!" else "★ 100% HANDMADE ★", if index_ == 1 then Color3.fromRGB(255, 140, 70) else Color3.fromRGB(60, 205, 195))
+	end
+
 	-- paint splats up the walls, between the windows (and clear of the side door at
 	-- +X, Z = 31, and the doorway in the back)
 	local spots: { WallSpot } = {
@@ -1016,30 +1087,36 @@ local function buildClay(parent: Instance, floor: CFrame)
 		{ -39, 22, -58 },
 		{ 39, 16, -58 },
 	}
-	for index, spot in spots do
-		splat(parent, wallFace(floor, spot), 5 + (index % 3) * 1.2, PAINT_COLORS[index % #PAINT_COLORS + 1])
+	for index_, spot in spots do
+		splat(parent, wallFace(floor, spot), 5 + (index_ % 3) * 1.2, PAINT_COLORS[index_ % #PAINT_COLORS + 1])
 	end
-	-- across from the side door (X = +70, Z = 31): the sculpture, between big pots
-	sculpture(parent, floor * CFrame.new(-60, 0, 31))
+	-- across from the side door: the sculpture, between big pots, clear of the first
+	-- line's presses
+	sculpture(parent, floor * CFrame.new(-61.5, 0, 31))
 	pot(parent, floor * CFrame.new(-61, 0, 16), 12, CLAY)
-	pot(parent, floor * CFrame.new(-60, 0, 46), 9, CLAY_LIGHT)
-	potteryWheel(parent, floor * CFrame.new(-58, 0, -6), 1.5)
-	potteryWheel(parent, floor * CFrame.new(-58, 0, -34), 1.5)
-	-- a shelf of pots on the back wall
-	for _, y in { 5, 11 } do
-		makeDecor(parent, "Shelf", Vector3.new(30, 0.8, 5), floor * CFrame.new(-26, y, 55), Color3.fromRGB(225, 180, 125), Enum.Material.Wood)
+	pot(parent, floor * CFrame.new(-61, 0, 46), 9, CLAY_LIGHT)
+	-- pottery wheels along the left wall, their stools toward the front
+	for _, z in { -6, -34 } do
+		potteryWheel(parent, floor * CFrame.new(-61, 0, z) * CFrame.Angles(0, math.pi / 2, 0), 1.5)
 	end
-	for index = 1, 5 do
-		pot(parent, floor * CFrame.new(-44 + index * 6, 5.4, 55), 4 + (index % 2) * 1.2, if index % 2 == 0 then CLAY else CLAY_LIGHT)
-		pot(parent, floor * CFrame.new(-44 + index * 6, 11.4, 55), 3.8 + ((index + 1) % 2) * 1.2, if index % 2 == 1 then CLAY else Color3.fromRGB(240, 205, 170))
+	-- a shelf of pots on the back wall, between the first two lines
+	for _, y in { 5, 11 } do
+		makeDecor(parent, "Shelf", Vector3.new(20, 0.8, 4), floor * CFrame.new(-24, y, 56), Color3.fromRGB(225, 180, 125), Enum.Material.Wood)
+	end
+	for index_ = 1, 4 do
+		pot(parent, floor * CFrame.new(-31.5 + (index_ - 1) * 5, 5.4, 56), 4 + (index_ % 2) * 1.2, if index_ % 2 == 0 then CLAY else CLAY_LIGHT)
+		pot(parent, floor * CFrame.new(-31.5 + (index_ - 1) * 5, 11.4, 56), 3.8 + ((index_ + 1) % 2) * 1.2, if index_ % 2 == 1 then CLAY else Color3.fromRGB(240, 205, 170))
 	end
 	pot(parent, floor * CFrame.new(60, 0, -50), 8, Color3.fromRGB(240, 205, 170))
 	pot(parent, floor * CFrame.new(54, 0, -53), 5, CLAY)
 	-- buckets of clay slip by the door
-	for index, z in { 48, 54 } do
+	for index_, z in { 48, 54 } do
 		cylinder(parent, "Bucket", 4, 3.6, floor * CFrame.new(62, 0, z), Color3.fromRGB(150, 180, 220))
-		cylinder(parent, "Slip", 3.6, 0.3, floor * CFrame.new(62, 3.4, z), if index == 1 then CLAY else CLAY_LIGHT)
+		cylinder(parent, "Slip", 3.6, 0.3, floor * CFrame.new(62, 3.4, z), if index_ == 1 then CLAY else CLAY_LIGHT)
 	end
+	-- film lights in the front corners, aimed into the room
+	studioLight(parent, floor * CFrame.new(-62, 0, -50) * CFrame.Angles(0, math.rad(-140), 0))
+	studioLight(parent, floor * CFrame.new(63, 0, -38) * CFrame.Angles(0, math.rad(140), 0))
 end
 
 -- Vinyl Collectibles --------------------------------------------------------------------

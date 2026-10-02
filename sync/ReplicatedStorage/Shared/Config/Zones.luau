@@ -81,7 +81,9 @@ Zones.List = {
 		GemMultiplier = 2,
 		LineCount = 3,
 		Style = { Scale = 1.3, Material = Enum.Material.Sand },
-		Available = false,
+		SpecialStation = "Stop-Motion Camera",
+		StationNames = { Station1 = "Color Squish", Station2 = "Sparkle Glaze" },
+		Available = true,
 	},
 	{
 		Id = "VinylCollectibles",

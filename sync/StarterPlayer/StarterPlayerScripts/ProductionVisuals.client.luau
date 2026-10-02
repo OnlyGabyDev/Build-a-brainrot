@@ -15,6 +15,9 @@
 	  * Plushie Sewing Room: the legs plop onto a cushion, the needle stitches the body
 	    on, thread spools reel the arms in, and the needle pumps the head full of
 	    stuffing. Pop!
+	  * Clay Studio (stop-motion): the legs plop down, a big white glove presses the
+	    body on, both gloves squish the arms in, and the head jumps into place frame by
+	    frame between them, the camera flashing at every step. Pop!
 	Then the finished brainrot shows itself off (ta-da: a spin under a spotlight, its
 	name tag pops up) before it rides on: it's the star of the line, so it's big, gets
 	an outline on your own lines, and keeps its name tag until it's packed off.
@@ -362,7 +365,9 @@ end
 -- while one knits a part, its needle ring whirls round the head, the yarn ball on top
 -- rolls as it feeds the head, and the crank on the column turns.
 type KnitSpinner = { Model: Model, Rest: CFrame, Axis: Vector3, Speed: number }
-type Knitting = { Spinners: { KnitSpinner } }
+-- (the Clay Studio's play-dough presses work the same way, plus a plunger that pushes down)
+type Plunger = { Model: Model, Rest: CFrame, Travel: number }
+type Knitting = { Spinners: { KnitSpinner }, Plunger: Plunger? }
 
 local KNIT_SPINS = { -- each moving bit: the axis it turns about (its own), radians per second
 	KnitRing = { Vector3.yAxis, 24 },
@@ -385,14 +390,25 @@ local function readKnitting(line: Model, partType: string, head: BasePart): Knit
 			table.insert(knitting.Spinners, { Model = model, Rest = model:GetPivot(), Axis = spin[1], Speed = spin[2] })
 		end
 	end
+	local plunger = line:FindFirstChild(partType .. "PressPlunger")
+	if plunger and plunger:IsA("Model") then
+		local travel = plunger:GetAttribute("Travel")
+		knitting.Plunger = { Model = plunger, Rest = plunger:GetPivot(), Travel = if typeof(travel) == "number" then travel else 2 }
+	end
 	knittings[head] = knitting
 	return knitting
 end
 
--- Poses the machine `t` seconds into its knitting, or at rest (nil).
+-- Poses the machine `t` seconds into its knitting, or at rest (nil). A press's plunger
+-- pushes all the way down over the knitting time.
 local function poseKnitting(knitting: Knitting, t: number?)
 	for _, spinner in knitting.Spinners do
 		spinner.Model:PivotTo(if t then spinner.Rest * CFrame.fromAxisAngle(spinner.Axis, t * spinner.Speed) else spinner.Rest)
+	end
+	local plunger = knitting.Plunger
+	if plunger then
+		local push = if t then math.clamp(t / (Production.DropTime - FALL_TIME), 0, 1) else 0
+		plunger.Model:PivotTo(plunger.Rest - Vector3.new(0, plunger.Travel * ease(push, Enum.EasingStyle.Quad, Enum.EasingDirection.In), 0))
 	end
 end
 
@@ -404,7 +420,13 @@ local function spit(line: Model, dropper: BasePart, near: boolean, chute: Chute?
 	if dropper:GetAttribute("Knitting") then
 		Effects.sound(mouth, Sounds.Plop, 0.3, vary(1.1))
 		Effects.sound(mouth, Sounds.Squeak, 0.2, vary(1.4))
-		if near then
+		local partColor = dropper:GetAttribute("PartColor")
+		if near and dropper:GetAttribute("Press") and typeof(partColor) == "Color3" then
+			-- a squelch of clay
+			Effects.puff(mouth, partColor, 8, 0.7)
+			Effects.puff(mouth, Color3.fromRGB(245, 200, 160), 5, 0.6)
+			Effects.sparkle(mouth, partColor:Lerp(Color3.new(1, 1, 1), 0.5), 6)
+		elseif near then
 			Effects.puff(mouth, Color3.new(1, 1, 1), 10, 0.6)
 			Effects.puff(mouth, dropper.Color:Lerp(Color3.new(1, 1, 1), 0.4), 6, 0.7)
 			Effects.sparkle(mouth, Color3.fromRGB(255, 190, 230), 8)
@@ -783,6 +805,78 @@ local function stopSound(sound: Sound?)
 	end
 end
 
+-- Clay Studio machines ---------------------------------------------------------------
+
+type Glove = {
+	Model: Model,
+	Rod: BasePart,
+	Rest: CFrame, -- the palm's middle at rest, -Z toward the pad
+	RodTop: number, -- world Y where its rod meets the gantry
+}
+
+type ClayMachines = { Left: Glove, Right: Glove, Flash: BasePart? }
+
+local CLAY_FLASH = Color3.fromRGB(255, 250, 235)
+local CLAY_SPARK = Color3.fromRGB(255, 200, 150)
+local GLOVE_WRIST = 2.5 -- from the palm's middle up to where its rod holds it
+local PALM_HALF = 0.65 -- half the palm's thickness
+local STOP_MOTION_FRAMES = 6
+
+local function readGlove(line: Model, name: string, rodTop: number): Glove?
+	local model = line:FindFirstChild(name)
+	local rod = findPart(line, name .. "Rod")
+	if not (model and model:IsA("Model") and rod) then
+		return nil
+	end
+	return { Model = model, Rod = rod, Rest = model:GetPivot(), RodTop = rodTop }
+end
+
+local function setupClay(line: Model): ClayMachines?
+	local assembler = findPart(line, "Assembler")
+	if not assembler then
+		return nil
+	end
+	local rodTop = assembler.Position.Y - assembler.Size.Y / 2
+	local left, right = readGlove(line, "HandLeft", rodTop), readGlove(line, "HandRight", rodTop)
+	if not (left and right) then
+		return nil
+	end
+	return { Left = left, Right = right, Flash = findPart(line, "ClayFlash") }
+end
+
+-- Puts a glove's palm at `cframe`; its rod hangs straight down from the gantry to it.
+local function setGlove(glove: Glove, cframe: CFrame)
+	glove.Model:PivotTo(cframe)
+	local wrist = (cframe * CFrame.new(0, GLOVE_WRIST, 0)).Position
+	local length = math.max(glove.RodTop - wrist.Y, 0.05)
+	glove.Rod.Size = Vector3.new(glove.Rod.Size.X, length, glove.Rod.Size.Z)
+	glove.Rod.CFrame = glove.Rest.Rotation + Vector3.new(wrist.X, wrist.Y + length / 2, wrist.Z)
+end
+
+-- The glove's palm against the side of a piece of `width` at `center` (world), from its
+-- own side: where it would rest, moved in.
+local function gloveAgainst(glove: Glove, build: Build, center: Vector3, width: number): CFrame
+	local local_ = build.Root:PointToObjectSpace(center)
+	local side = if build.Root:PointToObjectSpace(glove.Rest.Position).X < 0 then -1 else 1
+	local at = build.Root * Vector3.new(local_.X + side * (width / 2 + PALM_HALF), local_.Y, local_.Z)
+	return glove.Rest.Rotation + at
+end
+
+-- Click! The stop-motion camera's bulb flashes.
+local function snap(build: Build, loud: boolean?)
+	local machines = build.Machines :: ClayMachines?
+	local bulb = machines and machines.Flash
+	local at = if bulb then bulb.Position else build.Root.Position + Vector3.new(0, 6, 0)
+	Effects.sound(at, Sounds.Click, if loud then 0.4 else 0.25, vary(if loud then 1 else 1.3))
+	if build.Near then
+		Effects.flash(at, CLAY_FLASH, if loud then 4 else 2.5, if loud then 22 else 14, 0.2)
+	end
+	if bulb then
+		bulb.Color = Color3.new(1, 1, 1)
+		TweenService:Create(bulb, TweenInfo.new(0.25), { Color = Color3.fromRGB(255, 245, 210) }):Play()
+	end
+end
+
 -- Finishing stages -----------------------------------------------------------
 -- Past the end of the belt, each zone packs the brainrot up its own way (GDD §6),
 -- and the payout lands as it's sent off.
@@ -1015,6 +1109,39 @@ local function fluffFinish(build: Build, brainrot: Model, ship: BasePart, durati
 		ball:Destroy()
 	end
 	puff(build, center, STUFFING_COLOR, 10)
+	return center + Vector3.new(0, 4, 0)
+end
+
+-- Clay Studio: the brainrot hops into the kiln through its glowing door; the kiln roars
+-- (the door blazes, smoke pours out of the chimney) and it comes out baked.
+local KILN_HOT = Color3.fromRGB(255, 230, 150)
+
+local function kilnFinish(build: Build, brainrot: Model, ship: BasePart, duration: number): Vector3
+	local d = duration
+	local rotation = brainrot:GetPivot().Rotation
+	local base = rotation + Vector3.new(ship.Position.X, topOf(ship), ship.Position.Z)
+	local center = base.Position + Vector3.new(0, 3, 0)
+	Effects.sound(brainrot:GetPivot().Position, Sounds.Boing, 0.3, vary(0.9))
+	hopShrinking(brainrot, base * CFrame.new(0, 0.5, 0), d * 0.3, 4, 0.6)
+	brainrot:Destroy()
+	-- the door blazes, and smoke pours out
+	local glow = findPart(build.Line, "KilnGlow")
+	if glow then
+		local cool = glow.Color
+		glow.Color = KILN_HOT
+		TweenService:Create(glow, TweenInfo.new(d * 0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Color = cool }):Play()
+	end
+	if build.Near then
+		Effects.flash(center, Color3.fromRGB(255, 150, 60), 5, 22, d * 0.5)
+	end
+	Effects.sound(center, Sounds.Whoosh, 0.3, vary(0.7))
+	local chimney = findPart(build.Line, "KilnChimneyCap")
+	puff(build, if chimney then chimney.Position + Vector3.new(0, 1, 0) else center + Vector3.new(0, 7, 0), Color3.fromRGB(230, 225, 235), 12, 1.2)
+	task.wait(d * 0.35)
+	Effects.popup(center + Vector3.new(0, 6, 0), "BAKED!", Color3.fromRGB(255, 150, 60), 1.2, 0.6)
+	Effects.sound(center, Sounds.Pop, 0.35, vary(0.9))
+	sparkle(build, center + Vector3.new(0, 4, 0), Color3.fromRGB(255, 170, 80), 14)
+	task.wait(d * 0.15)
 	return center + Vector3.new(0, 4, 0)
 end
 
@@ -1316,6 +1443,51 @@ local function bowSpecial(build: Build, brainrot: Model, machine: BasePart, dura
 	task.wait(duration * 0.4)
 end
 
+-- Clay Studio: the Stop-Motion Camera shoots the brainrot in three quick poses (a flash
+-- each), and the photo slides out and flutters away.
+local SNAP_POSES = { { -0.45, 0.8 }, { 0.45, 1.2 }, { 0, 0 } } -- { turn, lift }
+
+local function cameraSpecial(build: Build, brainrot: Model, machine: BasePart, duration: number)
+	local pivot = brainrot:GetPivot()
+	local box = brainrot:GetBoundingBox()
+	local lens = machine.Position - Vector3.new(0, machine.Size.Y / 2 + 1.5, 0)
+	local flash = findPart(build.Line, "Station3Flash")
+	stampMachine(build, machine)
+	for _, pose in SNAP_POSES do
+		local from = brainrot:GetPivot()
+		local to = pivot * CFrame.Angles(0, pose[1], 0) + Vector3.new(0, pose[2], 0)
+		run(duration * 0.12, function(a)
+			brainrot:PivotTo(from:Lerp(to, ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out)))
+		end)
+		Effects.sound(lens, Sounds.Click, 0.4, vary(1.1))
+		if build.Near then
+			Effects.flash(if flash then flash.Position else lens, Color3.new(1, 1, 1), 5, 24, 0.25)
+		end
+		sparkle(build, box.Position, Color3.new(1, 1, 1), 6)
+		task.wait(duration * 0.1)
+	end
+	brainrot:PivotTo(pivot)
+	-- the photo: a white card with the brainrot's name, sliding out and fluttering off
+	local photo = newPart(effects, "Photo", Vector3.new(3, 3.6, 0.15), CFrame.new(lens) * pivot.Rotation, Color3.new(1, 1, 1))
+	local gui = canvas(photo, Enum.NormalId.Front, 40)
+	frame(gui, UDim2.fromScale(0.86, 0.66), UDim2.fromScale(0.5, 0.4), Color3.fromRGB(150, 210, 255))
+	words(gui, "📸", UDim2.fromScale(0.5, 0.4), UDim2.fromScale(0.5, 0.4), Color3.new(1, 1, 1))
+	words(gui, string.upper(build.Name), UDim2.fromScale(0.9, 0.18), UDim2.fromScale(0.5, 0.86), Color3.fromRGB(60, 50, 70))
+	local start = photo.CFrame
+	task.spawn(function()
+		run(1.1, function(a)
+			if photo.Parent then
+				photo.CFrame = start * CFrame.new(math.sin(a * 6) * 1.2, 3 * a, -2 * a) * CFrame.Angles(0, a * 3, math.sin(a * 8) * 0.4)
+				photo.Transparency = math.max(a - 0.6, 0) / 0.4
+			end
+		end)
+		photo:Destroy()
+	end)
+	Effects.popup(lens + Vector3.new(0, 2, 0), "SNAP!", Color3.fromRGB(60, 205, 195), 1.2, 0.6)
+	specialPopup(build, lens, Color3.fromRGB(60, 205, 195))
+	task.wait(duration * 0.24)
+end
+
 -- Assembly styles ------------------------------------------------------------
 -- One animation per part type, per zone. Each runs for its step's duration, starting
 -- as the part reaches the intake. The rarer the zone, the crazier it should be.
@@ -1489,6 +1661,107 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 			end,
 		},
 	},
+	ClayStudio = {
+		Setup = setupClay,
+		Special = cameraSpecial,
+		Finish = kilnFinish,
+		Steps = {
+			-- The legs plop down onto the pad with a squish. Click!
+			Legs = function(build, piece, duration)
+				Effects.sound(homeCenter(piece), Sounds.Boing, 0.25, vary(0.9))
+				hop(piece.Model, piece.Home, duration * 0.7, 3)
+				place(build, piece, CLAY_SPARK, 6, Sounds.Squeak, 0.3)
+				puff(build, build.Root.Position + Vector3.new(0, 0.4, 0), CLAY_SPARK, 6, 0.6)
+				snap(build)
+			end,
+
+			-- The body hovers over the legs, and a glove comes over, palm down, and
+			-- presses it on. Squish! Click!
+			Body = function(build, piece, duration)
+				local machines = build.Machines :: ClayMachines
+				local glove = machines.Right
+				local lift = 2
+				hop(piece.Model, piece.Home + Vector3.new(0, lift, 0), duration * 0.25, HOP_HEIGHT)
+				local center = homeCenter(piece)
+				local palmDown = glove.Rest.Rotation * CFrame.Angles(math.rad(-90), 0, 0)
+				local function over(height: number): CFrame
+					return palmDown + Vector3.new(center.X, center.Y + piece.Size.Y / 2 + PALM_HALF + height, center.Z)
+				end
+				local above = over(lift + 2)
+				run(duration * 0.25, function(a)
+					setGlove(glove, glove.Rest:Lerp(above, ease(a)))
+				end)
+				run(duration * 0.2, function(a)
+					local e = ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+					setGlove(glove, above:Lerp(over(0), e))
+					piece.Model:PivotTo(piece.Home + Vector3.new(0, lift * (1 - e), 0))
+				end)
+				place(build, piece, CLAY_SPARK, 10, Sounds.Squeak, 0.3)
+				snap(build)
+				run(duration * 0.25, function(a)
+					setGlove(glove, over(0):Lerp(glove.Rest, ease(a)))
+				end)
+				setGlove(glove, glove.Rest)
+			end,
+
+			-- The arms land too wide, and both gloves squish them in. Click!
+			Arms = function(build, piece, duration)
+				local machines = build.Machines :: ClayMachines
+				local model = piece.Model
+				local base = model:GetScale()
+				hopInLoose(piece, duration * 0.35)
+				local center = homeCenter(piece)
+				local targets = {
+					[machines.Left] = gloveAgainst(machines.Left, build, center, piece.Size.X),
+					[machines.Right] = gloveAgainst(machines.Right, build, center, piece.Size.X),
+				}
+				run(duration * 0.3, function(a)
+					local e = ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+					for glove, target in targets do
+						setGlove(glove, glove.Rest:Lerp(target, e))
+					end
+					model:ScaleTo(base * (LOOSE - (LOOSE - 1) * e))
+				end)
+				model:ScaleTo(base)
+				place(build, piece, CLAY_SPARK, 12, Sounds.Squeak, 0.35)
+				Effects.popup(center + Vector3.new(0, 1.5, 0), "SQUISH!", Color3.fromRGB(255, 150, 90), 1, 0.5)
+				snap(build)
+				run(duration * 0.25, function(a)
+					local e = ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+					for glove, target in targets do
+						setGlove(glove, target:Lerp(glove.Rest, e))
+					end
+				end)
+			end,
+
+			-- Stop-motion: the head jumps into place a frame at a time between the gloves,
+			-- the camera clicking each frame. Pop!
+			Head = function(build, piece, duration)
+				local machines = build.Machines :: ClayMachines
+				local start = piece.Model:GetPivot()
+				local frameTime = duration * 0.75 / STOP_MOTION_FRAMES
+				for frameIndex = 1, STOP_MOTION_FRAMES do
+					local a = frameIndex / STOP_MOTION_FRAMES
+					local wiggle = if frameIndex < STOP_MOTION_FRAMES then (if frameIndex % 2 == 0 then 0.25 else -0.25) else 0
+					local pivot = start:Lerp(piece.Home, a) * CFrame.Angles(0, wiggle, 0) + Vector3.new(0, 2 * math.sin(a * math.pi), 0)
+					piece.Model:PivotTo(pivot)
+					local center = (pivot * CFrame.new(piece.Center)).Position
+					setGlove(machines.Left, gloveAgainst(machines.Left, build, center, piece.Size.X))
+					setGlove(machines.Right, gloveAgainst(machines.Right, build, center, piece.Size.X))
+					snap(build, frameIndex == STOP_MOTION_FRAMES)
+					task.wait(frameTime)
+				end
+				piece.Model:PivotTo(piece.Home)
+				place(build, piece, POP_COLOR, 12, Sounds.Stamp, 0.2)
+				pop(build)
+				local holding = { machines.Left.Model:GetPivot(), machines.Right.Model:GetPivot() }
+				run(duration * 0.2, function(a)
+					setGlove(machines.Left, holding[1]:Lerp(machines.Left.Rest, ease(a)))
+					setGlove(machines.Right, holding[2]:Lerp(machines.Right.Rest, ease(a)))
+				end)
+			end,
+		},
+	},
 }
 local DEFAULT_STYLE = ASSEMBLY_STYLES.ToyWorkshop
 
@@ -1538,7 +1811,32 @@ local DYE_COLORS = {
 	Color3.fromRGB(90, 200, 255),
 	Color3.fromRGB(255, 200, 80),
 }
+local CLAY_PAINTS = {
+	Color3.fromRGB(255, 100, 120),
+	Color3.fromRGB(255, 200, 60),
+	Color3.fromRGB(90, 190, 255),
+	Color3.fromRGB(130, 220, 110),
+	Color3.fromRGB(190, 130, 255),
+}
 local ZONE_STATION_FX: { [string]: { [string]: (build: Build, arch: BasePart, brainrot: Model, center: Vector3) -> () } } = {
+	ClayStudio = {
+		-- the Color Squish presses a blob of colored clay onto it
+		Station1 = function(build, arch, brainrot, center)
+			local color = CLAY_PAINTS[math.random(1, #CLAY_PAINTS)]
+			Effects.tint(brainrot, color, 0.8)
+			squish(brainrot)
+			puff(build, center, color, 10, 0.7)
+			puff(build, arch.Position - Vector3.new(0, arch.Size.Y / 2, 0), color, 5, 0.5)
+			Effects.sound(center, Sounds.Squeak, 0.25, vary(0.9))
+		end,
+		-- the Sparkle Glaze drips a glossy coat over it
+		Station2 = function(build, arch, brainrot, center)
+			Effects.tint(brainrot, Color3.fromRGB(255, 250, 235), 0.7)
+			sparkle(build, arch.Position - Vector3.new(0, arch.Size.Y / 2, 0), Color3.fromRGB(240, 250, 255), 16)
+			sparkle(build, center, Color3.new(1, 1, 1), 12)
+			Effects.sound(center, Sounds.Coin, 0.35, vary(1.6))
+		end,
+	},
 	PlushieRoom = {
 		-- the Dye Bath dips it in fabric dye: a splash of color and bubbles
 		Station1 = function(build, arch, brainrot, center)

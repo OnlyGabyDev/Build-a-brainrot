@@ -279,6 +279,7 @@ end
 local GANTRY_COLORS = {
 	ToyWorkshop = { Color3.fromRGB(110, 60, 200), GANTRY_COLOR, Color3.fromRGB(255, 220, 70) },
 	PlushieRoom = { LAVENDER_COLOR, SEWING_COLOR, Color3.fromRGB(90, 220, 255) },
+	ClayStudio = { Color3.fromRGB(150, 75, 50), Color3.fromRGB(225, 120, 75), Color3.fromRGB(60, 205, 195) },
 }
 
 -- The belt, raised on a frame: side girders with a white stripe, rails glowing on top
@@ -752,6 +753,244 @@ local function buildPlushieArch(model: Model, spot: CFrame, item: TycoonItems.It
 	makeBillboard(top, string.upper(item.Name), Vector2.new(8, 1.5), if item.Key == "Station1" then 4.2 else 4.6, 80)
 end
 
+-- Clay Studio -------------------------------------------------------------------------
+-- A stop-motion clay studio (GDD §10): terracotta machines with teal trims, white
+-- cartoon gloves, a film camera flashing at every step, and a kiln to bake the
+-- brainrots in.
+
+local CLAY_COLOR = Color3.fromRGB(225, 120, 75)
+local CLAY_LIGHT_COLOR = Color3.fromRGB(245, 180, 125)
+local CLAY_DARK_COLOR = Color3.fromRGB(150, 75, 50)
+local CLAY_TEAL = Color3.fromRGB(60, 205, 195)
+local CAMERA_BLACK = Color3.fromRGB(45, 40, 55)
+local KILN_COLOR = Color3.fromRGB(200, 95, 60)
+local SMOKE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
+
+-- Droppers: play-dough presses (GDD §6, §16.18). A terracotta column beside the belt
+-- (teal stripes, a crank, a neon bracelet naming the part) holds an arm over the belt
+-- with a drum of clay in the part's color; its plunger (PressPlunger) pushes down and
+-- the part is squeezed out of the nozzle underneath (the Dropper, attributes Knitting,
+-- so it grows down out of the mouth like a knitted part, and Press). ProductionVisuals
+-- moves the plunger and turns the crank (KnitCrank).
+local PRESS_TRAVEL = 2.6 -- how far the plunger pushes down
+
+local function buildClayPress(model: Model, base: CFrame, partType: string, color: Color3)
+	local column = base * CFrame.new(KNIT_X, 0, 0)
+	local armBottom = DECK + KNIT_ARM
+	local armTop = armBottom + 3
+	makeColumn(model, partType .. "PressFoot", 6.4, 0, 1.4, column, CLAY_DARK_COLOR)
+	local body = makeColumn(model, partType .. "PressColumn", KNIT_COLUMN, 1.4, armTop, column, CLAY_COLOR)
+	body.CanCollide = true
+	for _, y in { 2.6, armBottom - 1.6 } do
+		makeColumn(model, partType .. "PressStripe", KNIT_COLUMN + 0.3, y, y + 0.7, column, CLAY_TEAL)
+	end
+	buildBadge(model, partType, column * CFrame.new(0, DECK + 4.6, 0), color, 0.62)
+
+	-- the arm over the belt, a teal stripe along it
+	local armFrom, armTo = KNIT_X - KNIT_COLUMN / 2, KNIT_HEAD / 2
+	local arm = makeDecor(model, partType .. "PressArm", Vector3.new(armTo - armFrom, 3, 4), base * CFrame.new((armFrom + armTo) / 2, armBottom + 1.5, 0), CLAY_COLOR)
+	makeDecor(model, partType .. "PressArmStripe", Vector3.new(armTo - armFrom - 0.2, 0.55, 4.1), arm.CFrame, CLAY_TEAL)
+
+	-- the press under the arm's end: a drum of clay in a cream frame, the nozzle below
+	local nozzleBottom = armBottom - KNIT_HEAD_HEIGHT
+	makeColumn(model, partType .. "PressFrame", KNIT_HEAD + 0.6, armBottom - 0.6, armBottom, base, CLAY_LIGHT_COLOR)
+	makeColumn(model, partType .. "PressDrum", KNIT_HEAD, nozzleBottom + 1.4, armBottom - 0.6, base, color, Enum.Material.Sand)
+	makeColumn(model, partType .. "PressFrame", KNIT_HEAD + 0.6, nozzleBottom + 1.2, nozzleBottom + 1.8, base, CLAY_LIGHT_COLOR)
+	local nozzle = makeColumn(model, partType .. "Dropper", 3, nozzleBottom, nozzleBottom + 1.4, base, CLAY_DARK_COLOR)
+	nozzle:SetAttribute("Knitting", true)
+	nozzle:SetAttribute("Press", true)
+	nozzle:SetAttribute("PartColor", color)
+	makeColumn(model, partType .. "DropperRim", 3.4, nozzleBottom - 0.15, nozzleBottom + 0.25, base, CLAY_TEAL, Enum.Material.Neon)
+	makeColumn(model, partType .. "DropperMouth", 2.2, nozzleBottom - 0.2, nozzleBottom - 0.1, base, Color3.fromRGB(35, 25, 45))
+
+	-- the plunger: a chrome rod down through the arm into the drum, a teal handle on top
+	local plunger = Instance.new("Model")
+	plunger.Name = partType .. "PressPlunger"
+	makeColumn(plunger, partType .. "PressRod", 1, armBottom - 1.2, armTop + 4, base, CHROME_COLOR, Enum.Material.Metal)
+	makeColumn(plunger, partType .. "PressHandle", 3.6, armTop + 4, armTop + 4.9, base, CLAY_TEAL)
+	makeBall(plunger, partType .. "PressKnob", 1.6, base * CFrame.new(0, armTop + 5.5, 0), WHITE)
+	plunger.WorldPivot = base * CFrame.new(0, armTop, 0)
+	plunger:SetAttribute("Travel", PRESS_TRAVEL)
+	plunger.Parent = model
+
+	-- the crank on the column's outer side, turning about X
+	local hub = column * CFrame.new(-KNIT_COLUMN / 2 - 0.35, DECK + 8.6, 0)
+	local crank = Instance.new("Model")
+	crank.Name = partType .. "KnitCrank"
+	local wheel = makeDecor(crank, partType .. "PressCrankWheel", Vector3.new(0.5, 3.2, 3.2), hub, CLAY_TEAL)
+	wheel.Shape = Enum.PartType.Cylinder
+	makeDecor(crank, partType .. "PressCrankHandle", Vector3.new(1.2, 0.35, 0.35), hub * CFrame.new(-0.6, 1.1, 0), WHITE)
+	makeBall(crank, partType .. "PressCrankKnob", 0.8, hub * CFrame.new(-1.3, 1.1, 0), CLAY_LIGHT_COLOR)
+	crank.WorldPivot = hub
+	crank.Parent = model
+end
+
+-- The Assembler: two big white cartoon gloves hang from the gantry on rods either side
+-- of the pad (HandLeft, HandRight: pivoted at the palm's middle, palm toward the pad
+-- (-Z), fingers down; HandLeftRod, HandRightRod), and a film camera on a tripod by the
+-- pad pops its flash bulb (ClayFlash) at every step: stop-motion!
+local GLOVE_X = 5.8 -- the palms at rest, from the pad
+local GLOVE_Y = 6 -- above the deck
+local GLOVE_WHITE = Color3.fromRGB(250, 250, 245)
+local GLOVE_LINE = Color3.fromRGB(70, 60, 80)
+
+local function buildGlove(parent: Model, name: string, palm: CFrame)
+	local glove = Instance.new("Model")
+	glove.Name = name
+	makeDecor(glove, "Palm", Vector3.new(2.8, 2.6, 1.3), palm, GLOVE_WHITE)
+	for index, x in { -1.05, -0.35, 0.35, 1.05 } do
+		makeDecor(glove, "Finger", Vector3.new(0.62, 1.5, 0.8), palm * CFrame.new(x, -1.95 + (index % 2) * 0.15, 0), GLOVE_WHITE)
+		makeBall(glove, "Fingertip", 0.66, palm * CFrame.new(x, -2.75 + (index % 2) * 0.15, 0), GLOVE_WHITE)
+	end
+	makeBall(glove, "Thumb", 1.1, palm * CFrame.new(1.6, -0.3, -0.35), GLOVE_WHITE)
+	-- the cuff at the wrist, and three stitched lines on the back of the hand
+	local cuff = makeDecor(glove, "Cuff", Vector3.new(1.1, 3.2, 3.2), palm * CFrame.new(0, 1.9, 0) * CFrame.Angles(0, 0, math.pi / 2), CLAY_TEAL)
+	cuff.Shape = Enum.PartType.Cylinder
+	for _, x in { -0.6, 0, 0.6 } do
+		makeDecor(glove, "Stitch", Vector3.new(0.14, 1.6, 0.05), palm * CFrame.new(x, 0.2, 0.66), GLOVE_LINE)
+	end
+	glove.WorldPivot = palm
+	glove.Parent = parent
+end
+
+local function buildClayHands(parent: Model, origin: CFrame)
+	local deck = deckOf(origin)
+	local beam = DECK + GANTRY_BOTTOM -- the gantry's underside, above the floor
+	for _, side in { -1, 1 } do
+		local name = if side < 0 then "HandLeft" else "HandRight"
+		local position = (deck * CFrame.new(side * GLOVE_X, GLOVE_Y, 0)).Position
+		local palm = CFrame.lookAt(position, (deck * CFrame.new(0, GLOVE_Y, 0)).Position) -- -Z toward the pad
+		buildGlove(parent, name, palm)
+		local wrist = (palm * CFrame.new(0, 2.5, 0)).Position
+		local top = (origin * CFrame.new(side * GLOVE_X, beam, 0)).Position
+		local rod = makePart(parent, name .. "Rod", Vector3.new(0.45, (top - wrist).Magnitude, 0.45), CFrame.new((top + wrist) / 2) * origin.Rotation, CHROME_COLOR, Enum.Material.Metal)
+		rod.CanCollide = false
+	end
+	-- the stop-motion camera on its tripod, by the pad's front-left, looking at it
+	local foot = origin * CFrame.new(-10.4, 0, -8)
+	local head = (foot * CFrame.new(0, DECK + 5.5, 0)).Position
+	for index = 0, 2 do
+		local angle = index / 3 * math.pi * 2
+		local toe = (foot * CFrame.new(math.cos(angle) * 1.8, 0, math.sin(angle) * 1.8)).Position
+		local leg = makeDecor(parent, "TripodLeg", Vector3.new(0.3, 0.3, (head - toe).Magnitude), CFrame.lookAt((head + toe) / 2, head), CAMERA_BLACK)
+		leg.CanCollide = false
+	end
+	local aim = CFrame.lookAt(head + Vector3.new(0, 1.2, 0), (deckOf(origin) * CFrame.new(0, 3, 0)).Position)
+	makeDecor(parent, "ClayCamera", Vector3.new(2.6, 2, 2.2), aim, CAMERA_BLACK)
+	local lens = makeDecor(parent, "ClayCameraLens", Vector3.new(1.2, 1.4, 1.4), aim * CFrame.new(0, 0, -1.6) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(90, 85, 100))
+	lens.Shape = Enum.PartType.Cylinder
+	makeDecor(parent, "ClayCameraGlass", Vector3.new(0.1, 1.1, 1.1), aim * CFrame.new(0, 0, -2.25) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(120, 200, 255), Enum.Material.Glass).Shape = Enum.PartType.Cylinder
+	for _, z in { -0.5, 0.6 } do
+		local reel = makeDecor(parent, "ClayCameraReel", Vector3.new(0.3, 1.6, 1.6), aim * CFrame.new(0, 1.6, z), CAMERA_BLACK)
+		reel.Shape = Enum.PartType.Cylinder
+	end
+	makeDecor(parent, "ClayFlashMount", Vector3.new(0.3, 1.2, 0.3), aim * CFrame.new(1, 1.4, 0), CHROME_COLOR)
+	makeBall(parent, "ClayFlash", 0.9, aim * CFrame.new(1, 2.2, 0), Color3.fromRGB(255, 245, 210), Enum.Material.Neon)
+end
+
+-- Upgrade stations: terracotta arches. The Color Squish (Station1) wears a row of
+-- clay balls; the Sparkle Glaze (Station2) a pot of glossy glaze dripping off the beam.
+local function buildClayArch(model: Model, spot: CFrame, item: TycoonItems.Item)
+	local deck = deckOf(spot)
+	local top = buildArch(model, spot, item, CLAY_COLOR, CLAY_DARK_COLOR)
+	makeDecor(model, item.Key .. "Stripe", Vector3.new(ARCH_X * 2 + 1.5, 0.4, 3.1), top.CFrame, CLAY_TEAL)
+	if item.Key == "Station1" then
+		for index, x in { -4, -1.3, 1.3, 4 } do
+			makeBall(model, "ClayBlob", 2.2 - (index % 2) * 0.4, deck * CFrame.new(x, ARCH_TOP + 1.8 - (index % 2) * 0.2, 0), ({ Color3.fromRGB(255, 100, 120), Color3.fromRGB(255, 200, 60), Color3.fromRGB(90, 190, 255), Color3.fromRGB(130, 220, 110) })[index], Enum.Material.Sand)
+		end
+	else
+		makeColumn(model, "GlazePot", 3.6, DECK + ARCH_TOP + 0.75, DECK + ARCH_TOP + 3.2, spot, CLAY_LIGHT_COLOR)
+		makeColumn(model, "Glaze", 3.2, DECK + ARCH_TOP + 3.2, DECK + ARCH_TOP + 3.35, spot, Color3.fromRGB(240, 250, 255), Enum.Material.Glass)
+		for _, x in { -5, -2.5, 2.5, 5 } do
+			local drip = makeDecor(model, "GlazeDrip", Vector3.new(0.5, 1.4, 0.5), deck * CFrame.new(x, ARCH_TOP - 1.3, -1.6), Color3.fromRGB(235, 245, 255), Enum.Material.Glass)
+			drip.Transparency = 0.2
+		end
+	end
+	makeBillboard(top, string.upper(item.Name), Vector2.new(8, 1.5), 3.6, 80)
+end
+
+-- Special: the Stop-Motion Camera, a big film camera on a crossbar over the end of the
+-- belt (Station3), its lens pointing down at the brainrot, film reels turning on top,
+-- a flash umbrella beside it.
+local function buildStopMotionCamera(model: Model, spot: CFrame, name: string)
+	local deck = deckOf(spot) * CFrame.new(0, SPECIAL_LIFT, 0)
+	local height = DECK + 8 + SPECIAL_LIFT
+	for _, side in { -1, 1 } do
+		makeColumn(model, "CameraLeg", 1.8, 0, height, spot * CFrame.new(side * SIDE_X, 0, 0), CLAY_DARK_COLOR)
+		makeColumn(model, "CameraLegStripe", 2, DECK + 3, DECK + 3.6, spot * CFrame.new(side * SIDE_X, 0, 0), CLAY_TEAL)
+		makeColumn(model, "CameraLegStripe", 2, DECK + 8, DECK + 8.6, spot * CFrame.new(side * SIDE_X, 0, 0), CLAY_TEAL)
+	end
+	local top = makePart(model, "Station3", Vector3.new(17, 1.8, 3.8), deck * CFrame.new(0, 8.9, 0), CLAY_COLOR)
+	makeDecor(model, "Station3Stripe", Vector3.new(17.1, 0.45, 3.9), deck * CFrame.new(0, 8.9, 0), CLAY_TEAL)
+	makePart(model, "Station3Glow", Vector3.new(13, 0.3, 3), deck * CFrame.new(0, 7.85, 0), WHITE, Enum.Material.Neon)
+	-- the camera on the crossbar, its lens down through it
+	makeDecor(model, "SnapCamera", Vector3.new(6, 3.4, 4), deck * CFrame.new(0, 11.5, 0), CAMERA_BLACK)
+	makeDecor(model, "SnapCameraTrim", Vector3.new(6.1, 0.5, 4.1), deck * CFrame.new(0, 10.2, 0), CLAY_TEAL)
+	makeColumn(model, "SnapLens", 2.8, DECK + SPECIAL_LIFT + 6.6, DECK + SPECIAL_LIFT + 8, spot, Color3.fromRGB(90, 85, 100))
+	makeColumn(model, "SnapLensGlass", 2.2, DECK + SPECIAL_LIFT + 6.5, DECK + SPECIAL_LIFT + 6.6, spot, Color3.fromRGB(120, 200, 255), Enum.Material.Glass)
+	for _, x in { -1.5, 1.5 } do
+		local reel = Instance.new("Model")
+		reel.Name = "SnapReel"
+		local center = deck * CFrame.new(x, 14.6, 0)
+		local disc = makeDecor(reel, "SnapReelDisc", Vector3.new(0.4, 3, 3), center, CAMERA_BLACK)
+		disc.Shape = Enum.PartType.Cylinder
+		for spoke = 0, 2 do
+			makeDecor(reel, "SnapReelHole", Vector3.new(0.45, 0.7, 0.7), center * CFrame.Angles(spoke * math.pi * 2 / 3, 0, 0) * CFrame.new(0, 0.8, 0), CLAY_TEAL).Shape = Enum.PartType.Cylinder
+		end
+		-- (Atmosphere turns Spinners about their pivot's Z: the reel's axle is X)
+		reel.WorldPivot = center * CFrame.Angles(0, math.pi / 2, 0)
+		reel:SetAttribute("Speed", if x < 0 then 2 else -2)
+		CollectionService:AddTag(reel, "Spinner")
+		reel.Parent = model
+	end
+	-- the flash umbrella on a pole beside the camera
+	local pole = deck * CFrame.new(4.8, 9.8, 0)
+	makeDecor(model, "UmbrellaPole", Vector3.new(0.3, 4, 0.3), pole * CFrame.new(0, 2, 0), CHROME_COLOR)
+	local umbrella = makeDecor(model, "FlashUmbrella", Vector3.new(0.3, 4, 4), pole * CFrame.new(0.6, 4.2, 0) * CFrame.Angles(0, 0, math.rad(-60)), WHITE)
+	umbrella.Shape = Enum.PartType.Cylinder
+	makeBall(model, "Station3Flash", 0.9, pole * CFrame.new(0, 4, 0), Color3.fromRGB(255, 245, 210), Enum.Material.Neon)
+	makeBillboard(top, string.upper(name), Vector2.new(8, 1.5), 7.5, 80)
+end
+
+-- Delivery: a brick kiln, a dome on a terracotta base with its glowing door toward the
+-- belt (KilnGlow) and a chimney puffing smoke. The base is the Ship (its top level with
+-- the deck): the brainrot hops in through the door and comes out baked.
+local KILN = 10 -- the dome, across
+
+local function buildKiln(model: Model, spot: CFrame)
+	makeColumn(model, "KilnFoot", KILN + 3, 0, 1, spot, CLAY_DARK_COLOR)
+	local ship = makeColumn(model, "Ship", KILN + 2, 1, DECK, spot, CLAY_COLOR)
+	ship.CanCollide = true
+	ship.CanQuery = true
+	makeColumn(model, "KilnTrim", KILN + 2.4, DECK - 0.6, DECK + 0.3, spot, CLAY_TEAL)
+	local deck = deckOf(spot)
+	makeBall(model, "KilnDome", KILN, deck * CFrame.new(0, 0.3, 0), KILN_COLOR, Enum.Material.Brick)
+	-- the door: a glowing arch facing the belt (+Z), in a cream frame
+	local door = deck * CFrame.new(0, 2.4, KILN / 2 - 0.35)
+	makeDecor(model, "KilnDoorFrame", Vector3.new(0.6, 5.4, 5.4), door * CFrame.Angles(0, math.pi / 2, 0), CLAY_LIGHT_COLOR).Shape = Enum.PartType.Cylinder
+	local glow = makeDecor(model, "KilnGlow", Vector3.new(0.7, 4.4, 4.4), door * CFrame.new(0, 0, 0.05) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 140, 40), Enum.Material.Neon)
+	glow.Shape = Enum.PartType.Cylinder
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 150, 60)
+	light.Range = 12
+	light.Brightness = 1.2
+	light.Parent = glow
+	-- the chimney, smoking
+	makeColumn(model, "KilnChimney", 2.4, DECK + KILN / 2 - 1, DECK + KILN / 2 + 4.5, spot * CFrame.new(-1.5, 0, -1), KILN_COLOR, Enum.Material.Brick)
+	local cap = makeColumn(model, "KilnChimneyCap", 3, DECK + KILN / 2 + 4.5, DECK + KILN / 2 + 5.2, spot * CFrame.new(-1.5, 0, -1), CLAY_DARK_COLOR)
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Texture = SMOKE_TEXTURE
+	smoke.Color = ColorSequence.new(Color3.fromRGB(235, 230, 240))
+	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1) })
+	smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 3) })
+	smoke.Lifetime = NumberRange.new(2, 3)
+	smoke.Rate = 2
+	smoke.Speed = NumberRange.new(2, 3)
+	smoke.EmissionDirection = Enum.NormalId.Right -- the cap is a cylinder on its side: its X is up
+	smoke.Parent = cap
+	makeBillboard(ship, "🔥 SHIPPING", Vector2.new(8, 2), KILN / 2 + 9, 80)
+end
+
 -- The line's tablet (GDD §6): a little stand beside the Assembler holding a tablet,
 -- themed per zone. Its screen (TabletScreen, PromptAnchor) carries the "Configure
 -- line" prompt; UIController flies the camera onto it and opens the Line menu there.
@@ -789,9 +1028,17 @@ end
 local function buildTablet(model: Model, origin: CFrame, item: TycoonItems.Item, lineIndex: number)
 	local spot = origin * CFrame.lookAt(TABLET_SPOT, TABLET_SPOT + TABLET_FACING) -- its -Z faces you
 	local plushie = item.Zone == "PlushieRoom"
-	local frameColor = if plushie then SEWING_COLOR else GANTRY_COLOR
-	local glowColor = if plushie then FLUFF_PINK else Color3.fromRGB(255, 220, 70)
-	if plushie then
+	local clay = item.Zone == "ClayStudio"
+	local frameColor = if plushie then SEWING_COLOR elseif clay then CLAY_COLOR else GANTRY_COLOR
+	local glowColor = if plushie then FLUFF_PINK elseif clay then CLAY_TEAL else Color3.fromRGB(255, 220, 70)
+	if clay then
+		-- a big clay pot for a stand
+		makeColumn(model, "TabletPotFoot", 2.4, 0, 0.6, spot, CLAY_DARK_COLOR)
+		local pot = makeBall(model, "TabletPot", 3, spot * CFrame.new(0, 2, 0), CLAY_COLOR, Enum.Material.Sand)
+		pot.CanCollide = true
+		makeColumn(model, "TabletPotNeck", 1.6, 3.2, 4, spot, CLAY_LIGHT_COLOR)
+		makeColumn(model, "TabletPotStripe", 3.1, 1.8, 2.2, spot, CLAY_TEAL)
+	elseif plushie then
 		-- a big thread spool with chrome ends for a stand, on a violet foot
 		makeColumn(model, "TabletFoot", 2.6, 0, 0.7, spot, LAVENDER_COLOR)
 		makeColumn(model, "TabletSpoolEnd", 2, 0.7, 1.1, spot, CHROME_COLOR, Enum.Material.Metal)
@@ -822,6 +1069,8 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		buildGantry(model, origin, colors)
 		if item.Zone == "PlushieRoom" then
 			buildSewingMachine(model, origin)
+		elseif item.Zone == "ClayStudio" then
+			buildClayHands(model, origin)
 		else
 			buildClaw(model, origin)
 			buildPusher(model, origin, -1)
@@ -833,6 +1082,8 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		local spot = origin * CFrame.new(0, 0, SHIP_Z)
 		if item.Zone == "PlushieRoom" then
 			buildFluffMachine(model, spot)
+		elseif item.Zone == "ClayStudio" then
+			buildKiln(model, spot)
 		else
 			buildTrapdoor(model, spot)
 		end
@@ -843,6 +1094,8 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		local base = origin * CFrame.new(0, 0, DROPPER_Z[partType])
 		if item.Zone == "PlushieRoom" then
 			buildKnittingMachine(model, base, partType, PART_COLORS[partType])
+		elseif item.Zone == "ClayStudio" then
+			buildClayPress(model, base, partType, PART_COLORS[partType])
 		else
 			buildChute(model, base, partType, PART_COLORS[partType])
 		end
@@ -860,11 +1113,15 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		if item.Key == "Station3" then
 			if item.Zone == "PlushieRoom" then
 				buildBowTier(model, spot, item.Name)
+			elseif item.Zone == "ClayStudio" then
+				buildStopMotionCamera(model, spot, item.Name)
 			else
 				buildPacker(model, spot, item.Name)
 			end
 		elseif item.Zone == "PlushieRoom" then
 			buildPlushieArch(model, spot, item)
+		elseif item.Zone == "ClayStudio" then
+			buildClayArch(model, spot, item)
 		else
 			local color = STATION_COLORS[item.Key]
 			local top = buildArch(model, spot, item, color, color)
