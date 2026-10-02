@@ -3,6 +3,9 @@
 	edition (size + style) on its own assembly lines. Completions are tracked per zone.
 
 	`Available = false` zones are designed but not built yet (no tycoon items/geometry).
+	The first run (before any rebirth) holds every room up to the Candy Factory, each
+	opened with Coins at its door (UnlockPrice); the Candy Factory needs a rebirth and its
+	floor (the user, 2026-10-02). Prices are placeholders until the economy pass.
 	Style: Scale multiplies model size (big enough that the player's brainrot is the star of
 	its line, not a speck in the machines); Material/Reflectance/Transparency override the
 	brainrot's look when set (nil keeps the model's own look).
@@ -22,6 +25,7 @@ export type Zone = {
 	Name: string,
 	Edition: string,
 	UnlockRebirths: number,
+	UnlockPrice: number?, -- Coins to open its room once the rebirths are met (a button at its door); nil: it opens by itself
 	ValueMultiplier: number, -- × ship value
 	PriceMultiplier: number, -- × tycoon item prices
 	GemMultiplier: number, -- × completion Gems
@@ -54,7 +58,8 @@ Zones.List = {
 		Index = 0,
 		Name = "Plushie Sewing Room",
 		Edition = "Plushie",
-		UnlockRebirths = 2,
+		UnlockRebirths = 0,
+		UnlockPrice = 25000,
 		ValueMultiplier = 2,
 		PriceMultiplier = 3,
 		GemMultiplier = 1.5,
@@ -69,7 +74,8 @@ Zones.List = {
 		Index = 0,
 		Name = "Clay Studio",
 		Edition = "Clay",
-		UnlockRebirths = 4,
+		UnlockRebirths = 0,
+		UnlockPrice = 400000,
 		ValueMultiplier = 3.5,
 		PriceMultiplier = 8,
 		GemMultiplier = 2,
@@ -82,7 +88,8 @@ Zones.List = {
 		Index = 0,
 		Name = "Vinyl Collectibles",
 		Edition = "Collectible",
-		UnlockRebirths = 6,
+		UnlockRebirths = 0,
+		UnlockPrice = 6000000,
 		ValueMultiplier = 6,
 		PriceMultiplier = 20,
 		GemMultiplier = 3,
@@ -95,7 +102,7 @@ Zones.List = {
 		Index = 0,
 		Name = "Candy Factory",
 		Edition = "Candy",
-		UnlockRebirths = 9,
+		UnlockRebirths = 1, -- and its floor bought (TycoonItems.Floors)
 		ValueMultiplier = 10,
 		PriceMultiplier = 50,
 		GemMultiplier = 4.5,
@@ -108,7 +115,7 @@ Zones.List = {
 		Index = 0,
 		Name = "Robot Plant",
 		Edition = "Animatronic",
-		UnlockRebirths = 12,
+		UnlockRebirths = 2,
 		ValueMultiplier = 17,
 		PriceMultiplier = 120,
 		GemMultiplier = 6.5,
@@ -121,7 +128,7 @@ Zones.List = {
 		Index = 0,
 		Name = "Mad Science Lab",
 		Edition = "Living",
-		UnlockRebirths = 16,
+		UnlockRebirths = 3,
 		ValueMultiplier = 30,
 		PriceMultiplier = 300,
 		GemMultiplier = 10,
@@ -134,7 +141,7 @@ Zones.List = {
 		Index = 0,
 		Name = "Secret Bunker",
 		Edition = "Clone",
-		UnlockRebirths = 20,
+		UnlockRebirths = 4,
 		ValueMultiplier = 50,
 		PriceMultiplier = 700,
 		GemMultiplier = 15,
@@ -147,7 +154,7 @@ Zones.List = {
 		Index = 0,
 		Name = "Titan Foundry",
 		Edition = "Giant",
-		UnlockRebirths = 25,
+		UnlockRebirths = 6,
 		ValueMultiplier = 85,
 		PriceMultiplier = 1500,
 		GemMultiplier = 22,
@@ -160,7 +167,7 @@ Zones.List = {
 		Index = 0,
 		Name = "Orbital Forge",
 		Edition = "Cosmic",
-		UnlockRebirths = 30,
+		UnlockRebirths = 8,
 		ValueMultiplier = 150,
 		PriceMultiplier = 3500,
 		GemMultiplier = 33,

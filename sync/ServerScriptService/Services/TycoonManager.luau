@@ -54,6 +54,14 @@ local PLOT_COLORS = {
 
 local SPAWN_OFFSET = CFrame.new(0, FLOOR_TOP + 4, -54) * CFrame.Angles(0, math.pi, 0) -- facing into the plot
 local FLOOR_BUTTON = Vector3.new(-30, 0, -78) -- the next floor's button, on the lawn out front
+-- Where a room's opening button sits (plot space, on the floor): beside its door, on the
+-- side you come from (clear of the middle line's belt end and buttons), or on the
+-- outside stairs' landing.
+local ROOM_BUTTONS = {
+	PlushieRoom = Vector3.new(18, FactoryBuilder.FloorY(1), 55),
+	ClayStudio = Vector3.new(75.7, FactoryBuilder.FloorY(2), 31),
+	VinylCollectibles = Vector3.new(18, FactoryBuilder.FloorY(2), 55),
+}
 local OLD_BUILDING_DELAY = 2 -- seconds the old building stays (minus its top) while the new one streams in
 local CASH_PAD_OFFSET = CFrame.new(0, FLOOR_TOP + 0.3, -46)
 
@@ -198,9 +206,23 @@ local function getPlayerFromHit(hit: BasePart): Player?
 	return nil
 end
 
+-- Whether a zone's room can be opened (or is open): it's built, the player has the
+-- rebirths, and its storey is up (floors are bought: TycoonItems.Floors).
+local function isZoneReachable(data: DataManager.PlayerData, zone: Zones.Zone): boolean
+	if not (zone.Available and data.Rebirths >= zone.UnlockRebirths) then
+		return false
+	end
+	local spot = FactoryBuilder.Layout[zone.Index]
+	return spot == nil or spot.Storey <= TycoonItems.StoreysOf(data.Tycoon.Purchased, FactoryBuilder.BaseStoreys)
+end
+
+-- Whether a zone's room is open: reachable, and opened with Coins at its door when it
+-- has an UnlockPrice (its Room item).
 local function isZoneUnlocked(data: DataManager.PlayerData, zoneId: string): boolean
 	local zone = Zones.ById[zoneId]
-	return zone ~= nil and zone.Available and data.Rebirths >= zone.UnlockRebirths
+	return zone ~= nil
+		and isZoneReachable(data, zone)
+		and (zone.UnlockPrice == nil or data.Tycoon.Purchased[`{zoneId}_Room`] == true)
 end
 
 -- Items ----------------------------------------------------------------------
@@ -1067,10 +1089,14 @@ type Arrival = { Waves: { [Model]: number }, Count: number, Order: number }
 -- with the server time it was built, so clients can play the build animation
 -- (TycoonFX) for new things only.
 local syncBuilding: (plot: Plot, dropIn: boolean) -> ()
+local updateZoneLabels: (plot: Plot) -> ()
 
 local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?, arrival: Arrival?)
 	if item.Kind == "Floor" then
 		syncBuilding(plot, bought == true or arrival ~= nil)
+		return
+	elseif item.Kind == "Room" then
+		updateZoneLabels(plot) -- its door opens
 		return
 	end
 	local model = if item.Kind == "Decor"
@@ -1173,6 +1199,17 @@ local function onButtonTouched(plot: Plot, item: TycoonItems.Item, hit: BasePart
 
 	if DataManager.PurchaseItem(player, item.Id, item.Price) then
 		buildItem(plot, item, true)
+		if item.Kind == "Room" then
+			-- the room's free first line arrives with it
+			local data = DataManager.GetData(player)
+			for _, free in TycoonItems.List do
+				if data and free.Zone == item.Zone and free.Price == 0 and free.Requires == nil and free.Kind ~= "Room" then
+					if DataManager.PurchaseItem(player, free.Id, 0) then
+						buildItem(plot, free, true)
+					end
+				end
+			end
+		end
 		refreshButtons(plot)
 		-- the Upgraders track lights every station up: give the new one its lights too
 		local data = DataManager.GetData(player)
@@ -1189,7 +1226,11 @@ end
 local function createButton(plot: Plot, item: TycoonItems.Item)
 	local cframe: CFrame
 	local text: string
-	if item.Kind == "Floor" then
+	if item.Kind == "Room" then
+		local spot = ROOM_BUTTONS[item.Zone] or Vector3.new(18, FactoryBuilder.FloorY(1), 55)
+		cframe = plot.CFrame * CFrame.new(spot.X, spot.Y + 0.2, spot.Z)
+		text = `🔓 {item.Name}\n{priceText(item.Price)}`
+	elseif item.Kind == "Floor" then
 		-- the next floor's button, on the lawn in front of the factory
 		cframe = plot.CFrame * CFrame.new(FLOOR_BUTTON.X, 0.2, FLOOR_BUTTON.Z)
 		text = if isLocked(plot, item)
@@ -1208,8 +1249,9 @@ local function createButton(plot: Plot, item: TycoonItems.Item)
 		cframe = lineOrigin(plot, item.LineId :: string) * CFrame.new(offset.X, 0.2, offset.Z)
 		text = `{item.Name}\n{priceText(item.Price)}`
 	end
-	local big = item.Kind == "Floor"
-	local button = makePart(plot.ButtonsFolder, item.Id, if big then Vector3.new(8, 0.4, 8) else Vector3.new(5, 0.4, 5), cframe, AFFORDABLE_COLOR, Enum.Material.Neon)
+	local big = item.Kind == "Floor" or item.Kind == "Room"
+	local size = if item.Kind == "Floor" then 8 elseif item.Kind == "Room" then 6 else 5
+	local button = makePart(plot.ButtonsFolder, item.Id, Vector3.new(size, 0.4, size), cframe, AFFORDABLE_COLOR, Enum.Material.Neon)
 	makeBillboard(button, text, if big then Vector2.new(12, 3.6) elseif item.Kind == "Decor" then Vector2.new(7.5, 3.4) else Vector2.new(7, 2.5), if big then 4 else 3, if big then 150 else 60)
 	button.Touched:Connect(function(hit)
 		onButtonTouched(plot, item, hit)
@@ -1225,8 +1267,10 @@ refreshButtons = function(plot: Plot)
 		local visible = false
 		if data then
 			local purchased = data.Tycoon.Purchased
+			local zone = Zones.ById[item.Zone]
+			local open = if item.Kind == "Room" then zone ~= nil and isZoneReachable(data, zone) else isZoneUnlocked(data, item.Zone)
 			visible = item.Kind ~= "Track" -- bought from the line's tablet, not a button
-				and isZoneUnlocked(data, item.Zone)
+				and open
 				and not purchased[item.Id]
 				and (item.Requires == nil or purchased[item.Requires] == true)
 		end
@@ -1260,17 +1304,19 @@ end
 -- Each room's doorway stays shuttered, its sign showing a lock, until the owner
 -- unlocks the zone. Rooms of zones that aren't built yet stay shut, "coming soon"
 -- once the owner has the rebirths.
-local function updateZoneLabels(plot: Plot)
+updateZoneLabels = function(plot: Plot)
 	local data = plot.Owner and DataManager.GetData(plot.Owner)
 	for zoneId, doorway in plot.Doorways do
 		local zone = Zones.ById[zoneId]
 		local rebirths = if data then data.Rebirths else 0
-		if zone.Available and rebirths >= zone.UnlockRebirths then
-			FactoryBuilder.SetLocked(doorway, nil)
-		elseif rebirths >= zone.UnlockRebirths then
-			FactoryBuilder.SetLocked(doorway, "🚧 COMING SOON")
-		else
+		if rebirths < zone.UnlockRebirths then
 			FactoryBuilder.SetLocked(doorway, `🔒 REBIRTH {zone.UnlockRebirths}`)
+		elseif not zone.Available then
+			FactoryBuilder.SetLocked(doorway, "🚧 COMING SOON")
+		elseif data and isZoneUnlocked(data, zoneId) then
+			FactoryBuilder.SetLocked(doorway, nil)
+		else
+			FactoryBuilder.SetLocked(doorway, `🔓 💰 {Format.Number(zone.UnlockPrice or 0)}`)
 		end
 	end
 end
@@ -1394,6 +1440,14 @@ end
 -- unlocked zone first), then shows their next buttons.
 -- Builds everything the player owns into the plot, dropping it all in on clients.
 local function furnishPlot(plot: Plot, player: Player, data: DataManager.PlayerData)
+	-- saves from before rooms were bought (a zone opened with its rebirths): a room with
+	-- lines already in it is open
+	for _, line in TycoonItems.Lines do
+		local room = `{line.Zone}_Room`
+		if TycoonItems.ById[room] and not data.Tycoon.Purchased[room] and data.Tycoon.Purchased[line.UnlockItemId] then
+			DataManager.PurchaseItem(player, room, 0)
+		end
+	end
 	syncBuilding(plot, true) -- as tall as its floors (a rebirth takes them away)
 	local arrival: Arrival = { Waves = {}, Count = 0, Order = 0 }
 	for _, item in TycoonItems.List do

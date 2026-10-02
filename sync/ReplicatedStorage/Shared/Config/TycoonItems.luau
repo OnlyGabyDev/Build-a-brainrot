@@ -4,7 +4,8 @@
 	"ToyWorkshop_1_Head", "ToyWorkshop_1_Speed1", ...; room upgrades (Config/RoomUpgrades)
 	"ToyWorkshop_Decor_GiftTower_1", one per level; line upgrade tracks (Config/LineUpgrades)
 	"ToyWorkshop_1_UpDroppers_1", one per level, bought from the line's tablet (no button);
-	floors "Floor_3", one per storey above the first two (a button out front).
+	floors "Floor_3", one per storey above the first two (a button out front); rooms
+	"PlushieRoom_Room", opening a zone's room for its UnlockPrice (a button at its door).
 	Buttons appear one after another: each item requires the previous one.
 	Prices are placeholders to tune in playtests.
 ]]
@@ -17,7 +18,7 @@ export type Item = {
 	Id: string,
 	Key: string, -- "Line", "Head", "Speed1", ... (used for layout)
 	Name: string,
-	Kind: string, -- "Line" | "Dropper" | "Speed" | "Station" | "Decor" (a room upgrade's level) | "Track" (a line upgrade's level) | "Floor" (a storey)
+	Kind: string, -- "Line" | "Dropper" | "Speed" | "Station" | "Decor" (a room upgrade's level) | "Track" (a line upgrade's level) | "Floor" (a storey) | "Room" (opens a zone)
 	Price: number,
 	Requires: string?, -- item that must be bought first
 	Zone: string,
@@ -82,6 +83,18 @@ for _, zone in Zones.List do
 		continue
 	end
 	assert(zone.LineCount <= #LINE_UNLOCK_PRICES, `{zone.Id} has more lines than LINE_UNLOCK_PRICES`)
+
+	-- its room's door, when it opens for Coins (a button at the door: TycoonManager)
+	if zone.UnlockPrice then
+		register({
+			Id = `{zone.Id}_Room`,
+			Key = "Room",
+			Name = `Open the {zone.Name}`,
+			Kind = "Room",
+			Price = zone.UnlockPrice,
+			Zone = zone.Id,
+		})
+	end
 
 	for index = 1, zone.LineCount do
 		local lineId = `{zone.Id}_{index}`
