@@ -12,9 +12,10 @@
 	  * Toy Workshop: the legs boing onto the pad, the claw whirs the body onto them,
 	    two punch presses BONK the arms into place with boxing gloves, and the claw
 	    ratchets the head on. Pop!
-	  * Plushie Sewing Room: the legs plop onto a cushion, the needle stitches the body
-	    on, thread spools reel the arms in, and the needle pumps the head full of
-	    stuffing. Pop!
+	  * Plushie Sewing Room: the knitting machines round the capsule knit the parts
+	    right into it; the legs plop onto the cushion, the needle stitches the body on,
+	    thread spools reel the arms in, and the needle pumps the head full of stuffing.
+	    Pop! Then a hook on the overhead rail carries it off, swinging (see The rail).
 	  * Clay Studio (stop-motion): the legs plop down, a big white glove presses the
 	    body on, both gloves squish the arms in, and the head jumps into place frame by
 	    frame between them, the camera flashing at every step. Pop!
@@ -24,7 +25,9 @@
 	    twists the head on. Shiny!
 	Then the finished brainrot shows itself off (ta-da: a spin under a spotlight, its
 	name tag pops up) before it rides on: it's the star of the line, so it's big, gets
-	an outline on your own lines, and keeps its name tag until it's packed off.
+	an outline on your own lines, and keeps its name tag until it's packed off. Each
+	zone's line has its own layout (Shared/LineLayouts: a straight belt, or a rail), and
+	the line Model's Origin attribute puts that layout in the world.
 ]]
 
 local Players = game:GetService("Players")
@@ -38,6 +41,7 @@ local Config = Shared:WaitForChild("Config")
 local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
 local Brainrots = require(Config:WaitForChild("Brainrots"))
 local Format = require(Shared:WaitForChild("Format"))
+local LineLayouts = require(Shared:WaitForChild("LineLayouts"))
 local Production = require(Config:WaitForChild("Production"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
@@ -1103,21 +1107,16 @@ local function toyBoxFinish(build: Build, brainrot: Model, ship: BasePart, durat
 	return base.Position + Vector3.new(0, 3, 0)
 end
 
--- Plushie Sewing Room: the brainrot hops into the fluff machine's glass dome, fluff
--- swirls round and round it until it's puffed up, and it sinks into the cushy base.
+-- Plushie Sewing Room: in the fluff jar (the hook lowers it in), fluff swirls round and
+-- round the brainrot standing on `base` until it's puffed up, and it sinks into the
+-- cushy floor with the fluff: in `swirl` + `pause` + `sink` seconds. Returns where the
+-- coins burst out.
 local FLUFF_COLORS = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 225, 240), Color3.fromRGB(235, 240, 255) }
 local HEART_COLOR = Color3.fromRGB(255, 120, 190)
 local FLUFF_BALLS = 14
 
-local function fluffFinish(build: Build, brainrot: Model, ship: BasePart, duration: number): Vector3
-	local d = duration
-	local rotation = brainrot:GetPivot().Rotation
-	local base = rotation + Vector3.new(ship.Position.X, topOf(ship), ship.Position.Z)
+local function fluffUp(build: Build, brainrot: Model, base: CFrame, swirl: number, pause: number, sink: number): Vector3
 	local center = base.Position + Vector3.new(0, 2, 0)
-
-	-- in it hops, shrinking to fit under the dome
-	Effects.sound(brainrot:GetPivot().Position, Sounds.Boing, 0.3, vary(0.85))
-	hopShrinking(brainrot, base, d * 0.22, 6, 0.5)
 	local size = brainrot:GetScale()
 	puff(build, center, STUFFING_COLOR, 6)
 
@@ -1130,7 +1129,7 @@ local function fluffFinish(build: Build, brainrot: Model, ship: BasePart, durati
 		balls[index] = ball
 	end
 	local beats = 0
-	run(d * 0.48, function(a)
+	run(swirl, function(a)
 		for index, ball in balls do
 			ball.Transparency = if a > (index - 1) / FLUFF_BALLS * 0.6 then 0 else 1
 			local angle = index * 2.4 + a * 14 * (if index % 2 == 0 then 1 else -1)
@@ -1151,19 +1150,19 @@ local function fluffFinish(build: Build, brainrot: Model, ship: BasePart, durati
 	sparkle(build, center + Vector3.new(0, 1, 0), HEART_COLOR, 14)
 	Effects.sound(center, Sounds.Pop, 0.35, vary(1.2))
 	Effects.popup(center + Vector3.new(0, 6, 0), "FLUFFY!", HEART_COLOR, 1.2, 0.6)
-	task.wait(d * 0.08)
+	task.wait(pause)
 
 	-- down into the base, fluff and all
 	Effects.sound(center, Sounds.Whoosh, 0.22, vary(1.1))
 	local grown = brainrot:GetScale()
 	local start = brainrot:GetPivot()
-	local sink = CFrame.new(base.Position - Vector3.new(0, 1, 0))
-	run(d * 0.16, function(a)
+	local into = CFrame.new(base.Position - Vector3.new(0, 1, 0))
+	run(sink, function(a)
 		local e = ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.In)
 		brainrot:ScaleTo(math.max(grown * (1 - 0.95 * e), 0.02))
 		brainrot:PivotTo(start - Vector3.new(0, 2 * e, 0))
 		for _, ball in balls do
-			ball.CFrame = ball.CFrame:Lerp(sink, e)
+			ball.CFrame = ball.CFrame:Lerp(into, e)
 		end
 	end)
 	brainrot:Destroy()
@@ -1525,7 +1524,12 @@ local BOW_COLOR = Color3.fromRGB(255, 110, 180)
 local function bowSpecial(build: Build, brainrot: Model, machine: BasePart, duration: number)
 	local frame, size = brainrot:GetBoundingBox()
 	local rotation = brainrot:GetPivot().Rotation
-	local head = rotation + (frame.Position + Vector3.new(0, size.Y / 2 + 0.5, 0))
+	-- (on a rail the hook holds the top of its head: the bow flies off the machine's
+	-- ribbon spool onto its front instead of dropping onto its top)
+	local spool = findPart(build.Line, "Station3Nozzle")
+	local head = if spool
+		then rotation + (frame.Position + Vector3.new(0, size.Y / 2 - 1.2, 0) + rotation.LookVector * (size.Z / 2))
+		else rotation + (frame.Position + Vector3.new(0, size.Y / 2 + 0.5, 0))
 	local bow = Instance.new("Model")
 	bow.Name = "Bow"
 	local knot = newPart(bow, "BowKnot", Vector3.one * 1.1, head, BOW_COLOR, Enum.PartType.Ball)
@@ -1542,10 +1546,12 @@ local function bowSpecial(build: Build, brainrot: Model, machine: BasePart, dura
 
 	stampMachine(build, machine)
 	Effects.sound(head.Position, Sounds.Sewing, 0.2, vary(1.5))
-	local from = head + Vector3.new(0, 7, 0)
+	local from = if spool then rotation + spool.Position else head + Vector3.new(0, 7, 0)
 	bow:PivotTo(from)
 	run(duration * 0.45, function(a)
-		bow:PivotTo(from:Lerp(head, ease(a, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)) * CFrame.Angles(0, (1 - a) * math.pi * 2, 0))
+		local landing = from:Lerp(head, ease(a, if spool then Enum.EasingStyle.Quad else Enum.EasingStyle.Bounce, Enum.EasingDirection.Out))
+		local arc = if spool then Vector3.new(0, 2.5 * math.sin(a * math.pi), 0) else Vector3.zero
+		bow:PivotTo((landing + arc) * CFrame.Angles(0, (1 - a) * math.pi * 2, 0))
 	end)
 	bow:PivotTo(head)
 	squish(brainrot)
@@ -1723,7 +1729,7 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 	PlushieRoom = {
 		Setup = setupSewing,
 		Special = bowSpecial,
-		Finish = fluffFinish,
+		-- (its finish is the rail's: the hook lowers it into the fluff jar)
 		Steps = {
 			-- The legs plop down from up high onto a soft cushion. Floof.
 			Legs = function(build, piece, duration)
@@ -2171,6 +2177,26 @@ local function stationPasses(line: Model, from: Vector3, to: Vector3): { Station
 	return passes
 end
 
+-- A station's sign's rims flash, and its multiplier pops up over `target` as its shot
+-- lands.
+local function stationFlash(build: Build, key: string, target: Vector3)
+	local info = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
+	local rimColor = POP_COLOR
+	for _, name in { "Glow", "GlowTop" } do
+		local rim = findPart(build.Line, key .. name)
+		if rim then
+			rimColor = rim.Color
+			TweenService:Create(rim, info, { Color = POP_COLOR }):Play()
+		end
+	end
+	local item = TycoonItems.ById[`{build.Line.Name}_{key}`]
+	if item and item.Multiplier then
+		onHit(function()
+			Effects.popup(target + Vector3.new(0, 3, 0), `x{item.Multiplier}`, rimColor, 1, 0.6)
+		end)
+	end
+end
+
 -- A station fires at the brainrot, `ahead` being where it'll be when the shot lands.
 local function stationPass(build: Build, pass: StationPass, brainrot: Model, ahead: Vector3)
 	local box = brainrot:GetBoundingBox()
@@ -2178,23 +2204,7 @@ local function stationPass(build: Build, pass: StationPass, brainrot: Model, ahe
 	local zoneFx = ZONE_STATION_FX[build.Zone]
 	local fx = (if zoneFx then zoneFx[pass.Key] else nil) or STATION_FX[pass.Key]
 	fx(build, pass.Source, brainrot, target)
-
-	-- its sign's rims flash, and the multiplier pops up as the shot lands
-	local info = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
-	local rimColor = POP_COLOR
-	for _, name in { "Glow", "GlowTop" } do
-		local rim = findPart(build.Line, pass.Key .. name)
-		if rim then
-			rimColor = rim.Color
-			TweenService:Create(rim, info, { Color = POP_COLOR }):Play()
-		end
-	end
-	local item = TycoonItems.ById[`{build.Line.Name}_{pass.Key}`]
-	if item and item.Multiplier then
-		onHit(function()
-			Effects.popup(target + Vector3.new(0, 3, 0), `x{item.Multiplier}`, rimColor, 1, 0.6)
-		end)
-	end
+	stationFlash(build, pass.Key, target)
 end
 
 -- The show ------------------------------------------------------------------
@@ -2366,6 +2376,379 @@ local function showOff(build: Build, brainrot: Model, from: CFrame, spot: CFrame
 	task.wait(d * 0.25)
 end
 
+-- The rail ------------------------------------------------------------------
+-- On a rail's line (LineLayouts "Rail": the Plushie room) there's no belt. While the
+-- finished brainrot shows itself off, a hook comes out of its garage along the rail
+-- near the ceiling and waits over it; then it clips the top of its head, carries it out
+-- through the capsule's open front and up, and on, swinging like a pendulum: it dips
+-- it into the Dye Bath's vat, swings it under the Sequin Shower, holds it still for the
+-- Bow Tier, lowers it into the fluff jar and lets go, and rolls on into the garage at
+-- the rail's end. Each brainrot gets a hook of its own (client-side, like the
+-- brainrot), so fast lines just have more hooks on the rail.
+
+local TROLLEY_DROP = 1.6 -- from the rail's middle down to the trolley's underside, where the cable starts
+local JAW_LENGTH = 1.1
+local MIN_DROP = JAW_LENGTH + 0.7 -- the cable all the way in: the grip point (the jaws' tips) under the trolley
+local CARRY_DROP = 2.6 -- the grip point while it travels: low enough that a swing never lifts the head's corners into the rail
+local JAW_OPEN = math.rad(30)
+local SWING_GRAVITY = 110 -- a cartoon gravity for the swing, studs/s²
+local SWING_DAMPING = 2.4
+local SWING_MAX = 0.35 -- radians
+local DIP_DEPTH = 2.6 -- how far under the dye's surface its feet go
+local HOOK_PINK = Color3.fromRGB(235, 65, 150)
+local HOOK_GOLD = Color3.fromRGB(255, 190, 40)
+local HOOK_CHROME = Color3.fromRGB(215, 220, 235)
+local HOOK_GLOW = Color3.fromRGB(90, 220, 255)
+
+type Hook = {
+	Model: Model,
+	Trolley: Model,
+	Cable: BasePart,
+	Cap: BasePart,
+	Jaws: { BasePart },
+	Origin: CFrame,
+	Curve: LineLayouts.Curve,
+	TrolleyY: number, -- the trolley's underside, in the world
+	S: number, -- how far along the rail it is
+	Drop: number, -- the grip point (the jaws' tips) under the trolley
+	Open: number, -- the jaws: 0 shut, 1 open
+	Swing: Vector3, -- the load's tilt: horizontal, toward where it swings, its size in radians
+	SwingVelocity: Vector3,
+	SwingScale: number, -- how much of the swing shows (none in the capsule)
+	Pull: Vector3, -- the trolley's acceleration, smoothed
+	Frozen: boolean, -- holds the load still (while the Bow Tier ties its bow on)
+	Load: Model?,
+	Hang: number, -- the load's half height (its center, under the grip)
+	Rotation: CFrame, -- the load's turn when it was clipped
+	Grip: Vector3, -- where the hook holds it, in its pivot's space at GripScale
+	GripScale: number,
+	LastPoint: Vector3?,
+	LastVelocity: Vector3,
+	Connection: RBXScriptConnection?,
+}
+
+local function hookPart(parent: Instance, name: string, size: Vector3, color: Color3, material: Enum.Material, shape: Enum.PartType?): Part
+	local part = newPart(parent, name, size, CFrame.identity, color, shape)
+	part.Material = material
+	return part
+end
+
+local function poseHook(hook: Hook)
+	local at, heading = LineLayouts.At(hook.Curve, hook.S)
+	local point = hook.Origin * at
+	local ahead = hook.Origin:VectorToWorldSpace(heading)
+	local flat = Vector3.new(ahead.X, 0, ahead.Z)
+	local facing = CFrame.lookAt(Vector3.zero, if flat.Magnitude > 1e-3 then flat.Unit else hook.Origin.LookVector)
+	hook.Trolley:PivotTo(facing + Vector3.new(point.X, hook.TrolleyY + 0.5, point.Z))
+
+	local top = Vector3.new(point.X, hook.TrolleyY, point.Z)
+	local swing = hook.Swing * hook.SwingScale
+	local angle = swing.Magnitude
+	local tilt = if angle > 1e-4 then CFrame.fromAxisAngle(swing.Unit:Cross(Vector3.yAxis), angle) else CFrame.identity
+	local down = tilt:VectorToWorldSpace(-Vector3.yAxis)
+	local grip = top + down * hook.Drop
+	local cap = top + down * math.max(hook.Drop - JAW_LENGTH - 0.3, 0.4)
+	placeRod(hook.Cable, top, cap)
+	local clip = tilt * facing + cap
+	hook.Cap.CFrame = clip
+	for index, jaw in hook.Jaws do
+		local side = if index == 1 then -1 else 1
+		jaw.CFrame = clip * CFrame.Angles(0, 0, side * JAW_OPEN * hook.Open) * CFrame.new(side * 0.3, -(JAW_LENGTH / 2 + 0.2), 0) * CFrame.Angles(0, 0, -side * 0.15)
+	end
+
+	local load = hook.Load
+	if load and not hook.Frozen and load.Parent then
+		local factor = load:GetScale() / hook.GripScale
+		load:PivotTo(CFrame.new(grip) * tilt * hook.Rotation * CFrame.new(-hook.Grip * factor))
+	end
+end
+
+-- The load swings like a pendulum hung from the trolley, pushed by its acceleration.
+local function stepHook(hook: Hook, dt: number)
+	local point = hook.Origin * (LineLayouts.At(hook.Curve, hook.S))
+	local step = math.clamp(dt, 1 / 240, 1 / 15)
+	if not hook.Frozen then
+		local last = hook.LastPoint
+		local velocity = if last then (point - last) / step else hook.LastVelocity
+		local accel = (velocity - hook.LastVelocity) / step
+		accel = Vector3.new(accel.X, 0, accel.Z)
+		if accel.Magnitude > 160 then
+			accel = accel.Unit * 160
+		end
+		hook.Pull = hook.Pull:Lerp(accel, 0.35)
+		local length = math.max(hook.Drop + hook.Hang, 1)
+		local force = -(SWING_GRAVITY / length) * hook.Swing - SWING_DAMPING * hook.SwingVelocity - hook.Pull / length
+		hook.SwingVelocity += force * step
+		hook.Swing += hook.SwingVelocity * step
+		if hook.Swing.Magnitude > SWING_MAX then
+			hook.Swing = hook.Swing.Unit * SWING_MAX
+			hook.SwingVelocity *= 0.5
+		end
+		hook.LastVelocity = velocity
+	end
+	hook.LastPoint = point
+	poseHook(hook)
+end
+
+-- A hook parked in the garage at the start of the rail (`origin`: line space in the world).
+local function makeHook(origin: CFrame, curve: LineLayouts.Curve): Hook
+	local model = Instance.new("Model")
+	model.Name = "Hook"
+	local trolley = Instance.new("Model")
+	trolley.Name = "Trolley"
+	local body = hookPart(trolley, "TrolleyBody", Vector3.new(1.4, 1, 2), HOOK_PINK, Enum.Material.SmoothPlastic)
+	body.CFrame = CFrame.identity
+	hookPart(trolley, "TrolleyStripe", Vector3.new(1.5, 0.3, 2.1), HOOK_GOLD, Enum.Material.Metal).CFrame = CFrame.new(0, 0.1, 0)
+	for _, x in { -0.78, 0.78 } do
+		for _, z in { -0.55, 0.55 } do
+			hookPart(trolley, "TrolleyWheel", Vector3.new(0.25, 0.8, 0.8), HOOK_CHROME, Enum.Material.Metal, Enum.PartType.Cylinder).CFrame = CFrame.new(x, 0.35, z)
+		end
+	end
+	hookPart(trolley, "TrolleyLamp", Vector3.one * 0.4, HOOK_GLOW, Enum.Material.Neon, Enum.PartType.Ball).CFrame = CFrame.new(0, -0.1, -1.05)
+	trolley.WorldPivot = CFrame.identity
+	trolley.Parent = model
+	local hook: Hook = {
+		Model = model,
+		Trolley = trolley,
+		Cable = hookPart(model, "HookCable", Vector3.new(0.15, 0.15, 1), HOOK_CHROME, Enum.Material.Metal),
+		Cap = hookPart(model, "HookCap", Vector3.new(0.9, 0.7, 0.9), HOOK_GOLD, Enum.Material.Metal),
+		Jaws = {
+			hookPart(model, "HookJaw", Vector3.new(0.25, JAW_LENGTH, 0.6), HOOK_GOLD, Enum.Material.Metal),
+			hookPart(model, "HookJaw", Vector3.new(0.25, JAW_LENGTH, 0.6), HOOK_GOLD, Enum.Material.Metal),
+		},
+		Origin = origin,
+		Curve = curve,
+		TrolleyY = origin.Y + LineLayouts.RailY - TROLLEY_DROP,
+		S = 0,
+		Drop = MIN_DROP,
+		Open = 0,
+		Swing = Vector3.zero,
+		SwingVelocity = Vector3.zero,
+		SwingScale = 0,
+		Pull = Vector3.zero,
+		Frozen = false,
+		Load = nil,
+		Hang = 0.5,
+		Rotation = CFrame.identity,
+		Grip = Vector3.zero,
+		GripScale = 1,
+		LastPoint = nil,
+		LastVelocity = Vector3.zero,
+		Connection = nil,
+	}
+	hookPart(model, "HookBead", Vector3.one * 0.45, Color3.fromRGB(255, 150, 220), Enum.Material.Neon, Enum.PartType.Ball).Parent = hook.Cap
+	model.Parent = effects
+	poseHook(hook)
+	hook.Connection = RunService.Heartbeat:Connect(function(dt)
+		stepHook(hook, dt)
+	end)
+	return hook
+end
+
+local function destroyHook(hook: Hook)
+	if hook.Connection then
+		hook.Connection:Disconnect()
+		hook.Connection = nil
+	end
+	hook.Model:Destroy()
+end
+
+-- The hook lowers its load into the Dye Bath's dye (`dye`, its surface the top) up to
+-- its knees, with a splash; the dye takes, and up it comes, dripping.
+local function dipInVat(build: Build, hook: Hook, dye: BasePart, height: number, duration: number)
+	local load = hook.Load :: Model
+	local surface = dye.Position.Y + halfHeight(dye)
+	local center = Vector3.new(dye.Position.X, surface, dye.Position.Z)
+	local carry = hook.Drop
+	local reach = height - 0.3 -- from the grip down to its feet
+	local dipped = hook.TrolleyY - (surface - DIP_DEPTH + reach)
+	local settle = hook.SwingScale
+	local splashed = false
+	run(duration * 0.35, function(a)
+		local e = ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		hook.Drop = carry + (dipped - carry) * e
+		hook.SwingScale = settle * (1 - 0.85 * e)
+		if not splashed and hook.TrolleyY - hook.Drop - reach < surface then
+			splashed = true
+			Effects.sound(center, Sounds.Plop, 0.4, vary(0.8))
+			Effects.sound(center, Sounds.Squeak, 0.2, vary(0.7))
+			puff(build, center + Vector3.new(0, 0.5, 0), dye.Color, 14, 0.8)
+			puff(build, center, Color3.new(1, 1, 1), 6, 0.5)
+			if build.Near then
+				Effects.ring(center + Vector3.new(0, 0.05, 0), dye.Color, 4.2, 0.4)
+			end
+			Effects.tint(load, dye.Color, 1.8)
+		end
+	end)
+	-- under it goes: bubbles, and the dye takes
+	sparkle(build, center + Vector3.new(0, 0.6, 0), Color3.fromRGB(230, 220, 255), 12)
+	stationFlash(build, "Station1", center + Vector3.new(0, height - DIP_DEPTH, 0))
+	task.wait(duration * 0.2)
+	-- and up it comes, dripping
+	Effects.sound(center, Sounds.Whoosh, 0.18, vary(1.3))
+	local drips = 0
+	run(duration * 0.45, function(a)
+		hook.Drop = dipped + (carry - dipped) * ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+		hook.SwingScale = settle * (0.15 + 0.85 * a)
+		if build.Near and a > drips * 0.25 then
+			drips += 1
+			Effects.puff(Vector3.new(center.X, hook.TrolleyY - hook.Drop - reach, center.Z), dye.Color, 3, 0.4)
+		end
+	end)
+	hook.SwingScale = settle
+end
+
+-- Steps 5-7 on a rail: the hook (waiting over the brainrot, just shown off) carries it
+-- through the stations, the special and into the fluff jar. Returns where the coins
+-- burst out, or nil if the line went away.
+local function railRide(build: Build, brainrot: Model, hook: Hook, layout: LineLayouts.Layout, ship: BasePart, cycleTime: number, special: boolean, star: Star, cancelled: () -> boolean): Vector3?
+	local line = build.Line
+	local stops = layout.Stops :: { [string]: number }
+	local function knot(name: string): number
+		return hook.Curve.Knots[stops[name]]
+	end
+	local T = Production.ShipTime
+	local box, size = brainrot:GetBoundingBox()
+	local height = size.Y
+	local headTop = box.Position.Y + height / 2
+
+	-- the clip comes down onto its head and shuts
+	local hover = hook.Drop
+	local grab = math.max(hook.TrolleyY - headTop + 0.3, MIN_DROP)
+	run(T * 0.1, function(a)
+		hook.Drop = hover + (grab - hover) * ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		hook.Open = math.min(a * 3, 1)
+	end)
+	hook.Open = 0
+	local pivot = brainrot:GetPivot()
+	hook.Rotation = pivot.Rotation
+	hook.Grip = pivot:PointToObjectSpace(Vector3.new(box.Position.X, headTop - 0.3, box.Position.Z))
+	hook.GripScale = brainrot:GetScale()
+	hook.Hang = height / 2
+	hook.SwingScale = 0
+	hook.Load = brainrot
+	local clipped = Vector3.new(box.Position.X, headTop, box.Position.Z)
+	Effects.sound(clipped, Sounds.Clunk, 0.25, vary(1.5))
+	sparkle(build, clipped, Color3.new(1, 1, 1), 6)
+	if cancelled() then
+		return nil
+	end
+
+	-- out through the capsule's slot, just off the cushion
+	local pickup, out = knot("Pickup"), knot("Out")
+	local lifted = grab - 1.5
+	Effects.sound(clipped, Sounds.Servo, 0.2, vary(1.4))
+	run(T * 0.2, function(a)
+		hook.S = pickup + (out - pickup) * ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+		hook.Drop = grab + (lifted - grab) * ease(math.min(a * 2.5, 1), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	end)
+	if cancelled() then
+		return nil
+	end
+
+	-- then up to the rail, swinging, past the stations: the Sequin Shower fires as it
+	-- passes under it
+	local shower = findPart(line, "Station2")
+	local showerNozzle = findPart(line, "Station2Nozzle")
+	local showerAt = knot("Station2") - STATION_LEAD
+	local function passShower()
+		if shower and hook.S >= showerAt and line.Parent then
+			local _, heading = LineLayouts.At(hook.Curve, knot("Station2"))
+			stationPass(build, { Alpha = 0, Key = "Station2", Sign = shower, Source = if showerNozzle then showerNozzle.Position else shower.Position }, brainrot, hook.Origin:VectorToWorldSpace(heading) * STATION_LEAD)
+			shower = nil
+		end
+	end
+	local station1, station3 = knot("Station1"), knot("Station3")
+	local dye = findPart(line, "Station1Dye")
+	if dye then
+		run(T * 0.18, function(a)
+			hook.S = out + (station1 - out) * ease(a, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			hook.Drop = lifted + (CARRY_DROP - lifted) * ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			hook.SwingScale = a
+		end)
+		dipInVat(build, hook, dye, height, T * 0.22)
+		if cancelled() then
+			return nil
+		end
+		run(T * 0.3, function(a)
+			hook.S = station1 + (station3 - station1) * ease(a, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			passShower()
+		end)
+	else
+		run(T * 0.7, function(a)
+			hook.S = out + (station3 - out) * ease(a, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			hook.Drop = lifted + (CARRY_DROP - lifted) * ease(math.min(a * 2.5, 1), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			hook.SwingScale = math.min(a * 3, 1)
+			passShower()
+		end)
+	end
+	if cancelled() then
+		return nil
+	end
+
+	-- 6) The Bow Tier ties its bow on, holding it still.
+	uncrown(star)
+	if special then
+		local machine = findPart(line, "Station3")
+		local specialTime = Production.SpecialDuration(cycleTime)
+		hook.Frozen = true
+		if machine then
+			local ok, err = pcall(bowSpecial, build, brainrot, machine, specialTime)
+			if not ok then
+				warn(`[ProductionVisuals] {build.Zone} special failed: {err}`)
+			end
+		else
+			task.wait(specialTime) -- keep in step with the payout anyway
+		end
+		hook.Frozen = false
+		hook.LastPoint = nil -- (so standing still doesn't read as a jolt)
+		if cancelled() then
+			return nil
+		end
+	end
+
+	-- 7) Over the fluff jar it goes, down into it (shrinking a little to fit, the swing
+	-- settling), and the hook lets go: that's the payout, once it's fluffed up.
+	local d = Production.FinishDuration(cycleTime)
+	local shipStop = knot("Ship")
+	run(d * 0.22, function(a)
+		hook.S = station3 + (shipStop - station3) * ease(a, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+	end)
+	local floorY = topOf(ship)
+	local scale = brainrot:GetScale()
+	local settle = hook.SwingScale
+	local carry = hook.Drop
+	local land = hook.TrolleyY - (floorY + (height - 0.3) * 0.85)
+	Effects.sound(ship.Position, Sounds.Whoosh, 0.2, vary(0.9))
+	run(d * 0.18, function(a)
+		local e = ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+		hook.Drop = carry + (land - carry) * e
+		hook.SwingScale = settle * (1 - e)
+		brainrot:ScaleTo(scale * (1 - 0.15 * e))
+	end)
+	hook.Load = nil
+	hook.Open = 1
+	Effects.sound(ship.Position, Sounds.Squeak, 0.25, vary(1.3))
+	if cancelled() then
+		return nil
+	end
+	local base = hook.Rotation + Vector3.new(ship.Position.X, floorY, ship.Position.Z)
+	brainrot:PivotTo(base)
+	-- the hook reels in and rolls off into its garage
+	task.spawn(function()
+		local from = hook.Drop
+		run(0.25, function(a)
+			hook.Drop = from + (MIN_DROP - from) * ease(a)
+			hook.Open = 1 - a
+		end)
+		run(0.45, function(a)
+			hook.S = shipStop + (hook.Curve.Length - shipStop) * ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		end)
+		destroyHook(hook)
+	end)
+	return fluffUp(build, brainrot, base, d * 0.36, d * 0.06, d * 0.14)
+end
+
 -- One production cycle -------------------------------------------------------
 
 local function animateCycle(
@@ -2380,15 +2763,25 @@ local function animateCycle(
 	local belt = findPart(line, "Belt")
 	local assembler = findPart(line, "Assembler")
 	local ship = findPart(line, "Ship")
-	if not (belt and assembler and ship) then
+	local layout = LineLayouts.For(zoneId)
+	local origin = line:GetAttribute("Origin")
+	local rail = layout.Kind == "Rail" and typeof(origin) == "CFrame"
+	if not (assembler and ship and (belt or rail)) then
 		return
 	end
 
-	local rotation = belt.CFrame.Rotation
-	local beltTop = belt.Position.Y + belt.Size.Y / 2
-	local root = rotation + Vector3.new(assembler.Position.X, beltTop, assembler.Position.Z)
+	-- the pad, in the capsule: the line's origin (on the floor), up at the deck
+	local rotation: CFrame, root: CFrame
+	if typeof(origin) == "CFrame" then
+		rotation = origin.Rotation
+		root = origin * CFrame.new(0, LineLayouts.Deck, 0)
+	else
+		local bar = belt :: BasePart
+		rotation = bar.CFrame.Rotation
+		root = rotation + Vector3.new(assembler.Position.X, bar.Position.Y + bar.Size.Y / 2, assembler.Position.Z)
+	end
 	-- the far end of the belt, where it runs out (its -Z end)
-	local beltEnd = rotation + belt.CFrame * Vector3.new(0, belt.Size.Y / 2, -belt.Size.Z / 2 + BELT_END_GAP)
+	local beltEnd = if belt then rotation + belt.CFrame * Vector3.new(0, belt.Size.Y / 2, -belt.Size.Z / 2 + BELT_END_GAP) else root
 	local style = ASSEMBLY_STYLES[zoneId] or DEFAULT_STYLE
 	local build: Build = {
 		Line = line,
@@ -2419,14 +2812,18 @@ local function animateCycle(
 	end
 
 	-- The middle of the belt's top, level with `at` along the belt (where a part dropped
-	-- or tossed from there lands).
+	-- or tossed from there lands). With no belt (a rail's line), the parts are knitted
+	-- right into the capsule: they land at the intake.
 	local function beltPoint(at: Vector3): Vector3
+		if not belt then
+			return at
+		end
 		local along = belt.CFrame:PointToObjectSpace(at).Z
 		return belt.CFrame:PointToWorldSpace(Vector3.new(0, belt.Size.Y / 2, along))
 	end
 
 	local steps = Production.Schedule(parts, cycleTime)
-	local layout = BrainrotModels.Layout(parts, zoneId)
+	local homes = BrainrotModels.Layout(parts, zoneId)
 	local pieces: { [string]: Piece } = {}
 	local maxTravel = 0
 	for _, step in steps do
@@ -2438,6 +2835,7 @@ local function animateCycle(
 		local model, center, size = BrainrotModels.CreatePart(parts[partType], partType, zoneId)
 		local landing = beltPoint(dropper.Position)
 		local flat = Vector3.new(landing.X - root.X, 0, landing.Z - root.Z)
+		local travel = if rail then 0 else math.max(flat.Magnitude - INTAKE_GAP, 0)
 		local direction = if flat.Magnitude > 0 then flat.Unit else Vector3.zero
 		local intake = root.Position + direction * INTAKE_GAP + Vector3.new(0, size.Y / 2, 0)
 		local piece: Piece = {
@@ -2450,8 +2848,8 @@ local function animateCycle(
 			ChuteTop = findPart(line, partType .. "ChuteTop"),
 			Hanger = findPart(line, partType .. "ChuteTop") or findPart(line, partType .. "Hanger"),
 			Waiting = centeredAt(center, intake),
-			Home = root * CFrame.new(layout[partType]),
-			Travel = math.max(flat.Magnitude - INTAKE_GAP, 0),
+			Home = root * CFrame.new(homes[partType]),
+			Travel = travel,
 		}
 		if dropper:GetAttribute("Knitting") then
 			model:ScaleTo(piece.Scale * 0.05) -- a speck in the knitting head, until it's knitted
@@ -2561,7 +2959,7 @@ local function animateCycle(
 				return
 			end
 			spit(line, piece.Dropper, build.Near, chute)
-			local landing = centeredAt(piece.Center, beltPoint(piece.Dropper.Position) + Vector3.new(0, piece.Size.Y / 2, 0))
+			local landing = if rail then piece.Waiting else centeredAt(piece.Center, beltPoint(piece.Dropper.Position) + Vector3.new(0, piece.Size.Y / 2, 0))
 			if piece.Dropper:GetAttribute("Capsule") then
 				-- sealed in a capsule all the way down, which pops open on the belt
 				local capsule = makeCapsule(piece.Size)
@@ -2623,59 +3021,96 @@ local function animateCycle(
 	brainrot.WorldPivot = root
 	brainrot.Parent = effects
 
-	local path = beltEnd.Position - root.Position
-	local showSpot = root + path.Unit * math.min(SHOW_GAP, path.Magnitude / 3)
 	local star = crown(build, brainrot)
-	showOff(build, brainrot, root, showSpot, Production.ShowDuration(cycleTime))
-	if cancelled() then
-		brainrot:Destroy()
-		return
-	end
-
-	-- 5) It rides through the stations to the end of the belt.
-	local passes = stationPasses(line, showSpot.Position, beltEnd.Position)
-	local ahead = (beltEnd.Position - showSpot.Position).Unit * STATION_LEAD
-	local nextPass = 1
-	run(Production.ShipTime, function(alpha)
-		brainrot:PivotTo(showSpot:Lerp(beltEnd, alpha))
-		local pass = passes[nextPass]
-		if pass and alpha >= pass.Alpha and line.Parent then
-			nextPass += 1
-			stationPass(build, pass, brainrot, ahead)
+	local ok: boolean, result: any
+	if rail then
+		-- a hook comes along the rail during the show and takes it from there
+		local hook = makeHook(origin :: CFrame, LineLayouts.RailCurve(layout) :: LineLayouts.Curve)
+		local showTime = Production.ShowDuration(cycleTime)
+		local showSpot = root + rotation.LookVector * layout.ShowGap
+		local _, size = brainrot:GetBoundingBox()
+		local hover = math.max(hook.TrolleyY - (showSpot.Y + SHOW_HEIGHT + size.Y * 1.12 + 0.6), MIN_DROP)
+		local pickup = hook.Curve.Knots[(layout.Stops :: { [string]: number }).Pickup]
+		task.spawn(function()
+			run(showTime * 0.55, function(a)
+				hook.S = pickup * ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			end)
+			run(showTime * 0.25, function(a)
+				hook.Drop = MIN_DROP + (hover - MIN_DROP) * ease(a)
+				hook.Open = a
+			end)
+		end)
+		showOff(build, brainrot, root, showSpot, showTime)
+		if cancelled() then
+			destroyHook(hook)
+			brainrot:Destroy()
+			return
 		end
-	end)
-	if cancelled() then
-		brainrot:Destroy()
-		return
-	end
-
-	-- 6) The zone's special upgrade, if the line has it, works on it at the belt's end.
-	uncrown(star)
-	if special then
-		local machine = findPart(line, "Station3")
-		local specialTime = Production.SpecialDuration(cycleTime)
-		if machine and style.Special then
-			local ok, err = pcall(style.Special, build, brainrot, machine, specialTime)
-			if not ok then
-				warn(`[ProductionVisuals] {zoneId} special failed: {err}`)
-			end
-		else
-			task.wait(specialTime) -- keep in step with the payout anyway
+		ok, result = pcall(railRide, build, brainrot, hook, layout, ship, cycleTime, special, star, cancelled)
+		if not ok or result == nil then
+			destroyHook(hook) -- (it rolls off on its own once it's let go)
 		end
+		brainrot:Destroy()
+		if not line.Parent or (ok and result == nil) then
+			return
+		end
+		if not ok then
+			warn(`[ProductionVisuals] {zoneId} rail failed: {result}`)
+		end
+	else
+		local path = beltEnd.Position - root.Position
+		local showSpot = root + path.Unit * math.min(SHOW_GAP, path.Magnitude / 3)
+		showOff(build, brainrot, root, showSpot, Production.ShowDuration(cycleTime))
 		if cancelled() then
 			brainrot:Destroy()
 			return
 		end
-	end
 
-	-- 7) The zone's finishing stage packs it up and sends it off: that's the payout.
-	local ok, result = pcall(style.Finish or simpleFinish, build, brainrot, ship, Production.FinishDuration(cycleTime))
-	brainrot:Destroy()
-	if not line.Parent then
-		return
-	end
-	if not ok then
-		warn(`[ProductionVisuals] {zoneId} finish failed: {result}`)
+		-- 5) It rides through the stations to the end of the belt.
+		local passes = stationPasses(line, showSpot.Position, beltEnd.Position)
+		local ahead = (beltEnd.Position - showSpot.Position).Unit * STATION_LEAD
+		local nextPass = 1
+		run(Production.ShipTime, function(alpha)
+			brainrot:PivotTo(showSpot:Lerp(beltEnd, alpha))
+			local pass = passes[nextPass]
+			if pass and alpha >= pass.Alpha and line.Parent then
+				nextPass += 1
+				stationPass(build, pass, brainrot, ahead)
+			end
+		end)
+		if cancelled() then
+			brainrot:Destroy()
+			return
+		end
+
+		-- 6) The zone's special upgrade, if the line has it, works on it at the belt's end.
+		uncrown(star)
+		if special then
+			local machine = findPart(line, "Station3")
+			local specialTime = Production.SpecialDuration(cycleTime)
+			if machine and style.Special then
+				local specialOk, err = pcall(style.Special, build, brainrot, machine, specialTime)
+				if not specialOk then
+					warn(`[ProductionVisuals] {zoneId} special failed: {err}`)
+				end
+			else
+				task.wait(specialTime) -- keep in step with the payout anyway
+			end
+			if cancelled() then
+				brainrot:Destroy()
+				return
+			end
+		end
+
+		-- 7) The zone's finishing stage packs it up and sends it off: that's the payout.
+		ok, result = pcall(style.Finish or simpleFinish, build, brainrot, ship, Production.FinishDuration(cycleTime))
+		brainrot:Destroy()
+		if not line.Parent then
+			return
+		end
+		if not ok then
+			warn(`[ProductionVisuals] {zoneId} finish failed: {result}`)
+		end
 	end
 	local top = if ok then result :: Vector3 else ship.Position + Vector3.new(0, 3, 0)
 	local text = `+{Format.Number(value)} 💰` .. (if fullMatch then " x2!" else "")

@@ -25,6 +25,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Format = require(Shared.Format)
+local LineLayouts = require(Shared.LineLayouts)
 local Remotes = require(Shared.Remotes)
 local TycoonItems = require(Shared.Config.TycoonItems)
 local Zones = require(Shared.Config.Zones)
@@ -32,6 +33,7 @@ local Zones = require(Shared.Config.Zones)
 local DataManager = require(script.Parent.DataManager)
 local FactoryBuilder = require(script.Parent.FactoryBuilder)
 local MonetizationManager = require(script.Parent.MonetizationManager)
+local RailBuilder = require(script.Parent.RailBuilder)
 local RoomUpgradeBuilder = require(script.Parent.RoomUpgradeBuilder)
 local StationBuilder = require(script.Parent.StationBuilder)
 
@@ -66,36 +68,21 @@ local ROOM_BUTTONS = {
 local OLD_BUILDING_DELAY = 2 -- seconds the old building stays (minus its top) while the new one streams in
 local CASH_PAD_OFFSET = CFrame.new(0, FLOOR_TOP + 0.3, -46)
 
--- Line origins sit on the floor, at the pad (the Assembler's capsule). Parts flow from
--- the droppers (+Z) to the finishing stage (-Z), along a belt raised on a chunky frame:
--- its top is the DECK, and the machines on it are measured from there. The pad sits
--- LINE_Z behind the room's middle, so the stations in front of it have room to breathe
--- (the user: they were crammed together, hiding the brainrot).
+-- Line origins sit on the floor, at the pad (the Assembler's capsule). Each zone's line
+-- has its own layout (Shared/LineLayouts: where its droppers, stations, delivery,
+-- buttons and tablet go); on the straight one, parts flow from the droppers (+Z) to the
+-- finishing stage (-Z) along a belt raised on a chunky frame. The pad's top is the
+-- DECK, and the machines are measured from there. The pad sits LINE_Z behind the room's
+-- middle, so the stations in front of it have room to breathe (the user: they were
+-- crammed together, hiding the brainrot).
 local LINE_X = { 0, -42, 42 }
 local LINE_Z = 10
-local DECK = 4 -- the belt's top, above the floor
+local DECK = LineLayouts.Deck
 local BELT_WIDTH = 10
 local BELT_FROM, BELT_TO = -35, 45 -- the belt's ends along Z (brainrots leave at the -Z end)
 local GIRDER_X = BELT_WIDTH / 2 + 0.6 -- the frame's side beams, with the rails on top
 local BELT_LEGS = { -31, -19.5, -7, 7, 18, 26, 34, 42 } -- along Z, clear of the special and the droppers
-local DROPPER_Z = { Head = 38, Body = 30, Arms = 22, Legs = 14 }
-local STATION_Z = { Station1 = -15, Station2 = -24, Station3 = -33 } -- Station3: the zone's special, at the belt's end
-local SHIP_Z = -41.5 -- the finishing stage, just past the end of the belt
 local SPEED_X = { Speed1 = -2, Speed2 = 2 }
--- Button spots relative to the line origin, along the line's +X side. A line shows one
--- button at a time, so Speed1 and Speed2 can share a spot.
-local BUTTON_X = 13
-local BUTTON_OFFSETS = {
-	Line = Vector3.new(0, 0, -52),
-	Speed1 = Vector3.new(BUTTON_X, 0, 4),
-	Speed2 = Vector3.new(BUTTON_X, 0, 4),
-}
-for partType, z in DROPPER_Z do
-	BUTTON_OFFSETS[partType] = Vector3.new(BUTTON_X, 0, z)
-end
-for key, z in STATION_Z do
-	BUTTON_OFFSETS[key] = Vector3.new(BUTTON_X, 0, z)
-end
 
 local PART_COLORS = {
 	Head = Color3.fromRGB(255, 105, 180),
@@ -332,27 +319,34 @@ local function ringSpot(origin: CFrame, index: number, count: number, radius: nu
 	return origin * CFrame.Angles(0, -angle, 0) * CFrame.new(0, y, -radius), math.abs(math.sin(angle) * radius)
 end
 
-local function buildGantry(model: Model, origin: CFrame, colors: { Color3 })
+-- An `open` capsule (on a rail's line: LineLayouts) has no roof and no belt through it:
+-- a slot runs up its front, the full height, for the hook to carry the brainrot out.
+local function buildGantry(model: Model, origin: CFrame, colors: { Color3 }, open: boolean?)
 	local deck = deckOf(origin)
 	local top = DECK + GANTRY_BOTTOM -- the roof's underside, above the floor
 	local paneWidth = 2 * CAPSULE_RADIUS * math.tan(math.pi / CAPSULE_PANES) + 0.1
 	local base = colors[1]
 	for index = 0, CAPSULE_PANES - 1 do
 		local _, x = ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS, 0)
-		local bottom = if x < DOOR_HALF then DECK + DOOR_TOP elseif x < FRAME_HALF then DECK + 1.3 else 1.2
-		local pane = makeDecor(model, "CapsuleGlass", Vector3.new(paneWidth, top + 0.6 - bottom, 0.25), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS, (bottom + top + 0.6) / 2)), GLASS_COLOR, Enum.Material.Glass)
-		pane.Transparency = 0.78
-		pane.CastShadow = false
-		pane.CanCollide = true -- you walk round it, not into it (too clear to block the camera)
+		local slot = open and x < DOOR_HALF and (index < CAPSULE_PANES / 4 or index > CAPSULE_PANES * 3 / 4)
+		local bottom = if open then 1.2 elseif x < DOOR_HALF then DECK + DOOR_TOP elseif x < FRAME_HALF then DECK + 1.3 else 1.2
+		if not slot then
+			local pane = makeDecor(model, "CapsuleGlass", Vector3.new(paneWidth, top + 0.6 - bottom, 0.25), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS, (bottom + top + 0.6) / 2)), GLASS_COLOR, Enum.Material.Glass)
+			pane.Transparency = 0.78
+			pane.CastShadow = false
+			pane.CanCollide = true -- you walk round it, not into it (too clear to block the camera)
+		end
 		-- the base ring (where the belt's frame doesn't pass), a glowing strip on it
-		if x >= FRAME_HALF then
+		if open or x >= FRAME_HALF then
 			makePart(model, "CapsuleBase", Vector3.new(paneWidth + 0.2, 1.2, 1.4), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS, 0.6)), base)
 			makeDecor(model, "CapsuleBaseGlow", Vector3.new(paneWidth + 0.2, 0.2, 0.5), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.45, 1.25)), colors[3], Enum.Material.Neon)
 		end
 		-- the top ring with a white stripe, a glowing strip round its foot
-		makeDecor(model, "CapsuleRing", Vector3.new(paneWidth + 0.3, 1.8, 1.3), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.2, top + 0.9)), colors[2])
-		makeDecor(model, "CapsuleRingStripe", Vector3.new(paneWidth + 0.35, 0.45, 1.4), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.2, top + 1.1)), WHITE)
-		makeDecor(model, "CapsuleRingGlow", Vector3.new(paneWidth + 0.3, 0.25, 0.5), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.75, top - 0.1)), colors[3], Enum.Material.Neon).CastShadow = false
+		if not slot then
+			makeDecor(model, "CapsuleRing", Vector3.new(paneWidth + 0.3, 1.8, 1.3), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.2, top + 0.9)), colors[2])
+			makeDecor(model, "CapsuleRingStripe", Vector3.new(paneWidth + 0.35, 0.45, 1.4), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.2, top + 1.1)), WHITE)
+			makeDecor(model, "CapsuleRingGlow", Vector3.new(paneWidth + 0.3, 0.25, 0.5), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.75, top - 0.1)), colors[3], Enum.Material.Neon).CastShadow = false
+		end
 	end
 	-- ribs up the glass where it reaches the floor, and posts framing each doorway
 	for _, index in { 3, 9, 15, 21 } do
@@ -360,15 +354,18 @@ local function buildGantry(model: Model, origin: CFrame, colors: { Color3 })
 		rib.CastShadow = false
 	end
 	local doorAngle = math.asin(DOOR_HALF / CAPSULE_RADIUS) / (math.pi * 2) * CAPSULE_PANES -- in panes
-	for _, index in { -doorAngle, doorAngle, CAPSULE_PANES / 2 - doorAngle, CAPSULE_PANES / 2 + doorAngle } do
-		makeColumn(model, "CapsuleDoorPost", 0.8, DECK + 1.2, top, (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.1, 0)), colors[2])
-		makeColumn(model, "CapsuleDoorLight", 0.3, DECK + 2, DECK + DOOR_TOP - 0.5, (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS - 0.35, 0)), colors[3], Enum.Material.Neon)
+	local doorPosts: { number } = if open then { -doorAngle, doorAngle } else { -doorAngle, doorAngle, CAPSULE_PANES / 2 - doorAngle, CAPSULE_PANES / 2 + doorAngle }
+	for _, index in doorPosts do
+		makeColumn(model, "CapsuleDoorPost", 0.8, if open then 1.2 else DECK + 1.2, if open then top + 1.8 else top, (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.1, 0)), colors[2])
+		makeColumn(model, "CapsuleDoorLight", 0.3, DECK + 2, if open then top - 0.5 else DECK + DOOR_TOP - 0.5, (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS - 0.35, 0)), colors[3], Enum.Material.Neon)
 	end
 	-- the glass roof
-	local roof = makeDecor(model, "CapsuleRoof", Vector3.new(0.3, CAPSULE_RADIUS * 2 + 0.6, CAPSULE_RADIUS * 2 + 0.6), origin * CFrame.new(0, top + 1.65, 0) * CFrame.Angles(0, 0, math.pi / 2), GLASS_COLOR, Enum.Material.Glass)
-	roof.Shape = Enum.PartType.Cylinder
-	roof.Transparency = 0.8
-	roof.CastShadow = false
+	if not open then
+		local roof = makeDecor(model, "CapsuleRoof", Vector3.new(0.3, CAPSULE_RADIUS * 2 + 0.6, CAPSULE_RADIUS * 2 + 0.6), origin * CFrame.new(0, top + 1.65, 0) * CFrame.Angles(0, 0, math.pi / 2), GLASS_COLOR, Enum.Material.Glass)
+		roof.Shape = Enum.PartType.Cylinder
+		roof.Transparency = 0.8
+		roof.CastShadow = false
+	end
 	-- lights turning slowly round the top (Atmosphere spins it about its pivot's Z: up)
 	local lights = Instance.new("Model")
 	lights.Name = "CapsuleLights"
@@ -578,15 +575,20 @@ local KNIT_HEAD = 5 -- the knitting head, across
 local KNIT_ARM = 12 -- the arm's underside, above the deck
 local KNIT_HEAD_HEIGHT = 5 -- the head hangs this far under the arm: its mouth is level with a chute's
 
-local function buildKnittingMachine(model: Model, base: CFrame, partType: string, color: Color3)
-	local column = base * CFrame.new(KNIT_X, 0, 0) -- on the floor
+-- On a rail's line (`arc`, LineLayouts) the machines stand in an arc round the open
+-- capsule, their arms over its glass, a smaller head knitting right into it.
+local function buildKnittingMachine(model: Model, base: CFrame, partType: string, color: Color3, arc: boolean?)
+	local reach = if arc then LineLayouts.KnitRadius - LineLayouts.KnitColumnRadius else KNIT_X
+	local headSize = if arc then 4 else KNIT_HEAD
+	local armWidth = if arc then 2.8 else 4
+	local column = base * CFrame.new(reach, 0, 0) -- on the floor
 	local light = color:Lerp(WHITE, 0.5)
-	local armBottom = DECK + KNIT_ARM -- from the floor
+	local armBottom = if arc then LineLayouts.KnitMouth + 4 else DECK + KNIT_ARM -- from the floor
 	local armTop = armBottom + 3
 
 	-- the column on its cushy foot
-	makeColumn(model, partType .. "KnitFoot", 6.4, 0, 1.4, column, LAVENDER_COLOR)
-	makeColumn(model, partType .. "KnitFootRing", 6.6, 1.1, 1.5, column, PLUSH_GOLD, Enum.Material.Metal)
+	makeColumn(model, partType .. "KnitFoot", if arc then 5.4 else 6.4, 0, 1.4, column, LAVENDER_COLOR)
+	makeColumn(model, partType .. "KnitFootRing", if arc then 5.6 else 6.6, 1.1, 1.5, column, PLUSH_GOLD, Enum.Material.Metal)
 	local body = makeColumn(model, partType .. "KnitColumn", KNIT_COLUMN, 1.4, armTop, column, SEWING_COLOR)
 	body.CanCollide = true
 	for _, y in { 2.6, armBottom - 1.6 } do
@@ -595,10 +597,10 @@ local function buildKnittingMachine(model: Model, base: CFrame, partType: string
 	buildBadge(model, partType, column * CFrame.new(0, DECK + 4.6, 0), color, 0.62)
 
 	-- the arm over the belt, with a rounded nose and a gold stripe
-	local armFrom, armTo = KNIT_X - KNIT_COLUMN / 2, KNIT_HEAD / 2
-	local arm = makeDecor(model, partType .. "KnitArm", Vector3.new(armTo - armFrom, 3, 4), base * CFrame.new((armFrom + armTo) / 2, armBottom + 1.5, 0), SEWING_COLOR)
-	makeDecor(model, partType .. "KnitArmStripe", Vector3.new(armTo - armFrom - 0.2, 0.55, 4.1), arm.CFrame, PLUSH_GOLD, Enum.Material.Metal)
-	local nose = makeDecor(model, partType .. "KnitArmNose", Vector3.new(4, 3, 3), base * CFrame.new(armTo, armBottom + 1.5, 0) * CFrame.Angles(0, math.pi / 2, 0), SEWING_COLOR)
+	local armFrom, armTo = reach - KNIT_COLUMN / 2, headSize / 2
+	local arm = makeDecor(model, partType .. "KnitArm", Vector3.new(armTo - armFrom, 3, armWidth), base * CFrame.new((armFrom + armTo) / 2, armBottom + 1.5, 0), SEWING_COLOR)
+	makeDecor(model, partType .. "KnitArmStripe", Vector3.new(armTo - armFrom - 0.2, 0.55, armWidth + 0.1), arm.CFrame, PLUSH_GOLD, Enum.Material.Metal)
+	local nose = makeDecor(model, partType .. "KnitArmNose", Vector3.new(armWidth, 3, 3), base * CFrame.new(armTo, armBottom + 1.5, 0) * CFrame.Angles(0, math.pi / 2, 0), SEWING_COLOR)
 	nose.Shape = Enum.PartType.Cylinder
 	-- a thread cone on top of the column
 	makeColumn(model, partType .. "KnitCone", 2.6, armTop, armTop + 1.4, column, color, Enum.Material.Fabric)
@@ -606,20 +608,20 @@ local function buildKnittingMachine(model: Model, base: CFrame, partType: string
 	makeColumn(model, partType .. "KnitConeTip", 1, armTop + 2.8, armTop + 3.5, column, CHROME_COLOR, Enum.Material.Metal)
 
 	-- the knitting head (the Dropper) under the arm's end, its mouth glowing underneath
-	local headBottom = armBottom - KNIT_HEAD_HEIGHT
-	local head = makeColumn(model, partType .. "Dropper", KNIT_HEAD, headBottom, armBottom, base, color, Enum.Material.Fabric)
+	local headBottom = armBottom - (if arc then 4 else KNIT_HEAD_HEIGHT)
+	local head = makeColumn(model, partType .. "Dropper", headSize, headBottom, armBottom, base, color, Enum.Material.Fabric)
 	head:SetAttribute("Knitting", true)
-	makeColumn(model, partType .. "DropperRim", KNIT_HEAD + 0.4, headBottom - 0.15, headBottom + 0.25, base, light, Enum.Material.Neon)
-	makeColumn(model, partType .. "DropperMouth", KNIT_HEAD - 1, headBottom - 0.2, headBottom - 0.1, base, Color3.fromRGB(35, 25, 45))
+	makeColumn(model, partType .. "DropperRim", headSize + 0.4, headBottom - 0.15, headBottom + 0.25, base, light, Enum.Material.Neon)
+	makeColumn(model, partType .. "DropperMouth", headSize - 1, headBottom - 0.2, headBottom - 0.1, base, Color3.fromRGB(35, 25, 45))
 
 	-- the needle ring round the head: a white band with a ring of needles, beaded
-	local ringY = armBottom - 2.4
+	local ringY = armBottom - (if arc then 2 else 2.4)
 	local ring = Instance.new("Model")
 	ring.Name = partType .. "KnitRing"
-	makeColumn(ring, partType .. "KnitRingBand", KNIT_HEAD + 0.6, ringY, ringY + 0.8, base, WHITE)
+	makeColumn(ring, partType .. "KnitRingBand", headSize + 0.6, ringY, ringY + 0.8, base, WHITE)
 	for index = 1, 12 do
 		local angle = index / 12 * math.pi * 2
-		local at = base * CFrame.new(math.cos(angle) * (KNIT_HEAD / 2 + 0.2), 0, math.sin(angle) * (KNIT_HEAD / 2 + 0.2))
+		local at = base * CFrame.new(math.cos(angle) * (headSize / 2 + 0.2), 0, math.sin(angle) * (headSize / 2 + 0.2))
 		makeDecor(ring, partType .. "KnitNeedle", Vector3.new(0.18, 1.3, 0.18), at * CFrame.new(0, ringY + 1.4, 0), Color3.fromRGB(220, 225, 235), Enum.Material.Metal)
 		makeBall(ring, partType .. "KnitNeedleBead", 0.4, at * CFrame.new(0, ringY + 2.05, 0), if index % 2 == 0 then light else LAVENDER_COLOR)
 	end
@@ -638,7 +640,7 @@ local function buildKnittingMachine(model: Model, base: CFrame, partType: string
 	end
 	yarn.WorldPivot = yarnAt
 	yarn.Parent = model
-	local strand = base * CFrame.new(0.7, (armTop + 1.2 + armBottom) / 2, -2.25)
+	local strand = base * CFrame.new(0.7, (armTop + 1.2 + armBottom) / 2, -armWidth / 2 - 0.25)
 	makeDecor(model, partType .. "KnitStrand", Vector3.new(0.14, armTop + 1.2 - armBottom, 0.14), strand, color, Enum.Material.Fabric)
 
 	-- the crank on the column's outer side (its -X): a wheel with a knob, turning about X
@@ -672,29 +674,6 @@ local function buildTrapdoor(model: Model, spot: CFrame)
 	end
 end
 
--- Plushie Sewing Room: a fluff machine, a glass dome on a cushy hot-pink base, a few
--- fluff balls waiting inside. The brainrot hops in, fluff swirls around it until it's
--- puffy, and it sinks into the base.
-local FLUFF_DOME = 11 -- across: the brainrot puffs up inside it
-
-local function buildFluffMachine(model: Model, spot: CFrame)
-	makeColumn(model, "FluffFoot", FLUFF_DOME + 2, 0, 1, spot, LAVENDER_COLOR)
-	local ship = makeColumn(model, "Ship", FLUFF_DOME + 1, 1, DECK, spot, SEWING_COLOR, Enum.Material.Fabric)
-	ship.CanCollide = true
-	ship.CanQuery = true
-	makeColumn(model, "FluffTrim", FLUFF_DOME + 1.4, DECK - 0.6, DECK + 0.3, spot, PLUSH_GOLD, Enum.Material.Metal)
-	local deck = deckOf(spot)
-	for index, offset in { Vector3.new(-2.6, 0, 1.5), Vector3.new(2.3, 0, 2), Vector3.new(0.5, 0, -2.8), Vector3.new(-1.6, 0, -1.3), Vector3.new(3, 0, -0.8) } do
-		local size = 1.4 + (index % 3) * 0.35
-		makeBall(model, "FluffBall", size, deck * CFrame.new(offset + Vector3.new(0, 0.3 + size / 2, 0)), if index % 2 == 0 then WHITE else Color3.fromRGB(255, 225, 240), Enum.Material.Fabric)
-	end
-	local dome = makeBall(model, "FluffDome", FLUFF_DOME, deck * CFrame.new(0, 0.3, 0), Color3.fromRGB(205, 235, 255), Enum.Material.Glass)
-	dome.Transparency = 0.7
-	local top = FLUFF_DOME / 2 + 0.3 -- the dome's top, above the deck
-	makeColumn(model, "FluffCap", 3.2, DECK + top - 0.4, DECK + top + 0.6, spot, SEWING_COLOR)
-	makeBall(model, "FluffKnob", 2, deck * CFrame.new(0, top + 1.3, 0), WHITE, Enum.Material.Fabric)
-end
-
 -- Each zone's special upgrade (Station3, GDD §6) stands over the end of the belt at
 -- `spot` (on the floor); ProductionVisuals plays it as the brainrot arrives. Its part
 -- named Station3 is the machine's top.
@@ -721,43 +700,6 @@ local function buildPacker(model: Model, spot: CFrame, name: string)
 	local tape = makeDecor(model, "PackerTape", Vector3.new(1.2, 2.4, 2.4), deck * CFrame.new(4.5, 12, 0) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 225, 120))
 	tape.Shape = Enum.PartType.Cylinder
 	makeBillboard(top, string.upper(name), Vector2.new(8, 1.5), 3.6, 80)
-end
-
--- A ribbon bow (`at`: its knot, -Z its front), `size` across one loop.
-local function buildRibbonBow(model: Model, at: CFrame, size: number, color: Color3)
-	makeBall(model, "RibbonKnot", size * 0.45, at, color, Enum.Material.Fabric)
-	for _, side in { -1, 1 } do
-		local loop = makeDecor(model, "RibbonLoop", Vector3.new(size * 0.22, size, size), at * CFrame.new(side * size * 0.55, size * 0.1, 0) * CFrame.Angles(0, math.pi / 2, side * math.rad(-20)), color, Enum.Material.Fabric)
-		loop.Shape = Enum.PartType.Cylinder
-		makeDecor(model, "RibbonTail", Vector3.new(size * 0.24, size * 0.75, size * 0.1), at * CFrame.new(side * size * 0.25, -size * 0.4, 0) * CFrame.Angles(0, 0, side * math.rad(25)), color:Lerp(WHITE, 0.2), Enum.Material.Fabric)
-	end
-end
-
--- Plushie Sewing Room: the Bow Tier ties a big ribbon bow on the brainrot's head before
--- it goes into the fluff machine. A giant bow sits on its arch, with the ribbon spool
--- behind it.
-local function buildBowTier(model: Model, spot: CFrame, name: string)
-	local deck = deckOf(spot) * CFrame.new(0, SPECIAL_LIFT, 0)
-	local height = DECK + 8 + SPECIAL_LIFT
-	for _, side in { -1, 1 } do
-		makeColumn(model, "BowLeg", 1.8, 0, height, spot * CFrame.new(side * SIDE_X, 0, 0), LAVENDER_COLOR)
-		makeColumn(model, "BowLegStripe", 2, DECK + 3, DECK + 3.6, spot * CFrame.new(side * SIDE_X, 0, 0), WHITE)
-		makeColumn(model, "BowLegStripe", 2, DECK + 8, DECK + 8.6, spot * CFrame.new(side * SIDE_X, 0, 0), WHITE)
-	end
-	local top = makePart(model, "Station3", Vector3.new(17, 1.8, 3.8), deck * CFrame.new(0, 8.9, 0), LAVENDER_COLOR)
-	makeDecor(model, "Station3Stripe", Vector3.new(17.1, 0.45, 3.9), deck * CFrame.new(0, 8.9, 0), WHITE)
-	makePart(model, "Station3Glow", Vector3.new(13, 0.3, 3), deck * CFrame.new(0, 7.85, 0), WHITE, Enum.Material.Neon)
-	-- the ribbon spool on top (pink ribbon between white rims), trailing down the back
-	local spool = makeDecor(model, "BowSpool", Vector3.new(6, 2.6, 2.6), deck * CFrame.new(0, 11.1, 0.4), FLUFF_PINK, Enum.Material.Fabric)
-	spool.Shape = Enum.PartType.Cylinder
-	for _, side in { -1, 1 } do
-		local rim = makeDecor(model, "BowSpoolRim", Vector3.new(0.4, 3.6, 3.6), deck * CFrame.new(side * 3.1, 11.1, 0.4), WHITE)
-		rim.Shape = Enum.PartType.Cylinder
-	end
-	makeDecor(model, "BowRibbon", Vector3.new(1.6, 2.6, 0.1), deck * CFrame.new(0, 9.4, 1.95), FLUFF_PINK, Enum.Material.Fabric)
-	-- and a giant bow on the arch's front
-	buildRibbonBow(model, deck * CFrame.new(0, 9.9, -2.2), 3.4, SEWING_COLOR)
-	makeBillboard(top, string.upper(name), Vector2.new(8, 1.5), 5.4, 80)
 end
 
 -- Clay Studio -------------------------------------------------------------------------
@@ -1150,9 +1092,8 @@ end
 
 -- The line's tablet (GDD §6): a little stand beside the Assembler holding a tablet,
 -- themed per zone. Its screen (TabletScreen, PromptAnchor) carries the "Configure
--- line" prompt; UIController flies the camera onto it and opens the Line menu there.
-local TABLET_SPOT = Vector3.new(11.5, 0, -11.5) -- from the line's origin: by the button path, off the capsule's front
-local TABLET_FACING = Vector3.new(math.cos(math.rad(25)), 0, -math.sin(math.rad(25))) -- toward the path, a little to the front
+-- line" prompt; UIController flies the camera onto it and opens the Line menu there. It
+-- stands where the zone's layout says (by the button path, off the capsule's front).
 local TABLET_SCREEN = Vector2.new(3.2, 2.4)
 local TABLET_TILT = math.rad(30) -- leaning back, screen up toward you
 local SCREEN_COLOR = Color3.fromRGB(28, 22, 48)
@@ -1182,8 +1123,8 @@ local function tabletScreen(screen: BasePart, lineIndex: number, color: Color3)
 	glow.Parent = label
 end
 
-local function buildTablet(model: Model, origin: CFrame, item: TycoonItems.Item, lineIndex: number)
-	local spot = origin * CFrame.lookAt(TABLET_SPOT, TABLET_SPOT + TABLET_FACING) -- its -Z faces you
+local function buildTablet(model: Model, origin: CFrame, item: TycoonItems.Item, lineIndex: number, layout: LineLayouts.Layout)
+	local spot = origin * CFrame.lookAt(layout.Tablet, layout.Tablet + layout.TabletFacing) -- its -Z faces you
 	local plushie = item.Zone == "PlushieRoom"
 	local clay = item.Zone == "ClayStudio"
 	local vinyl = item.Zone == "VinylCollectibles"
@@ -1228,9 +1169,16 @@ end
 local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Item) -> () } = {
 	Line = function(model, origin, item)
 		local colors = GANTRY_COLORS[item.Zone] or GANTRY_COLORS.ToyWorkshop
-		buildTablet(model, origin, item, TycoonItems.LinesById[item.LineId].Index)
-		buildConveyor(model, origin, colors)
-		buildGantry(model, origin, colors)
+		local layout = LineLayouts.For(item.Zone)
+		local rail = layout.Kind == "Rail"
+		model:SetAttribute("Origin", origin) -- line space in the world, for ProductionVisuals
+		buildTablet(model, origin, item, TycoonItems.LinesById[item.LineId].Index, layout)
+		if rail then
+			RailBuilder.BuildLine(model, origin, layout) -- a drum in the capsule, the rail overhead
+		else
+			buildConveyor(model, origin, colors)
+		end
+		buildGantry(model, origin, colors, rail)
 		if item.Zone == "PlushieRoom" then
 			buildSewingMachine(model, origin)
 		elseif item.Zone == "ClayStudio" then
@@ -1245,11 +1193,11 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			buildPusher(model, origin, 1)
 		end
 
-		-- Shipping: past the end of the belt, the zone's finishing stage packs the
+		-- Shipping: at the end of the line, the zone's finishing stage packs the
 		-- brainrot up and sends it off (ProductionVisuals plays it).
-		local spot = origin * CFrame.new(0, 0, SHIP_Z)
-		if item.Zone == "PlushieRoom" then
-			buildFluffMachine(model, spot)
+		local spot = origin * layout.Ship
+		if rail then
+			RailBuilder.BuildShip(model, spot)
 		elseif item.Zone == "ClayStudio" then
 			buildKiln(model, spot)
 		elseif item.Zone == "VinylCollectibles" then
@@ -1261,9 +1209,10 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 
 	Dropper = function(model, origin, item)
 		local partType = item.PartType :: string
-		local base = origin * CFrame.new(0, 0, DROPPER_Z[partType])
+		local layout = LineLayouts.For(item.Zone)
+		local base = origin * layout.Droppers[partType]
 		if item.Zone == "PlushieRoom" then
-			buildKnittingMachine(model, base, partType, PART_COLORS[partType])
+			buildKnittingMachine(model, base, partType, PART_COLORS[partType], layout.Kind == "Rail")
 		elseif item.Zone == "ClayStudio" then
 			buildClayPress(model, base, partType, PART_COLORS[partType])
 		elseif item.Zone == "VinylCollectibles" then
@@ -1273,20 +1222,26 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		end
 	end,
 
-	-- A glowing turbo stripe along the belt.
+	-- A glowing turbo stripe along the belt (or threads along the rail).
 	Speed = function(model, origin, item)
+		local layout = LineLayouts.For(item.Zone)
+		if layout.Kind == "Rail" then
+			RailBuilder.BuildSpeed(model, origin, layout, item)
+			return
+		end
 		local length = BELT_TO - BELT_FROM - 2
 		makePart(model, item.Key, Vector3.new(0.8, 0.1, length), origin * CFrame.new(SPEED_X[item.Key], DECK + 0.05, (BELT_TO + BELT_FROM) / 2), Color3.fromRGB(255, 230, 60), Enum.Material.Neon)
 	end,
 
 	-- A machine beside the belt that works on the brainrots riding past, or the zone's
-	-- special machine over the belt's end.
+	-- special machine over the belt's end (on a rail, at its stops).
 	Station = function(model, origin, item)
-		local spot = origin * CFrame.new(0, 0, STATION_Z[item.Key])
-		if item.Key == "Station3" then
-			if item.Zone == "PlushieRoom" then
-				buildBowTier(model, spot, item.Name)
-			elseif item.Zone == "ClayStudio" then
+		local layout = LineLayouts.For(item.Zone)
+		local spot = origin * layout.Stations[item.Key]
+		if layout.Kind == "Rail" then
+			RailBuilder.BuildStation(model, spot, item)
+		elseif item.Key == "Station3" then
+			if item.Zone == "ClayStudio" then
 				buildStopMotionCamera(model, spot, item.Name)
 			elseif item.Zone == "VinylCollectibles" then
 				buildStickerPress(model, spot, item.Name)
@@ -1355,24 +1310,23 @@ end
 
 -- Droppers: a halo of lights under every dropper's mouth (where the parts come out),
 -- more lights each level, a second, gold halo from tier 2, sparkles from tier 3.
-local function buildDroppersLook(model: Model, origin: CFrame, level: number)
+local function buildDroppersLook(model: Model, origin: CFrame, layout: LineLayouts.Layout, level: number)
 	local tier = trackTier(level)
-	local deck = deckOf(origin)
 	local count = 8 + level
-	for _, z in DROPPER_Z do
-		local mouth = deck * CFrame.new(0, 6.5, z)
+	for _, halo in layout.Halos do
+		local mouth, radius = origin * halo.At, halo.Radius
 		for k = 1, count do
 			local angle = k / count * math.pi * 2
-			trackBulb(model, mouth * CFrame.new(math.cos(angle) * 3.5, 0, math.sin(angle) * 3.5), 0.6 + tier * 0.08, tier, k)
+			trackBulb(model, mouth * CFrame.new(math.cos(angle) * radius, 0, math.sin(angle) * radius), 0.6 + tier * 0.08, tier, k)
 		end
 		if tier >= 2 then
 			for k = 1, count do
 				local angle = (k + 0.5) / count * math.pi * 2
-				makeBall(model, "TrackBulb", 0.45, mouth * CFrame.new(math.cos(angle) * 3.95, 0.25, math.sin(angle) * 3.95), TRACK_GOLD, Enum.Material.Neon).CastShadow = false
+				makeBall(model, "TrackBulb", 0.45, mouth * CFrame.new(math.cos(angle) * (radius + 0.45), 0.25, math.sin(angle) * (radius + 0.45)), TRACK_GOLD, Enum.Material.Neon).CastShadow = false
 			end
 		end
 		if tier >= 3 then
-			trackSparkles(model, mouth * CFrame.new(0, -1, 0), Vector3.new(6, 1, 6), 4 + tier * 2)
+			trackSparkles(model, mouth * CFrame.new(0, -1, 0), Vector3.new(radius * 2 - 1, 1, radius * 2 - 1), 4 + tier * 2)
 		end
 	end
 end
@@ -1433,10 +1387,10 @@ end
 
 -- Shipping: a ring of lights round the delivery (more each level), an outer gold ring
 -- from tier 2, sparkles from tier 3.
-local function buildShippingLook(model: Model, origin: CFrame, zoneId: string, level: number)
+local function buildShippingLook(model: Model, origin: CFrame, layout: LineLayouts.Layout, level: number)
 	local tier = trackTier(level)
-	local deck = deckOf(origin * CFrame.new(0, 0, SHIP_Z))
-	local radius = if zoneId == "PlushieRoom" then 5.9 else 5.4
+	local deck = deckOf(origin * layout.Ship)
+	local radius = layout.ShipRadius
 	local count = 10 + level * 2
 	for k = 1, count do
 		local angle = k / count * math.pi * 2
@@ -1473,14 +1427,18 @@ local function buildTrackLook(model: Model, plot: Plot, item: TycoonItems.Item)
 	local origin = lineOrigin(plot, lineId)
 	local line = getLineModel(plot, lineId)
 	local level = item.Level :: number
+	local layout = LineLayouts.For(item.Zone)
 	if item.Key == "Droppers" then
-		buildDroppersLook(model, origin, level)
+		buildDroppersLook(model, origin, layout, level)
+	elseif item.Key == "Belt" and layout.Kind == "Rail" then
+		local tier = trackTier(level)
+		RailBuilder.BuildTrackLook(model, line, origin, layout, level, { Tier = tier, Color = TRACK_TIER_COLORS[tier], Gold = TRACK_GOLD, Bulb = trackBulb, Sparkles = trackSparkles })
 	elseif item.Key == "Belt" then
 		buildBeltLook(model, line, origin, level)
 	elseif item.Key == "Upgraders" then
 		buildUpgradersLook(model, line, level)
 	elseif item.Key == "Shipping" then
-		buildShippingLook(model, origin, item.Zone, level)
+		buildShippingLook(model, origin, layout, level)
 	end
 end
 
@@ -1671,7 +1629,7 @@ local function createButton(plot: Plot, item: TycoonItems.Item)
 			then `{title}\n🔒 REBIRTH {item.Rebirths}`
 			else `{title}\n{priceText(item.Price)}\nx{item.Multiplier} room income`
 	else
-		local offset = BUTTON_OFFSETS[item.Key]
+		local offset = LineLayouts.For(item.Zone).Buttons[item.Key]
 		cframe = lineOrigin(plot, item.LineId :: string) * CFrame.new(offset.X, 0.2, offset.Z)
 		text = `{item.Name}\n{priceText(item.Price)}`
 	end
