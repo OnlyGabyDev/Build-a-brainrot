@@ -3,11 +3,12 @@
 	Plays the room upgrades that move (RoomUpgradeBuilder, GDD §6), on this client only,
 	and only near the camera:
 	  * BubbleWrap: the bubbles pop one at a time (they flatten with a pop and a puff,
-	    and plump back up a little later); from level 2 the press thumps as they go.
+	    and plump back up a little later), faster on a bigger bench; from level 2 the
+	    press nearest each bubble thumps it.
 	  * JackInTheBox: the crank turns; every few seconds it whirs faster, the lid flips
 	    open and a brainrot head springs out on a coil in a burst of confetti with the
 	    upgrade's bonus, spills coins onto the Cash Pad, wobbles, and sinks back in.
-	  * BoxConveyor: the boxes ride round the rail near the ceiling.
+	  * BoxConveyor: the packages ride round the rail near the ceiling, swaying.
 	  * ToyTrain: the train runs round its oval track (a LoopPath), puffing smoke and
 	    whistling now and then.
 ]]
@@ -73,22 +74,20 @@ type Wrap = {
 	Bubbles: { BasePart },
 	Rest: { [BasePart]: Vector3 },
 	Popped: { [BasePart]: boolean },
-	Stamper: BasePart?,
-	StamperRest: CFrame?,
+	Stampers: { [BasePart]: CFrame }, -- each press's stamper, at rest
 	Level: number,
 	Next: number,
 }
 local wraps: { [Model]: Wrap } = {}
 
 watch("BubbleWrap", function(model)
-	local wrap: Wrap = { Bubbles = {}, Rest = {}, Popped = {}, Stamper = nil, StamperRest = nil, Level = numberOf(model, "Level", 1), Next = os.clock() + 1 }
+	local wrap: Wrap = { Bubbles = {}, Rest = {}, Popped = {}, Stampers = {}, Level = numberOf(model, "Level", 1), Next = os.clock() + 1 }
 	for _, child in model:GetChildren() do
 		if child:IsA("BasePart") and child.Name == "Bubble" then
 			table.insert(wrap.Bubbles, child)
 			wrap.Rest[child] = child.Size
 		elseif child:IsA("BasePart") and child.Name == "Stamper" then
-			wrap.Stamper = child
-			wrap.StamperRest = child.CFrame
+			wrap.Stampers[child] = child.CFrame
 		end
 	end
 	wraps[model] = wrap
@@ -109,7 +108,14 @@ local function popBubble(wrap: Wrap)
 	local bubble = choices[math.random(1, #choices)]
 	local rest = wrap.Rest[bubble]
 	wrap.Popped[bubble] = true
-	local stamper, stamperRest = wrap.Stamper, wrap.StamperRest
+	-- the press nearest the bubble thumps it
+	local stamper, stamperRest, nearest = nil, nil, math.huge
+	for part, home in wrap.Stampers do
+		local distance = (home.Position - bubble.Position).Magnitude
+		if distance < nearest then
+			stamper, stamperRest, nearest = part, home, distance
+		end
+	end
 	if stamper and stamperRest then
 		local down = TweenService:Create(stamper, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, true), { CFrame = stamperRest - Vector3.new(0, 2.4, 0) })
 		down:Play()
@@ -350,7 +356,8 @@ RunService.Heartbeat:Connect(function(dt)
 	for _, wrap in wraps do
 		local bubble = wrap.Bubbles[1]
 		if now >= wrap.Next and bubble and near(bubble.Position) then
-			wrap.Next = now + 0.5 + math.random() * 0.7
+			-- a bigger bench pops faster
+			wrap.Next = now + (0.5 + math.random() * 0.7) / (1 + (wrap.Level - 1) * 0.4)
 			popBubble(wrap)
 		end
 	end
@@ -369,7 +376,9 @@ RunService.Heartbeat:Connect(function(dt)
 		if near(conveyor.Origin.Position + Vector3.new(0, ConveyorPath.Height, 0)) then
 			for _, box in conveyor.Boxes do
 				local point, heading = ConveyorPath.Point(box.Phase * ConveyorPath.Perimeter + now * conveyor.Speed)
-				box.Model:PivotTo(conveyor.Origin * CFrame.lookAt(point, point + heading))
+				-- each package sways a little on its hook
+				local sway = math.sin(now * 2.2 + box.Phase * 40) * 0.07
+				box.Model:PivotTo(conveyor.Origin * CFrame.lookAt(point, point + heading) * CFrame.Angles(0, 0, sway))
 			end
 		end
 	end

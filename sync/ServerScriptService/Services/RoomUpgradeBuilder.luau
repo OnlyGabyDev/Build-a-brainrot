@@ -10,6 +10,11 @@
 	chase lights with Atmosphere's Spinner, Bobbing and Marquee tags, or sparkle with
 	ParticleEmitters.
 
+	A bought level drops in (Client/DropIn) in the order it was built here: each direct
+	child Model of the upgrade falls as one piece (a present, a cushion, a jar's
+	buttons, a train car), every loose part on its own (a track goes down segment by
+	segment). So build bottom to top, and group what should land whole.
+
 	Room space, as in RoomDecor: `floor` is the room's floor center, -Z toward the
 	building's front; the lines run along Z at X = -42, 0, 42 with their buttons on
 	their +X side. Spots: the front corners, the left wall, the back-left corner, and
@@ -23,6 +28,7 @@ local BrainrotModels = require(ReplicatedStorage.Shared.BrainrotModels)
 local Brainrots = require(ReplicatedStorage.Shared.Config.Brainrots)
 local ConveyorPath = require(ReplicatedStorage.Shared.ConveyorPath)
 local LoopPath = require(ReplicatedStorage.Shared.LoopPath)
+local RibbonBow = require(ReplicatedStorage.Shared.RibbonBow)
 
 local RoomUpgradeBuilder = {}
 
@@ -40,13 +46,21 @@ local TOY_COLORS = {
 	Color3.fromRGB(160, 95, 255), -- purple
 	Color3.fromRGB(255, 140, 40), -- orange
 }
+-- The Plushie room is a plush factory (RoomDecor), not a nursery: glossy magenta and
+-- violet with gold and chrome, neon accents.
 local PLUSH_COLORS = {
-	Color3.fromRGB(255, 110, 180), -- pink
-	Color3.fromRGB(160, 120, 255), -- lavender
-	Color3.fromRGB(100, 195, 255), -- blue
-	Color3.fromRGB(255, 200, 90), -- butter
-	Color3.fromRGB(110, 215, 160), -- mint
+	Color3.fromRGB(255, 70, 160), -- magenta
+	Color3.fromRGB(140, 90, 255), -- violet
+	Color3.fromRGB(40, 200, 255), -- cyan
+	Color3.fromRGB(255, 200, 50), -- yellow
+	Color3.fromRGB(60, 220, 140), -- green
+	Color3.fromRGB(255, 120, 60), -- orange
 }
+local CHROME = Color3.fromRGB(215, 220, 235)
+local PLUM = Color3.fromRGB(70, 35, 105)
+local CARDBOARD = Color3.fromRGB(210, 160, 105)
+local KNIT = "PlushKnit" -- the Plushie room's MaterialVariant (tools/SetupMaterials)
+local SIGN_BACK = Color3.fromRGB(40, 28, 60)
 local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
 
 -- Helpers --------------------------------------------------------------------------
@@ -163,6 +177,56 @@ local function printOn(part: BasePart, face: Enum.NormalId, text: string, color:
 	stroke.Parent = label
 end
 
+-- A neon sign (`at`: its middle, -Z its front): glowing letters on a dark panel, framed
+-- in neon tubes. `twoSided`: lettered on the back too.
+local function neonSign(parent: Instance, at: CFrame, size: Vector2, text: string, color: Color3, twoSided: boolean?): Part
+	local panel = makeDecor(parent, "NeonSign", Vector3.new(size.X, size.Y, 0.3), at, SIGN_BACK)
+	printOn(panel, Enum.NormalId.Front, text, color:Lerp(WHITE, 0.65), color, true)
+	if twoSided then
+		printOn(panel, Enum.NormalId.Back, text, color:Lerp(WHITE, 0.65), color, true)
+	end
+	local tube = color:Lerp(WHITE, 0.3)
+	for _, y in { -1, 1 } do
+		makeDecor(parent, "NeonTube", Vector3.new(size.X + 0.6, 0.3, 0.4), at * CFrame.new(0, y * (size.Y / 2 + 0.15), 0), tube, Enum.Material.Neon).CastShadow = false
+	end
+	for _, x in { -1, 1 } do
+		makeDecor(parent, "NeonTube", Vector3.new(0.3, size.Y + 0.6, 0.4), at * CFrame.new(x * (size.X / 2 + 0.15), 0, 0), tube, Enum.Material.Neon).CastShadow = false
+	end
+	return panel
+end
+
+-- A bunch of balloons on strings tied at `at`, bobbing (Atmosphere), `rise` studs up.
+local function balloons(parent: Instance, at: CFrame, count: number, seed: number, rise: number)
+	local bunch = Instance.new("Model")
+	bunch.Name = "Balloons"
+	for index = 1, count do
+		local angle = index * 2.4 + seed
+		local top = at * CFrame.new(math.cos(angle) * 1.6, rise + (index % 3) * 1.1, math.sin(angle) * 1.6)
+		local color = TOY_COLORS[(index + seed) % #TOY_COLORS + 1]
+		local balloon = ball(bunch, "Balloon", 2.8, top, color)
+		balloon.Reflectance = 0.1
+		ball(bunch, "BalloonKnot", 0.5, top * CFrame.new(0, -1.5, 0), color)
+		rod(bunch, "BalloonString", 0.08, at.Position, (top * CFrame.new(0, -1.6, 0)).Position, WHITE).CastShadow = false
+	end
+	bunch.WorldPivot = at
+	tagged(bunch, "Bobbing", parent)
+end
+
+-- Chasing bulbs round a circle `y` over the floor (`center`: its middle, room space),
+-- `radius` out, about every `gap` studs; none where the circle runs into the walls.
+local function bulbRing(parent: Instance, floor: CFrame, center: Vector3, radius: number, gap: number, y: number)
+	local count = math.floor(math.pi * 2 * radius / gap)
+	local index = 0
+	for k = 1, count do
+		local angle = k / count * math.pi * 2
+		local spot = center + Vector3.new(math.cos(angle) * radius, y, math.sin(angle) * radius)
+		if math.abs(spot.X) < 67.3 and math.abs(spot.Z) < 57.3 then
+			index += 1
+			bulb(parent, floor * CFrame.new(spot), index)
+		end
+	end
+end
+
 -- A wrapped present standing on `at` (its bottom center): ribbons both ways and a bow.
 local function present(parent: Instance, at: CFrame, size: Vector3, color: Color3, ribbon: Color3, material: Enum.Material?): Part
 	local box = makeDecor(parent, "Present", size, at * CFrame.new(0, size.Y / 2, 0), color, material)
@@ -177,90 +241,224 @@ local function present(parent: Instance, at: CFrame, size: Vector3, color: Color
 	return box
 end
 
--- Gift Tower (Toy Workshop, the front-left corner) ------------------------------------
--- A pile of wrapped presents that grows a layer each level, sparkling at level 3, and
--- crowned by a floating golden present at level 4.
-
-type Gift = { Level: number, At: Vector3, Size: Vector3, Turn: number, Color: number, Ribbon: number }
-local GIFT_BOXES: { Gift } = { -- Ribbon 0: white
-	{ Level = 1, At = Vector3.new(-60, 0, -52), Size = Vector3.new(6, 5, 6), Turn = 0.1, Color = 1, Ribbon = 2 },
-	{ Level = 1, At = Vector3.new(-53.5, 0, -54), Size = Vector3.new(4.6, 4, 4.6), Turn = -0.2, Color = 3, Ribbon = 0 },
-	{ Level = 1, At = Vector3.new(-60, 5, -52), Size = Vector3.new(4.2, 3.6, 4.2), Turn = 0.35, Color = 4, Ribbon = 1 },
-	{ Level = 2, At = Vector3.new(-61.5, 0, -45), Size = Vector3.new(5, 4.4, 5), Turn = -0.15, Color = 5, Ribbon = 2 },
-	{ Level = 2, At = Vector3.new(-53.5, 4, -54), Size = Vector3.new(3.4, 3, 3.4), Turn = 0.3, Color = 2, Ribbon = 1 },
-	{ Level = 2, At = Vector3.new(-60, 8.6, -52), Size = Vector3.new(3.4, 3, 3.4), Turn = -0.2, Color = 6, Ribbon = 3 },
-	{ Level = 3, At = Vector3.new(-61.5, 4.4, -45), Size = Vector3.new(3.8, 3.4, 3.8), Turn = 0.25, Color = 1, Ribbon = 0 },
-	{ Level = 3, At = Vector3.new(-60, 11.6, -52), Size = Vector3.new(2.6, 2.4, 2.6), Turn = 0.4, Color = 3, Ribbon = 2 },
-}
-
-local function buildGiftTower(model: Model, floor: CFrame, level: number)
-	local top: Part? = nil
-	for _, gift in GIFT_BOXES do
-		if gift.Level <= level then
-			local ribbon = if gift.Ribbon == 0 then WHITE else TOY_COLORS[gift.Ribbon]
-			top = present(model, floor * CFrame.new(gift.At) * CFrame.Angles(0, gift.Turn, 0), gift.Size, TOY_COLORS[gift.Color], ribbon)
+-- A brainrot in the Plushie room's fabric (knitted), `scale` times its size, standing on `root`.
+local function plushie(id: string, scale: number, root: CFrame): Model
+	local brainrot = Instance.new("Model")
+	if Brainrots.ById[id] then
+		for _, partType in Brainrots.PartTypes do
+			local part = BrainrotModels.CreatePart(id, partType, "PlushieRoom")
+			for _, child in part:GetChildren() do
+				child.Parent = brainrot
+			end
+			part:Destroy()
 		end
 	end
-	if level >= 3 and top then
-		sparkles(top, Color3.fromRGB(255, 240, 160), 4)
+	brainrot.WorldPivot = CFrame.identity
+	brainrot:ScaleTo(scale)
+	brainrot:PivotTo(root)
+	return brainrot
+end
+
+-- Gift Tower (Toy Workshop, the front-left corner) ------------------------------------
+-- A tower of wrapped presents that gains a tier every level, each tier a ring of
+-- presents on the one below: a little pile (1); taller, with balloons tied to its foot
+-- (2); a third tier on a round stage ringed with chasing lights, a giant bow on top and
+-- sparkles (3); then (R2) a wider fourth tier, gold ribbons, and a golden present
+-- floating and spinning over the top in a halo of lights, glowing. Each present is a
+-- Model, so it drops in whole. It stays under the Box Conveyor's boxes (their bottoms
+-- ~20 over the floor).
+
+type GiftTier = { Count: number, Radius: number, Height: number, Size: number }
+local GIFT_LEVELS: { { GiftTier } } = {
+	{
+		{ Count = 3, Radius = 2.6, Height = 4.2, Size = 4.2 },
+		{ Count = 1, Radius = 0, Height = 3.2, Size = 3.6 },
+	},
+	{
+		{ Count = 4, Radius = 3.4, Height = 4.6, Size = 4.8 },
+		{ Count = 3, Radius = 2.1, Height = 3.8, Size = 3.8 },
+		{ Count = 1, Radius = 0, Height = 3, Size = 3.2 },
+	},
+	{
+		{ Count = 5, Radius = 4.2, Height = 4.6, Size = 5.2 },
+		{ Count = 4, Radius = 2.9, Height = 4, Size = 4.4 },
+		{ Count = 3, Radius = 1.8, Height = 3.4, Size = 3.6 },
+		{ Count = 1, Radius = 0, Height = 2.8, Size = 3 },
+	},
+	{
+		{ Count = 6, Radius = 4.8, Height = 4.2, Size = 5.4 },
+		{ Count = 5, Radius = 3.6, Height = 3.6, Size = 4.6 },
+		{ Count = 4, Radius = 2.5, Height = 3, Size = 3.8 },
+		{ Count = 3, Radius = 1.5, Height = 2.6, Size = 3.2 },
+	},
+}
+local GIFT_CENTER = Vector3.new(-60, 0, -51)
+local ROOMWARD = Vector3.new(1, 0, 1).Unit -- from the front-left corner toward the room
+local GIFT_STAGE = 0.7 -- the stage's top (3+), over the floor
+
+local function buildGiftTower(model: Model, floor: CFrame, level: number)
+	local tiers = GIFT_LEVELS[level]
+	local golden = level >= 4
+	local random = Random.new(11)
+	local y = 0
+	if level >= 3 then
+		-- a round red stage on a gold lip, chasing lights round its edge
+		local reach = tiers[1].Radius + tiers[1].Size / 2 + 1.2
+		local stage = floor * CFrame.new(GIFT_CENTER)
+		cylinder(model, "GiftStageLip", reach * 2 + 0.8, 0.3, stage, GOLD, Enum.Material.Metal)
+		cylinder(model, "GiftStage", reach * 2, GIFT_STAGE - 0.3, stage * CFrame.new(0, 0.3, 0), TOY_COLORS[1])
+		bulbRing(model, floor, GIFT_CENTER, reach - 0.5, 2.2, GIFT_STAGE + 0.15)
+		y = GIFT_STAGE
 	end
-	if level >= 4 then
-		-- a golden present floating over the pile
+	local count = 0
+	local top: Part? = nil
+	for tierIndex, tier in tiers do
+		for k = 1, tier.Count do
+			count += 1
+			-- round from the room's side: the bottom tier straddles it (clear of the
+			-- button), the others put a present toward it
+			local angle = math.rad(45) + (k - (if tierIndex == 1 then 0.5 else 1)) / tier.Count * math.pi * 2
+			local spot = GIFT_CENTER + Vector3.new(math.cos(angle) * tier.Radius, y, math.sin(angle) * tier.Radius)
+			local across = tier.Size * random:NextNumber(0.9, 1.05)
+			local color = TOY_COLORS[(tierIndex * 2 + k) % #TOY_COLORS + 1]
+			local ribbon = if golden then (if count % 2 == 0 then WHITE else GOLD) elseif count % 3 == 0 then WHITE else TOY_COLORS[(tierIndex * 2 + k + 3) % #TOY_COLORS + 1]
+			local gift = Instance.new("Model")
+			gift.Name = "Gift"
+			top = present(gift, floor * CFrame.new(spot) * CFrame.Angles(0, -angle + random:NextNumber(-0.25, 0.25), 0), Vector3.new(across, tier.Height, across), color, ribbon)
+			gift.Parent = model
+		end
+		y += tier.Height
+	end
+	if level >= 2 then
+		-- balloons tied to the first tier's top, on the room side
+		local tie = GIFT_CENTER + ROOMWARD * (tiers[1].Radius + 1) + Vector3.new(0, (if level >= 3 then GIFT_STAGE else 0) + tiers[1].Height, 0)
+		balloons(model, floor * CFrame.new(tie), 2 + level, level, 6.5)
+	end
+	if level == 3 and top then
+		-- a giant red bow on the top present, facing the room
+		local knot = CFrame.lookAt((floor * CFrame.new(GIFT_CENTER + Vector3.new(0, y + 0.5, 0))).Position, (floor * CFrame.new(GIFT_CENTER + ROOMWARD * 10 + Vector3.new(0, y + 0.5, 0))).Position)
+		local bow = RibbonBow.Build(model, knot, 4.2, TOY_COLORS[1])
+		bow.Name = "GiftBow"
+		sparkles(top, Color3.fromRGB(255, 240, 160), 5)
+	end
+	if golden then
+		-- a golden present floating over the top in a halo of lights, spinning, glowing
 		local crown = Instance.new("Model")
 		crown.Name = "GoldenGift"
-		local at = floor * CFrame.new(-60, 17, -52) * CFrame.Angles(0, 0.6, 0)
+		local at = floor * CFrame.new(GIFT_CENTER + Vector3.new(0, y + 1.6, 0))
 		local gold = present(crown, at, Vector3.new(3.4, 3, 3.4), GOLD, WHITE, Enum.Material.Metal)
-		sparkles(gold, GOLD, 8, 1)
-		glow(gold, GOLD, 16)
-		crown.WorldPivot = at
-		tagged(crown, "Bobbing", model)
+		for index = 1, 10 do
+			local angle = index / 10 * math.pi * 2
+			ball(crown, "Halo", 0.5, at * CFrame.new(math.cos(angle) * 2.9, -0.7, math.sin(angle) * 2.9), Color3.fromRGB(255, 235, 140), Enum.Material.Neon).CastShadow = false
+		end
+		sparkles(gold, GOLD, 10, 1)
+		glow(gold, GOLD, 18)
+		spinner(crown, model, at * CFrame.new(0, 1.5, 0) * CFrame.Angles(math.pi / 2, 0, 0), 0.9)
 	end
 end
 
 -- Bubble Wrap Popper (Toy Workshop, on the left wall) ----------------------------------
--- A workbench against the wall with a roll of bubble wrap and a sheet of it across the
--- table; RoomFX pops the bubbles (Bubble parts) one by one, each regrowing a moment
--- later. Level 2 adds a stamping press (Stamper) that thumps the sheet as they pop;
--- level 3 makes the bubbles rainbow and the table glow.
+-- A packing bench against the wall: a roll of bubble wrap at its front end, a sheet of
+-- it across the table (RoomFX pops the Bubble parts one by one, each plumping back up a
+-- moment later), and boxes wrapped in it stacked at the back end. Every level the bench
+-- is longer, with more bubbles and boxes: a little bench (1); a stamping press (a
+-- Stamper: RoomFX thumps it on each pop) and spare rolls on a wall shelf (2); a long
+-- bench with two presses, rainbow bubbles, a glowing trim and a POP! POP! neon sign (3).
+
+type WrapLevel = { Length: number, Width: number, Rows: number, Columns: number, Roll: number, Presses: number, Boxes: number, Spares: number }
+local WRAP_LEVELS: { WrapLevel } = {
+	{ Length = 13, Width = 6.6, Rows = 4, Columns = 4, Roll = 3.4, Presses = 0, Boxes = 1, Spares = 0 },
+	{ Length = 17, Width = 7, Rows = 7, Columns = 4, Roll = 4.4, Presses = 1, Boxes = 2, Spares = 2 },
+	{ Length = 21, Width = 8, Rows = 9, Columns = 5, Roll = 5.2, Presses = 2, Boxes = 3, Spares = 3 },
+}
+local WRAP_PLASTIC = Color3.fromRGB(195, 230, 255)
+local TAPE = Color3.fromRGB(240, 205, 130)
 
 local function buildBubbleWrap(model: Model, floor: CFrame, level: number)
-	local base = floor * CFrame.new(-63.5, 0, -18) -- the table's middle, on the floor; +X into the room
+	local spec = WRAP_LEVELS[level]
+	local length, width = spec.Length, spec.Width
+	local glowing = level >= 3
+	local base = floor * CFrame.new(-67.6 + width / 2, 0, -18) -- the table's middle on the floor; +X into the room, -Z toward the front
 	local top = 4.2
-	local table_ = TOY_COLORS[3]
-	makeDecor(model, "WrapTable", Vector3.new(7, 0.6, 16), base * CFrame.new(0, top - 0.3, 0), table_)
-	makeDecor(model, "WrapTableTrim", Vector3.new(0.3, 0.7, 16.2), base * CFrame.new(3.6, top - 0.3, 0), if level >= 3 then TOY_COLORS[2] else WHITE, if level >= 3 then Enum.Material.Neon else nil)
-	for _, x in { -3, 3 } do
-		for _, z in { -7.4, 7.4 } do
-			makeDecor(model, "WrapTableLeg", Vector3.new(0.8, top - 0.6, 0.8), base * CFrame.new(x, (top - 0.6) / 2, z), table_:Lerp(Color3.new(0, 0, 0), 0.25))
+	local tableColor = TOY_COLORS[3]
+	makeDecor(model, "WrapTable", Vector3.new(width, 0.6, length), base * CFrame.new(0, top - 0.3, 0), tableColor)
+	makeDecor(model, "WrapTableTrim", Vector3.new(0.3, 0.7, length + 0.2), base * CFrame.new(width / 2 + 0.1, top - 0.3, 0), if glowing then TOY_COLORS[2] else WHITE, if glowing then Enum.Material.Neon else nil)
+	local legZ = length / 2 - 0.6
+	local legs: { number } = if length > 15 then { -legZ, 0, legZ } else { -legZ, legZ }
+	for _, x in { -1, 1 } do
+		for _, z in legs do
+			makeDecor(model, "WrapTableLeg", Vector3.new(0.8, top - 0.6, 0.8), base * CFrame.new(x * (width / 2 - 0.6), (top - 0.6) / 2, z), tableColor:Lerp(Color3.new(0, 0, 0), 0.25))
 		end
 	end
-	-- the roll, lying across the table at its far end
-	local rollSize = if level >= 2 then 4.4 else 3.6
-	local plastic = Color3.fromRGB(195, 230, 255)
-	local roll = roller(model, "WrapRoll", rollSize, 6, base * CFrame.new(0, top + rollSize / 2, -5.4), plastic)
+	-- the roll, lying across the table at its front end
+	local rollZ = -length / 2 + spec.Roll / 2 + 0.3
+	local roll = roller(model, "WrapRoll", spec.Roll, width - 0.8, base * CFrame.new(0, top + spec.Roll / 2, rollZ), WRAP_PLASTIC)
 	roll.Transparency = 0.25
 	roll.Reflectance = 0.1
-	roller(model, "WrapCore", rollSize * 0.35, 6.3, roll.CFrame, Color3.fromRGB(200, 150, 100))
-	-- the sheet, bubbles in rows
-	makeDecor(model, "WrapSheet", Vector3.new(6, 0.1, 11), base * CFrame.new(0, top + 0.05, 2), plastic).Transparency = 0.3
-	local rows = if level >= 2 then 8 else 6
-	for row = 1, rows do
-		for column = 1, 4 do
-			local color = if level >= 3 then TOY_COLORS[(row + column) % #TOY_COLORS + 1]:Lerp(WHITE, 0.3) else Color3.fromRGB(215, 240, 255)
-			local bubble = ball(model, "Bubble", 1, base * CFrame.new(-2.25 + (column - 1) * 1.5, top + 0.15, -3 + row * 1.3), color)
+	roller(model, "WrapCore", spec.Roll * 0.35, width - 0.5, roll.CFrame, CARDBOARD)
+	-- the sheet off the roll, bubbles in rows, up to the boxes
+	local boxZone = 4.4
+	local sheetFrom, sheetTo = rollZ + spec.Roll / 2, length / 2 - boxZone
+	local sheetLength = sheetTo - sheetFrom
+	makeDecor(model, "WrapSheet", Vector3.new(width - 1, 0.1, sheetLength), base * CFrame.new(0, top + 0.05, (sheetFrom + sheetTo) / 2), WRAP_PLASTIC).Transparency = 0.3
+	local across = width - 1.6
+	for row = 1, spec.Rows do
+		for column = 1, spec.Columns do
+			local color = if glowing then TOY_COLORS[(row + column) % #TOY_COLORS + 1]:Lerp(WHITE, 0.3) else Color3.fromRGB(215, 240, 255)
+			local spot = base * CFrame.new(-across / 2 + (column - 0.5) * across / spec.Columns, top + 0.15, sheetFrom + (row - 0.5) * sheetLength / spec.Rows)
+			local bubble = ball(model, "Bubble", 1, spot, color)
 			bubble.Transparency = 0.2
 			bubble.Reflectance = 0.15
 		end
 	end
-	if level >= 2 then
-		-- the stamping press over the middle of the sheet
-		local pressZ = 2.8
-		for _, x in { -3.2, 3.2 } do
-			makeDecor(model, "PressPost", Vector3.new(0.7, 7, 0.7), base * CFrame.new(x, top + 3.5, pressZ), TOY_COLORS[1])
+	-- the stamping presses over the sheet
+	local presses = if spec.Presses == 2 then { sheetFrom + sheetLength * 0.27, sheetFrom + sheetLength * 0.73 } elseif spec.Presses == 1 then { (sheetFrom + sheetTo) / 2 } else {}
+	for index, z in presses do
+		local frame = TOY_COLORS[if index == 1 then 1 else 5]
+		for _, x in { -1, 1 } do
+			makeDecor(model, "PressPost", Vector3.new(0.7, 7, 0.7), base * CFrame.new(x * (width / 2 - 0.3), top + 3.5, z), frame)
 		end
-		makeDecor(model, "PressBeam", Vector3.new(7.2, 1, 1.4), base * CFrame.new(0, top + 7, pressZ), TOY_COLORS[1])
-		makeDecor(model, "StamperRod", Vector3.new(0.5, 3, 0.5), base * CFrame.new(0, top + 5, pressZ), Color3.fromRGB(205, 210, 225), Enum.Material.Metal)
-		makeDecor(model, "Stamper", Vector3.new(5.4, 1, 2.6), base * CFrame.new(0, top + 3.2, pressZ), TOY_COLORS[2])
+		makeDecor(model, "PressBeam", Vector3.new(width + 0.4, 1, 1.4), base * CFrame.new(0, top + 7, z), frame)
+		makeDecor(model, "StamperRod", Vector3.new(0.5, 3, 0.5), base * CFrame.new(0, top + 5, z), Color3.fromRGB(205, 210, 225), Enum.Material.Metal)
+		makeDecor(model, "Stamper", Vector3.new(across, 1, 2.4), base * CFrame.new(0, top + 3.2, z), TOY_COLORS[2])
+		if glowing then
+			ball(model, "PressLamp", 0.9, base * CFrame.new(width / 2 + 0.3, top + 7, z), Color3.fromRGB(255, 240, 160), Enum.Material.Neon).CastShadow = false
+		end
+	end
+	-- boxes wrapped in it, stacked at the back end, each a Model (it drops in whole)
+	local y = top
+	for index = 1, spec.Boxes do
+		local size = 3.6 - (index - 1) * 0.5
+		local box = Instance.new("Model")
+		box.Name = "WrappedBox"
+		local at = base * CFrame.new(0, y + size / 2, length / 2 - boxZone / 2) * CFrame.Angles(0, (index % 2 - 0.5) * 0.35, 0)
+		makeDecor(box, "Box", Vector3.one * size, at, CARDBOARD)
+		makeDecor(box, "BoxTape", Vector3.new(size + 0.06, size + 0.06, size * 0.26), at, TAPE)
+		local wrap = makeDecor(box, "BoxWrap", Vector3.one * (size + 0.35), at, WRAP_PLASTIC)
+		wrap.Transparency = 0.72
+		wrap.Reflectance = 0.1
+		box.Parent = model
+		y += size
+	end
+	-- spare rolls on a shelf on the wall
+	if spec.Spares > 0 then
+		local shelf = base * CFrame.new(-width / 2 + 1.1, top + 8.4, 0)
+		local span = spec.Spares * 3.2
+		makeDecor(model, "WrapShelf", Vector3.new(2.2, 0.4, span + 1), shelf, WHITE)
+		for _, z in { -span / 2, span / 2 } do
+			makeDecor(model, "WrapShelfBracket", Vector3.new(0.5, 1.6, 0.4), shelf * CFrame.new(-0.7, -1, z), tableColor)
+		end
+		for k = 1, spec.Spares do
+			-- lying with its cardboard core toward the room
+			local at = shelf * CFrame.new(0, 1.45, -span / 2 + (k - 0.5) * 3.2)
+			local spare = roller(model, "SpareRoll", 2.5, 2.2, at, WRAP_PLASTIC)
+			spare.Transparency = 0.25
+			spare.Reflectance = 0.1
+			roller(model, "SpareCore", 0.9, 2.3, at, CARDBOARD)
+		end
+	end
+	if glowing then
+		neonSign(model, base * CFrame.new(-width / 2 + 0.3, top + 14.6, 0) * CFrame.Angles(0, -math.pi / 2, 0), Vector2.new(9, 2.6), "💥 POP! POP! 💥", TOY_COLORS[1])
 	end
 	model:SetAttribute("Level", level)
 	tagged(model, "BubbleWrap", model.Parent :: Instance)
@@ -268,67 +466,117 @@ end
 
 -- Box Conveyor (Toy Workshop, overhead all round the room) ------------------------------
 -- A rail hung from the ceiling in a loop (a rectangle with rounded corners) with
--- wrapped boxes hanging off it on hooks; RoomFX moves them round. Level 2: more boxes,
--- bows, faster. Level 3 (rebirth): a glowing rail and golden boxes.
+-- packages hanging off it on hooks; RoomFX moves them round, swaying. Every level the
+-- rail is chunkier, with more and bigger packages, faster: a few small presents (1);
+-- twice as many, starred cardboard crates among them, a white stripe on the rail (2); then
+-- (R1) a golden rail glowing underneath, golden presents, the most and the biggest (3).
 
-local CONVEYOR_BOXES = { 8, 14, 18 }
-local CONVEYOR_SPEEDS = { 5, 7, 9 }
+type ConveyorLevel = { Boxes: number, Speed: number, Size: number, Rail: number }
+local CONVEYOR_LEVELS: { ConveyorLevel } = {
+	{ Boxes = 6, Speed = 5, Size = 2.2, Rail = 0.6 },
+	{ Boxes = 12, Speed = 7, Size = 2.8, Rail = 0.9 },
+	{ Boxes = 18, Speed = 9, Size = 3.2, Rail = 1.1 },
+}
+local CONVEYOR_DARK = Color3.fromRGB(90, 80, 110)
+local HOOK_DROP = 1.6 -- from the rail down to a package's top
 
 local function buildBoxConveyor(model: Model, floor: CFrame, level: number)
+	local spec = CONVEYOR_LEVELS[level]
 	local perimeter = ConveyorPath.Perimeter
-	local railColor = TOY_COLORS[5]
+	local golden = level >= 3
+	local railColor = if golden then GOLD else TOY_COLORS[5]
 	-- the rail, in short straight pieces round the loop, with hangers up to the ceiling
 	local pieces = 64
 	for index = 0, pieces - 1 do
 		local from = ConveyorPath.Point(index / pieces * perimeter)
 		local to = ConveyorPath.Point((index + 1) / pieces * perimeter)
 		local a, b = (floor * CFrame.new(from)).Position, (floor * CFrame.new(to)).Position
-		rod(model, "ConveyorRail", 0.8, a, b + (b - a).Unit * 0.4, railColor)
-		if level >= 3 then
-			rod(model, "ConveyorGlow", 0.35, a - Vector3.new(0, 0.5, 0), b - Vector3.new(0, 0.5, 0), TOY_COLORS[2], Enum.Material.Neon).CastShadow = false
+		local along = (b - a).Unit * 0.4
+		rod(model, "ConveyorRail", spec.Rail, a, b + along, railColor, if golden then Enum.Material.Metal else nil)
+		if level >= 2 then
+			local up = Vector3.new(0, spec.Rail * 0.45, 0)
+			rod(model, "ConveyorStripe", spec.Rail * 0.4, a + up, b + up + along, WHITE)
+		end
+		if golden then
+			local down = Vector3.new(0, spec.Rail / 2 + 0.1, 0)
+			rod(model, "ConveyorGlow", 0.35, a - down, b - down + along, TOY_COLORS[2], Enum.Material.Neon).CastShadow = false
 		end
 		if index % 8 == 0 then
 			local hanger = (floor * CFrame.new(from + Vector3.new(0, 1.6, 0))).Position
-			makeDecor(model, "ConveyorHanger", Vector3.new(0.4, 3.2, 0.4), CFrame.new(hanger) * floor.Rotation, Color3.fromRGB(90, 80, 110))
+			makeDecor(model, "ConveyorHanger", Vector3.new(0.3, 3.2, 0.3) * (1 + level * 0.2), CFrame.new(hanger) * floor.Rotation, CONVEYOR_DARK)
 		end
 	end
-	-- the boxes, spread evenly round the loop; each one's pivot is its hook on the rail
-	local count = CONVEYOR_BOXES[level]
-	for index = 1, count do
-		local phase = (index - 1) / count
+	-- the packages, spread evenly round the loop; each one's pivot is its hook on the rail
+	local size = spec.Size
+	local grow = size / 2.6
+	for index = 1, spec.Boxes do
+		local phase = (index - 1) / spec.Boxes
 		local point, heading = ConveyorPath.Point(phase * perimeter)
 		local hook = floor * CFrame.lookAt(point, point + heading)
 		local box = Instance.new("Model")
 		box.Name = "ConveyorBox"
-		makeDecor(box, "Trolley", Vector3.new(1.2, 0.5, 1.4), hook * CFrame.new(0, 0.6, 0), Color3.fromRGB(90, 80, 110))
-		makeDecor(box, "Hook", Vector3.new(0.25, 1.6, 0.25), hook * CFrame.new(0, -0.8, 0), Color3.fromRGB(205, 210, 225), Enum.Material.Metal)
-		local golden = level >= 3 and index % 3 == 0
-		local color = if golden then GOLD else TOY_COLORS[index % #TOY_COLORS + 1]
-		local gift = present(box, hook * CFrame.new(0, -4.2, 0), Vector3.new(2.6, 2.6, 2.6), color, if golden then WHITE else TOY_COLORS[(index + 2) % #TOY_COLORS + 1])
-		if golden then
-			gift.Material = Enum.Material.Metal
-			sparkles(gift, GOLD, 3)
+		makeDecor(box, "Trolley", Vector3.new(1.2, 0.5, 1.4) * grow, hook * CFrame.new(0, spec.Rail / 2 + 0.25 * grow, 0), CONVEYOR_DARK)
+		makeDecor(box, "Hook", Vector3.new(0.25, HOOK_DROP, 0.25) * Vector3.new(grow, 1, grow), hook * CFrame.new(0, -HOOK_DROP / 2, 0), Color3.fromRGB(205, 210, 225), Enum.Material.Metal)
+		local bottom = hook * CFrame.new(0, -HOOK_DROP - size, 0)
+		local goldBox = golden and index % 3 == 0
+		if level >= 2 and not goldBox and index % 2 == 0 then
+			-- a cardboard crate, taped up
+			local center = bottom * CFrame.new(0, size / 2, 0)
+			local crate = makeDecor(box, "Crate", Vector3.one * size, center, CARDBOARD)
+			makeDecor(box, "CrateTape", Vector3.new(size + 0.06, size + 0.06, size * 0.26), center, TAPE)
+			-- a star stamped on the faces the tape doesn't cross
+			printOn(crate, Enum.NormalId.Front, "★", Color3.fromRGB(255, 90, 110), WHITE)
+			printOn(crate, Enum.NormalId.Back, "★", Color3.fromRGB(255, 90, 110), WHITE)
+		else
+			local color = if goldBox then GOLD else TOY_COLORS[index % #TOY_COLORS + 1]
+			local gift = present(box, bottom, Vector3.one * size, color, if goldBox then WHITE else TOY_COLORS[(index + 2) % #TOY_COLORS + 1], if goldBox then Enum.Material.Metal else nil)
+			if goldBox then
+				sparkles(gift, GOLD, 3)
+			end
 		end
 		box:SetAttribute("Phase", phase)
 		box.WorldPivot = hook
 		box.Parent = model
 	end
 	model:SetAttribute("Origin", floor)
-	model:SetAttribute("Speed", CONVEYOR_SPEEDS[level])
+	model:SetAttribute("Speed", spec.Speed)
 	tagged(model, "BoxConveyor", model.Parent :: Instance)
 end
 
 -- Jack-in-the-Box (Toy Workshop, the front-right corner) -------------------------------
 -- A giant toy box with a crank. Every few seconds (RoomFX) the crank whirs, the lid
--- flips open and a brainrot head springs out on a coil with confetti. Level 2: bigger,
--- chasing lights round the top, two heads.
+-- flips open and a brainrot head springs out on a coil with confetti, spilling coins
+-- onto the Cash Pad. Level 2 (R3): a bigger box on a gold-rimmed stage, glowing
+-- question marks, chasing lights round its top, and heaps of gold coins round its foot.
+
+local function coinStack(parent: Instance, at: CFrame, count: number, seed: number)
+	local stack = Instance.new("Model")
+	stack.Name = "CoinStack"
+	local random = Random.new(seed)
+	for k = 1, count do
+		local spot = at * CFrame.new(random:NextNumber(-0.15, 0.15), 0.17 + (k - 1) * 0.32, random:NextNumber(-0.15, 0.15))
+		roller(stack, "Coin", 1.8, 0.32, spot * CFrame.Angles(0, random:NextNumber(0, 6), math.pi / 2), GOLD, Enum.Material.Metal)
+	end
+	stack.Parent = parent
+end
 
 local function buildJackBox(model: Model, floor: CFrame, level: number)
-	local s = if level >= 2 then 1.25 else 1
+	local big = level >= 2
+	local s = if big then 1.25 else 1
 	local size = 8 * s
-	local center = floor * CFrame.new(59, 0, -50)
+	local stage = if big then 0.8 else 0
+	local spot = floor * CFrame.new(59.5, 0, -50.5)
+	local center = spot * CFrame.new(0, stage, 0)
 	local body = TOY_COLORS[1]
 	local trim = TOY_COLORS[2]
+	if big then
+		-- the stage: a gold-rimmed purple slab, heaps of coins round it
+		makeDecor(model, "JackStage", Vector3.new(size + 3, stage, size + 3), spot * CFrame.new(0, stage / 2, 0), TOY_COLORS[5])
+		makeDecor(model, "JackStageRim", Vector3.new(size + 3.4, 0.3, size + 3.4), spot * CFrame.new(0, stage - 0.1, 0), GOLD, Enum.Material.Metal)
+		for index, heap in { { -5.6, 7.8, 7 }, { -2.2, 8.5, 5 }, { -8.2, -4.6, 4 } } do
+			coinStack(model, spot * CFrame.new(heap[1], 0, heap[2]), heap[3], index)
+		end
+	end
 	local box = makeDecor(model, "JackBody", Vector3.one * size, center * CFrame.new(0, size / 2, 0), body)
 	box.CanCollide = true
 	for _, corner in { Vector2.new(-1, -1), Vector2.new(-1, 1), Vector2.new(1, -1), Vector2.new(1, 1) } do
@@ -336,7 +584,7 @@ local function buildJackBox(model: Model, floor: CFrame, level: number)
 	end
 	makeDecor(model, "JackBand", Vector3.new(size + 0.3, 0.8 * s, size + 0.3), center * CFrame.new(0, 0.4 * s, 0), trim)
 	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
-		printOn(box, face, "?", WHITE, INK)
+		printOn(box, face, "?", if big then Color3.fromRGB(255, 245, 190) else WHITE, if big then trim else INK, big)
 	end
 	-- the lid, hinged along its top edge on the wall side (+X); RoomFX turns it about
 	-- its pivot's X by OpenAngle to open it
@@ -345,7 +593,7 @@ local function buildJackBox(model: Model, floor: CFrame, level: number)
 	lid.Name = "JackLid"
 	makeDecor(lid, "Lid", Vector3.new(size + 0.6, 0.8 * s, size + 0.6), hinge * CFrame.new(0, 0.4 * s, size / 2), trim)
 	makeDecor(lid, "LidTop", Vector3.new(size - 1.4, 0.4 * s, size - 1.4), hinge * CFrame.new(0, 0.9 * s, size / 2), body)
-	ball(lid, "LidKnob", 1.2 * s, hinge * CFrame.new(0, 0.5 * s, size + 0.4), WHITE)
+	ball(lid, "LidKnob", 1.2 * s, hinge * CFrame.new(0, 0.5 * s, size + 0.4), if big then GOLD else WHITE, if big then Enum.Material.Metal else nil)
 	lid.WorldPivot = hinge
 	lid:SetAttribute("OpenAngle", -math.rad(115))
 	lid.Parent = model
@@ -358,7 +606,7 @@ local function buildJackBox(model: Model, floor: CFrame, level: number)
 	ball(crank, "CrankKnob", 1 * s, hub * CFrame.new(0, 1.8 * s, 1), TOY_COLORS[3])
 	crank.WorldPivot = hub
 	crank.Parent = model
-	if level >= 2 then
+	if big then
 		local count = 0
 		for side = 0, 3 do
 			local edge = center * CFrame.Angles(0, side * math.pi / 2, 0)
@@ -610,12 +858,23 @@ local function buildToyTrain(model: Model, floor: CFrame, level: number)
 end
 
 -- Yarn Spinner (Plushie room, on the left wall) ---------------------------------------
--- A spinning wheel: its big wheel turns on two uprights over a bench and a band drives
--- the bobbin, which winds yarn. Each level is bigger with better yarn: cream wool, then
--- pink with a basket of yarn, then rainbow and sparkling, then (rebirth) golden thread
--- on a golden wheel, glowing.
+-- A giant spinning wheel in the plush factory's colors: its magenta wheel turns on two
+-- plum uprights over a bench and a band drives the bobbin, which winds yarn from a heap
+-- of fleece. Every level it's bigger with more going on: cream yarn (1); magenta yarn
+-- and a chrome stand of finished yarn cones (2); rainbow yarn, chasing lights round the
+-- wheel, more cones, sparkles and a neon sign (3); then (R3) a golden wheel winding
+-- golden thread, glowing, and the stand full of golden cones.
 
-local YARN_SCALES = { 1, 1.15, 1.25, 1.45 }
+local YARN_SCALES = { 1, 1.15, 1.3, 1.45 }
+local CREAM = Color3.fromRGB(250, 245, 235)
+
+-- An industrial thread cone standing on `at`, `s` times its size.
+local function yarnCone(parent: Instance, at: CFrame, s: number, color: Color3, material: Enum.Material?)
+	cylinder(parent, "ConeFoot", 1.7 * s, 0.3 * s, at, WHITE)
+	cylinder(parent, "Cone", 1.9 * s, 1.3 * s, at * CFrame.new(0, 0.3 * s, 0), color, material or Enum.Material.Fabric)
+	cylinder(parent, "Cone", 1.4 * s, 1.3 * s, at * CFrame.new(0, 1.6 * s, 0), color:Lerp(WHITE, 0.15), material or Enum.Material.Fabric)
+	cylinder(parent, "ConeTip", 0.7 * s, 0.6 * s, at * CFrame.new(0, 2.9 * s, 0), WHITE)
+end
 
 local function buildYarnSpinner(model: Model, floor: CFrame, level: number)
 	local s = YARN_SCALES[level]
@@ -624,174 +883,314 @@ local function buildYarnSpinner(model: Model, floor: CFrame, level: number)
 		return base * CFrame.new(x * s, y * s, z * s)
 	end
 	local golden = level >= 4
-	local wood = if golden then Color3.fromRGB(240, 200, 120) else WOOD
-	-- the bench on its legs
-	makeDecor(model, "SpinnerBench", Vector3.new(2.4, 0.8, 12) * s, at(0, 3.2, 0), wood, Enum.Material.Wood)
+	-- the bench on chrome legs, a gold edge
+	makeDecor(model, "SpinnerBench", Vector3.new(2.4, 0.8, 12) * s, at(0, 3.2, 0), PLUM)
+	makeDecor(model, "SpinnerBenchEdge", Vector3.new(2.6, 0.25, 12.2) * s, at(0, 3.65, 0), GOLD)
 	for _, z in { -5, 5 } do
 		for _, x in { -0.8, 0.8 } do
-			makeDecor(model, "SpinnerLeg", Vector3.new(0.6, 2.9, 0.6) * s, at(x, 1.4, z), wood:Lerp(Color3.new(0, 0, 0), 0.15), Enum.Material.Wood)
+			makeDecor(model, "SpinnerLeg", Vector3.new(0.5, 2.9, 0.5) * s, at(x, 1.4, z), CHROME, Enum.Material.Metal)
 		end
 	end
 	-- the wheel's uprights, and the wheel
 	local radius = 4
 	local hubY, hubZ = 9.6, -2.5
 	for _, x in { -0.9, 0.9 } do
-		makeDecor(model, "SpinnerUpright", Vector3.new(0.5, 6.5, 0.6) * s, at(x, 6.8, hubZ), wood, Enum.Material.Wood)
+		makeDecor(model, "SpinnerUpright", Vector3.new(0.5, 6.5, 0.6) * s, at(x, 6.8, hubZ), PLUM)
 	end
 	local wheel = Instance.new("Model")
 	wheel.Name = "SpinnerWheel"
 	local hub = at(0, hubY, hubZ)
-	local rim = if golden then GOLD else Color3.fromRGB(205, 150, 95)
-	local rimMaterial = if golden then Enum.Material.Neon else Enum.Material.Wood
+	local rim = if golden then GOLD else PLUSH_COLORS[1]
 	local segments = 16
 	for index = 0, segments - 1 do
 		local angle = (index + 0.5) / segments * math.pi * 2
 		local radial = Vector3.new(0, math.sin(angle), math.cos(angle))
 		local length = 2 * math.pi * radius / segments + 0.1
-		makeDecor(wheel, "WheelRim", Vector3.new(0.45, 0.6, length) * s, hub * CFrame.fromMatrix(radial * radius * s, Vector3.xAxis, radial), rim, rimMaterial)
+		makeDecor(wheel, "WheelRim", Vector3.new(0.45, 0.6, length) * s, hub * CFrame.fromMatrix(radial * radius * s, Vector3.xAxis, radial), rim, if golden then Enum.Material.Neon else nil)
+		if not golden then
+			-- a gold band round its outside
+			makeDecor(wheel, "WheelBand", Vector3.new(0.5, 0.15, length) * s, hub * CFrame.fromMatrix(radial * (radius + 0.35) * s, Vector3.xAxis, radial), GOLD)
+		end
 	end
 	for index = 0, 7 do
 		local angle = index / 8 * math.pi * 2
 		local radial = Vector3.new(0, math.sin(angle), math.cos(angle))
-		local color = if level >= 3 then PLUSH_COLORS[index % #PLUSH_COLORS + 1] else rim
-		makeDecor(wheel, "WheelSpoke", Vector3.new(0.25, radius, 0.25) * s, hub * CFrame.fromMatrix(radial * radius * s / 2, Vector3.xAxis, radial), color, if level >= 3 then nil else Enum.Material.Wood)
+		makeDecor(wheel, "WheelSpoke", Vector3.new(0.25, radius, 0.25) * s, hub * CFrame.fromMatrix(radial * radius * s / 2, Vector3.xAxis, radial), if golden then GOLD else CHROME, Enum.Material.Metal)
 	end
-	roller(wheel, "WheelHub", 1 * s, 1.2 * s, hub, if golden then GOLD else PLUSH_COLORS[1], if golden then Enum.Material.Metal else nil)
+	roller(wheel, "WheelHub", 1 * s, 1.2 * s, hub, GOLD)
+	if level >= 3 then
+		-- chasing lights round the rim, turning with it
+		for index = 1, 12 do
+			local angle = index / 12 * math.pi * 2
+			bulb(wheel, hub * CFrame.new(0.45 * s, math.sin(angle) * (radius + 0.75) * s, math.cos(angle) * (radius + 0.75) * s), index)
+		end
+	end
 	spinner(wheel, model, hub * CFrame.Angles(0, math.pi / 2, 0), 1.6)
 	-- the bobbin at the other end, winding yarn (it spins fast), on two little posts
 	local bobbinY, bobbinZ = 7.6, 4.2
 	for _, x in { -0.9, 0.9 } do
-		makeDecor(model, "BobbinPost", Vector3.new(0.4, 4.2, 0.4) * s, at(x, 5.6, bobbinZ), wood, Enum.Material.Wood)
+		makeDecor(model, "BobbinPost", Vector3.new(0.4, 4.2, 0.4) * s, at(x, 5.6, bobbinZ), CHROME, Enum.Material.Metal)
 	end
-	local yarnColors = if golden
-		then { GOLD }
-		elseif level >= 3 then PLUSH_COLORS
-		elseif level >= 2 then { PLUSH_COLORS[1] }
-		else { Color3.fromRGB(250, 245, 235) }
+	local yarnColors = if golden then { GOLD } elseif level >= 3 then { PLUSH_COLORS[1], PLUSH_COLORS[2], PLUSH_COLORS[3], PLUSH_COLORS[4] } elseif level >= 2 then { PLUSH_COLORS[1] } else { CREAM }
 	local bobbin = Instance.new("Model")
 	bobbin.Name = "SpinnerBobbin"
 	local spool = at(0, bobbinY, bobbinZ)
-	roller(bobbin, "BobbinCore", 0.4 * s, 2 * s, spool, wood)
+	roller(bobbin, "BobbinCore", 0.4 * s, 2 * s, spool, CHROME)
 	for index, color in yarnColors do
 		local width = 1.4 / #yarnColors
 		roller(bobbin, "BobbinYarn", 1.5 * s, width * s, spool * CFrame.new((-0.7 + (index - 0.5) * width) * s, 0, 0), color, if golden then Enum.Material.Neon else Enum.Material.Fabric)
 	end
-	roller(bobbin, "BobbinPulley", 1.2 * s, 0.3 * s, spool * CFrame.new(-0.95 * s, 0, 0), PLUSH_COLORS[2])
+	roller(bobbin, "BobbinPulley", 1.2 * s, 0.3 * s, spool * CFrame.new(-0.95 * s, 0, 0), GOLD)
 	spinner(bobbin, model, spool * CFrame.Angles(0, math.pi / 2, 0), 7)
 	-- the drive band from the wheel's rim to the pulley
 	for _, sign in { 1, -1 } do
-		rod(model, "DriveBand", 0.1, at(-0.95, hubY + sign * radius, hubZ).Position, at(-0.95, bobbinY + sign * 0.6, bobbinZ).Position, Color3.fromRGB(240, 235, 225))
+		rod(model, "DriveBand", 0.1, at(-0.95, hubY + sign * radius, hubZ).Position, at(-0.95, bobbinY + sign * 0.6, bobbinZ).Position, WHITE)
 	end
-	-- the fleece it spins from, and (level 2+) a basket of finished yarn
-	local fleece = at(1.6, 0, 6.5)
-	for _, puff in { { 0, 1.3, 0, 2.6 }, { 1.2, 1, 0.8, 2 }, { -0.6, 1.1, 1.2, 2.2 } } do
-		ball(model, "Fleece", puff[4] * s, fleece * CFrame.new(puff[1] * s, puff[2] * s, puff[3] * s), Color3.fromRGB(250, 245, 235), Enum.Material.Fabric)
+	-- the fleece it spins from
+	local fleece = at(0.2, 0, 8.2) -- past the bench's end, clear of the line's paint bucket
+	for index, puff in { { 0, 1.3, 0, 2.6 }, { 1.2, 1, 0.8, 2 }, { -0.6, 1.1, 1.2, 2.2 } } do
+		local color = if level >= 3 and index == 2 then Color3.fromRGB(255, 205, 230) else CREAM
+		ball(model, "Fleece", puff[4] * s, fleece * CFrame.new(puff[1] * s, puff[2] * s, puff[3] * s), color, Enum.Material.Fabric)
 	end
+	-- the stand of finished cones (2+): a ring on its foot, another on a shelf (3+)
 	if level >= 2 then
-		local basket = at(2.4, 0, -8)
-		cylinder(model, "YarnBasket", 4.4 * s, 2.2 * s, basket, wood, Enum.Material.Wood)
-		for index, spot in { Vector3.new(-0.8, 2.3, 0.3), Vector3.new(0.8, 2.4, -0.4), Vector3.new(0, 2.9, 0.8) } do
-			ball(model, "BasketYarn", 2 * s, basket * CFrame.new(spot * s), if golden then GOLD else PLUSH_COLORS[index], Enum.Material.Fabric)
+		local stand = Instance.new("Model")
+		stand.Name = "ConeStand"
+		local foot = at(2.6, 0, -8.6)
+		cylinder(stand, "StandFoot", 4.6 * s, 0.4 * s, foot, CHROME, Enum.Material.Metal)
+		cylinder(stand, "StandRim", 4.8 * s, 0.15 * s, foot * CFrame.new(0, 0.4 * s, 0), GOLD)
+		cylinder(stand, "StandPole", 0.4 * s, 7.4 * s, foot, CHROME, Enum.Material.Metal)
+		local rings = if level >= 3 then { 0.4, 3.9 } else { 0.4 }
+		for ringIndex, y in rings do
+			if y > 1 then
+				cylinder(stand, "StandShelf", 4.2 * s, 0.3 * s, foot * CFrame.new(0, y * s - 0.3 * s, 0), CHROME, Enum.Material.Metal)
+			end
+			local count = if ringIndex == 1 then 4 else 3
+			for k = 1, count do
+				local angle = k / count * math.pi * 2 + ringIndex
+				local color = if golden then GOLD else PLUSH_COLORS[(k + ringIndex) % #PLUSH_COLORS + 1]
+				yarnCone(stand, foot * CFrame.new(math.cos(angle) * 1.4 * s, y * s, math.sin(angle) * 1.4 * s), 0.75 * s, color, if golden then Enum.Material.SmoothPlastic else nil)
+			end
 		end
+		yarnCone(stand, foot * CFrame.new(0, 7.4 * s, 0), 0.8 * s, if golden then GOLD else PLUSH_COLORS[3], if golden then Enum.Material.SmoothPlastic else nil)
+		stand.Parent = model
 	end
 	if level >= 3 then
 		local sparkler = makeDecor(model, "SpinnerSparkle", Vector3.one, spool, WHITE)
 		sparkler.Transparency = 1
 		sparkles(sparkler, if golden then GOLD else Color3.fromRGB(255, 200, 240), if golden then 10 else 5, if golden then 1 else 0.7)
+		neonSign(model, base * CFrame.new(-5.75, 22.6, 0) * CFrame.Angles(0, -math.pi / 2, 0), Vector2.new(10, 2.6), "🧶 YARN SPINNER 🧶", if golden then GOLD else PLUSH_COLORS[1])
 	end
 	if golden then
 		local light = makeDecor(model, "SpinnerLight", Vector3.one, hub, WHITE)
 		light.Transparency = 1
-		glow(light, GOLD, 20)
+		glow(light, GOLD, 22)
 	end
 end
 
 -- Pillow Pile (Plushie room, the front-left corner) ------------------------------------
--- Stacks of plump tufted poufs, growing each level, a golden one on top at level 3.
+-- The plush factory's cushion showroom: plump satin cushions with gold tassels, stacked
+-- every which way. A stack of three (1); a round velvet display stand under two taller
+-- stacks, and a heap on the floor (2); taller still, chasing lights round the stand, and
+-- a golden cushion on top with a knitted Tralalero sitting on it, sparkling (3). Each
+-- cushion is a Model, so it drops in whole.
 
-local function pouf(parent: Instance, at: CFrame, diameter: number, height: number, color: Color3, material: Enum.Material?)
-	cylinder(parent, "Pouf", diameter, height, at, color, material or Enum.Material.Fabric)
-	cylinder(parent, "PoufPiping", diameter + 0.3, 0.35, at * CFrame.new(0, height - 0.25, 0), WHITE, Enum.Material.Fabric)
-	cylinder(parent, "PoufPiping", diameter + 0.3, 0.35, at * CFrame.new(0, 0.1, 0), WHITE, Enum.Material.Fabric)
-	ball(parent, "PoufTuft", diameter * 0.16, at * CFrame.new(0, height, 0), color:Lerp(WHITE, 0.4), Enum.Material.Fabric)
+local PILE_CENTER = Vector3.new(-59, 0, -50)
+local STAND_RADIUS = 6.6
+local STAND_HEIGHT = 1.2
+
+-- A plump square cushion standing on `at`: an ellipsoid puffed round a flat core (whose
+-- corners poke out, pointy), gold tassels on the corners, a tufted button on top.
+local function cushion(parent: Instance, at: CFrame, size: Vector3, color: Color3, golden: boolean?): Model
+	local model = Instance.new("Model")
+	model.Name = "Cushion"
+	local middle = at * CFrame.new(0, size.Y / 2, 0)
+	local core = makeDecor(model, "CushionCore", Vector3.new(size.X * 0.88, size.Y * 0.5, size.Z * 0.88), middle, color)
+	local puff = makeDecor(model, "CushionPuff", size, middle, color)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = puff
+	if not golden then
+		core.Reflectance = 0.06 -- satin
+		puff.Reflectance = 0.06
+	end
+	for _, corner in { Vector2.new(-1, -1), Vector2.new(-1, 1), Vector2.new(1, -1), Vector2.new(1, 1) } do
+		local tip = middle * CFrame.new(corner.X * size.X * 0.46, 0, corner.Y * size.Z * 0.46)
+		ball(model, "Tassel", 0.55, tip, GOLD)
+		local fringe = math.clamp(size.Y / 2 - 0.3, 0.25, 0.9) -- clear of the floor
+		makeDecor(model, "TasselFringe", Vector3.new(0.35, fringe, 0.35), tip * CFrame.new(0, -0.25 - fringe / 2, 0), GOLD)
+	end
+	ball(model, "CushionTuft", 0.6, at * CFrame.new(0, size.Y * 0.97, 0), if golden then WHITE else GOLD)
+	model.Parent = parent
+	return model
 end
 
-local POUFS = { -- { level, x, y, z, diameter, height, color }
-	{ 1, -60, 0, -52, 8, 2.6, 1 },
-	{ 1, -60, 2.6, -52, 6.6, 2.4, 2 },
-	{ 1, -53, 0, -55, 5.4, 2.2, 5 },
-	{ 2, -60, 5, -52, 5.4, 2.2, 3 },
-	{ 2, -62, 0, -44, 6.4, 2.4, 4 },
-	{ 2, -62, 2.4, -44, 5, 2.2, 1 },
-	{ 3, -60, 7.2, -52, 4.4, 2, 0 }, -- golden
-	{ 3, -53, 2.2, -55, 4.2, 2, 2 },
+-- A stack of cushions on `at`, `widths` from the bottom up, each turned a bit more;
+-- returns the height of its top.
+local function cushionStack(parent: Instance, at: CFrame, widths: { number }, seed: number): number
+	local y = 0
+	for k, width in widths do
+		local height = width * 0.34
+		cushion(parent, at * CFrame.new(0, y, 0) * CFrame.Angles(0, (k + seed) * 0.45, 0), Vector3.new(width, height, width), PLUSH_COLORS[(k + seed) % 3 + 1])
+		y += height * 0.82 -- they sink into each other a little
+	end
+	return y
+end
+
+local PILE_LEVELS = {
+	{ A = { 7, 6.2, 5.4 } },
+	{ A = { 6.4, 5.8, 5.2, 4.6 }, B = { 4.8, 4.2, 3.6 } },
+	{ A = { 6.6, 6, 5.4, 4.8, 4.2 }, B = { 4.8, 4.2, 3.6, 3 } },
 }
 
 local function buildPillowPile(model: Model, floor: CFrame, level: number)
-	for _, stack in POUFS do
-		if stack[1] <= level then
-			local golden = stack[7] == 0
-			pouf(model, floor * CFrame.new(stack[2], stack[3], stack[4]), stack[5], stack[6], if golden then GOLD else PLUSH_COLORS[stack[7]], if golden then Enum.Material.Metal else nil)
-			if golden then
-				local top = makeDecor(model, "PoufSparkle", Vector3.one, floor * CFrame.new(stack[2], stack[3] + stack[6] + 0.5, stack[4]), WHITE)
-				top.Transparency = 1
-				sparkles(top, GOLD, 6)
-			end
-		end
+	local spec = PILE_LEVELS[level]
+	local center = floor * CFrame.new(PILE_CENTER)
+	if not spec.B then
+		cushionStack(model, center, spec.A, 0)
+		return
+	end
+	-- the display stand: chrome, violet velvet, a gold rim
+	cylinder(model, "DisplayStand", STAND_RADIUS * 2, 0.5, center, CHROME, Enum.Material.Metal)
+	cylinder(model, "DisplayRim", STAND_RADIUS * 2 + 0.3, 0.3, center * CFrame.new(0, 0.45, 0), GOLD)
+	cylinder(model, "DisplayVelvet", STAND_RADIUS * 2 - 0.4, STAND_HEIGHT - 0.6, center * CFrame.new(0, 0.6, 0), PLUSH_COLORS[2], Enum.Material.Fabric).MaterialVariant = KNIT
+	local stackA = center * CFrame.new(-1.6, STAND_HEIGHT, -1.4)
+	local topA = cushionStack(model, stackA, spec.A, 0)
+	cushionStack(model, center * CFrame.new(2.4, STAND_HEIGHT, 2.2), spec.B :: { number }, 1)
+	-- a heap on the floor beside the stand, along the front wall
+	local heap = floor * CFrame.new(PILE_CENTER + Vector3.new(9.6, 0, -4.4))
+	cushion(model, heap * CFrame.Angles(0, 0.3, 0), Vector3.new(4.6, 1.6, 4.6), PLUSH_COLORS[3])
+	cushion(model, heap * CFrame.new(0.4, 1.2, -0.3) * CFrame.Angles(math.rad(14), 1.1, 0), Vector3.new(3.8, 1.3, 3.8), PLUSH_COLORS[1])
+	if level >= 3 then
+		cushion(model, heap * CFrame.new(2.6, 0, 1.4) * CFrame.Angles(0, -0.5, math.rad(18)), Vector3.new(3.4, 1.2, 3.4), PLUSH_COLORS[2])
+		bulbRing(model, floor, PILE_CENTER, STAND_RADIUS + 0.35, 2, 0.9)
+		-- the golden cushion on top, and the plushie sitting on it, facing the room
+		local goldAt = stackA * CFrame.new(0, topA, 0)
+		local gold = cushion(model, goldAt, Vector3.new(4.6, 1.6, 4.6), GOLD, true)
+		local sparkler = makeDecor(gold, "CushionSparkle", Vector3.new(4, 1, 4), goldAt * CFrame.new(0, 1.6, 0), WHITE)
+		sparkler.Transparency = 1
+		sparkles(sparkler, GOLD, 8, 0.9)
+		local seat = goldAt * CFrame.new(0, 1.3, 0)
+		local roomward = (floor * CFrame.new(0, 0, 0)).Position
+		local plush = plushie("TralaleroTralala", 0.7, CFrame.lookAt(seat.Position, Vector3.new(roomward.X, seat.Y, roomward.Z)))
+		plush.Name = "Plushie"
+		plush.Parent = model
 	end
 end
 
 -- Button Jar (Plushie room, the back-left corner) --------------------------------------
--- A giant glass jar of sewing buttons that fills up each level; at level 3 (rebirth) it
--- brims over with glowing golden buttons.
+-- Giant jars of sewing buttons in the factory's colors, with chrome lids and gold rims.
+-- Every level the jar is bigger and fuller and more jars join it: a third full (1);
+-- bigger, two-thirds full, a little full jar beside it (2); then (R4) a huge jar
+-- brimming over with its lid off, golden buttons glowing among the rest, buttons
+-- spilled round its foot, two little jars and a neon sign (3). Each jar's buttons are a
+-- Model, so they pour in whole as it drops in.
+
+local JAR_CENTER = Vector3.new(-61, 0, 50)
+local JAR_CLEAR = Color3.fromRGB(220, 240, 255)
+type JarLevel = { Diameter: number, Height: number, Fill: number, Small: { Vector3 } }
+local JAR_LEVELS: { JarLevel } = {
+	{ Diameter = 6.6, Height = 9, Fill = 0.35, Small = {} },
+	{ Diameter = 7.6, Height = 11, Fill = 0.7, Small = { Vector3.new(-54.4, 0, 53.6) } },
+	{ Diameter = 8.6, Height = 13, Fill = 1.12, Small = { Vector3.new(-54, 0, 54), Vector3.new(-55.2, 0, 44.6) } },
+}
+
+-- A sewing button lying at `at`, tipped by `tilt`.
+local function sewingButton(parent: Instance, at: CFrame, color: Color3, glowing: boolean)
+	local button = roller(parent, "SewingButton", 1.5, 0.35, at, color, if glowing then Enum.Material.Neon else nil)
+	button.CastShadow = false
+end
+
+-- A jar on the floor at `at`: clear plastic (Glass would wash the buttons out), a chrome
+-- foot and neck, and (unless `open`) a chrome lid with a gold rim and a magenta knob. Its
+-- buttons fill it up to `fill` of its height (over 1: heaped up out of its mouth).
+local function buttonJar(parent: Instance, at: CFrame, diameter: number, height: number, fill: number, seed: number, golden: boolean, open: boolean)
+	cylinder(parent, "JarFoot", diameter + 0.4, 0.6, at, CHROME, Enum.Material.Metal)
+	local jar = cylinder(parent, "Jar", diameter, height, at * CFrame.new(0, 0.6, 0), JAR_CLEAR)
+	jar.Transparency = 0.8
+	jar.Reflectance = 0.08
+	cylinder(parent, "JarNeck", diameter - 0.6, 0.6, at * CFrame.new(0, height + 0.6, 0), CHROME, Enum.Material.Metal)
+	if not open then
+		cylinder(parent, "JarLid", diameter + 0.2, 0.9, at * CFrame.new(0, height + 1.2, 0), CHROME, Enum.Material.Metal)
+		cylinder(parent, "JarLidRim", diameter + 0.4, 0.3, at * CFrame.new(0, height + 1.5, 0), GOLD)
+		ball(parent, "JarKnob", math.min(1.6, diameter * 0.25), at * CFrame.new(0, height + 2.2, 0), PLUSH_COLORS[1])
+	end
+	-- the buttons, layer by layer up to the fill line (and heaped over the mouth)
+	local fill_ = Instance.new("Model")
+	fill_.Name = "ButtonFill"
+	local random = Random.new(seed)
+	local inside = diameter / 2 - 0.95
+	local fillTo = height * math.min(fill, 1)
+	local heap = math.max(fill - 1, 0) * height * 2.2
+	local count = math.floor((fillTo + heap * 0.5) * diameter * 1.05)
+	for index = 1, count do
+		local y = 0.9 + (index - 0.5) / count * (fillTo + heap - 0.4)
+		local reach = inside
+		if y > height + 0.6 then
+			local over = (y - height - 0.6) / heap
+			reach = inside * math.sqrt(math.max(1 - over * over, 0.05))
+		end
+		local angle = random:NextNumber(0, math.pi * 2)
+		local r = math.sqrt(random:NextNumber(0, 1)) * reach
+		local color = if golden and index % 3 == 0 then GOLD else PLUSH_COLORS[index % #PLUSH_COLORS + 1]
+		sewingButton(fill_, at * CFrame.new(math.cos(angle) * r, y, math.sin(angle) * r) * CFrame.Angles(random:NextNumber(-1, 1), random:NextNumber(0, 6), math.pi / 2 + random:NextNumber(-0.6, 0.6)), color, golden and index % 6 == 0)
+	end
+	fill_.Parent = parent
+end
 
 local function buildButtonJar(model: Model, floor: CFrame, level: number)
-	local base = floor * CFrame.new(-61, 0, 50)
-	local height, diameter = 9, 6.6
-	cylinder(model, "JarBase", diameter + 0.4, 0.6, base, Color3.fromRGB(200, 225, 240))
-	local glass = cylinder(model, "Jar", diameter, height, base * CFrame.new(0, 0.6, 0), Color3.fromRGB(210, 235, 255), Enum.Material.Glass)
-	glass.Transparency = 0.6
-	cylinder(model, "JarNeck", diameter - 0.8, 0.8, base * CFrame.new(0, height + 0.6, 0), Color3.fromRGB(210, 235, 255), Enum.Material.Glass).Transparency = 0.5
-	cylinder(model, "JarLid", diameter + 0.2, 1, base * CFrame.new(0, height + 1.2, 0), PLUSH_COLORS[1])
-	makeDecor(model, "JarCloth", Vector3.new(diameter + 1, 0.15, diameter + 1), base * CFrame.new(0, height + 2.25, 0) * CFrame.Angles(0, math.rad(45), 0), PLUSH_COLORS[2], Enum.Material.Fabric)
-	cylinder(model, "JarRibbon", diameter + 0.5, 0.5, base * CFrame.new(0, height + 1.4, 0), WHITE, Enum.Material.Fabric)
-	-- the buttons inside, up to the fill line
-	local fill = ({ 3, 5.8, 8.6 })[level]
-	local random = Random.new(7)
-	local count = math.floor(fill * 5)
-	for index = 1, count do
-		local y = 0.9 + (index - 0.5) / count * (fill - 0.4)
-		local angle = random:NextNumber(0, math.pi * 2)
-		local r = random:NextNumber(0, diameter / 2 - 1.1)
-		local golden = level >= 3 and index % 3 == 0
-		local color = if golden then GOLD else PLUSH_COLORS[index % #PLUSH_COLORS + 1]
-		local at = base * CFrame.new(math.cos(angle) * r, y, math.sin(angle) * r) * CFrame.Angles(random:NextNumber(-1, 1), random:NextNumber(0, 6), random:NextNumber(-1, 1))
-		local button = roller(model, "SewingButton", 1.5, 0.35, at, color, if golden then Enum.Material.Neon else nil)
-		button.CastShadow = false
+	local spec = JAR_LEVELS[level]
+	local golden = level >= 3
+	local base = floor * CFrame.new(JAR_CENTER)
+	buttonJar(model, base, spec.Diameter, spec.Height, spec.Fill, 7, golden, golden)
+	for index, spot in spec.Small do
+		buttonJar(model, floor * CFrame.new(spot), 4, 5.4, 0.92, 20 + index, false, false)
 	end
-	if level >= 3 then
-		local light = makeDecor(model, "JarLight", Vector3.one, base * CFrame.new(0, 5, 0), WHITE)
+	if golden then
+		-- a spill of buttons round its foot (on the back and the sides: its button's in
+		-- front)
+		local spill = Instance.new("Model")
+		spill.Name = "ButtonSpill"
+		local random = Random.new(3)
+		for index = 1, 16 do
+			local angle = random:NextNumber(math.rad(-20), math.rad(200))
+			local r = spec.Diameter / 2 + random:NextNumber(0.8, 3.6)
+			local spot = base * CFrame.new(math.cos(angle) * r, 0.18, math.sin(angle) * r)
+			if math.abs((floor:Inverse() * spot).X) < 67 and math.abs((floor:Inverse() * spot).Z) < 57 then
+				sewingButton(spill, spot * CFrame.Angles(0, random:NextNumber(0, 6), math.pi / 2), if index % 4 == 0 then GOLD else PLUSH_COLORS[index % #PLUSH_COLORS + 1], index % 8 == 0)
+			end
+		end
+		spill.Parent = model
+		local light = makeDecor(model, "JarLight", Vector3.one, base * CFrame.new(0, spec.Height + 2, 0), WHITE)
 		light.Transparency = 1
-		glow(light, GOLD, 18)
-		sparkles(light, GOLD, 6, 1)
+		glow(light, GOLD, 12)
+		sparkles(light, GOLD, 7, 1)
+		-- a neon sign hung from the ceiling over it (the wall behind has a window)
+		local sign = floor * CFrame.new(JAR_CENTER.X + 0.5, 22.4, JAR_CENTER.Z)
+		neonSign(model, sign, Vector2.new(9, 2.6), "✨ BUTTON JAR ✨", PLUSH_COLORS[3], true)
+		for _, x in { -3.6, 3.6 } do
+			rod(model, "SignCord", 0.15, (sign * CFrame.new(x, 1.75, 0)).Position, (sign * CFrame.new(x, 28 - 22.4, 0)).Position, CHROME, Enum.Material.Metal)
+		end
 	end
 end
 
 -- Giant Plushie (Plushie room, the front-right corner) ---------------------------------
--- A giant plush brainrot (Tung Tung Tung Sahur, in the room's fabric) on a big round
--- cushion, looking into the room. Every level it grows and more little plushies (other
--- brainrots) gather round its feet on the cushion; level 3 rings the cushion with
--- chasing lights, level 4 crowns it in gold, sparkling, with golden piping.
+-- A giant plush brainrot (Tung Tung Tung Sahur, knitted) on a big round magenta
+-- cushion with gold piping, looking into the room. Every level it grows and more little
+-- plushies (other brainrots) gather round its feet on the cushion; level 3 rings the
+-- cushion with chasing lights, level 4 crowns it in gold, sparkling.
 
+-- (a knitted brainrot is ~8 studs tall at scale 1: at 2.8 the giant's crown just clears
+-- the ceiling, 28 up)
 type PlushieLevel = { Scale: number, Cushion: number, Minis: number }
 local PLUSHIE_LEVELS: { PlushieLevel } = {
-	{ Scale = 2.4, Cushion = 11, Minis = 0 },
-	{ Scale = 3, Cushion = 13, Minis = 2 },
-	{ Scale = 3.5, Cushion = 15, Minis = 4 },
-	{ Scale = 4, Cushion = 16.4, Minis = 6 },
+	{ Scale = 1.7, Cushion = 11, Minis = 0 },
+	{ Scale = 2.1, Cushion = 13, Minis = 2 },
+	{ Scale = 2.45, Cushion = 15, Minis = 4 },
+	{ Scale = 2.8, Cushion = 17, Minis = 6 },
 }
 local PLUSHIE_ID = "TungTungTungSahur"
-local MINI_SCALE = 1.15
+local MINI_SCALE = 0.8
 -- the little ones in the order they join, and where round the big one's feet (degrees
 -- from the way it faces)
 local MINI_PLUSHIES = {
@@ -803,30 +1202,14 @@ local MINI_PLUSHIES = {
 	{ Id = "TrippiTroppi", Angle = 18 },
 }
 
--- A brainrot in the room's fabric, `scale` times its size, standing on `root`.
-local function plushie(id: string, scale: number, root: CFrame): Model
-	local brainrot = Instance.new("Model")
-	if Brainrots.ById[id] then
-		for _, partType in Brainrots.PartTypes do
-			local part = BrainrotModels.CreatePart(id, partType, "PlushieRoom")
-			for _, child in part:GetChildren() do
-				child.Parent = brainrot
-			end
-			part:Destroy()
-		end
-	end
-	brainrot.WorldPivot = CFrame.identity
-	brainrot:ScaleTo(scale)
-	brainrot:PivotTo(root)
-	return brainrot
-end
-
 local function buildGiantPlushie(model: Model, floor: CFrame, level: number)
 	local spec = PLUSHIE_LEVELS[level]
 	local spot = floor * CFrame.new(58.5, 0, -49)
 	local cushion = spec.Cushion
-	cylinder(model, "PlushieCushion", cushion, 1.8, spot, PLUSH_COLORS[1], Enum.Material.Fabric)
-	cylinder(model, "PlushieCushionPiping", cushion + 0.4, 0.4, spot * CFrame.new(0, 1.5, 0), if level >= 4 then GOLD else WHITE, if level >= 4 then Enum.Material.Metal else Enum.Material.Fabric)
+	cylinder(model, "PlushieCushion", cushion, 1.8, spot, PLUSH_COLORS[1], Enum.Material.Fabric).MaterialVariant = KNIT
+	for _, y in { 0.15, 1.2 } do -- piping bands round its side (the top stays magenta)
+		cylinder(model, "PlushieCushionPiping", cushion + 0.4, 0.35, spot * CFrame.new(0, y, 0), GOLD, if level >= 4 then Enum.Material.Metal else nil)
+	end
 	if level >= 3 then
 		-- chasing lights round the cushion's edge
 		local count = math.floor(cushion * math.pi / 2)
@@ -845,7 +1228,7 @@ local function buildGiantPlushie(model: Model, floor: CFrame, level: number)
 	-- the little ones round its feet, each looking into the room too
 	for index = 1, spec.Minis do
 		local mini = MINI_PLUSHIES[index]
-		local at = root * CFrame.Angles(0, math.rad(mini.Angle), 0) * CFrame.new(0, 0, -(cushion / 2 - 1.9))
+		local at = root * CFrame.Angles(0, math.rad(mini.Angle), 0) * CFrame.new(0, 0, -(cushion / 2 - 1.6))
 		local little = plushie(mini.Id, MINI_SCALE, CFrame.new(at.Position) * root.Rotation)
 		little.Name = "MiniPlushie"
 		little.Parent = model
@@ -878,13 +1261,13 @@ type Spot = {
 
 local SPOTS: { [string]: Spot } = {
 	GiftTower = { Button = Vector3.new(-52, 0, -42), Tag = Vector3.new(-50, 18, -42), Build = buildGiftTower },
-	BubbleWrap = { Button = Vector3.new(-52.5, 0, -10), Tag = Vector3.new(-63, 14, -18), Build = buildBubbleWrap },
+	BubbleWrap = { Button = Vector3.new(-52.5, 0, -10), Tag = Vector3.new(-58.5, 12.5, -18), Build = buildBubbleWrap },
 	BoxConveyor = { Button = Vector3.new(30, 0, -52), Tag = Vector3.new(30, 19, -50), Build = buildBoxConveyor },
-	JackBox = { Button = Vector3.new(50, 0, -48), Tag = Vector3.new(59, 17, -50), Build = buildJackBox },
+	JackBox = { Button = Vector3.new(50, 0, -48), Tag = Vector3.new(51, 15, -55), Build = buildJackBox },
 	ToyTrain = { Button = Vector3.new(-56, 0, 8), Tag = Vector3.new(-58, 15, 34), Build = buildToyTrain },
-	YarnSpinner = { Button = Vector3.new(-52.5, 0, -10), Tag = Vector3.new(-62, 20, -18), Build = buildYarnSpinner },
-	PillowPile = { Button = Vector3.new(-52, 0, -42), Tag = Vector3.new(-58, 14, -50), Build = buildPillowPile },
-	ButtonJar = { Button = Vector3.new(-61, 0, 41), Tag = Vector3.new(-61, 17, 50), Build = buildButtonJar },
+	YarnSpinner = { Button = Vector3.new(-52.5, 0, -10), Tag = Vector3.new(-56, 15, -27), Build = buildYarnSpinner },
+	PillowPile = { Button = Vector3.new(-52, 0, -42), Tag = Vector3.new(-50, 13, -50), Build = buildPillowPile },
+	ButtonJar = { Button = Vector3.new(-61, 0, 41), Tag = Vector3.new(-55, 15, 44), Build = buildButtonJar },
 	GiantPlushie = { Button = Vector3.new(46.5, 0, -54), Tag = Vector3.new(45, 20, -46), Build = buildGiantPlushie },
 }
 

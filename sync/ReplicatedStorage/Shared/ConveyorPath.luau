@@ -10,8 +10,8 @@ local LoopPath = require(script.Parent.LoopPath)
 
 local ConveyorPath = {
 	HalfX = 62, -- the loop's half width (the room's inner walls are at ±68)
-	HalfZ = 51, -- and half depth, around CenterZ
-	CenterZ = 1,
+	HalfZ = 52, -- and half depth, around CenterZ (the back clears the chutes' collars)
+	CenterZ = 2,
 	Corner = 8, -- the corners' radius
 	Height = 25, -- the rail, above the floor (the ceiling is at 28)
 }

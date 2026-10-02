@@ -557,7 +557,7 @@ local function buildToy(parent: Instance, floor: CFrame)
 		end
 		hangingSign(parent, floor * CFrame.new(x, 28, 14), 6, Vector2.new(11, 2.6), if index == 1 then "⚡ 100% BRAINROT ⚡" else "★ TOY FACTORY ★", TOY_COLORS[if index == 1 then 2 else 3])
 	end
-	for index, x in { -60, 62.5 } do
+	for index, x in { -55.5, 57.5 } do -- inside the Box Conveyor's loop (a room upgrade)
 		pendantLamp(parent, floor * CFrame.new(x, 28, 0), 6, TOY_COLORS[index + 3])
 	end
 
