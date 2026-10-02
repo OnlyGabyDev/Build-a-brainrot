@@ -18,6 +18,10 @@
 	  * Clay Studio (stop-motion): the legs plop down, a big white glove presses the
 	    body on, both gloves squish the arms in, and the head jumps into place frame by
 	    frame between them, the camera flashing at every step. Pop!
+	  * Vinyl Collectibles: the parts drop out of gacha machines in capsules that pop
+	    open on the belt; the legs clack onto a gold-ringed pad, the suction arm sets
+	    the body on, two spray robots gloss the arms into place, and the suction arm
+	    twists the head on. Shiny!
 	Then the finished brainrot shows itself off (ta-da: a spin under a spotlight, its
 	name tag pops up) before it rides on: it's the star of the line, so it's big, gets
 	an outline on your own lines, and keeps its name tag until it's packed off.
@@ -58,6 +62,8 @@ local PAINT_COLORS = {
 	Color3.fromRGB(190, 120, 255),
 }
 local GLITTER_COLOR = Color3.fromRGB(255, 230, 120)
+local VINYL_GOLD = Color3.fromRGB(255, 200, 50)
+local VINYL_SPARK = Color3.fromRGB(255, 120, 220)
 
 local INTAKE_GAP = 5.5 -- studs before the pad where parts wait to be picked up
 local HOP_HEIGHT = 2.5
@@ -476,6 +482,62 @@ local function spit(line: Model, dropper: BasePart, near: boolean, chute: Chute?
 	local squashed = Vector3.new(restSize.X * 1.12, restSize.Y * 0.8, restSize.Z * 1.12)
 	local info = TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
 	TweenService:Create(dropper, info, { Size = squashed }):Play()
+end
+
+-- The Vinyl Collectibles' gacha machines drop each part sealed in a capsule (a shiny
+-- ball with a white band), which pops open when it lands on the belt.
+local CAPSULE_COLORS = {
+	Color3.fromRGB(255, 90, 140),
+	Color3.fromRGB(90, 190, 255),
+	Color3.fromRGB(255, 210, 60),
+	Color3.fromRGB(130, 220, 110),
+	Color3.fromRGB(190, 130, 255),
+}
+
+local function makeCapsule(size: Vector3): Model
+	local across = math.max(size.X, size.Y, size.Z) + 0.6
+	local capsule = Instance.new("Model")
+	capsule.Name = "Capsule"
+	local shell = Instance.new("Part")
+	shell.Name = "CapsuleShell"
+	shell.Shape = Enum.PartType.Ball
+	shell.Size = Vector3.one * across
+	shell.Color = CAPSULE_COLORS[math.random(1, #CAPSULE_COLORS)]
+	shell.Reflectance = 0.15
+	local band = Instance.new("Part")
+	band.Name = "CapsuleBand"
+	band.Shape = Enum.PartType.Cylinder
+	band.Size = Vector3.new(across * 0.18, across + 0.1, across + 0.1)
+	band.CFrame = CFrame.Angles(0, 0, math.pi / 2)
+	band.Color = Color3.new(1, 1, 1)
+	for _, part in { shell, band } do
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Parent = capsule
+	end
+	capsule.WorldPivot = CFrame.identity
+	capsule.Parent = effects
+	return capsule
+end
+
+-- Pop! The capsule swells and vanishes in a puff of its color.
+local function popCapsule(near: boolean, capsule: Model)
+	local shell = capsule:FindFirstChild("CapsuleShell") :: BasePart?
+	local at = capsule:GetPivot().Position
+	Effects.sound(at, Sounds.Pop, 0.3, vary(1.2))
+	if near and shell then
+		Effects.puff(at, shell.Color, 8, 0.6)
+		Effects.sparkle(at, Color3.new(1, 1, 1), 8)
+	end
+	for _, part in capsule:GetChildren() do
+		if part:IsA("BasePart") then
+			TweenService:Create(part, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = part.Size * 1.5, Transparency = 1 }):Play()
+		end
+	end
+	Debris:AddItem(capsule, 0.2)
 end
 
 local beaconTweens: { [BasePart]: Tween } = {}
@@ -1145,6 +1207,58 @@ local function kilnFinish(build: Build, brainrot: Model, ship: BasePart, duratio
 	return center + Vector3.new(0, 4, 0)
 end
 
+-- Vinyl Collectibles: the brainrot steps onto the display pedestal, a glass case with
+-- gold edges drops over it ("MINT!"), and case and all sink into the pedestal.
+local CASE_GOLD = Color3.fromRGB(255, 200, 50)
+local CASE_GLASS = Color3.fromRGB(220, 240, 255)
+
+local function displayCaseFinish(build: Build, brainrot: Model, ship: BasePart, duration: number): Vector3
+	local d = duration
+	local rotation = brainrot:GetPivot().Rotation
+	local base = rotation + Vector3.new(ship.Position.X, topOf(ship), ship.Position.Z)
+	Effects.sound(brainrot:GetPivot().Position, Sounds.Boing, 0.25, vary(1.1))
+	hopShrinking(brainrot, base, d * 0.25, 4, 0.85)
+	local _, size = brainrot:GetBoundingBox()
+	local width, height = math.max(size.X, size.Z) + 1.6, size.Y + 1.2
+	local case = Instance.new("Model")
+	case.Name = "DisplayCase"
+	for _, side in { 0, 1, 2, 3 } do
+		local face = base * CFrame.Angles(0, side * math.pi / 2, 0) * CFrame.new(0, height / 2, -width / 2)
+		local glass = newPart(case, "CaseGlass", Vector3.new(width, height, 0.15), face, CASE_GLASS)
+		glass.Material = Enum.Material.Glass
+		glass.Transparency = 0.65
+		newPart(case, "CasePost", Vector3.new(0.35, height, 0.35), face * CFrame.new(width / 2, 0, 0), CASE_GOLD)
+	end
+	newPart(case, "CaseTop", Vector3.new(width + 0.4, 0.4, width + 0.4), base * CFrame.new(0, height + 0.2, 0), CASE_GOLD)
+	case.WorldPivot = base
+	case.Parent = effects
+	run(d * 0.25, function(a)
+		case:PivotTo(base + Vector3.new(0, 10 * (1 - ease(a, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)), 0))
+	end)
+	case:PivotTo(base)
+	local top = base.Position + Vector3.new(0, height + 1, 0)
+	Effects.sound(top, Sounds.Clunk, 0.3, vary(1.2))
+	Effects.sound(top, Sounds.Coin, 0.3, vary(1.4))
+	sparkle(build, base.Position + Vector3.new(0, height / 2, 0), Color3.new(1, 1, 1), 14)
+	if build.Near then
+		Effects.flash(top, Color3.new(1, 1, 1), 3, 16, 0.3)
+	end
+	Effects.popup(top + Vector3.new(0, 1.5, 0), "MINT!", CASE_GOLD, 1.2, 0.6)
+	task.wait(d * 0.2)
+	-- and down into the pedestal, case and all
+	local start = brainrot:GetPivot()
+	Effects.sound(top, Sounds.Whoosh, 0.22, vary(1.1))
+	run(d * 0.2, function(a)
+		local drop = Vector3.new(0, (height + 1) * ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.In), 0)
+		case:PivotTo(base - drop)
+		brainrot:PivotTo(start - drop)
+	end)
+	brainrot:Destroy()
+	case:Destroy()
+	puff(build, base.Position + Vector3.new(0, 0.5, 0), Color3.fromRGB(200, 210, 255), 8, 0.7)
+	return base.Position + Vector3.new(0, 3, 0)
+end
+
 -- Zones without a finish of their own: the brainrot hops onto the Ship spot and
 -- sinks away.
 local function simpleFinish(_build: Build, brainrot: Model, ship: BasePart, duration: number): Vector3
@@ -1488,6 +1602,40 @@ local function cameraSpecial(build: Build, brainrot: Model, machine: BasePart, d
 	task.wait(duration * 0.24)
 end
 
+-- Vinyl Collectibles: the Holo Sticker press slaps a holographic LIMITED EDITION star on
+-- the brainrot's front, spinning down out of the machine (it ships with it).
+local HOLO_COLORS = { Color3.fromRGB(255, 120, 220), Color3.fromRGB(110, 230, 255), Color3.fromRGB(255, 230, 90) }
+
+local function stickerSpecial(build: Build, brainrot: Model, machine: BasePart, duration: number)
+	local box, size = brainrot:GetBoundingBox()
+	local pivot = brainrot:GetPivot()
+	local front = pivot.Rotation + (box.Position + pivot.LookVector * (size.Z / 2 + 0.15))
+	local sticker = Instance.new("Model")
+	sticker.Name = "HoloSticker"
+	for index, turn in { 0, math.pi / 4 } do
+		local star = newPart(sticker, "StickerStar", Vector3.new(1.8, 1.8, 0.12), front * CFrame.Angles(0, 0, turn), HOLO_COLORS[index])
+		star.Material = Enum.Material.Neon
+	end
+	newPart(sticker, "StickerDot", Vector3.one * 0.8, front * CFrame.new(0, 0, -0.08), HOLO_COLORS[3], Enum.PartType.Ball).Material = Enum.Material.Neon
+	sticker.WorldPivot = front
+	sticker.Parent = brainrot
+	stampMachine(build, machine)
+	local from = front + Vector3.new(0, 7, 0)
+	Effects.sound(from.Position, Sounds.Whoosh, 0.2, vary(1.6))
+	run(duration * 0.4, function(a)
+		sticker:PivotTo(from:Lerp(front, ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out)) * CFrame.Angles(0, 0, (1 - a) * math.pi * 3))
+	end)
+	sticker:PivotTo(front)
+	squish(brainrot)
+	Effects.sound(front.Position, Sounds.Stamp, 0.3, vary(1.3))
+	for _, color in HOLO_COLORS do
+		sparkle(build, front.Position, color, 5)
+	end
+	Effects.popup(front.Position + Vector3.new(0, 3, 0), "LIMITED!", HOLO_COLORS[1], 1.2, 0.6)
+	specialPopup(build, front.Position + Vector3.new(0, 1.5, 0), HOLO_COLORS[1])
+	task.wait(duration * 0.45)
+end
+
 -- Assembly styles ------------------------------------------------------------
 -- One animation per part type, per zone. Each runs for its step's duration, starting
 -- as the part reaches the intake. The rarer the zone, the crazier it should be.
@@ -1762,6 +1910,85 @@ local ASSEMBLY_STYLES: { [string]: Style } = {
 			end,
 		},
 	},
+	VinylCollectibles = {
+		Setup = setupToy,
+		Special = stickerSpecial,
+		Finish = displayCaseFinish,
+		Steps = {
+			-- The legs clack onto the pad, ringed in gold.
+			Legs = function(build, piece, duration)
+				Effects.sound(homeCenter(piece), Sounds.Boing, 0.25, vary(1.25))
+				hop(piece.Model, piece.Home, duration * 0.7, 3)
+				place(build, piece, VINYL_SPARK, 8, Sounds.Stamp, 0.3)
+				ring(build, VINYL_GOLD, 4.5)
+			end,
+
+			-- The suction arm sets the body on the legs.
+			Body = function(build, piece, duration)
+				clawCarry(build, piece, duration, 0, function()
+					place(build, piece, VINYL_SPARK, 10, Sounds.Stamp, 0.25)
+				end)
+			end,
+
+			-- The arms land too wide; the spray robots aim and gloss them into place.
+			Arms = function(build, piece, duration)
+				local machines = build.Machines :: ToyMachines
+				local model = piece.Model
+				local base = model:GetScale()
+				hopInLoose(piece, duration * 0.35)
+				local center = build.Root:PointToObjectSpace(homeCenter(piece))
+				local reach = piece.Size.X / 2 * LOOSE + 1.4
+				local aims = {
+					[machines.PusherLeft] = build.Root * CFrame.new(center.X - reach, center.Y, center.Z),
+					[machines.PusherRight] = build.Root * CFrame.new(center.X + reach, center.Y, center.Z),
+				}
+				run(duration * 0.15, function(a)
+					for pusher, target in aims do
+						setFist(pusher, pusher.Rest:Lerp(target, ease(a)))
+					end
+				end)
+				Effects.sound(homeCenter(piece), Sounds.Whoosh, 0.3, vary(1.6))
+				local gloss = PAINT_COLORS[math.random(1, #PAINT_COLORS)]
+				run(duration * 0.25, function(a)
+					model:ScaleTo(base * (LOOSE - (LOOSE - 1) * ease(a)))
+					if build.Near and math.random() < 0.5 then
+						for _, target in aims do
+							Effects.puff(target.Position, gloss, 2, 0.4)
+						end
+					end
+				end)
+				model:ScaleTo(base)
+				place(build, piece, VINYL_SPARK, 12, Sounds.Coin, 0.3)
+				Effects.tint(model, Color3.new(1, 1, 1), 0.4)
+				Effects.popup(homeCenter(piece) + Vector3.new(0, 1.5, 0), "SHINY!", VINYL_SPARK, 1, 0.5)
+				for pusher, target in aims do
+					if pusher.Lamp and build.Near then
+						Effects.flash(pusher.Lamp.Position, VINYL_SPARK, 3, 8, 0.3)
+					end
+					sparkle(build, target.Position, gloss, 6)
+				end
+				run(duration * 0.25, function(a)
+					local e = ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+					for pusher, target in aims do
+						setFist(pusher, target:Lerp(pusher.Rest, e))
+					end
+				end)
+			end,
+
+			-- The suction arm twists the head on, and the whole figure gets a gloss. Pop!
+			Head = function(build, piece, duration)
+				clawCarry(build, piece, duration, 1, function()
+					place(build, piece, POP_COLOR, 12, Sounds.Stamp, 0.2)
+					for _, built in build.Built do
+						Effects.tint(built.Model, Color3.new(1, 1, 1), 0.5)
+					end
+					pop(build)
+				end, function()
+					Effects.sound(homeCenter(piece), Sounds.Servo, 0.25, vary(1.3))
+				end)
+			end,
+		},
+	},
 }
 local DEFAULT_STYLE = ASSEMBLY_STYLES.ToyWorkshop
 
@@ -1819,6 +2046,22 @@ local CLAY_PAINTS = {
 	Color3.fromRGB(190, 130, 255),
 }
 local ZONE_STATION_FX: { [string]: { [string]: (build: Build, arch: BasePart, brainrot: Model, center: Vector3) -> () } } = {
+	VinylCollectibles = {
+		-- the Gloss Coat sprays a high shine on it
+		Station1 = function(build, arch, brainrot, center)
+			Effects.tint(brainrot, Color3.new(1, 1, 1), 0.7)
+			puff(build, arch.Position - Vector3.new(0, arch.Size.Y / 2, 0), Color3.fromRGB(230, 240, 255), 8, 0.6)
+			sparkle(build, center, Color3.new(1, 1, 1), 14)
+			Effects.sound(center, Sounds.Whoosh, 0.2, vary(1.8))
+		end,
+		-- the Gold Leaf gilds it
+		Station2 = function(build, arch, brainrot, center)
+			Effects.tint(brainrot, VINYL_GOLD, 0.8)
+			sparkle(build, arch.Position - Vector3.new(0, arch.Size.Y / 2, 0), VINYL_GOLD, 18)
+			sparkle(build, center, Color3.fromRGB(255, 240, 160), 12)
+			Effects.sound(center, Sounds.Coin, 0.35, vary(1.5))
+		end,
+	},
 	ClayStudio = {
 		-- the Color Squish presses a blob of colored clay onto it
 		Station1 = function(build, arch, brainrot, center)
@@ -2239,6 +2482,20 @@ local function animateCycle(
 					poseKnitting(knitting, nil)
 				end
 				stopSound(sewing)
+			elseif piece.Dropper:GetAttribute("Capsule") then
+				-- the gacha machine rattles before it lets the capsule go
+				local dropper = piece.Dropper
+				local rest = dropper.CFrame
+				local shaking = not isBuilding(line)
+				Effects.sound(dropper.Position, Sounds.Ratchet, 0.18, vary(1.8))
+				run(Production.DropTime - FALL_TIME, function(alpha)
+					if shaking then
+						dropper.CFrame = rest * CFrame.Angles(0, 0, math.sin(alpha * 40) * 0.06 * (1 - alpha))
+					end
+				end)
+				if shaking then
+					dropper.CFrame = rest
+				end
 			else
 				waitUntil(step.Start - ride - FALL_TIME)
 			end
@@ -2247,7 +2504,19 @@ local function animateCycle(
 			end
 			spit(line, piece.Dropper, build.Near, chute)
 			local landing = centeredAt(piece.Center, beltPoint(piece.Dropper.Position) + Vector3.new(0, piece.Size.Y / 2, 0))
-			glide(piece.Model, landing, FALL_TIME, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+			if piece.Dropper:GetAttribute("Capsule") then
+				-- sealed in a capsule all the way down, which pops open on the belt
+				local capsule = makeCapsule(piece.Size)
+				local from = piece.Model:GetPivot()
+				run(FALL_TIME, function(alpha)
+					local pivot = from:Lerp(landing, ease(alpha, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out))
+					piece.Model:PivotTo(pivot)
+					capsule:PivotTo(pivot * CFrame.new(piece.Center))
+				end)
+				popCapsule(build.Near, capsule)
+			else
+				glide(piece.Model, landing, FALL_TIME, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
+			end
 			waitUntil(step.Start - ride)
 			if cancelled() then
 				return

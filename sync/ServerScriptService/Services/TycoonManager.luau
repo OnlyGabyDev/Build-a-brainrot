@@ -280,6 +280,7 @@ local GANTRY_COLORS = {
 	ToyWorkshop = { Color3.fromRGB(110, 60, 200), GANTRY_COLOR, Color3.fromRGB(255, 220, 70) },
 	PlushieRoom = { LAVENDER_COLOR, SEWING_COLOR, Color3.fromRGB(90, 220, 255) },
 	ClayStudio = { Color3.fromRGB(150, 75, 50), Color3.fromRGB(225, 120, 75), Color3.fromRGB(60, 205, 195) },
+	VinylCollectibles = { Color3.fromRGB(35, 40, 110), Color3.fromRGB(70, 95, 235), Color3.fromRGB(255, 80, 190) },
 }
 
 -- The belt, raised on a frame: side girders with a white stripe, rails glowing on top
@@ -991,6 +992,202 @@ local function buildKiln(model: Model, spot: CFrame)
 	makeBillboard(ship, "🔥 SHIPPING", Vector2.new(8, 2), KILN / 2 + 9, 80)
 end
 
+-- Vinyl Collectibles -------------------------------------------------------------------
+-- A collectible-toy store (GDD §10): glossy royal blue and navy with gold and hot-pink
+-- neon. Gacha machines drop the parts in capsules, a suction arm and two spray robots
+-- put the brainrot together and gloss it, and it ends up mint in a glass display case.
+
+local VINYL_BLUE = Color3.fromRGB(70, 95, 235)
+local VINYL_NAVY = Color3.fromRGB(35, 40, 110)
+local VINYL_GOLD = Color3.fromRGB(255, 200, 50)
+local VINYL_PINK = Color3.fromRGB(255, 80, 190)
+local CAPSULE_COLORS = {
+	Color3.fromRGB(255, 90, 140),
+	Color3.fromRGB(90, 190, 255),
+	Color3.fromRGB(255, 210, 60),
+	Color3.fromRGB(130, 220, 110),
+	Color3.fromRGB(190, 130, 255),
+}
+
+-- Droppers: gacha machines (GDD §16.18). A blue column beside the belt with a glass
+-- globe of capsules turning on top (a Spinner) and an arm over the belt to the capsule
+-- chute (the Dropper, attribute Capsule): it rattles, and the part drops out sealed in
+-- a capsule that pops open on the belt (ProductionVisuals).
+local function buildGacha(model: Model, base: CFrame, partType: string, color: Color3)
+	local column = base * CFrame.new(KNIT_X, 0, 0)
+	local armBottom = DECK + KNIT_ARM
+	local armTop = armBottom + 3
+	makeColumn(model, partType .. "GachaFoot", 6.4, 0, 1.4, column, VINYL_NAVY)
+	makeColumn(model, partType .. "GachaFootRing", 6.6, 1.1, 1.5, column, VINYL_GOLD)
+	local body = makeColumn(model, partType .. "GachaColumn", KNIT_COLUMN, 1.4, armTop, column, VINYL_BLUE)
+	body.CanCollide = true
+	for _, y in { 2.6, armBottom - 1.6 } do
+		makeColumn(model, partType .. "GachaStripe", KNIT_COLUMN + 0.3, y, y + 0.7, column, VINYL_GOLD)
+	end
+	buildBadge(model, partType, column * CFrame.new(0, DECK + 4.6, 0), color, 0.62)
+
+	-- the globe on top of the column, full of capsules tumbling round
+	makeColumn(model, partType .. "GachaCup", 5, armTop, armTop + 1, column, VINYL_PINK)
+	local globeAt = column * CFrame.new(0, armTop + 3.6, 0)
+	local globe = makeBall(model, partType .. "GachaGlobe", 6, globeAt, Color3.fromRGB(220, 240, 255), Enum.Material.Glass)
+	globe.Transparency = 0.6
+	makeBall(model, partType .. "GachaTop", 1.6, globeAt * CFrame.new(0, 3.1, 0), VINYL_GOLD)
+	local capsules = Instance.new("Model")
+	capsules.Name = partType .. "GachaCapsules"
+	for index = 1, 9 do
+		local angle = index * 2.4
+		local radius = 1 + (index % 3) * 0.55
+		makeBall(capsules, partType .. "GachaCapsule", 1.3, globeAt * CFrame.new(math.cos(angle) * radius, -1.6 + (index % 4) * 0.8, math.sin(angle) * radius), CAPSULE_COLORS[index % #CAPSULE_COLORS + 1])
+	end
+	capsules.WorldPivot = globeAt * CFrame.Angles(math.pi / 2, 0, 0) -- turns about the upright (Atmosphere)
+	capsules:SetAttribute("Speed", 1.2)
+	CollectionService:AddTag(capsules, "Spinner")
+	capsules.Parent = model
+
+	-- the arm over the belt, and the capsule chute under its end
+	local armFrom, armTo = KNIT_X - KNIT_COLUMN / 2, KNIT_HEAD / 2
+	local arm = makeDecor(model, partType .. "GachaArm", Vector3.new(armTo - armFrom, 3, 4), base * CFrame.new((armFrom + armTo) / 2, armBottom + 1.5, 0), VINYL_BLUE)
+	makeDecor(model, partType .. "GachaArmStripe", Vector3.new(armTo - armFrom - 0.2, 0.55, 4.1), arm.CFrame, VINYL_GOLD)
+	local chuteBottom = armBottom - KNIT_HEAD_HEIGHT
+	local chute = makePart(model, partType .. "Dropper", Vector3.new(4.6, KNIT_HEAD_HEIGHT, 4.6), base * CFrame.new(0, chuteBottom + KNIT_HEAD_HEIGHT / 2, 0), color)
+	chute:SetAttribute("Capsule", true)
+	chute:SetAttribute("PartColor", color)
+	makeDecor(model, partType .. "DropperRim", Vector3.new(5, 0.4, 5), base * CFrame.new(0, chuteBottom + 0.05, 0), VINYL_GOLD, Enum.Material.Neon)
+	makeDecor(model, partType .. "DropperMouth", Vector3.new(3.4, 0.1, 3.4), base * CFrame.new(0, chuteBottom - 0.15, 0), Color3.fromRGB(35, 25, 45))
+	-- a coin slot and a crank on the chute's front, for the look
+	makeDecor(model, partType .. "GachaSlot", Vector3.new(1.4, 0.3, 0.2), base * CFrame.new(0, chuteBottom + 3.4, -2.35), Color3.fromRGB(40, 30, 50))
+	local knob = makeDecor(model, partType .. "GachaKnob", Vector3.new(0.4, 1.6, 1.6), base * CFrame.new(0, chuteBottom + 1.8, -2.4) * CFrame.Angles(0, math.pi / 2, 0), VINYL_GOLD)
+	knob.Shape = Enum.PartType.Cylinder
+end
+
+-- The Assembler: a chrome suction arm hangs from the gantry with a gold cup (the Claw:
+-- Hand, Rod, FingerLeft, FingerRight, so it moves like the Toy Workshop's claw), and a
+-- spray robot each side of the pad (PusherLeft/Right: its nozzle is the Fist, the can
+-- behind it a FistCuff) glosses the arms into place.
+local function buildSuctionArm(parent: Model, origin: CFrame)
+	local claw = Instance.new("Model")
+	claw.Name = "Claw"
+	local grip = deckOf(origin) * CFrame.new(0, CLAW_REST, 0)
+	makePart(claw, "Hand", Vector3.new(2.4, 0.8, 2.4), grip * CFrame.new(0, 0.4, 0), VINYL_GOLD)
+	makePart(claw, "FingerLeft", Vector3.new(0.3, 1, 1.6), grip * CFrame.new(-1, -0.5, 0), CHROME_COLOR, Enum.Material.Metal)
+	makePart(claw, "FingerRight", Vector3.new(0.3, 1, 1.6), grip * CFrame.new(1, -0.5, 0), CHROME_COLOR, Enum.Material.Metal)
+	local rodLength = GANTRY_BOTTOM - (CLAW_REST + 0.8)
+	makePart(claw, "Rod", Vector3.new(0.5, rodLength, 0.5), grip * CFrame.new(0, 0.8 + rodLength / 2, 0), CHROME_COLOR, Enum.Material.Metal)
+	claw.Parent = parent
+end
+
+local function buildSprayRobot(parent: Model, origin: CFrame, side: number)
+	local robot = Instance.new("Model")
+	robot.Name = if side < 0 then "PusherLeft" else "PusherRight"
+	local x = PUSHER_X * side
+	local inward = -side
+	local at = origin * CFrame.new(x, 0, 0)
+	makeColumn(robot, "PusherFoot", 3, 0, 0.6, at, VINYL_NAVY)
+	local housingTop = DECK + PUNCH_Y + 1.4
+	makePart(robot, "PusherHousing", Vector3.new(2.4, housingTop - 0.6, 2.6), at * CFrame.new(0, 0.6 + (housingTop - 0.6) / 2, 0), WHITE)
+	makeDecor(robot, "PusherStripe", Vector3.new(2.5, 0.5, 2.7), at * CFrame.new(0, DECK - 0.5, 0), VINYL_BLUE)
+	makeDecor(robot, "PusherCap", Vector3.new(2.7, 0.6, 2.9), at * CFrame.new(0, housingTop + 0.3, 0), VINYL_GOLD)
+	makeBall(robot, "PusherLamp", 1, at * CFrame.new(0, housingTop + 0.9, 0), VINYL_PINK, Enum.Material.Neon)
+	-- the spray arm: a chrome rod from the housing to the can and its nozzle
+	local armY = DECK + PUNCH_Y
+	local mouthX = inward * 1.6
+	local shoulder = (at * CFrame.new(mouthX, armY, 0)).Position
+	local nozzle = origin.Rotation + (at * CFrame.new(mouthX + inward * 2.4, armY, 0)).Position
+	local fist = makePart(robot, "Fist", Vector3.one * 1, nozzle, VINYL_PINK, Enum.Material.Neon)
+	fist.Shape = Enum.PartType.Ball
+	fist.CanCollide = false
+	local can = makeDecor(robot, "FistCuff", Vector3.new(1.8, 1.4, 1.4), nozzle * CFrame.new(-inward * 1.2, 0, 0), CHROME_COLOR, Enum.Material.Metal)
+	can.Shape = Enum.PartType.Cylinder
+	makeDecor(robot, "FistCap", Vector3.new(0.4, 1.5, 1.5), nozzle * CFrame.new(-inward * 0.4, 0, 0), VINYL_GOLD).Shape = Enum.PartType.Cylinder
+	local rod = makePart(robot, "Rod", Vector3.new(0.4, 0.4, (nozzle.Position - shoulder).Magnitude), CFrame.lookAt((shoulder + nozzle.Position) / 2, nozzle.Position), CHROME_COLOR, Enum.Material.Metal)
+	rod.CanCollide = false
+	robot.Parent = parent
+end
+
+-- Upgrade stations: blue arches with gold beams. The Gloss Coat (Station1) wears two
+-- spray cans; the Gold Leaf (Station2) a stack of gold leaf and a star.
+local function buildVinylArch(model: Model, spot: CFrame, item: TycoonItems.Item)
+	local deck = deckOf(spot)
+	local top = buildArch(model, spot, item, VINYL_GOLD, VINYL_BLUE)
+	makeDecor(model, item.Key .. "Stripe", Vector3.new(ARCH_X * 2 + 1.5, 0.4, 3.1), top.CFrame, VINYL_PINK, Enum.Material.Neon)
+	if item.Key == "Station1" then
+		for index, x in { -2.5, 2.5 } do
+			makeColumn(model, "SprayCan", 2, DECK + ARCH_TOP + 0.75, DECK + ARCH_TOP + 4, spot * CFrame.new(x, 0, 0), if index == 1 then VINYL_PINK else Color3.fromRGB(90, 190, 255))
+			makeColumn(model, "SprayCanCap", 1.6, DECK + ARCH_TOP + 4, DECK + ARCH_TOP + 4.8, spot * CFrame.new(x, 0, 0), WHITE)
+		end
+	else
+		for index = 0, 3 do
+			makeDecor(model, "GoldLeaf", Vector3.new(3.2, 0.15, 3.2), deck * CFrame.new(-3, ARCH_TOP + 0.85 + index * 0.18, 0) * CFrame.Angles(0, index * 0.25, 0), VINYL_GOLD)
+		end
+		local star = deck * CFrame.new(3, ARCH_TOP + 2.6, 0)
+		for _, turn in { 0, math.pi / 4 } do
+			makeDecor(model, "GoldStar", Vector3.new(2.4, 2.4, 0.4), star * CFrame.Angles(0, 0, turn), VINYL_GOLD)
+		end
+	end
+	makeBillboard(top, string.upper(item.Name), Vector2.new(8, 1.5), 3.6, 80)
+end
+
+-- Special: the Holo Sticker press over the end of the belt (Station3): a crossbar with a
+-- roll of holographic star stickers turning on top and a stamp arm; it slaps a
+-- LIMITED EDITION sticker on the brainrot.
+local function buildStickerPress(model: Model, spot: CFrame, name: string)
+	local deck = deckOf(spot) * CFrame.new(0, SPECIAL_LIFT, 0)
+	local height = DECK + 8 + SPECIAL_LIFT
+	for _, side in { -1, 1 } do
+		makeColumn(model, "StickerLeg", 1.8, 0, height, spot * CFrame.new(side * SIDE_X, 0, 0), VINYL_NAVY)
+		for _, y in { DECK + 3, DECK + 8 } do
+			makeColumn(model, "StickerLegStripe", 2, y, y + 0.6, spot * CFrame.new(side * SIDE_X, 0, 0), VINYL_GOLD)
+		end
+	end
+	local top = makePart(model, "Station3", Vector3.new(17, 1.8, 3.8), deck * CFrame.new(0, 8.9, 0), VINYL_BLUE)
+	makeDecor(model, "Station3Stripe", Vector3.new(17.1, 0.45, 3.9), deck * CFrame.new(0, 8.9, 0), VINYL_GOLD)
+	makePart(model, "Station3Glow", Vector3.new(13, 0.3, 3), deck * CFrame.new(0, 7.85, 0), WHITE, Enum.Material.Neon)
+	-- the sticker roll: a white drum dotted with rainbow stars, turning
+	local roll = Instance.new("Model")
+	roll.Name = "StickerRoll"
+	local center = deck * CFrame.new(0, 11.4, 0)
+	local drum = makeDecor(roll, "StickerDrum", Vector3.new(6, 3, 3), center, WHITE)
+	drum.Shape = Enum.PartType.Cylinder
+	for index = 0, 5 do
+		local angle = index / 6 * math.pi * 2
+		makeDecor(roll, "StickerStar", Vector3.new(0.6, 0.9, 0.9), center * CFrame.new(-2 + (index % 3) * 2, math.cos(angle) * 1.5, math.sin(angle) * 1.5) * CFrame.Angles(angle, 0, 0), CAPSULE_COLORS[index % #CAPSULE_COLORS + 1], Enum.Material.Neon)
+	end
+	for _, x in { -3.1, 3.1 } do
+		makeDecor(roll, "StickerRim", Vector3.new(0.3, 3.8, 3.8), center * CFrame.new(x, 0, 0), VINYL_GOLD).Shape = Enum.PartType.Cylinder
+	end
+	roll.WorldPivot = center * CFrame.Angles(0, math.pi / 2, 0) -- turns about its axle, X
+	roll:SetAttribute("Speed", 1.5)
+	CollectionService:AddTag(roll, "Spinner")
+	roll.Parent = model
+	makeBillboard(top, string.upper(name), Vector2.new(8, 1.5), 6.5, 80)
+end
+
+-- Delivery: a display pedestal, navy with a gold trim, between two spotlight posts. The
+-- pedestal is the Ship (its top level with the deck): a glass case drops over the
+-- brainrot there, and it's mint (ProductionVisuals).
+local function buildDisplayPedestal(model: Model, spot: CFrame)
+	makeColumn(model, "PedestalFoot", 12, 0, 1, spot, VINYL_NAVY)
+	local ship = makeColumn(model, "Ship", 10, 1, DECK, spot, VINYL_BLUE)
+	ship.CanCollide = true
+	ship.CanQuery = true
+	makeColumn(model, "PedestalTrim", 10.6, DECK - 0.6, DECK + 0.25, spot, VINYL_GOLD)
+	for _, side in { -1, 1 } do
+		local post = spot * CFrame.new(side * 7.4, 0, -2)
+		makeColumn(model, "SpotlightPost", 0.6, 0, DECK + 10, post, VINYL_NAVY)
+		local head = post * CFrame.new(0, DECK + 10.5, 0) * CFrame.Angles(0, -side * math.rad(60), 0) * CFrame.Angles(math.rad(-35), 0, 0)
+		local housing = makeDecor(model, "SpotlightHead", Vector3.new(1.8, 1.8, 2.4), head, VINYL_NAVY)
+		makeDecor(model, "SpotlightLens", Vector3.new(1.4, 1.4, 0.2), head * CFrame.new(0, 0, -1.25), Color3.fromRGB(255, 245, 215), Enum.Material.Neon)
+		local light = Instance.new("SpotLight")
+		light.Face = Enum.NormalId.Front
+		light.Angle = 45
+		light.Range = 18
+		light.Brightness = 1.5
+		light.Color = Color3.fromRGB(255, 240, 220)
+		light.Parent = housing
+	end
+	makeBillboard(ship, "✨ SHIPPING", Vector2.new(8, 2), 12, 80)
+end
+
 -- The line's tablet (GDD §6): a little stand beside the Assembler holding a tablet,
 -- themed per zone. Its screen (TabletScreen, PromptAnchor) carries the "Configure
 -- line" prompt; UIController flies the camera onto it and opens the Line menu there.
@@ -1029,9 +1226,16 @@ local function buildTablet(model: Model, origin: CFrame, item: TycoonItems.Item,
 	local spot = origin * CFrame.lookAt(TABLET_SPOT, TABLET_SPOT + TABLET_FACING) -- its -Z faces you
 	local plushie = item.Zone == "PlushieRoom"
 	local clay = item.Zone == "ClayStudio"
-	local frameColor = if plushie then SEWING_COLOR elseif clay then CLAY_COLOR else GANTRY_COLOR
-	local glowColor = if plushie then FLUFF_PINK elseif clay then CLAY_TEAL else Color3.fromRGB(255, 220, 70)
-	if clay then
+	local vinyl = item.Zone == "VinylCollectibles"
+	local frameColor = if plushie then SEWING_COLOR elseif clay then CLAY_COLOR elseif vinyl then VINYL_BLUE else GANTRY_COLOR
+	local glowColor = if plushie then FLUFF_PINK elseif clay then CLAY_TEAL elseif vinyl then VINYL_PINK else Color3.fromRGB(255, 220, 70)
+	if vinyl then
+		-- a little navy pedestal with a gold trim and a gold star
+		local stand = makeColumn(model, "TabletStand", 2.2, 0, 3.4, spot, VINYL_NAVY)
+		stand.CanCollide = true
+		makeColumn(model, "TabletStandTrim", 2.5, 3, 3.5, spot, VINYL_GOLD)
+		makeDecor(model, "TabletStar", Vector3.new(1.4, 1.4, 0.3), spot * CFrame.new(0, 1.8, -1.2) * CFrame.Angles(0, 0, math.pi / 4), VINYL_GOLD)
+	elseif clay then
 		-- a big clay pot for a stand
 		makeColumn(model, "TabletPotFoot", 2.4, 0, 0.6, spot, CLAY_DARK_COLOR)
 		local pot = makeBall(model, "TabletPot", 3, spot * CFrame.new(0, 2, 0), CLAY_COLOR, Enum.Material.Sand)
@@ -1071,6 +1275,10 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			buildSewingMachine(model, origin)
 		elseif item.Zone == "ClayStudio" then
 			buildClayHands(model, origin)
+		elseif item.Zone == "VinylCollectibles" then
+			buildSuctionArm(model, origin)
+			buildSprayRobot(model, origin, -1)
+			buildSprayRobot(model, origin, 1)
 		else
 			buildClaw(model, origin)
 			buildPusher(model, origin, -1)
@@ -1084,6 +1292,8 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			buildFluffMachine(model, spot)
 		elseif item.Zone == "ClayStudio" then
 			buildKiln(model, spot)
+		elseif item.Zone == "VinylCollectibles" then
+			buildDisplayPedestal(model, spot)
 		else
 			buildTrapdoor(model, spot)
 		end
@@ -1096,6 +1306,8 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			buildKnittingMachine(model, base, partType, PART_COLORS[partType])
 		elseif item.Zone == "ClayStudio" then
 			buildClayPress(model, base, partType, PART_COLORS[partType])
+		elseif item.Zone == "VinylCollectibles" then
+			buildGacha(model, base, partType, PART_COLORS[partType])
 		else
 			buildChute(model, base, partType, PART_COLORS[partType])
 		end
@@ -1115,6 +1327,8 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 				buildBowTier(model, spot, item.Name)
 			elseif item.Zone == "ClayStudio" then
 				buildStopMotionCamera(model, spot, item.Name)
+			elseif item.Zone == "VinylCollectibles" then
+				buildStickerPress(model, spot, item.Name)
 			else
 				buildPacker(model, spot, item.Name)
 			end
@@ -1122,6 +1336,8 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			buildPlushieArch(model, spot, item)
 		elseif item.Zone == "ClayStudio" then
 			buildClayArch(model, spot, item)
+		elseif item.Zone == "VinylCollectibles" then
+			buildVinylArch(model, spot, item)
 		else
 			local color = STATION_COLORS[item.Key]
 			local top = buildArch(model, spot, item, color, color)

@@ -634,11 +634,11 @@ end
 -- A catwalk down a walkway (centered on `x`, from `fromZ` to `toZ`): a magenta carpet
 -- on a gold edge, white stitches down both sides like a sewing pattern, and chasing
 -- floor lights along it.
-local function runway(parent: Instance, floor: CFrame, x: number, fromZ: number, toZ: number)
+local function runway(parent: Instance, floor: CFrame, x: number, fromZ: number, toZ: number, carpet: Color3?)
 	local length, width = toZ - fromZ, 9
 	local middle = floor * CFrame.new(x, 0, (fromZ + toZ) / 2)
 	makeDecor(parent, "RunwayEdge", Vector3.new(width + 1.2, 0.08, length + 1.2), middle * CFrame.new(0, 0.04, 0), PLUSH_GOLD)
-	makeDecor(parent, "Runway", Vector3.new(width, 0.12, length), middle * CFrame.new(0, 0.06, 0), PLUSH_COLORS[1], Enum.Material.Fabric)
+	makeDecor(parent, "Runway", Vector3.new(width, 0.12, length), middle * CFrame.new(0, 0.06, 0), carpet or PLUSH_COLORS[1], Enum.Material.Fabric)
 	local stitches = math.floor(length / 3)
 	local lights = math.floor(length / 7)
 	for _, side in { -1, 1 } do
@@ -797,11 +797,12 @@ local BEST_SELLERS = {
 }
 local SHOWCASE_SCALE = 0.58
 
-local function plushie(id: string, root: CFrame): Model
+-- A brainrot in `zoneId`'s edition, shelf-sized, standing on `root`.
+local function figure(id: string, root: CFrame, zoneId: string): Model
 	local brainrot = Instance.new("Model")
 	brainrot.Name = "Plushie"
 	for _, partType in Brainrots.PartTypes do
-		local part = BrainrotModels.CreatePart(id, partType, "PlushieRoom")
+		local part = BrainrotModels.CreatePart(id, partType, zoneId)
 		for _, child in part:GetChildren() do
 			child.Parent = brainrot
 		end
@@ -813,7 +814,7 @@ local function plushie(id: string, root: CFrame): Model
 	return brainrot
 end
 
-local function bestSellers(parent: Instance, face: CFrame, width: number)
+local function bestSellers(parent: Instance, face: CFrame, width: number, zoneId: string, title: string, color: Color3)
 	local depth, bottom, height = 3.4, 8.5, 12.5
 	local shelves = { bottom + 0.5, bottom + 6.6 }
 	makeDecor(parent, "CaseBack", Vector3.new(width, height, 0.3), face * CFrame.new(0, bottom + height / 2, -0.2), Color3.fromRGB(255, 235, 248)) -- light, so the plushies pop
@@ -842,10 +843,10 @@ local function bestSellers(parent: Instance, face: CFrame, width: number)
 			makeDecor(parent, "CaseShelf", Vector3.new(width, 0.3, depth - 0.2), face * CFrame.new(0, y - 0.15, -depth / 2), CHROME, Enum.Material.Metal)
 		end
 		local x = -width / 2 + (slot + 0.5) * width / perShelf
-		local doll = plushie(id, face * CFrame.new(x, y, -depth / 2))
+		local doll = figure(id, face * CFrame.new(x, y, -depth / 2), zoneId)
 		doll.Parent = parent
 	end
-	neonSign(parent, face * CFrame.new(0, bottom + height + 2.6, 0), Vector2.new(width * 0.75, 3), "🏆 BEST SELLERS 🏆", PLUSH_GOLD)
+	neonSign(parent, face * CFrame.new(0, bottom + height + 2.6, 0), Vector2.new(width * 0.75, 3), title, color)
 end
 
 -- A giant industrial sewing machine on its table, `scale` times human size (`at`: under
@@ -920,7 +921,7 @@ local function buildPlushie(parent: Instance, floor: CFrame)
 	end
 
 	-- the back wall: the best sellers case, brainrot plush ads either side of it
-	bestSellers(parent, wallFace(floor, { 0, 0, 58 }), 20)
+	bestSellers(parent, wallFace(floor, { 0, 0, 58 }), 20, "PlushieRoom", "🏆 BEST SELLERS 🏆", PLUSH_GOLD)
 	poster(parent, wallFace(floor, { -45, 14, 58 }), Vector2.new(7, 9), PLUSH_COLORS[6], PLUSH_GOLD, "🍌", "NEW DROP!")
 	poster(parent, wallFace(floor, { 45, 14, 58 }), Vector2.new(7, 9), PLUSH_COLORS[5], PLUSH_GOLD, "🐘", "LIMITED!")
 	-- the front wall: plush ads by the doorway
@@ -1157,7 +1158,35 @@ local function wallStar(parent: Instance, face: CFrame, size: number)
 	label.Parent = gui
 end
 
+local VINYL_BLUE = Color3.fromRGB(70, 95, 235)
+local VINYL_PINK = Color3.fromRGB(255, 80, 190)
+local VINYL_GOLD = Color3.fromRGB(255, 200, 50)
+
 local function buildVinyl(parent: Instance, floor: CFrame)
+	-- the sign over the doorway from the Clay Studio, and chasing string lights
+	neonSign(parent, wallFace(floor, { 0, 23.2, -59 }), Vector2.new(34, 5.4), "✨ VINYL COLLECTIBLES ✨", VINYL_PINK)
+	local function at(x: number, y: number, z: number): Vector3
+		return (floor * CFrame.new(x, y, z)).Position
+	end
+	local index = 0
+	index = stringLights(parent, at(-66, 26, -58), at(-66, 26, 0), 1.6, index)
+	index = stringLights(parent, at(-66, 26, 0), at(-66, 26, 57), 1.6, index)
+	index = stringLights(parent, at(-66, 26, 57), at(66, 26, 57), 2.2, index)
+	index = stringLights(parent, at(66, 26, 57), at(66, 26, 0), 1.6, index)
+	index = stringLights(parent, at(66, 26, 0), at(66, 26, -58), 1.6, index)
+	index = stringLights(parent, at(66, 26, -58), at(20, 26, -58), 1.6, index)
+	stringLights(parent, at(-20, 26, -58), at(-66, 26, -58), 1.6, index)
+
+	-- royal blue carpets down the walkways, lamps and neon signs over them
+	for index_, x in { -19.6, 22.4 } do
+		runway(parent, floor, x, -25, 45, VINYL_BLUE)
+		for k, z in { -32, -2, 30 } do
+			pendantLamp(parent, floor * CFrame.new(x, 28, z), 5, if (index_ + k) % 2 == 0 then VINYL_PINK else VINYL_GOLD)
+		end
+		hangingSign(parent, floor * CFrame.new(x, 28, 14), 6, Vector2.new(12, 2.6), if index_ == 1 then "✨ MINT CONDITION ✨" else "★ LIMITED EDITION ★", if index_ == 1 then VINYL_PINK else VINYL_GOLD)
+	end
+
+	-- big gold stars on the walls
 	local spots: { WallSpot } = {
 		{ -68, 17, -18 },
 		{ -68, 19, 18 },
@@ -1166,30 +1195,32 @@ local function buildVinyl(parent: Instance, floor: CFrame)
 		{ 36, 18, -59 },
 		{ -36, 17, -59 },
 	}
-	for index, spot in spots do
-		wallStar(parent, wallFace(floor, spot), 6 + (index % 2) * 2)
+	for index_, spot in spots do
+		wallStar(parent, wallFace(floor, spot), 6 + (index_ % 2) * 2)
 	end
-	-- display shelves along the back wall
-	local shelf = floor * CFrame.new(-28, 0, 55.5)
-	for _, x in { -14, 14 } do
+	-- the collection case on the back wall: real brainrot figures, glossy vinyl
+	bestSellers(parent, wallFace(floor, { 0, 0, 58 }), 20, "VinylCollectibles", "💎 THE COLLECTION 💎", VINYL_PINK)
+	-- a shelf of boxed figures beside it, clear of the first line
+	local shelf = floor * CFrame.new(-24, 0, 55.5)
+	for _, x in { -10, 10 } do
 		makeDecor(parent, "ShelfSide", Vector3.new(1, 16, 4), shelf * CFrame.new(x, 8, 0), WHITE)
 	end
 	for row = 0, 2 do
-		makeDecor(parent, "Shelf", Vector3.new(28, 0.6, 4), shelf * CFrame.new(0, 1 + row * 5, 0), Color3.fromRGB(130, 175, 255))
-		for column = 0, 3 do
-			figureBox(parent, shelf * CFrame.new(-9 + column * 6, 1.3 + row * 5, 0), FIGURE_COLORS[(row * 4 + column) % #FIGURE_COLORS + 1])
+		makeDecor(parent, "Shelf", Vector3.new(20, 0.6, 4), shelf * CFrame.new(0, 1 + row * 5, 0), Color3.fromRGB(130, 175, 255))
+		for column = 0, 2 do
+			figureBox(parent, shelf * CFrame.new(-6 + column * 6, 1.3 + row * 5, 0), FIGURE_COLORS[(row * 3 + column) % #FIGURE_COLORS + 1])
 		end
 	end
 	-- pedestals with shiny collectibles, under spotlights
-	for index, spot in { Vector3.new(56, 0, 50), Vector3.new(-58, 0, 46) } do
-		local at = floor * CFrame.new(spot)
-		cylinder(parent, "Pedestal", 5, 4, at, WHITE)
-		cylinder(parent, "PedestalTop", 5.6, 0.6, at * CFrame.new(0, 4, 0), Color3.fromRGB(130, 175, 255))
-		local shiny = ball(parent, "Collectible", 3.6, at * CFrame.new(0, 6.4, 0), FIGURE_COLORS[index * 2])
+	for index_, spot in { Vector3.new(62, 0, 52), Vector3.new(-59, 0, 47) } do
+		local foot = floor * CFrame.new(spot)
+		cylinder(parent, "Pedestal", 5, 4, foot, WHITE)
+		cylinder(parent, "PedestalTop", 5.6, 0.6, foot * CFrame.new(0, 4, 0), Color3.fromRGB(130, 175, 255))
+		local shiny = ball(parent, "Collectible", 3.6, foot * CFrame.new(0, 6.4, 0), FIGURE_COLORS[index_ * 2])
 		shiny.Reflectance = 0.3
-		local lamp = at * CFrame.new(4, 0, 4)
+		local lamp = foot * CFrame.new(if spot.X > 0 then -4 else 4, 0, -4)
 		cylinder(parent, "SpotlightStand", 0.5, 12, lamp, Color3.fromRGB(80, 90, 120))
-		local head = makeDecor(parent, "Spotlight", Vector3.new(2, 2, 2.6), lamp * CFrame.new(0, 12, 0) * CFrame.Angles(math.rad(35), math.rad(225), 0), Color3.fromRGB(80, 90, 120))
+		local head = makeDecor(parent, "Spotlight", Vector3.new(2, 2, 2.6), CFrame.lookAt((lamp * CFrame.new(0, 12, 0)).Position, (foot * CFrame.new(0, 6, 0)).Position), Color3.fromRGB(80, 90, 120))
 		makeDecor(parent, "SpotlightGlow", Vector3.new(1.4, 1.4, 0.2), head.CFrame * CFrame.new(0, 0, -1.35), Color3.fromRGB(255, 245, 200), Enum.Material.Neon)
 	end
 	-- a giant boxed figure by the door
@@ -1197,6 +1228,7 @@ local function buildVinyl(parent: Instance, floor: CFrame)
 	makeDecor(parent, "GiantBox", Vector3.new(8, 12, 6), giant * CFrame.new(0, 6, 0), Color3.fromRGB(255, 200, 225))
 	makeDecor(parent, "GiantBoxTop", Vector3.new(8.4, 1.4, 6.4), giant * CFrame.new(0, 11.5, 0), Color3.fromRGB(255, 120, 170))
 	ball(parent, "GiantFigure", 4.6, giant * CFrame.new(0, 6.5, -2.5), Color3.fromRGB(110, 200, 255))
+	makeDecor(parent, "GiantBoxGold", Vector3.new(8.2, 0.6, 6.2), giant * CFrame.new(0, 0.3, 0), VINYL_GOLD)
 end
 
 -- Candy Factory ---------------------------------------------------------------------------

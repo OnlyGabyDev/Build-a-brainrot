@@ -97,7 +97,9 @@ Zones.List = {
 		GemMultiplier = 3,
 		LineCount = 3,
 		Style = { Scale = 1.4, Material = Enum.Material.SmoothPlastic, Reflectance = 0.25 },
-		Available = false,
+		SpecialStation = "Holo Sticker",
+		StationNames = { Station1 = "Gloss Coat", Station2 = "Gold Leaf" },
+		Available = true,
 	},
 	{
 		Id = "CandyFactory",
