@@ -665,12 +665,11 @@ local function buildTrapdoor(model: Model, spot: CFrame)
 	makeDecor(model, "ShipPlatformFoot", Vector3.new(12.6, 0.5, 12.6), spot * CFrame.new(0, 0.25, 0), Color3.fromRGB(85, 45, 160))
 	local deck = deckOf(spot)
 	makePart(model, "TrapdoorFrame", Vector3.new(9.6, 0.4, 9.6), deck * CFrame.new(0, 0.2, 0), WHITE)
-	local ship = makePart(model, "Ship", Vector3.new(8.4, 0.5, 8.4), deck * CFrame.new(0, 0.25, 0), CLAW_COLOR)
+	makePart(model, "Ship", Vector3.new(8.4, 0.5, 8.4), deck * CFrame.new(0, 0.25, 0), CLAW_COLOR)
 	makeDecor(model, "TrapdoorSeam", Vector3.new(8.4, 0.52, 0.25), deck * CFrame.new(0, 0.25, 0), Color3.fromRGB(150, 100, 30))
 	for _, side in { -1, 1 } do
 		makeDecor(model, "TrapdoorHandle", Vector3.new(2, 0.6, 0.4), deck * CFrame.new(0, 0.3, side * 1), Color3.fromRGB(150, 100, 30))
 	end
-	makeBillboard(ship, "📦 SHIPPING", Vector2.new(8, 2), 9, 80)
 end
 
 -- Plushie Sewing Room: a fluff machine, a glass dome on a cushy hot-pink base, a few
@@ -694,7 +693,6 @@ local function buildFluffMachine(model: Model, spot: CFrame)
 	local top = FLUFF_DOME / 2 + 0.3 -- the dome's top, above the deck
 	makeColumn(model, "FluffCap", 3.2, DECK + top - 0.4, DECK + top + 0.6, spot, SEWING_COLOR)
 	makeBall(model, "FluffKnob", 2, deck * CFrame.new(0, top + 1.3, 0), WHITE, Enum.Material.Fabric)
-	makeBillboard(ship, "☁️ SHIPPING", Vector2.new(8, 2), 11, 80)
 end
 
 -- Each zone's special upgrade (Station3, GDD §6) stands over the end of the belt at
@@ -706,12 +704,13 @@ end
 local CARDBOARD_COLOR = Color3.fromRGB(215, 165, 110)
 local SPECIAL_LIFT = 5 -- the special machines' tops, this much over the old 8 above the deck
 local function buildPacker(model: Model, spot: CFrame, name: string)
+	-- (thin towers, so the packaging shows from the button path at an angle)
 	local deck = deckOf(spot) * CFrame.new(0, SPECIAL_LIFT, 0)
 	local height = DECK + 8 + SPECIAL_LIFT
 	for _, side in { -1, 1 } do
-		makePart(model, "PackerTower", Vector3.new(2, height, 5.4), spot * CFrame.new(side * SIDE_X, height / 2, 0), GANTRY_COLORS.ToyWorkshop[1])
-		makeDecor(model, "PackerStripe", Vector3.new(2.1, 1, 5.5), spot * CFrame.new(side * SIDE_X, DECK + 5.5 + SPECIAL_LIFT, 0), CLAW_COLOR)
-		makeDecor(model, "PackerStripe", Vector3.new(2.1, 0.5, 5.5), spot * CFrame.new(side * SIDE_X, DECK + 4.4 + SPECIAL_LIFT, 0), WHITE)
+		makePart(model, "PackerTower", Vector3.new(2, height, 3.4), spot * CFrame.new(side * SIDE_X, height / 2, 0), GANTRY_COLORS.ToyWorkshop[1])
+		makeDecor(model, "PackerStripe", Vector3.new(2.1, 1, 3.5), spot * CFrame.new(side * SIDE_X, DECK + 5.5 + SPECIAL_LIFT, 0), CLAW_COLOR)
+		makeDecor(model, "PackerStripe", Vector3.new(2.1, 0.5, 3.5), spot * CFrame.new(side * SIDE_X, DECK + 4.4 + SPECIAL_LIFT, 0), WHITE)
 	end
 	local top = makePart(model, "Station3", Vector3.new(17.6, 2.8, 6), deck * CFrame.new(0, 9.4, 0), GANTRY_COLOR)
 	makePart(model, "Station3Glow", Vector3.new(13, 0.3, 4.6), deck * CFrame.new(0, 7.85, 0), WHITE, Enum.Material.Neon)
@@ -975,7 +974,6 @@ local function buildKiln(model: Model, spot: CFrame)
 	smoke.Speed = NumberRange.new(2, 3)
 	smoke.EmissionDirection = Enum.NormalId.Right -- the cap is a cylinder on its side: its X is up
 	smoke.Parent = cap
-	makeBillboard(ship, "🔥 SHIPPING", Vector2.new(8, 2), KILN / 2 + 9, 80)
 end
 
 -- Vinyl Collectibles -------------------------------------------------------------------
@@ -1148,7 +1146,6 @@ local function buildDisplayPedestal(model: Model, spot: CFrame)
 		light.Color = Color3.fromRGB(255, 240, 220)
 		light.Parent = housing
 	end
-	makeBillboard(ship, "✨ SHIPPING", Vector2.new(8, 2), 12, 80)
 end
 
 -- The line's tablet (GDD §6): a little stand beside the Assembler holding a tablet,

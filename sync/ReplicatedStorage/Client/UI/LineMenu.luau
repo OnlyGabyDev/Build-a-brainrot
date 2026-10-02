@@ -67,10 +67,24 @@ local function rarityOf(brainrotId: string): Rarities.Rarity?
 	return brainrot and Rarities.ById[brainrot.Rarity]
 end
 
+-- A room's short name, its name's first word: "TOY", "PLUSHIE".
+local function roomTag(zoneId: string): string
+	local zone = Zones.ById[zoneId]
+	local name = if zone then zone.Name else zoneId
+	return string.upper(string.match(name, "^%S+") or name)
+end
+
+-- How the menu calls a line: "LINE 2" in the room on show, "PLUSHIE 1" in another.
 local function lineLabel(lineId: string): string
+	local here: string? = nil
+	for _, line in view do
+		if line.Id == selectedLine then
+			here = line.Zone
+		end
+	end
 	for _, line in view do
 		if line.Id == lineId then
-			return `LINE {line.Index}`
+			return if line.Zone == here then `LINE {line.Index}` else `{roomTag(line.Zone)} {line.Index}`
 		end
 	end
 	return "ANOTHER LINE"
@@ -106,24 +120,55 @@ end
 
 -- Rendering ------------------------------------------------------------------
 
+-- Tabs for the lines in the current line's room (3 at most), after a pill that names the
+-- room and steps on to the next room with lines; then the parts/upgrades switch.
+local ROOM_PILL, LINE_TAB, TAB_GAP = 150, 96, 8
+
 local function renderTabs(parent: Frame, current: LineView)
-	for index, line in view do
-		local selected = line.Id == current.Id
+	local rooms: { string } = {}
+	for _, line in view do
+		if not table.find(rooms, line.Zone) then
+			table.insert(rooms, line.Zone)
+		end
+	end
+	local x = 24
+	if #rooms > 1 then
+		local nextRoom = rooms[(table.find(rooms, current.Zone) or 1) % #rooms + 1]
 		Kit.button({
-			Position = UDim2.fromOffset(24 + (index - 1) * 150, 14),
-			Size = UDim2.fromOffset(140, 44),
+			Position = UDim2.fromOffset(x, 14),
+			Size = UDim2.fromOffset(ROOM_PILL, 44),
 			Parent = parent,
-		}, if selected then Kit.Colors.Purple else Kit.Colors.Grey, `LINE {line.Index}`, function()
+		}, Kit.Colors.Rolls, `{roomTag(current.Zone)} »`, function()
+			for _, line in view do
+				if line.Zone == nextRoom then
+					selectedLine = line.Id
+					break
+				end
+			end
+			render()
+		end)
+		x += ROOM_PILL + TAB_GAP
+	end
+	for _, line in view do
+		if line.Zone ~= current.Zone then
+			continue
+		end
+		Kit.button({
+			Position = UDim2.fromOffset(x, 14),
+			Size = UDim2.fromOffset(LINE_TAB, 44),
+			Parent = parent,
+		}, if line.Id == current.Id then Kit.Colors.Purple else Kit.Colors.Grey, `LINE {line.Index}`, function()
 			selectedLine = line.Id
 			render()
 		end)
+		x += LINE_TAB + TAB_GAP
 	end
 	-- the line's parts, or its upgrades
 	for index, spec in { { "Parts", "🧩 PARTS" }, { "Upgrades", "⚡ UPGRADES" } } do
 		Kit.button({
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -24 - (2 - index) * 160, 0, 14),
-			Size = UDim2.fromOffset(150, 44),
+			Position = UDim2.new(1, -24 - (2 - index) * 148, 0, 14),
+			Size = UDim2.fromOffset(140, 44),
 			Parent = parent,
 		}, if mode == spec[1] then Kit.Colors.Coins else Kit.Colors.Grey, spec[2], function()
 			mode = spec[1]
@@ -389,7 +434,7 @@ local function renderUpgrades(parent: Frame, line: LineView)
 		Kit.text({
 			Text = `{track.Icon} {string.upper(track.Name)}`,
 			Position = UDim2.fromOffset(14, 6),
-			Size = UDim2.new(1, -130, 0, 32),
+			Size = UDim2.new(1, -150, 0, 32),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = header,
 		})
@@ -397,7 +442,7 @@ local function renderUpgrades(parent: Frame, line: LineView)
 			Text = `LV {upgrade.Level}/{upgrade.Max}`,
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -14, 0, 8),
-			Size = UDim2.fromOffset(110, 28),
+			Size = UDim2.fromOffset(112, 28),
 			TextXAlignment = Enum.TextXAlignment.Right,
 			Parent = header,
 		})

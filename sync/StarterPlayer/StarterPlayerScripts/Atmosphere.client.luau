@@ -260,7 +260,7 @@ end)
 -- Butterflies (MapBuilder) flutter round their Home over the flowers, wings flapping.
 -- Only the ones near the camera move.
 local BUTTERFLY_DISTANCE = 160
-type Butterfly = { Body: BasePart, Left: BasePart, Right: BasePart, Home: Vector3, Phase: number }
+type Butterfly = { Body: BasePart, Left: BasePart, Right: BasePart, Home: Vector3, Phase: number, Reach: number }
 local butterflies: { [Model]: Butterfly } = {}
 
 watchTag("Butterfly", function(model)
@@ -270,7 +270,14 @@ watchTag("Butterfly", function(model)
 	local body, left, right = model:FindFirstChild("Body"), model:FindFirstChild("WingLeft"), model:FindFirstChild("WingRight")
 	local home, phase = model:GetAttribute("Home"), model:GetAttribute("Phase")
 	if body and left and right and body:IsA("BasePart") and left:IsA("BasePart") and right:IsA("BasePart") and typeof(home) == "Vector3" then
-		butterflies[model] = { Body = body, Left = left, Right = right, Home = home, Phase = if typeof(phase) == "number" then phase else 0 }
+		butterflies[model] = {
+			Body = body,
+			Left = left,
+			Right = right,
+			Home = home,
+			Phase = if typeof(phase) == "number" then phase else 0,
+			Reach = left.Size.X / 2, -- a wing's middle, out from the body
+		}
 	end
 end, function(model)
 	butterflies[model :: Model] = nil
@@ -290,8 +297,8 @@ RunService.RenderStepped:Connect(function()
 			local frame = CFrame.lookAt(flightAt(fly, t), flightAt(fly, t + 0.05))
 			local flap = math.sin(now * 22 + fly.Phase) * 1.1
 			fly.Body.CFrame = frame
-			fly.Left.CFrame = frame * CFrame.Angles(0, 0, -flap) * CFrame.new(-0.55, 0, 0)
-			fly.Right.CFrame = frame * CFrame.Angles(0, 0, flap) * CFrame.new(0.55, 0, 0)
+			fly.Left.CFrame = frame * CFrame.Angles(0, 0, -flap) * CFrame.new(-fly.Reach, 0, 0)
+			fly.Right.CFrame = frame * CFrame.Angles(0, 0, flap) * CFrame.new(fly.Reach, 0, 0)
 		end
 	end
 end)

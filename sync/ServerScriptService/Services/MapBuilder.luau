@@ -967,9 +967,34 @@ local function decorDisc(parent: Instance, name: string, across: number, depth: 
 end
 
 -- A field of tulips (`base`: its middle, turned by `turn`): rows of one color each on
--- dark soil, every row a different color, like the bulb fields in Holland.
-local FIELD_ROWS, FIELD_LENGTH, ROW_SPACING = 7, 24, 3.2
-local FIELD_RADIUS = 18 -- what it claims
+-- dark soil, every row a different color, like the bulb fields in Holland, over hedges
+-- of leaves.
+local FIELD_ROWS, FIELD_LENGTH, ROW_SPACING = 9, 34, 3.6
+local FIELD_RADIUS = 25 -- what it claims
+local TULIP_SIZE = Vector3.new(1.5, 1.6, 1.5) -- the cup
+
+-- A tulip (`at`: the cup's middle): an egg-shaped cup with two pointed petals rising
+-- from its rim, a V between them. Turn each one at random: the points show from the side.
+local function buildTulip(parent: Instance, at: CFrame, color: Color3)
+	local cup = makeDecor(parent, "Tulip", TULIP_SIZE, at, color)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = cup
+	for _, turn in { 0, math.pi } do
+		local petal = Instance.new("WedgePart")
+		petal.Name = "TulipPetal"
+		petal.Anchored = true
+		petal.CanCollide = false
+		petal.CanQuery = false
+		petal.CanTouch = false
+		petal.Color = color
+		petal.Material = Enum.Material.SmoothPlastic
+		petal.Size = Vector3.new(TULIP_SIZE.X * 0.8, 0.9, TULIP_SIZE.Z / 2)
+		-- its tall face outward, sloping down to the notch in the middle
+		petal.CFrame = at * CFrame.Angles(0, turn, 0) * CFrame.new(0, 0.85, TULIP_SIZE.Z / 4)
+		petal.Parent = parent
+	end
+end
 
 local function buildTulipField(parent: Instance, base: Vector3, turn: number)
 	local origin = CFrame.new(base) * CFrame.Angles(0, turn, 0)
@@ -977,14 +1002,15 @@ local function buildTulipField(parent: Instance, base: Vector3, turn: number)
 	local field = Instance.new("Model")
 	field.Name = "TulipField"
 	local first = random:NextInteger(0, #TULIP_COLORS - 1)
-	local count = math.floor(FIELD_LENGTH / 1.8)
+	local count = math.floor(FIELD_LENGTH / 2.6)
 	for row = 0, FIELD_ROWS - 1 do
 		local x = (row - (FIELD_ROWS - 1) / 2) * ROW_SPACING
 		local color = TULIP_COLORS[(first + row) % #TULIP_COLORS + 1]
-		makeDecor(field, "TulipLeaves", Vector3.new(1.8, 1, FIELD_LENGTH), origin * CFrame.new(x, 0.5, 0), LEAF_SETS[2][1])
+		makeDecor(field, "TulipLeaves", Vector3.new(2, 1.4, FIELD_LENGTH), origin * CFrame.new(x, 0.7, 0), LEAF_SETS[2][1])
 		for k = 0, count - 1 do
 			local z = -FIELD_LENGTH / 2 + (k + 0.5) * FIELD_LENGTH / count
-			decorBall(field, "Tulip", 1.5, origin * CFrame.new(x + random:NextNumber(-0.2, 0.2), 1.6 + random:NextNumber(-0.2, 0.25), z), color)
+			local at = origin * CFrame.new(x + random:NextNumber(-0.2, 0.2), 2.1 + random:NextNumber(-0.2, 0.3), z)
+			buildTulip(field, at * CFrame.Angles(0, random:NextNumber(0, math.pi), 0), color)
 		end
 	end
 	field.Parent = parent
@@ -995,9 +1021,9 @@ local function buildButterfly(parent: Instance, home: Vector3)
 	local fly = Instance.new("Model")
 	fly.Name = "Butterfly"
 	local color = BUTTERFLY_COLORS[random:NextInteger(1, #BUTTERFLY_COLORS)]
-	makeDecor(fly, "Body", Vector3.new(0.25, 0.25, 0.9), CFrame.new(home), Color3.fromRGB(60, 45, 70)).CastShadow = false
+	makeDecor(fly, "Body", Vector3.new(0.35, 0.35, 1.3), CFrame.new(home), Color3.fromRGB(60, 45, 70)).CastShadow = false
 	for _, side in { -1, 1 } do
-		makeDecor(fly, if side < 0 then "WingLeft" else "WingRight", Vector3.new(1.1, 0.08, 1.1), CFrame.new(home + Vector3.new(side * 0.6, 0, 0)), color).CastShadow = false
+		makeDecor(fly, if side < 0 then "WingLeft" else "WingRight", Vector3.new(1.7, 0.1, 1.7), CFrame.new(home + Vector3.new(side * 0.9, 0, 0)), color).CastShadow = false
 	end
 	fly:SetAttribute("Home", home)
 	fly:SetAttribute("Phase", random:NextNumber(0, math.pi * 2))
@@ -1556,7 +1582,7 @@ function MapBuilder.Init()
 			paint(CFrame.new(field) * CFrame.Angles(0, facing, 0), Vector2.new(FIELD_RADIUS * 2, FIELD_RADIUS * 2), Enum.Material.LeafyGrass)
 			buildTulipField(life, field, facing)
 			for _ = 1, 7 do
-				buildButterfly(life, field + Vector3.new(random:NextNumber(-10, 10), 2, random:NextNumber(-10, 10)))
+				buildButterfly(life, field + Vector3.new(random:NextNumber(-14, 14), 3, random:NextNumber(-14, 14)))
 			end
 		end
 		local grove = claimSpot(between + (if isStream then 0.34 else 0.22), if isStream then 470 else 590, 16, plots)
