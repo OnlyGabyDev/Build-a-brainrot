@@ -16,6 +16,14 @@
 	tools/textures/PlushKnit.png: if the id ever stops loading, upload it again (the MCP's
 	upload_image takes an http URL, so serve the folder with `python -m http.server`) and
 	put the new id below. Without the variant, those parts just show plain Fabric.
+
+	PlayDough: the Clay Studio's brainrots are hand-pressed play-dough (on Plaster): a
+	light color map with soft lumps and fingerprint patches, a normal map from the same
+	height so the dents catch the light, and a matte, waxy roughness. VinylGloss: the
+	Vinyl Collectibles' figures are glossy vinyl (on SmoothPlastic): only a low roughness,
+	for crisp highlights without the washed-out look Reflectance gives. Both are ours,
+	made by tools/textures/make_textures.py (the PNGs sit beside it), uploaded the same
+	way as PlushKnit.
 ]]
 
 local MaterialService = game:GetService("MaterialService")
@@ -35,4 +43,20 @@ knit.ColorMap = "rbxassetid://102486908186849"
 knit.StudsPerTile = 4
 knit.Parent = MaterialService
 
-return "CartoonGrass and PlushKnit ready: save the place to keep them"
+local dough = MaterialService:FindFirstChild("PlayDough") or Instance.new("MaterialVariant")
+dough.Name = "PlayDough"
+dough.BaseMaterial = Enum.Material.Plaster
+dough.ColorMap = "rbxassetid://108886185799439"
+dough.NormalMap = "rbxassetid://92952985301850"
+dough.RoughnessMap = "rbxassetid://92512665293125"
+dough.StudsPerTile = 6
+dough.Parent = MaterialService
+
+local vinyl = MaterialService:FindFirstChild("VinylGloss") or Instance.new("MaterialVariant")
+vinyl.Name = "VinylGloss"
+vinyl.BaseMaterial = Enum.Material.SmoothPlastic
+vinyl.RoughnessMap = "rbxassetid://112610398536147"
+vinyl.StudsPerTile = 4
+vinyl.Parent = MaterialService
+
+return "CartoonGrass, PlushKnit, PlayDough and VinylGloss ready: save the place to keep them"
