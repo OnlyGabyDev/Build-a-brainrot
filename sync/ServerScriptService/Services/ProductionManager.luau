@@ -307,7 +307,7 @@ local function ship(player: Player, plot: TycoonManager.Plot, line: TycoonItems.
 
 	-- Pay out when the client animation drops the brainrot into the chute.
 	local generation = plot.Generation
-	task.delay(Production.ShipDelay(parts, stats.CycleTime, stats.Special), function()
+	task.delay(Production.ShipDelay(parts, stats.CycleTime, stats.Special, zone.Id), function()
 		if TycoonManager.GetPlot(player) ~= plot or plot.Generation ~= generation then
 			return -- left, or the plot was reset (rebirth, dev Restore) mid-animation
 		end

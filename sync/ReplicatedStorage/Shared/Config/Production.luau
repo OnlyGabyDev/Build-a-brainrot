@@ -1,5 +1,7 @@
 -- Production tuning (GDD §6). Placeholders to tune in playtests.
 
+local LineLayouts = require(script.Parent.Parent.LineLayouts)
+
 local Production = {
 	BaseCycleTime = 4, -- seconds per brainrot on a line with no Speed upgrades
 	FullMatchMultiplier = 2, -- all 4 parts from the same brainrot
@@ -17,7 +19,7 @@ local Production = {
 	-- a Toy Workshop chute, or a Plushie knitting machine knits it
 	SlideTime = 1.2, -- belt ride from the farthest dropper to the Assembler
 	ShowTime = 1.2, -- ta-da: the finished brainrot steps off the pad and shows itself off
-	ShipTime = 2.4, -- from there to the end of the belt, past the stations
+	ShipTime = 2.4, -- from there to the end of the belt, past the stations (a layout can take longer: RideTime)
 	SpecialTime = 1.3, -- the zone's special upgrade at the end of the belt (Toy Packer, Bow Tier)
 	FinishTime = 2.0, -- the zone's finishing stage (packed in a toy box, fluffed up...)
 }
@@ -70,12 +72,18 @@ function Production.ShowDuration(cycleTime: number): number
 	return math.min(Production.ShowTime, cycleTime * 0.6)
 end
 
+-- How long the finished brainrot takes from the show to the special on `zoneId`'s line
+-- (its layout's ride; a rail's is slower than a belt's).
+function Production.RideTime(zoneId: string): number
+	return LineLayouts.For(zoneId).RideTime or Production.ShipTime
+end
+
 -- Seconds from a ship event until the brainrot is shipped off (the payout), at the end
 -- of its finishing stage. `special`: the line has its zone's special upgrade.
-function Production.ShipDelay(parts: { [string]: string }, cycleTime: number, special: boolean?): number
+function Production.ShipDelay(parts: { [string]: string }, cycleTime: number, special: boolean?, zoneId: string): number
 	local _, finished = Production.Schedule(parts, cycleTime)
 	local specialTime = if special then Production.SpecialDuration(cycleTime) else 0
-	return finished + Production.ShowDuration(cycleTime) + Production.ShipTime + specialTime + Production.FinishDuration(cycleTime)
+	return finished + Production.ShowDuration(cycleTime) + Production.RideTime(zoneId) + specialTime + Production.FinishDuration(cycleTime)
 end
 
 return Production

@@ -31,6 +31,7 @@ export type Layout = {
 	Tablet: Vector3,
 	TabletFacing: Vector3, -- the way its screen faces (toward the button path)
 	ShowGap: number, -- how far toward -Z from the pad the brainrot shows itself off
+	RideTime: number?, -- seconds from the show to the special (Config/Production's ShipTime if nil)
 	Rail: { Vector3 }?, -- the rail's control points (y: the rail's middle above the floor)
 	Stops: { [string]: number }?, -- Rail: the control point (index) where each thing happens
 }
@@ -85,7 +86,10 @@ end
 
 -- The overhead rail (Plushie room) ------------------------------------------------
 
-LineLayouts.RailY = 22.5 -- the rail's middle, above the floor (the ceiling is at 28)
+-- The rail comes down from a hook garage under the ceiling (28) over the capsule, climbs
+-- over the Dye Bath's tall tank (the hook lowers the brainrot right into it), runs low
+-- past the other stations (the brainrot rides at the belt's height, easy to watch), and
+-- climbs over the fluff jar to another garage.
 -- The knitting machines in an arc round the back of the capsule: their heads reach in
 -- over the glass (KnitRadius from the pad), their columns stand outside it.
 LineLayouts.KnitRadius = 7.2
@@ -101,43 +105,47 @@ local function arcSpot(degrees: number, radius: number): CFrame
 end
 
 local function railLayout(): Layout
-	local y = LineLayouts.RailY
+	local low = 17.6 -- past the stations: the brainrot hangs with its feet about the deck's height
 	local layout: Layout = {
 		Kind = "Rail",
 		Droppers = {},
 		Halos = {},
 		-- each under its stop on the rail
 		Stations = {
-			Station1 = CFrame.new(-5, 0, -19), -- the Dye Bath's vat: it's dipped in
-			Station2 = CFrame.new(4, 0, -26.5), -- the Sequin Shower rains on it
-			Station3 = CFrame.new(-2, 0, -33.5), -- the Bow Tier
+			Station1 = CFrame.new(-5, 0, -19.5), -- the Dye Bath's tank: the hook dunks it in
+			Station2 = CFrame.new(4, 0, -27), -- the Sequin Shower rains on it
+			Station3 = CFrame.new(-2, 0, -33), -- the Bow Tier
 		},
-		Ship = CFrame.new(0, 0, -41.5), -- the fluff jar: it's lowered in
+		Ship = CFrame.new(0, 0, -44), -- the fluff jar: it's lowered in
 		ShipRadius = 6.9,
 		Buttons = {
-			Line = Vector3.new(0, 0, -52),
+			Line = Vector3.new(0, 0, -55),
 			Speed1 = Vector3.new(BUTTON_X, 0, -4), -- clear of the Legs machine's column
 			Speed2 = Vector3.new(BUTTON_X, 0, -4),
 			Station1 = Vector3.new(BUTTON_X, 0, -19),
-			Station2 = Vector3.new(BUTTON_X, 0, -26.5),
-			Station3 = Vector3.new(BUTTON_X, 0, -33.5),
+			Station2 = Vector3.new(BUTTON_X, 0, -27),
+			Station3 = Vector3.new(BUTTON_X, 0, -33),
 		},
 		Tablet = Vector3.new(11.5, 0, -11.5),
 		TabletFacing = Vector3.new(math.cos(math.rad(25)), 0, -math.sin(math.rad(25))),
 		ShowGap = 5, -- under the hook's pickup, clear of the crossbar
-		-- it starts in a hook garage over the capsule's left side, winds out the front,
-		-- and ends in another past the delivery
+		RideTime = 4.6, -- slower than a belt's, so it's easy to follow (the user)
+		-- it starts in a hook garage over the capsule's left rim, comes down out of the
+		-- capsule's open front, winds low past the stations, climbs over the fluff jar and
+		-- ends in another garage
 		Rail = {
-			Vector3.new(-8.5, y, -5),
-			Vector3.new(0, y, -5),
-			Vector3.new(0, y, -13),
-			Vector3.new(-5, y, -19),
-			Vector3.new(4, y, -26.5),
-			Vector3.new(-2, y, -33.5),
-			Vector3.new(0, y, -41.5),
-			Vector3.new(0, y, -47.5),
+			Vector3.new(-8.5, 25.6, -5),
+			Vector3.new(0, 21.6, -5),
+			Vector3.new(0, 23.5, -13),
+			Vector3.new(-5, 26.6, -19.5),
+			Vector3.new(-1.5, 26.2, -23.5),
+			Vector3.new(4, low, -27),
+			Vector3.new(-2, low, -33),
+			Vector3.new(0, 22, -38.5),
+			Vector3.new(0, 22.5, -44),
+			Vector3.new(0, 25.6, -50),
 		},
-		Stops = { Start = 1, Pickup = 2, Out = 3, Station1 = 4, Station2 = 5, Station3 = 6, Ship = 7, End = 8 },
+		Stops = { Start = 1, Pickup = 2, Out = 3, Station1 = 4, Over = 5, Station2 = 6, Station3 = 7, Climb = 8, Ship = 9, End = 10 },
 	}
 	for partType, degrees in KNIT_ANGLES do
 		layout.Droppers[partType] = arcSpot(degrees, LineLayouts.KnitRadius)
