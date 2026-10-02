@@ -26,8 +26,9 @@
 	Then the finished brainrot shows itself off (ta-da: a spin under a spotlight, its
 	name tag pops up) before it rides on: it's the star of the line, so it's big, gets
 	an outline on your own lines, and keeps its name tag until it's packed off. Each
-	zone's line has its own layout (Shared/LineLayouts: a straight belt, or a rail), and
-	the line Model's Origin attribute puts that layout in the world.
+	zone's line has its own layout (Shared/LineLayouts: a straight belt, a rail, or a
+	stop-motion turntable), and the line Model's Origin attribute puts that layout in
+	the world.
 ]]
 
 local Players = game:GetService("Players")
@@ -1559,7 +1560,8 @@ local SNAP_POSES = { { -0.45, 0.8 }, { 0.45, 1.2 }, { 0, 0 } } -- { turn, lift }
 local function cameraSpecial(build: Build, brainrot: Model, machine: BasePart, duration: number)
 	local pivot = brainrot:GetPivot()
 	local box = brainrot:GetBoundingBox()
-	local lens = machine.Position - Vector3.new(0, machine.Size.Y / 2 + 1.5, 0)
+	local lensPart = findPart(build.Line, "Station3Lens")
+	local lens = if lensPart then lensPart.Position else machine.Position - Vector3.new(0, machine.Size.Y / 2 + 1.5, 0)
 	local flash = findPart(build.Line, "Station3Flash")
 	stampMachine(build, machine)
 	for _, pose in SNAP_POSES do
@@ -2384,10 +2386,12 @@ local JAW_OPEN = math.rad(30)
 local SWING_GRAVITY = 110 -- a cartoon gravity for the swing, studs/s²
 local SWING_DAMPING = 2.4
 local SWING_MAX = 0.35 -- radians
-local HOOK_PINK = Color3.fromRGB(235, 65, 150)
-local HOOK_GOLD = Color3.fromRGB(255, 190, 40)
-local HOOK_CHROME = Color3.fromRGB(215, 220, 235)
-local HOOK_GLOW = Color3.fromRGB(90, 220, 255)
+local HOOK_COLORS = {
+	Pink = Color3.fromRGB(235, 65, 150),
+	Gold = Color3.fromRGB(255, 190, 40),
+	Chrome = Color3.fromRGB(215, 220, 235),
+	Glow = Color3.fromRGB(90, 220, 255),
+}
 
 type Hook = {
 	Model: Model,
@@ -2493,26 +2497,26 @@ local function makeHook(origin: CFrame, curve: LineLayouts.Curve): Hook
 	model.Name = "Hook"
 	local trolley = Instance.new("Model")
 	trolley.Name = "Trolley"
-	local body = hookPart(trolley, "TrolleyBody", Vector3.new(1.8, 1.3, 2.6), HOOK_PINK, Enum.Material.SmoothPlastic)
+	local body = hookPart(trolley, "TrolleyBody", Vector3.new(1.8, 1.3, 2.6), HOOK_COLORS.Pink, Enum.Material.SmoothPlastic)
 	body.CFrame = CFrame.identity
-	hookPart(trolley, "TrolleyStripe", Vector3.new(1.9, 0.35, 2.7), HOOK_GOLD, Enum.Material.Metal).CFrame = CFrame.new(0, 0.15, 0)
+	hookPart(trolley, "TrolleyStripe", Vector3.new(1.9, 0.35, 2.7), HOOK_COLORS.Gold, Enum.Material.Metal).CFrame = CFrame.new(0, 0.15, 0)
 	for _, x in { -0.98, 0.98 } do
 		for _, z in { -0.75, 0.75 } do
-			hookPart(trolley, "TrolleyWheel", Vector3.new(0.3, 1, 1), HOOK_CHROME, Enum.Material.Metal, Enum.PartType.Cylinder).CFrame = CFrame.new(x, 0.45, z)
+			hookPart(trolley, "TrolleyWheel", Vector3.new(0.3, 1, 1), HOOK_COLORS.Chrome, Enum.Material.Metal, Enum.PartType.Cylinder).CFrame = CFrame.new(x, 0.45, z)
 		end
 	end
-	hookPart(trolley, "TrolleyLamp", Vector3.one * 0.55, HOOK_GLOW, Enum.Material.Neon, Enum.PartType.Ball).CFrame = CFrame.new(0, -0.1, -1.35)
-	hookPart(trolley, "TrolleyLamp", Vector3.one * 0.55, HOOK_GLOW, Enum.Material.Neon, Enum.PartType.Ball).CFrame = CFrame.new(0, -0.1, 1.35)
+	hookPart(trolley, "TrolleyLamp", Vector3.one * 0.55, HOOK_COLORS.Glow, Enum.Material.Neon, Enum.PartType.Ball).CFrame = CFrame.new(0, -0.1, -1.35)
+	hookPart(trolley, "TrolleyLamp", Vector3.one * 0.55, HOOK_COLORS.Glow, Enum.Material.Neon, Enum.PartType.Ball).CFrame = CFrame.new(0, -0.1, 1.35)
 	trolley.WorldPivot = CFrame.identity
 	trolley.Parent = model
 	local hook: Hook = {
 		Model = model,
 		Trolley = trolley,
-		Cable = hookPart(model, "HookCable", Vector3.new(0.22, 0.22, 1), HOOK_CHROME, Enum.Material.Metal),
-		Cap = hookPart(model, "HookCap", Vector3.new(1.1, 0.8, 1.1), HOOK_GOLD, Enum.Material.Metal),
+		Cable = hookPart(model, "HookCable", Vector3.new(0.22, 0.22, 1), HOOK_COLORS.Chrome, Enum.Material.Metal),
+		Cap = hookPart(model, "HookCap", Vector3.new(1.1, 0.8, 1.1), HOOK_COLORS.Gold, Enum.Material.Metal),
 		Jaws = {
-			hookPart(model, "HookJaw", Vector3.new(0.32, JAW_LENGTH, 0.75), HOOK_GOLD, Enum.Material.Metal),
-			hookPart(model, "HookJaw", Vector3.new(0.32, JAW_LENGTH, 0.75), HOOK_GOLD, Enum.Material.Metal),
+			hookPart(model, "HookJaw", Vector3.new(0.32, JAW_LENGTH, 0.75), HOOK_COLORS.Gold, Enum.Material.Metal),
+			hookPart(model, "HookJaw", Vector3.new(0.32, JAW_LENGTH, 0.75), HOOK_COLORS.Gold, Enum.Material.Metal),
 		},
 		Origin = origin,
 		Curve = curve,
@@ -2828,6 +2832,150 @@ local function railRide(build: Build, brainrot: Model, hook: Hook, layout: LineL
 	return fluffUp(build, brainrot, base, d * 0.36, d * 0.06, d * 0.14)
 end
 
+-- The turntable -------------------------------------------------------------
+-- On a turntable's line (LineLayouts "Turntable": the Clay Studio) there's no belt. The
+-- table's top (the Turntable Model) turns all the time in stop-motion clicks, on every
+-- client by the same clock (LineLayouts.TableAngle). The finished brainrot hops out of
+-- the capsule's front onto it and rides it round, a click at a time, past the stations,
+-- facing out; while one rides, every click is a frame of film: the shutter clicks and,
+-- every other frame, a flash pops. Then it hops off onto the kiln's step, facing the
+-- Stop-Motion Camera, for the special and the kiln.
+
+-- Everything here hangs off one table: ProductionVisuals' main chunk is at Luau's limit
+-- of 200 locals.
+local Turntable = {
+	Settings = LineLayouts.TableSettings,
+	Flash = Color3.fromRGB(255, 250, 235),
+	Spins = {} :: { [Model]: { Rest: CFrame, Shown: number, Riders: number } },
+	LastClick = -1,
+}
+
+do
+	local collection = game:GetService("CollectionService")
+	local function added(model: Instance)
+		if model:IsA("Model") then
+			Turntable.Spins[model] = { Rest = model:GetPivot(), Shown = 0, Riders = 0 }
+		end
+	end
+	for _, model in collection:GetTagged("Turntable") do
+		added(model)
+	end
+	collection:GetInstanceAddedSignal("Turntable"):Connect(added)
+	collection:GetInstanceRemovedSignal("Turntable"):Connect(function(model)
+		Turntable.Spins[model :: Model] = nil
+	end)
+end
+
+RunService.RenderStepped:Connect(function()
+	local now = os.clock()
+	local angle = LineLayouts.TableAngle(now)
+	local click = math.floor(now / Turntable.Settings.Period)
+	local camera = workspace.CurrentCamera.CFrame.Position
+	local frame = click ~= Turntable.LastClick
+	Turntable.LastClick = click
+	for model, spin in Turntable.Spins do
+		local center = spin.Rest.Position
+		if (center - camera).Magnitude < RENDER_DISTANCE then
+			if spin.Shown ~= angle then
+				spin.Shown = angle
+				model:PivotTo(spin.Rest * CFrame.Angles(0, angle, 0))
+			end
+			if frame and spin.Riders > 0 and Effects.near(center, FX_RANGE) then
+				local above = center + Vector3.new(0, 8, 0)
+				Effects.sound(above, Sounds.Click, 0.12, vary(1.5))
+				if click % 2 == 0 then
+					Effects.flash(above, Turntable.Flash, 1.3, 16, 0.12)
+				end
+			end
+		end
+	end
+end)
+
+-- Where a brainrot riding the table at `angle` stands (facing out).
+function Turntable.pose(origin: CFrame, angle: number): CFrame
+	return origin * CFrame.Angles(0, angle, 0) * CFrame.new(0, LineLayouts.Deck, -Turntable.Settings.Ride)
+end
+
+-- From the show to the kiln's step, in Production.RideTime: out of the capsule onto the
+-- table, round it past the stations, off onto the step. False if the line went.
+function Turntable.ride(build: Build, brainrot: Model, layout: LineLayouts.Layout, origin: CFrame, cancelled: () -> boolean): boolean
+	local line = build.Line
+	local settings = Turntable.Settings
+	local top = line:FindFirstChild("Turntable")
+	local spin = if top and top:IsA("Model") then Turntable.Spins[top] else nil
+	-- it lands wherever it has to so the table brings it to the exit just in time
+	local start = os.clock()
+	local landAt = start + settings.HopIn
+	local exitAt = landAt + settings.Exit / settings.Step * settings.Period
+	local landAngle = settings.Exit - (LineLayouts.TableAngle(exitAt) - LineLayouts.TableAngle(landAt))
+	local function angleAt(t: number): number
+		return landAngle + LineLayouts.TableAngle(t) - LineLayouts.TableAngle(landAt)
+	end
+
+	-- 1) out of the capsule's front, onto the table
+	Effects.sound(brainrot:GetPivot().Position, Sounds.Boing, 0.25, vary(1.15))
+	hop(brainrot, Turntable.pose(origin, landAngle), settings.HopIn, 3.5)
+	if cancelled() then
+		return false
+	end
+	squish(brainrot)
+	local landed = Turntable.pose(origin, landAngle).Position
+	puff(build, landed + Vector3.new(0, 0.3, 0), Color3.fromRGB(245, 200, 160), 6, 0.6)
+	Effects.sound(landed, Sounds.Squeak, 0.25, vary(1))
+
+	-- 2) round the table, a click at a time; each station fires as it comes up
+	local passes: { StationPass } = {}
+	local angles: { [string]: number } = layout.StationAngles or {}
+	for key, angle in angles do
+		local sign = findPart(line, key)
+		if sign then
+			local nozzle = findPart(line, key .. "Nozzle")
+			table.insert(passes, { Alpha = angle - STATION_LEAD / settings.Ride, Key = key, Sign = sign, Source = if nozzle then nozzle.Position else sign.Position })
+		end
+	end
+	table.sort(passes, function(a, b)
+		return a.Alpha < b.Alpha
+	end)
+	local nextPass = 1
+	if spin then
+		spin.Riders += 1
+	end
+	while line.Parent do
+		local now = os.clock()
+		local angle = angleAt(math.min(now, exitAt))
+		brainrot:PivotTo(Turntable.pose(origin, angle))
+		local pass = passes[nextPass]
+		if pass and angle >= pass.Alpha then
+			nextPass += 1
+			-- (the shot lands about a click later)
+			stationPass(build, pass, brainrot, Turntable.pose(origin, angle + settings.Step).Position - Turntable.pose(origin, angle).Position)
+		end
+		if now >= exitAt then
+			break
+		end
+		RunService.Heartbeat:Wait()
+	end
+	if spin then
+		spin.Riders -= 1
+	end
+	if cancelled() then
+		return false
+	end
+
+	-- 3) off the table onto the kiln's step, turning to face the camera
+	local step = origin * CFrame.new(settings.Landing + Vector3.new(0, LineLayouts.Deck + 0.1, 0))
+	local camera = origin * layout.Stations.Station3
+	local facing = CFrame.lookAt(step.Position, Vector3.new(camera.X, step.Y, camera.Z))
+	Effects.sound(brainrot:GetPivot().Position, Sounds.Boing, 0.25, vary(1.3))
+	hop(brainrot, facing, settings.HopOut, 2.5)
+	if cancelled() then
+		return false
+	end
+	squish(brainrot)
+	puff(build, step.Position + Vector3.new(0, 0.3, 0), Color3.fromRGB(245, 200, 160), 6, 0.6)
+	return true
+end
+
 -- One production cycle -------------------------------------------------------
 
 local function animateCycle(
@@ -2845,7 +2993,9 @@ local function animateCycle(
 	local layout = LineLayouts.For(zoneId)
 	local origin = line:GetAttribute("Origin")
 	local rail = layout.Kind == "Rail" and typeof(origin) == "CFrame"
-	if not (assembler and ship and (belt or rail)) then
+	local turntable = layout.Kind == "Turntable" and typeof(origin) == "CFrame"
+	local beltless = rail or turntable -- the parts land right in the capsule
+	if not (assembler and ship and (belt or beltless)) then
 		return
 	end
 
@@ -2914,7 +3064,7 @@ local function animateCycle(
 		local model, center, size = BrainrotModels.CreatePart(parts[partType], partType, zoneId)
 		local landing = beltPoint(dropper.Position)
 		local flat = Vector3.new(landing.X - root.X, 0, landing.Z - root.Z)
-		local travel = if rail then 0 else math.max(flat.Magnitude - INTAKE_GAP, 0)
+		local travel = if beltless then 0 else math.max(flat.Magnitude - INTAKE_GAP, 0)
 		local direction = if flat.Magnitude > 0 then flat.Unit else Vector3.zero
 		local intake = root.Position + direction * INTAKE_GAP + Vector3.new(0, size.Y / 2, 0)
 		local piece: Piece = {
@@ -3038,7 +3188,7 @@ local function animateCycle(
 				return
 			end
 			spit(line, piece.Dropper, build.Near, chute)
-			local landing = if rail then piece.Waiting else centeredAt(piece.Center, beltPoint(piece.Dropper.Position) + Vector3.new(0, piece.Size.Y / 2, 0))
+			local landing = if beltless then piece.Waiting else centeredAt(piece.Center, beltPoint(piece.Dropper.Position) + Vector3.new(0, piece.Size.Y / 2, 0))
 			if piece.Dropper:GetAttribute("Capsule") then
 				-- sealed in a capsule all the way down, which pops open on the belt
 				local capsule = makeCapsule(piece.Size)
@@ -3138,25 +3288,33 @@ local function animateCycle(
 		end
 	else
 		local path = beltEnd.Position - root.Position
-		local showSpot = root + path.Unit * math.min(SHOW_GAP, path.Magnitude / 3)
+		local showSpot = if turntable then root + rotation.LookVector * layout.ShowGap else root + path.Unit * math.min(SHOW_GAP, path.Magnitude / 3)
 		showOff(build, brainrot, root, showSpot, Production.ShowDuration(cycleTime))
 		if cancelled() then
 			brainrot:Destroy()
 			return
 		end
 
-		-- 5) It rides through the stations to the end of the belt.
-		local passes = stationPasses(line, showSpot.Position, beltEnd.Position)
-		local ahead = (beltEnd.Position - showSpot.Position).Unit * STATION_LEAD
-		local nextPass = 1
-		run(Production.RideTime(zoneId), function(alpha)
-			brainrot:PivotTo(showSpot:Lerp(beltEnd, alpha))
-			local pass = passes[nextPass]
-			if pass and alpha >= pass.Alpha and line.Parent then
-				nextPass += 1
-				stationPass(build, pass, brainrot, ahead)
+		-- 5) It rides through the stations: to the end of the belt, or round the
+		-- turntable to the kiln's step.
+		if turntable then
+			local rideOk, err = pcall(Turntable.ride, build, brainrot, layout, origin :: CFrame, cancelled)
+			if not rideOk then
+				warn(`[ProductionVisuals] {zoneId} turntable failed: {err}`)
 			end
-		end)
+		else
+			local passes = stationPasses(line, showSpot.Position, beltEnd.Position)
+			local ahead = (beltEnd.Position - showSpot.Position).Unit * STATION_LEAD
+			local nextPass = 1
+			run(Production.RideTime(zoneId), function(alpha)
+				brainrot:PivotTo(showSpot:Lerp(beltEnd, alpha))
+				local pass = passes[nextPass]
+				if pass and alpha >= pass.Alpha and line.Parent then
+					nextPass += 1
+					stationPass(build, pass, brainrot, ahead)
+				end
+			end)
+		end
 		if cancelled() then
 			brainrot:Destroy()
 			return

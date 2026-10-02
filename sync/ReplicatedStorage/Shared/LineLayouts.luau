@@ -16,12 +16,34 @@
 	    capsule and knit their parts right into it; then a hook comes along a rail winding
 	    near the ceiling, takes the brainrot out through the capsule's open front and
 	    carries it, swinging, through the stations to the delivery.
+	  * Turntable (the Clay Studio): no belt either. The play-dough presses stand in an
+	    arc behind a big round table and squeeze their parts into the open capsule in its
+	    middle; the brainrot hops out onto the table, which turns in stop-motion clicks,
+	    carrying it round past the stations, and it hops off onto the kiln's step.
 ]]
 
 export type Halo = { At: CFrame, Radius: number }
 
+-- A turntable's table and its clock (line space, angles from -Z (the front) turning
+-- toward -X, so a brainrot rides front, left, back, right).
+export type Table = {
+	Inner: number, -- the turning ring, from the pad (the capsule's glass is at 10)
+	Outer: number,
+	Ride: number, -- where the brainrots ride on it
+	Step: number, -- radians per stop-motion click
+	Period: number, -- seconds per click
+	Click: number, -- seconds the click's own move takes (then it holds still: a frame)
+	HopIn: number, -- seconds out of the capsule onto the table
+	HopOut: number, -- seconds off the table onto the kiln's step
+	Exit: number, -- where it hops off (radians)
+	Landing: Vector3, -- the kiln's step, on the floor under its middle
+	PressRadius: number, -- the presses' heads, from the pad (inside the capsule)
+	PressColumn: number, -- their columns (outside the table)
+	PressMouth: number, -- their mouths, above the floor
+}
+
 export type Layout = {
-	Kind: string, -- "Belt" | "Rail"
+	Kind: string, -- "Belt" | "Rail" | "Turntable"
 	Droppers: { [string]: CFrame }, -- each dropper's spot on the floor, under the mouth its part comes out of
 	Halos: { [string]: Halo }, -- the Dropper Power track's ring of lights round each dropper
 	Stations: { [string]: CFrame }, -- Station1, Station2, Station3 (the zone's special)
@@ -34,6 +56,8 @@ export type Layout = {
 	RideTime: number?, -- seconds from the show to the special (Config/Production's ShipTime if nil)
 	Rail: { Vector3 }?, -- the rail's control points (y: the rail's middle above the floor)
 	Stops: { [string]: number }?, -- Rail: the control point (index) where each thing happens
+	Table: Table?, -- Turntable: the table
+	StationAngles: { [string]: number }?, -- Turntable: where round the table each station works (radians)
 }
 
 export type Curve = {
@@ -158,9 +182,98 @@ local function railLayout(): Layout
 	return layout
 end
 
+-- The stop-motion turntable (Clay Studio) -----------------------------------------
+
+-- The table turns all the time, a click at a time (the same clock on every line and
+-- for every brainrot riding it): a brainrot that lands on it at angle a rides at
+-- a + Angle(now) - Angle(when it landed). It lands where it has to so that it reaches
+-- the exit exactly as its ride time runs out (Production.RideTime), so payouts stay in
+-- step with the server.
+local TABLE: Table = {
+	Inner = 10.8,
+	Outer = 14.8,
+	Ride = 12.8,
+	Step = math.rad(18),
+	Period = 0.26,
+	Click = 0.08,
+	HopIn = 0.5,
+	HopOut = 0.45,
+	Exit = math.rad(315),
+	Landing = Vector3.new(11.6, 0, -17.6),
+	PressRadius = 6.5,
+	PressColumn = 17.6,
+	PressMouth = 15.4,
+}
+LineLayouts.TableSettings = TABLE
+
+-- How far the table has turned at `t` (seconds, os.clock), in radians: whole clicks,
+-- each a quick move that then holds still.
+function LineLayouts.TableAngle(t: number): number
+	local clicks = math.floor(t / TABLE.Period)
+	local into = math.clamp((t - clicks * TABLE.Period) / TABLE.Click, 0, 1)
+	return TABLE.Step * (clicks + 1 - (1 - into) * (1 - into))
+end
+
+-- The spot `radius` out from the pad at `angle` round the table (line space, on the
+-- floor): its -Z faces out.
+function LineLayouts.TableSpot(angle: number, radius: number): CFrame
+	return CFrame.Angles(0, angle, 0) * CFrame.new(0, 0, -radius)
+end
+
+-- The same spot turned so its -X faces out (a machine beside the table, built like a
+-- station beside a belt: it stands on its -X side and works toward +X).
+local function besideTable(angle: number, radius: number): CFrame
+	return LineLayouts.TableSpot(angle, radius) * CFrame.Angles(0, -math.pi / 2, 0)
+end
+
+local TABLE_PRESS_ANGLES = { Legs = 145, Body = 172, Arms = 199, Head = 226 } -- degrees: the back, left to right from the front
+
+local function turntableLayout(): Layout
+	local stationAngles = { Station1 = math.rad(55), Station2 = math.rad(255) }
+	local landing = TABLE.Landing
+	local layout: Layout = {
+		Kind = "Turntable",
+		Droppers = {},
+		Halos = {},
+		Stations = {
+			Station1 = besideTable(stationAngles.Station1, TABLE.Ride),
+			Station2 = besideTable(stationAngles.Station2, TABLE.Ride),
+			-- the Stop-Motion Camera on its tripod, out front, aimed at the kiln's step
+			Station3 = CFrame.lookAt(Vector3.new(1.5, 0, -24), Vector3.new(landing.X, 0, landing.Z)),
+		},
+		-- the kiln, its door toward its step and the table
+		Ship = CFrame.lookAt(Vector3.new(17, 0, -24.5), Vector3.new(17, 0, -24.5) * 2 - landing),
+		ShipRadius = 7.4,
+		Buttons = {
+			Line = Vector3.new(0, 0, -34),
+			Speed1 = Vector3.new(20, 0, -2),
+			Speed2 = Vector3.new(20, 0, -2),
+			Station1 = Vector3.new(20, 0, -8),
+			Station2 = Vector3.new(20, 0, -14),
+			Station3 = Vector3.new(-8, 0, -33),
+		},
+		Tablet = Vector3.new(-7, 0, -24),
+		TabletFacing = Vector3.new(0.35, 0, -1).Unit,
+		ShowGap = 1.5,
+		RideTime = TABLE.HopIn + TABLE.Exit / TABLE.Step * TABLE.Period + TABLE.HopOut,
+		Table = TABLE,
+		StationAngles = stationAngles,
+	}
+	for partType, degrees in TABLE_PRESS_ANGLES do
+		local head = besideTable(math.rad(degrees), TABLE.PressRadius)
+		layout.Droppers[partType] = head
+		layout.Halos[partType] = { At = head + Vector3.new(0, TABLE.PressMouth - 0.4, 0), Radius = 2.4 }
+	end
+	for index, partType in { "Legs", "Body", "Arms", "Head" } do
+		layout.Buttons[partType] = Vector3.new(20, 0, 8 + index * 6) -- behind the table, along the path
+	end
+	return layout
+end
+
 local BELT = beltLayout()
 local LAYOUTS: { [string]: Layout } = {
 	PlushieRoom = railLayout(),
+	ClayStudio = turntableLayout(),
 }
 
 -- The layout of `zoneId`'s lines.

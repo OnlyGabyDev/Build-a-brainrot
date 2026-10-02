@@ -36,6 +36,7 @@ local MonetizationManager = require(script.Parent.MonetizationManager)
 local RailBuilder = require(script.Parent.RailBuilder)
 local RoomUpgradeBuilder = require(script.Parent.RoomUpgradeBuilder)
 local StationBuilder = require(script.Parent.StationBuilder)
+local TurntableBuilder = require(script.Parent.TurntableBuilder)
 
 -- Layout ---------------------------------------------------------------------
 -- Plot space: origin on the ground at the plot's center, -Z (front) faces the hub.
@@ -720,14 +721,21 @@ local SMOKE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
 -- with a drum of clay in the part's color; its plunger (PressPlunger) pushes down and
 -- the part is squeezed out of the nozzle underneath (the Dropper, attributes Knitting,
 -- so it grows down out of the mouth like a knitted part, and Press). ProductionVisuals
--- moves the plunger and turns the crank (KnitCrank).
+-- moves the plunger and turns the crank (KnitCrank). Round a turntable (`arc`) the
+-- column stands outside the table and the arm reaches over it and the capsule's glass,
+-- the nozzle over the pad.
 local PRESS_TRAVEL = 2.6 -- how far the plunger pushes down
 
-local function buildClayPress(model: Model, base: CFrame, partType: string, color: Color3)
-	local column = base * CFrame.new(KNIT_X, 0, 0)
-	local armBottom = DECK + KNIT_ARM
+local function buildClayPress(model: Model, base: CFrame, partType: string, color: Color3, arc: boolean?)
+	local table_ = LineLayouts.TableSettings
+	local reach = if arc then table_.PressRadius - table_.PressColumn else KNIT_X
+	local column = base * CFrame.new(reach, 0, 0)
+	local headSize = if arc then 4.2 else KNIT_HEAD
+	local headHeight = if arc then 4 else KNIT_HEAD_HEIGHT
+	local armBottom = if arc then table_.PressMouth + headHeight else DECK + KNIT_ARM
 	local armTop = armBottom + 3
-	makeColumn(model, partType .. "PressFoot", 6.4, 0, 1.4, column, CLAY_DARK_COLOR)
+	local plungerRise = if arc then 2.4 else 4 -- (round a turntable the knob stays under the ceiling)
+	makeColumn(model, partType .. "PressFoot", if arc then 5.4 else 6.4, 0, 1.4, column, CLAY_DARK_COLOR)
 	local body = makeColumn(model, partType .. "PressColumn", KNIT_COLUMN, 1.4, armTop, column, CLAY_COLOR)
 	body.CanCollide = true
 	for _, y in { 2.6, armBottom - 1.6 } do
@@ -736,15 +744,16 @@ local function buildClayPress(model: Model, base: CFrame, partType: string, colo
 	buildBadge(model, partType, column * CFrame.new(0, DECK + 4.6, 0), color, 0.62)
 
 	-- the arm over the belt, a teal stripe along it
-	local armFrom, armTo = KNIT_X - KNIT_COLUMN / 2, KNIT_HEAD / 2
-	local arm = makeDecor(model, partType .. "PressArm", Vector3.new(armTo - armFrom, 3, 4), base * CFrame.new((armFrom + armTo) / 2, armBottom + 1.5, 0), CLAY_COLOR)
-	makeDecor(model, partType .. "PressArmStripe", Vector3.new(armTo - armFrom - 0.2, 0.55, 4.1), arm.CFrame, CLAY_TEAL)
+	local armWidth = if arc then 3.2 else 4
+	local armFrom, armTo = reach - KNIT_COLUMN / 2, headSize / 2
+	local arm = makeDecor(model, partType .. "PressArm", Vector3.new(armTo - armFrom, 3, armWidth), base * CFrame.new((armFrom + armTo) / 2, armBottom + 1.5, 0), CLAY_COLOR)
+	makeDecor(model, partType .. "PressArmStripe", Vector3.new(armTo - armFrom - 0.2, 0.55, armWidth + 0.1), arm.CFrame, CLAY_TEAL)
 
 	-- the press under the arm's end: a drum of clay in a cream frame, the nozzle below
-	local nozzleBottom = armBottom - KNIT_HEAD_HEIGHT
-	makeColumn(model, partType .. "PressFrame", KNIT_HEAD + 0.6, armBottom - 0.6, armBottom, base, CLAY_LIGHT_COLOR)
-	makeColumn(model, partType .. "PressDrum", KNIT_HEAD, nozzleBottom + 1.4, armBottom - 0.6, base, color, Enum.Material.Sand)
-	makeColumn(model, partType .. "PressFrame", KNIT_HEAD + 0.6, nozzleBottom + 1.2, nozzleBottom + 1.8, base, CLAY_LIGHT_COLOR)
+	local nozzleBottom = armBottom - headHeight
+	makeColumn(model, partType .. "PressFrame", headSize + 0.6, armBottom - 0.6, armBottom, base, CLAY_LIGHT_COLOR)
+	makeColumn(model, partType .. "PressDrum", headSize, nozzleBottom + 1.4, armBottom - 0.6, base, color, Enum.Material.Sand)
+	makeColumn(model, partType .. "PressFrame", headSize + 0.6, nozzleBottom + 1.2, nozzleBottom + 1.8, base, CLAY_LIGHT_COLOR)
 	local nozzle = makeColumn(model, partType .. "Dropper", 3, nozzleBottom, nozzleBottom + 1.4, base, CLAY_DARK_COLOR)
 	nozzle:SetAttribute("Knitting", true)
 	nozzle:SetAttribute("Press", true)
@@ -755,9 +764,9 @@ local function buildClayPress(model: Model, base: CFrame, partType: string, colo
 	-- the plunger: a chrome rod down through the arm into the drum, a teal handle on top
 	local plunger = Instance.new("Model")
 	plunger.Name = partType .. "PressPlunger"
-	makeColumn(plunger, partType .. "PressRod", 1, armBottom - 1.2, armTop + 4, base, CHROME_COLOR, Enum.Material.Metal)
-	makeColumn(plunger, partType .. "PressHandle", 3.6, armTop + 4, armTop + 4.9, base, CLAY_TEAL)
-	makeBall(plunger, partType .. "PressKnob", 1.6, base * CFrame.new(0, armTop + 5.5, 0), WHITE)
+	makeColumn(plunger, partType .. "PressRod", 1, armBottom - 1.2, armTop + plungerRise, base, CHROME_COLOR, Enum.Material.Metal)
+	makeColumn(plunger, partType .. "PressHandle", 3.6, armTop + plungerRise, armTop + plungerRise + 0.9, base, CLAY_TEAL)
+	makeBall(plunger, partType .. "PressKnob", 1.6, base * CFrame.new(0, armTop + plungerRise + 1.5, 0), WHITE)
 	plunger.WorldPivot = base * CFrame.new(0, armTop, 0)
 	plunger:SetAttribute("Travel", PRESS_TRAVEL)
 	plunger.Parent = model
@@ -802,7 +811,7 @@ local function buildGlove(parent: Model, name: string, palm: CFrame)
 	glove.Parent = parent
 end
 
-local function buildClayHands(parent: Model, origin: CFrame)
+local function buildClayHands(parent: Model, origin: CFrame, hung: boolean?)
 	local deck = deckOf(origin)
 	local beam = DECK + GANTRY_BOTTOM -- the gantry's underside, above the floor
 	for _, side in { -1, 1 } do
@@ -815,14 +824,20 @@ local function buildClayHands(parent: Model, origin: CFrame)
 		local rod = makePart(parent, name .. "Rod", Vector3.new(0.45, (top - wrist).Magnitude, 0.45), CFrame.new((top + wrist) / 2) * origin.Rotation, CHROME_COLOR, Enum.Material.Metal)
 		rod.CanCollide = false
 	end
-	-- the stop-motion camera on its tripod, by the pad's front-left, looking at it
+	-- the stop-motion camera on its tripod, by the pad's front-left, looking at it (or,
+	-- `hung`, on a post down from the crossbar)
 	local foot = origin * CFrame.new(-10.4, 0, -8)
 	local head = (foot * CFrame.new(0, DECK + 5.5, 0)).Position
-	for index = 0, 2 do
-		local angle = index / 3 * math.pi * 2
-		local toe = (foot * CFrame.new(math.cos(angle) * 1.8, 0, math.sin(angle) * 1.8)).Position
-		local leg = makeDecor(parent, "TripodLeg", Vector3.new(0.3, 0.3, (head - toe).Magnitude), CFrame.lookAt((head + toe) / 2, head), CAMERA_BLACK)
-		leg.CanCollide = false
+	if hung then
+		head = (origin * CFrame.new(-8.2, DECK + 8.4, -1.6)).Position
+		makeColumn(parent, "CameraPost", 0.4, DECK + 9.4, beam, origin * CFrame.new(-8.2, 0, -1.6), CHROME_COLOR, Enum.Material.Metal)
+	else
+		for index = 0, 2 do
+			local angle = index / 3 * math.pi * 2
+			local toe = (foot * CFrame.new(math.cos(angle) * 1.8, 0, math.sin(angle) * 1.8)).Position
+			local leg = makeDecor(parent, "TripodLeg", Vector3.new(0.3, 0.3, (head - toe).Magnitude), CFrame.lookAt((head + toe) / 2, head), CAMERA_BLACK)
+			leg.CanCollide = false
+		end
 	end
 	local aim = CFrame.lookAt(head + Vector3.new(0, 1.2, 0), (deckOf(origin) * CFrame.new(0, 3, 0)).Position)
 	makeDecor(parent, "ClayCamera", Vector3.new(2.6, 2, 2.2), aim, CAMERA_BLACK)
@@ -1171,18 +1186,21 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		local colors = GANTRY_COLORS[item.Zone] or GANTRY_COLORS.ToyWorkshop
 		local layout = LineLayouts.For(item.Zone)
 		local rail = layout.Kind == "Rail"
+		local turntable = layout.Kind == "Turntable"
 		model:SetAttribute("Origin", origin) -- line space in the world, for ProductionVisuals
 		buildTablet(model, origin, item, TycoonItems.LinesById[item.LineId].Index, layout)
 		if rail then
 			RailBuilder.BuildLine(model, origin, layout) -- a drum in the capsule, the rail overhead
+		elseif turntable then
+			TurntableBuilder.BuildLine(model, origin) -- a pad in the capsule, the table round it
 		else
 			buildConveyor(model, origin, colors)
 		end
-		buildGantry(model, origin, colors, rail)
+		buildGantry(model, origin, colors, rail or turntable)
 		if item.Zone == "PlushieRoom" then
 			buildSewingMachine(model, origin)
 		elseif item.Zone == "ClayStudio" then
-			buildClayHands(model, origin)
+			buildClayHands(model, origin, turntable)
 		elseif item.Zone == "VinylCollectibles" then
 			buildSuctionArm(model, origin)
 			buildSprayRobot(model, origin, -1)
@@ -1214,7 +1232,7 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		if item.Zone == "PlushieRoom" then
 			buildKnittingMachine(model, base, partType, PART_COLORS[partType], layout.Kind == "Rail")
 		elseif item.Zone == "ClayStudio" then
-			buildClayPress(model, base, partType, PART_COLORS[partType])
+			buildClayPress(model, base, partType, PART_COLORS[partType], layout.Kind == "Turntable")
 		elseif item.Zone == "VinylCollectibles" then
 			buildGacha(model, base, partType, PART_COLORS[partType])
 		else
@@ -1228,6 +1246,9 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		if layout.Kind == "Rail" then
 			RailBuilder.BuildSpeed(model, origin, layout, item)
 			return
+		elseif layout.Kind == "Turntable" then
+			TurntableBuilder.BuildSpeed(model, origin, item)
+			return
 		end
 		local length = BELT_TO - BELT_FROM - 2
 		makePart(model, item.Key, Vector3.new(0.8, 0.1, length), origin * CFrame.new(SPEED_X[item.Key], DECK + 0.05, (BELT_TO + BELT_FROM) / 2), Color3.fromRGB(255, 230, 60), Enum.Material.Neon)
@@ -1240,6 +1261,10 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		local spot = origin * layout.Stations[item.Key]
 		if layout.Kind == "Rail" then
 			RailBuilder.BuildStation(model, spot, item)
+		elseif layout.Kind == "Turntable" and item.Key == "Station3" then
+			TurntableBuilder.BuildCamera(model, spot, item)
+		elseif layout.Kind == "Turntable" then
+			StationBuilder.Build(model, spot, item, DECK, 6.5) -- closer in: the table is narrower than a belt's frame
 		elseif item.Key == "Station3" then
 			if item.Zone == "ClayStudio" then
 				buildStopMotionCamera(model, spot, item.Name)
@@ -1433,6 +1458,9 @@ local function buildTrackLook(model: Model, plot: Plot, item: TycoonItems.Item)
 	elseif item.Key == "Belt" and layout.Kind == "Rail" then
 		local tier = trackTier(level)
 		RailBuilder.BuildTrackLook(model, line, origin, layout, level, { Tier = tier, Color = TRACK_TIER_COLORS[tier], Gold = TRACK_GOLD, Bulb = trackBulb, Sparkles = trackSparkles })
+	elseif item.Key == "Belt" and layout.Kind == "Turntable" then
+		local tier = trackTier(level)
+		TurntableBuilder.BuildTrackLook(model, line, origin, level, { Tier = tier, Color = TRACK_TIER_COLORS[tier], Gold = TRACK_GOLD, Bulb = trackBulb, Sparkles = trackSparkles })
 	elseif item.Key == "Belt" then
 		buildBeltLook(model, line, origin, level)
 	elseif item.Key == "Upgraders" then

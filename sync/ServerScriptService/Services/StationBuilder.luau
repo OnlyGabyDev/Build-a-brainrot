@@ -435,10 +435,14 @@ local BUILDERS: { [string]: { [string]: Builder } } = {
 }
 
 -- Builds `item` (a Station1 or Station2) into its line's `model`, at `spot` (on the
--- floor at the belt's middle) on a belt whose top is `deck` above the floor.
-function StationBuilder.Build(model: Model, spot: CFrame, item: TycoonItems.Item, deck: number)
+-- floor at the belt's middle) on a belt whose top is `deck` above the floor. `reach`:
+-- the machine's middle this far from `spot` (out on its -X side) instead of a belt's
+-- -STATION_X (a turntable's ride is narrower than a belt's frame).
+function StationBuilder.Build(model: Model, spot: CFrame, item: TycoonItems.Item, deck: number, reach: number?)
 	local builders = BUILDERS[item.Zone] or BUILDERS.ToyWorkshop
-	builders[item.Key](model, spot, item, (spot * CFrame.new(0, deck + 4.5, 0)).Position)
+	local target = (spot * CFrame.new(0, deck + 4.5, 0)).Position
+	local at = if reach then spot * CFrame.new(-reach - STATION_X, 0, 0) else spot
+	builders[item.Key](model, at, item, target)
 end
 
 return StationBuilder
