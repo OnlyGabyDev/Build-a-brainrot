@@ -2,10 +2,10 @@
 	RoomDecor
 	Themed props inside the factory's rooms (GDD §10), so every room is lovely on its
 	own, before any upgrade: the playable rooms (Toy Workshop, Plushie room) get a neon
-	sign over the door, flags or pom-poms round the walls, rugs down the walkways between
-	the lines with lamps and turning mobiles over them, shelves of toys or plushies,
-	posters, a clock, a quilt, giant toys; the locked rooms show their theme through
-	their glass doors.
+	sign over the door, flags or string lights round the walls, race tracks or catwalks
+	down the walkways between the lines with lamps over them, shelves of toys or racks of
+	thread and fabric, posters, a clock, a case of brainrot plushies, giant toys and
+	sewing machines; the locked rooms show their theme through their glass doors.
 
 	Room space: `floor` is the room's floor center, -Z toward the building's front (the
 	hub). Rooms are 140 × 120. The lines run along Z at X = -42, 0 and 42 (from Z = -38
@@ -17,6 +17,10 @@
 ]]
 
 local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local BrainrotModels = require(ReplicatedStorage.Shared.BrainrotModels)
+local Brainrots = require(ReplicatedStorage.Shared.Config.Brainrots)
 
 local RoomDecor = {}
 
@@ -165,22 +169,6 @@ local function bunting(parent: Instance, from: Vector3, to: Vector3, colors: { C
 	end
 end
 
--- A sagging string of fluffy pom-poms from `from` to `to` (world positions).
-local function pomGarland(parent: Instance, from: Vector3, to: Vector3, colors: { Color3 }, sag: number)
-	local middle = (from + to) / 2 - Vector3.new(0, sag, 0)
-	local index = 0
-	for _, span in { { from, middle }, { middle, to } } do
-		local a, b = span[1], span[2]
-		rod(parent, "GarlandLine", 0.12, a, b, WHITE).CastShadow = false
-		local count = math.max(1, math.floor((b - a).Magnitude / 2.8))
-		for k = 1, count do
-			index += 1
-			local pom = ball(parent, "PomPom", 1.2 + (index % 3) * 0.2, CFrame.new(a:Lerp(b, (k - 0.5) / count) - Vector3.new(0, 0.5, 0)), colors[(index - 1) % #colors + 1], Enum.Material.Fabric)
-			pom.CastShadow = false
-		end
-	end
-end
-
 -- A bunch of balloons on strings, tied at `at`, bobbing (Atmosphere bobs Models
 -- tagged "Bobbing"). `seed` picks their colors.
 local function balloons(parent: Instance, at: CFrame, count: number, seed: number, colors: { Color3 })
@@ -225,13 +213,6 @@ local function hangingSign(parent: Instance, at: CFrame, drop: number, size: Vec
 		makeDecor(parent, "NeonTube", Vector3.new(0.35, size.Y + 0.6, 0.6), middle * CFrame.new(x * (size.X / 2 + 0.15), 0, 0), tube, Enum.Material.Neon)
 		local top = (middle * CFrame.new(x * size.X * 0.35, size.Y / 2 + 0.3, 0)).Position
 		rod(parent, "SignChain", 0.15, top, (at * CFrame.new(x * size.X * 0.35, 0, 0)).Position, Color3.fromRGB(190, 195, 210), Enum.Material.Metal)
-	end
-end
-
--- A flat star (`at`: its middle, facing along its Z), `size` across.
-local function star(parent: Instance, at: CFrame, size: number, color: Color3, material: Enum.Material?)
-	for _, turn in { 0, math.pi / 4 } do
-		makeDecor(parent, "Star", Vector3.new(size * 0.7, size * 0.7, size * 0.25), at * CFrame.Angles(0, 0, turn), color, material)
 	end
 end
 
@@ -307,31 +288,6 @@ local function emojiOn(part: BasePart, face: Enum.NormalId, emoji: string)
 	text.TextScaled = true
 	text.Text = emoji
 	text.Parent = gui
-end
-
--- A see-through holder for an emoji standing just off a wall (`face`: on the wall).
-local function wallEmoji(parent: Instance, face: CFrame, size: number, emoji: string)
-	local holder = makeDecor(parent, "Picture", Vector3.new(size, size, 0.1), face, WHITE)
-	holder.Transparency = 1
-	emojiOn(holder, Enum.NormalId.Front, emoji)
-end
-
--- A teddy bear sitting on `at` (-Z its front), `scale` times shelf size.
-local function teddy(parent: Instance, at: CFrame, color: Color3, scale: number)
-	local s = scale
-	local light = color:Lerp(WHITE, 0.45)
-	local dark = Color3.fromRGB(55, 40, 50)
-	ball(parent, "TeddyBody", 2.2 * s, at * CFrame.new(0, 1.1 * s, 0), color, Enum.Material.Fabric)
-	ball(parent, "TeddyBelly", 1.4 * s, at * CFrame.new(0, 1 * s, -0.5 * s), light, Enum.Material.Fabric)
-	ball(parent, "TeddyHead", 1.8 * s, at * CFrame.new(0, 2.65 * s, -0.1 * s), color, Enum.Material.Fabric)
-	for _, x in { -1, 1 } do
-		ball(parent, "TeddyEar", 0.7 * s, at * CFrame.new(x * 0.7 * s, 3.45 * s, -0.1 * s), color, Enum.Material.Fabric)
-		ball(parent, "TeddyPaw", 0.8 * s, at * CFrame.new(x * 1 * s, 1.5 * s, -0.4 * s), color, Enum.Material.Fabric)
-		ball(parent, "TeddyFoot", 0.85 * s, at * CFrame.new(x * 0.6 * s, 0.4 * s, -0.75 * s), light, Enum.Material.Fabric)
-		ball(parent, "TeddyEye", 0.25 * s, at * CFrame.new(x * 0.35 * s, 2.85 * s, -0.9 * s), dark)
-	end
-	ball(parent, "TeddySnout", 0.75 * s, at * CFrame.new(0, 2.5 * s, -0.85 * s), light, Enum.Material.Fabric)
-	ball(parent, "TeddyNose", 0.28 * s, at * CFrame.new(0, 2.62 * s, -1.2 * s), dark)
 end
 
 -- Toy Workshop -------------------------------------------------------------------------
@@ -636,228 +592,352 @@ local function buildToy(parent: Instance, floor: CFrame)
 end
 
 -- Plushie Sewing Room ---------------------------------------------------------------
+-- A plush factory, not a nursery: glossy magenta and violet with gold and chrome, neon
+-- everywhere, industrial sewing kit (thread cone racks, fabric bolts, a stuffing silo,
+-- a giant sewing machine), dress forms in brainrot knits, and a lit glass case of the
+-- best-selling brainrot plushies (real brainrots, knitted).
 
 local PLUSH_COLORS = {
-	Color3.fromRGB(255, 130, 190), -- pink
-	Color3.fromRGB(170, 135, 255), -- lavender
-	Color3.fromRGB(120, 205, 255), -- baby blue
-	Color3.fromRGB(255, 205, 110), -- butter
-	Color3.fromRGB(125, 220, 170), -- mint
+	Color3.fromRGB(255, 70, 160), -- magenta
+	Color3.fromRGB(140, 90, 255), -- violet
+	Color3.fromRGB(40, 200, 255), -- cyan
+	Color3.fromRGB(255, 200, 50), -- yellow
+	Color3.fromRGB(60, 220, 140), -- green
+	Color3.fromRGB(255, 120, 60), -- orange
 }
+local PLUSH_GOLD = Color3.fromRGB(255, 190, 40) -- solid gold: Metal, no reflectance
+local CHROME = Color3.fromRGB(215, 220, 235)
+local PLUM = Color3.fromRGB(70, 35, 105)
+local KNIT = "PlushKnit" -- the room's MaterialVariant (tools/SetupMaterials)
 
-local function yarnBall(parent: Instance, at: CFrame, diameter: number, color: Color3)
-	ball(parent, "YarnBall", diameter, at * CFrame.new(0, diameter / 2, 0), color, Enum.Material.Fabric)
-	-- a few wraps around it, and a strand trailing on the floor
-	for _, angle in { -0.5, 0.2, 0.9 } do
-		local wrap = roller(parent, "YarnWrap", diameter + 0.2, 0.4, at * CFrame.new(0, diameter / 2, 0) * CFrame.Angles(0, angle, math.rad(70)), color:Lerp(WHITE, 0.25))
-		wrap.Material = Enum.Material.Fabric
+-- A sagging string of bulbs from `from` to `to` (world positions) whose lights chase
+-- along it (Atmosphere's Marquee). `start`: the index before its first bulb, so strings
+-- that meet keep the chase running; returns its last.
+local function stringLights(parent: Instance, from: Vector3, to: Vector3, sag: number, start: number): number
+	local middle = (from + to) / 2 - Vector3.new(0, sag, 0)
+	local index = start
+	for _, span in { { from, middle }, { middle, to } } do
+		local a, b = span[1], span[2]
+		rod(parent, "LightWire", 0.12, a, b, PLUM).CastShadow = false
+		local count = math.max(1, math.floor((b - a).Magnitude / 2.6))
+		for k = 1, count do
+			index += 1
+			local bulb = ball(parent, "Bulb", 0.9, CFrame.new(a:Lerp(b, (k - 0.5) / count) - Vector3.new(0, 0.45, 0)), Color3.fromRGB(255, 215, 130), Enum.Material.Neon)
+			bulb.CastShadow = false
+			bulb:SetAttribute("Index", index)
+			CollectionService:AddTag(bulb, "Marquee")
+		end
 	end
-	local strand = roller(parent, "YarnStrand", 0.4, diameter * 1.4, at * CFrame.new(diameter * 0.9, 0.2, diameter * 0.2) * CFrame.Angles(0, 0.4, 0), color)
-	strand.Material = Enum.Material.Fabric
+	return index
 end
 
-local function spool(parent: Instance, at: CFrame, color: Color3)
-	local wood = Color3.fromRGB(225, 180, 125)
-	cylinder(parent, "SpoolEnd", 6, 1, at, wood, Enum.Material.Wood)
-	cylinder(parent, "SpoolThread", 4.6, 5, at * CFrame.new(0, 1, 0), color, Enum.Material.Fabric)
-	cylinder(parent, "SpoolEnd", 6, 1, at * CFrame.new(0, 6, 0), wood, Enum.Material.Wood)
+-- A catwalk down a walkway (centered on `x`, from `fromZ` to `toZ`): a magenta carpet
+-- on a gold edge, white stitches down both sides like a sewing pattern, and chasing
+-- floor lights along it.
+local function runway(parent: Instance, floor: CFrame, x: number, fromZ: number, toZ: number)
+	local length, width = toZ - fromZ, 9
+	local middle = floor * CFrame.new(x, 0, (fromZ + toZ) / 2)
+	makeDecor(parent, "RunwayEdge", Vector3.new(width + 1.2, 0.08, length + 1.2), middle * CFrame.new(0, 0.04, 0), PLUSH_GOLD, Enum.Material.Metal)
+	makeDecor(parent, "Runway", Vector3.new(width, 0.12, length), middle * CFrame.new(0, 0.06, 0), PLUSH_COLORS[1], Enum.Material.Fabric)
+	local stitches = math.floor(length / 3)
+	local lights = math.floor(length / 7)
+	for _, side in { -1, 1 } do
+		for k = 0, stitches - 1 do
+			makeDecor(parent, "RunwayStitch", Vector3.new(0.3, 0.16, 1.4), middle * CFrame.new(side * (width / 2 - 1), 0.07, -length / 2 + (k + 0.5) * length / stitches), WHITE, Enum.Material.Fabric)
+		end
+		for k = 0, lights - 1 do
+			local light = makeDecor(parent, "RunwayLight", Vector3.new(0.2, 0.9, 0.9), middle * CFrame.new(side * (width / 2 + 0.6), 0.1, -length / 2 + (k + 0.5) * length / lights) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(255, 215, 130), Enum.Material.Neon)
+			light.Shape = Enum.PartType.Cylinder
+			light.CastShadow = false
+			light:SetAttribute("Index", k)
+			CollectionService:AddTag(light, "Marquee")
+		end
+	end
 end
 
--- A giant sewing machine on its table, `scale` times human size (`at`: under the
--- table's middle, -Z its front).
+-- A giant thread spool hanging from the ceiling on a chrome rod (`at`: the point on the
+-- ceiling), slowly turning, a ring of light under it.
+local function spoolLamp(parent: Instance, at: CFrame, drop: number, color: Color3)
+	rod(parent, "SpoolHanger", 0.3, at.Position, (at * CFrame.new(0, -drop, 0)).Position, CHROME, Enum.Material.Metal)
+	local model = Instance.new("Model")
+	model.Name = "SpoolLamp"
+	local top = at * CFrame.new(0, -drop, 0)
+	cylinder(model, "SpoolLampEnd", 5.4, 0.6, top * CFrame.new(0, -0.6, 0), CHROME, Enum.Material.Metal)
+	cylinder(model, "SpoolLampThread", 4.2, 3.4, top * CFrame.new(0, -4, 0), color, Enum.Material.Fabric)
+	for _, y in { -3.2, -1.9 } do
+		cylinder(model, "SpoolLampWrap", 4.4, 0.3, top * CFrame.new(0, y, 0), color:Lerp(WHITE, 0.35), Enum.Material.Fabric)
+	end
+	cylinder(model, "SpoolLampEnd", 5.4, 0.6, top * CFrame.new(0, -4.6, 0), CHROME, Enum.Material.Metal)
+	cylinder(model, "SpoolLampGlow", 4.6, 0.2, top * CFrame.new(0, -4.8, 0), Color3.fromRGB(255, 235, 200), Enum.Material.Neon).CastShadow = false
+	spinner(model, parent, top * CFrame.new(0, -2.6, 0) * CFrame.Angles(math.pi / 2, 0, 0), 0.5)
+end
+
+-- A rack of industrial thread cones on a wall (`face`: on the wall at the floor under
+-- its middle, -Z into the room): chrome shelves on a plum board in a gold frame, rows
+-- of tall cones in every color, a neon sign on top.
+local function threadRack(parent: Instance, face: CFrame, columns: number, rows: number)
+	local spacing, rowHeight, bottom = 2.6, 4.2, 8
+	local width, height = columns * spacing + 1.4, rows * rowHeight + 1
+	makeDecor(parent, "RackBoard", Vector3.new(width, height, 0.4), face * CFrame.new(0, bottom + height / 2, -0.2), PLUM)
+	for _, x in { -1, 1 } do
+		makeDecor(parent, "RackFrame", Vector3.new(0.6, height + 0.6, 0.8), face * CFrame.new(x * (width / 2 + 0.3), bottom + height / 2, -0.4), PLUSH_GOLD, Enum.Material.Metal)
+	end
+	for _, y in { bottom - 0.3, bottom + height + 0.3 } do
+		makeDecor(parent, "RackFrame", Vector3.new(width + 1.2, 0.6, 0.8), face * CFrame.new(0, y, -0.4), PLUSH_GOLD, Enum.Material.Metal)
+	end
+	for row = 1, rows do
+		local y = bottom + 0.6 + (row - 1) * rowHeight
+		makeDecor(parent, "RackShelf", Vector3.new(width - 0.4, 0.3, 1.8), face * CFrame.new(0, y, -1.1), CHROME, Enum.Material.Metal)
+		for column = 1, columns do
+			local at = face * CFrame.new(-width / 2 + 0.7 + (column - 0.5) * spacing, y + 0.15, -1.1)
+			local color = PLUSH_COLORS[(column + row * 2) % #PLUSH_COLORS + 1]
+			cylinder(parent, "ConeFoot", 1.7, 0.3, at, WHITE)
+			cylinder(parent, "Cone", 1.9, 1.3, at * CFrame.new(0, 0.3, 0), color, Enum.Material.Fabric)
+			cylinder(parent, "Cone", 1.4, 1.3, at * CFrame.new(0, 1.6, 0), color:Lerp(WHITE, 0.15), Enum.Material.Fabric)
+			cylinder(parent, "ConeTip", 0.7, 0.6, at * CFrame.new(0, 2.9, 0), WHITE)
+		end
+	end
+	neonSign(parent, face * CFrame.new(0, bottom + height + 2.4, 0), Vector2.new(width * 0.6, 2.8), "🧵 THREAD", PLUSH_COLORS[3])
+end
+
+-- A rack of fabric bolts on a wall (`face`: on the wall at the floor under its middle):
+-- chrome cubbies, each bolt's rolled end facing the room, a neon sign on top.
+local function fabricRack(parent: Instance, face: CFrame, columns: number, rows: number)
+	local cell, depth, bottom = 3.4, 4.6, 1
+	local width, height = columns * cell, rows * cell
+	for column = 0, columns do
+		makeDecor(parent, "RackPost", Vector3.new(0.4, height + 0.4, depth), face * CFrame.new(-width / 2 + column * cell, bottom + height / 2, -depth / 2), CHROME, Enum.Material.Metal)
+	end
+	for row = 0, rows do
+		makeDecor(parent, "RackShelf", Vector3.new(width + 0.4, 0.4, depth), face * CFrame.new(0, bottom + row * cell, -depth / 2), if row == 0 or row == rows then PLUSH_GOLD else CHROME, Enum.Material.Metal)
+	end
+	for column = 1, columns do
+		for row = 1, rows do
+			local color = PLUSH_COLORS[(column * 2 + row) % #PLUSH_COLORS + 1]
+			local center = face * CFrame.new(-width / 2 + (column - 0.5) * cell, bottom + (row - 0.5) * cell + 0.15, -depth / 2 - 0.3)
+			local axis = CFrame.Angles(0, math.pi / 2, 0) -- the roll runs out of the wall
+			roller(parent, "FabricBolt", cell - 0.7, depth - 0.4, center * axis, color).Material = Enum.Material.Fabric
+			roller(parent, "BoltStripe", cell - 0.55, 0.4, center * CFrame.new(0, 0, -depth / 2 + 1.2) * axis, color:Lerp(WHITE, 0.5)).Material = Enum.Material.Fabric
+			roller(parent, "BoltCore", 0.8, depth - 0.2, center * axis, PLUM)
+		end
+	end
+	neonSign(parent, face * CFrame.new(0, bottom + height + 2.4, 0), Vector2.new(width * 0.65, 2.8), "✂ FABRIC", PLUSH_COLORS[1])
+end
+
+-- A dress form (`at`: its foot, -Z its front) wearing a chunky knit sweater with a
+-- brainrot on the chest, a measuring tape round its neck.
+local function dressForm(parent: Instance, at: CFrame, color: Color3, emoji: string)
+	cylinder(parent, "FormFoot", 2.8, 0.4, at, CHROME, Enum.Material.Metal)
+	cylinder(parent, "FormPole", 0.45, 4.6, at * CFrame.new(0, 0.4, 0), CHROME, Enum.Material.Metal)
+	local sweater = {
+		cylinder(parent, "FormWaist", 2.6, 1.6, at * CFrame.new(0, 5, 0), color, Enum.Material.Fabric),
+		cylinder(parent, "FormChest", 3.4, 2.8, at * CFrame.new(0, 6.6, 0), color, Enum.Material.Fabric),
+		ball(parent, "FormShoulders", 3.6, at * CFrame.new(0, 9.2, 0), color, Enum.Material.Fabric),
+	}
+	for _, part in sweater do
+		part.MaterialVariant = KNIT
+	end
+	cylinder(parent, "FormNeck", 1.1, 1.4, at * CFrame.new(0, 10.4, 0), Color3.fromRGB(245, 225, 205))
+	ball(parent, "FormCap", 1.2, at * CFrame.new(0, 11.8, 0), PLUSH_GOLD, Enum.Material.Metal)
+	-- the measuring tape, hanging down both sides of its chest
+	for _, x in { -0.9, 0.9 } do
+		rod(parent, "FormTape", 0.3, (at * CFrame.new(x * 0.6, 10.6, -0.5)).Position, (at * CFrame.new(x, 6.6, -1.7)).Position, Color3.fromRGB(255, 220, 60))
+	end
+	local logo = makeDecor(parent, "FormLogo", Vector3.new(2.2, 2.2, 0.1), at * CFrame.new(0, 7.2, -1.76), WHITE)
+	logo.Transparency = 1
+	emojiOn(logo, Enum.NormalId.Front, emoji)
+end
+
+-- A stuffing silo (`at`: its foot): a tall glass tank on a chrome base with fluff
+-- tumbling round inside (a Spinner), a pipe up into the ceiling, and a pressure gauge.
+local function stuffingSilo(parent: Instance, at: CFrame, height: number)
+	cylinder(parent, "SiloBase", 8.4, 1.6, at, CHROME, Enum.Material.Metal)
+	cylinder(parent, "SiloBand", 8.6, 0.5, at * CFrame.new(0, 1.2, 0), PLUSH_COLORS[1])
+	local glass = cylinder(parent, "SiloTank", 7, height, at * CFrame.new(0, 1.6, 0), Color3.fromRGB(215, 235, 255), Enum.Material.Glass)
+	glass.Transparency = 0.6
+	for _, y in { 1.6 + height / 3, 1.6 + height * 2 / 3 } do
+		cylinder(parent, "SiloRing", 7.3, 0.4, at * CFrame.new(0, y, 0), PLUSH_GOLD, Enum.Material.Metal)
+	end
+	cylinder(parent, "SiloCap", 7.6, 1.2, at * CFrame.new(0, 1.6 + height, 0), CHROME, Enum.Material.Metal)
+	local capTop = 2.8 + height
+	cylinder(parent, "SiloPipe", 1.5, 28 - capTop, at * CFrame.new(0, capTop, 0), CHROME, Enum.Material.Metal)
+	-- the fluff inside, tumbling round
+	local fluff = Instance.new("Model")
+	fluff.Name = "SiloFluff"
+	local count = math.floor(height * 1.4)
+	for index = 1, count do
+		local angle = index * 2.4
+		local radius = 1.2 + (index % 3) * 0.7
+		local y = 2.4 + (index - 0.5) / count * (height - 1.6)
+		ball(fluff, "Fluff", 1.6 + (index % 4) * 0.3, at * CFrame.new(math.cos(angle) * radius, y, math.sin(angle) * radius), if index % 3 == 0 then Color3.fromRGB(255, 205, 230) else WHITE, Enum.Material.Fabric).CastShadow = false
+	end
+	spinner(fluff, parent, at * CFrame.new(0, 1.6 + height / 2, 0) * CFrame.Angles(math.pi / 2, 0, 0), 0.9)
+	-- a pressure gauge on the base, facing the room (-Z)
+	local gauge = at * CFrame.new(0, 3.4, -3.9)
+	local dial = makeDecor(parent, "SiloGauge", Vector3.new(0.4, 2, 2), gauge * CFrame.Angles(0, math.pi / 2, 0), WHITE)
+	dial.Shape = Enum.PartType.Cylinder
+	makeDecor(parent, "SiloGaugeNeedle", Vector3.new(0.15, 0.8, 0.1), gauge * CFrame.new(0.2, 0.2, -0.25) * CFrame.Angles(0, 0, -0.6), Color3.fromRGB(255, 60, 80), Enum.Material.Neon)
+end
+
+-- The BEST SELLERS case on a wall (`face`: on the wall at the floor under its middle,
+-- -Z into the room): a gold-framed glass cabinet lit inside, its shelves of knitted
+-- brainrot plushies (the real ones, in the room's edition), a neon sign on top.
+local BEST_SELLERS = {
+	"TralaleroTralala",
+	"TungTungTungSahur",
+	"BallerinaCappuccina",
+	"ChimpanziniBananini",
+	"BombardiroCrocodilo",
+	"CappuccinoAssassino",
+}
+local SHOWCASE_SCALE = 0.42
+
+local function plushie(id: string, root: CFrame): Model
+	local brainrot = Instance.new("Model")
+	brainrot.Name = "Plushie"
+	for _, partType in Brainrots.PartTypes do
+		local part = BrainrotModels.CreatePart(id, partType, "PlushieRoom")
+		for _, child in part:GetChildren() do
+			child.Parent = brainrot
+		end
+		part:Destroy()
+	end
+	brainrot.WorldPivot = CFrame.identity
+	brainrot:ScaleTo(SHOWCASE_SCALE)
+	brainrot:PivotTo(root)
+	return brainrot
+end
+
+local function bestSellers(parent: Instance, face: CFrame, width: number)
+	local depth, bottom, height = 3.4, 8.5, 12.5
+	local shelves = { bottom + 0.5, bottom + 6.6 }
+	makeDecor(parent, "CaseBack", Vector3.new(width, height, 0.3), face * CFrame.new(0, bottom + height / 2, -0.2), PLUM)
+	for _, x in { -1, 1 } do
+		makeDecor(parent, "CaseSide", Vector3.new(0.6, height + 1.2, depth + 0.4), face * CFrame.new(x * (width / 2 + 0.3), bottom + height / 2, -depth / 2), PLUSH_GOLD, Enum.Material.Metal)
+	end
+	for _, y in { bottom - 0.3, bottom + height + 0.3 } do
+		makeDecor(parent, "CaseRail", Vector3.new(width + 1.2, 0.6, depth + 0.4), face * CFrame.new(0, y, -depth / 2), PLUSH_GOLD, Enum.Material.Metal)
+	end
+	local glass = makeDecor(parent, "CaseGlass", Vector3.new(width, height, 0.15), face * CFrame.new(0, bottom + height / 2, -depth), Color3.fromRGB(220, 240, 255), Enum.Material.Glass)
+	glass.Transparency = 0.8
+	local strip = makeDecor(parent, "CaseLight", Vector3.new(width - 1, 0.2, 0.6), face * CFrame.new(0, bottom + height - 0.3, -depth / 2), Color3.fromRGB(255, 240, 210), Enum.Material.Neon)
+	local light = Instance.new("SurfaceLight")
+	light.Face = Enum.NormalId.Bottom
+	light.Angle = 120
+	light.Range = 14
+	light.Brightness = 1.4
+	light.Color = Color3.fromRGB(255, 235, 210)
+	light.Parent = strip
+	local perShelf = math.ceil(#BEST_SELLERS / #shelves)
+	for index, id in BEST_SELLERS do
+		local shelf = math.ceil(index / perShelf)
+		local slot = (index - 1) % perShelf
+		local y = shelves[shelf]
+		if shelf > 1 then
+			makeDecor(parent, "CaseShelf", Vector3.new(width, 0.3, depth - 0.2), face * CFrame.new(0, y - 0.15, -depth / 2), CHROME, Enum.Material.Metal)
+		end
+		local x = -width / 2 + (slot + 0.5) * width / perShelf
+		local doll = plushie(id, face * CFrame.new(x, y, -depth / 2))
+		doll.Parent = parent
+	end
+	neonSign(parent, face * CFrame.new(0, bottom + height + 2.6, 0), Vector2.new(width * 0.75, 3), "🏆 BEST SELLERS 🏆", PLUSH_GOLD)
+end
+
+-- A giant industrial sewing machine on its table, `scale` times human size (`at`: under
+-- the table's middle, -Z its front): glossy magenta with chrome and gold, a spool on
+-- top, a hand wheel, a light under its arm and a glowing badge.
 local function sewingMachine(parent: Instance, at: CFrame, scale: number)
-	local body, trim = Color3.fromRGB(240, 105, 170), Color3.fromRGB(255, 240, 248)
-	local function box(name: string, size: Vector3, offset: Vector3, color: Color3, material: Enum.Material?)
-		makeDecor(parent, name, size * scale, at * CFrame.new(offset * scale), color, material)
+	local body, trim = PLUSH_COLORS[1], CHROME
+	local function box(name: string, size: Vector3, offset: Vector3, color: Color3, material: Enum.Material?): Part
+		return makeDecor(parent, name, size * scale, at * CFrame.new(offset * scale), color, material)
 	end
-	box("SewingTable", Vector3.new(20, 1, 8), Vector3.new(0, 5, 0), Color3.fromRGB(215, 160, 110), Enum.Material.Wood)
+	box("SewingTable", Vector3.new(20, 1, 8), Vector3.new(0, 5, 0), PLUM)
+	box("SewingTableEdge", Vector3.new(20.4, 0.4, 8.4), Vector3.new(0, 5.3, 0), PLUSH_GOLD, Enum.Material.Metal)
 	for _, x in { -9, 9 } do
-		box("SewingLeg", Vector3.new(1, 4.5, 7), Vector3.new(x, 2.25, 0), Color3.fromRGB(150, 110, 220))
+		box("SewingLeg", Vector3.new(1, 4.5, 7), Vector3.new(x, 2.25, 0), CHROME, Enum.Material.Metal)
 	end
 	box("SewingBase", Vector3.new(16, 2, 6), Vector3.new(0, 6.5, 0), body)
 	box("SewingPillar", Vector3.new(3.5, 7, 5), Vector3.new(6, 11, 0), body)
 	box("SewingArm", Vector3.new(15, 3, 4.6), Vector3.new(-0.5, 15.5, 0), body)
 	box("SewingHead", Vector3.new(3, 4, 4), Vector3.new(-6.5, 13.5, 0), body)
-	box("SewingNeedle", Vector3.new(0.3, 3, 0.3), Vector3.new(-6.5, 10, 0), Color3.fromRGB(200, 205, 215), Enum.Material.Metal)
-	box("SewingStripe", Vector3.new(15.2, 0.6, 4.8), Vector3.new(-0.5, 15.5, 0), trim)
-	roller(parent, "SewingWheel", 5 * scale, scale, at * CFrame.new(8.7 * scale, 14 * scale, 0), trim)
-	-- a heart on its base, facing the room
-	local badge = makeDecor(parent, "SewingBadge", Vector3.new(3, 3, 0.2) * scale, at * CFrame.new(0, 6.5 * scale, -3.1 * scale), WHITE)
-	badge.Transparency = 1
-	emojiOn(badge, Enum.NormalId.Front, "💖")
-	spool(parent, at * CFrame.new(-1 * scale, 17 * scale, 0), Color3.fromRGB(120, 200, 255))
+	box("SewingNeedle", Vector3.new(0.3, 3, 0.3), Vector3.new(-6.5, 10, 0), CHROME, Enum.Material.Metal)
+	box("SewingStripe", Vector3.new(15.2, 0.6, 4.8), Vector3.new(-0.5, 15.5, 0), PLUSH_GOLD, Enum.Material.Metal)
+	box("SewingLight", Vector3.new(2, 0.2, 2), Vector3.new(-6.5, 11.4, 0), Color3.fromRGB(255, 240, 210), Enum.Material.Neon).CastShadow = false
+	roller(parent, "SewingWheel", 5 * scale, scale, at * CFrame.new(8.7 * scale, 14 * scale, 0), trim).Material = Enum.Material.Metal
+	-- the badge on its base, facing the room
+	local badge = box("SewingBadge", Vector3.new(9, 1.4, 0.2), Vector3.new(0, 6.5, -3.1), PLUM)
+	label(badge, Enum.NormalId.Front, "ROT-O-MATIC 3000", PLUSH_GOLD:Lerp(WHITE, 0.4), PLUSH_GOLD, 30)
+	-- its spool on top, and the thread down to the needle
+	cylinder(parent, "SewingSpoolEnd", 3 * scale, 0.5 * scale, at * CFrame.new(-1 * scale, 17 * scale, 0), CHROME, Enum.Material.Metal)
+	cylinder(parent, "SewingSpool", 2.2 * scale, 2.6 * scale, at * CFrame.new(-1 * scale, 17.5 * scale, 0), PLUSH_COLORS[3], Enum.Material.Fabric)
+	cylinder(parent, "SewingSpoolEnd", 3 * scale, 0.5 * scale, at * CFrame.new(-1 * scale, 20.1 * scale, 0), CHROME, Enum.Material.Metal)
+	-- fabric running under the needle
+	makeDecor(parent, "SewingCloth", Vector3.new(10, 0.15, 5) * scale, at * CFrame.new(-6 * scale, 7.6 * scale, 0) * CFrame.Angles(0, 0.15, 0), PLUSH_COLORS[2], Enum.Material.Fabric).MaterialVariant = KNIT
 end
 
-local function pinCushion(parent: Instance, at: CFrame)
-	cylinder(parent, "CushionBase", 5, 1.5, at, Color3.fromRGB(255, 220, 120))
-	ball(parent, "Cushion", 6, at * CFrame.new(0, 3.6, 0), Color3.fromRGB(255, 90, 110), Enum.Material.Fabric)
-	for index, color in { Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 230, 90), Color3.fromRGB(150, 230, 120) } do
-		local tilt = CFrame.Angles(math.rad(25), index * 2.1, 0)
-		local pin = at * CFrame.new(0, 4, 0) * tilt
-		makeDecor(parent, "Pin", Vector3.new(0.25, 4.5, 0.25), pin * CFrame.new(0, 2.6, 0), Color3.fromRGB(210, 210, 220), Enum.Material.Metal)
-		ball(parent, "PinHead", 1, pin * CFrame.new(0, 4.9, 0), color)
+-- A giant spool of thread on the floor (`at`: its foot), chrome ends.
+local function floorSpool(parent: Instance, at: CFrame, color: Color3)
+	cylinder(parent, "SpoolEnd", 6, 1, at, CHROME, Enum.Material.Metal)
+	cylinder(parent, "SpoolThread", 4.6, 5, at * CFrame.new(0, 1, 0), color, Enum.Material.Fabric)
+	for _, y in { 2.4, 4.2 } do
+		cylinder(parent, "SpoolWrap", 4.8, 0.35, at * CFrame.new(0, y, 0), color:Lerp(WHITE, 0.35), Enum.Material.Fabric)
 	end
-end
-
-local SHELF_PLUSHIES: { (parent: Instance, at: CFrame, index: number) -> () } = {
-	function(parent, at)
-		teddy(parent, at, Color3.fromRGB(205, 150, 105), 1)
-	end,
-	function(parent, at, index)
-		miniPackage(parent, at, PLUSH_COLORS[index % #PLUSH_COLORS + 1])
-	end,
-	function(parent, at, index)
-		yarnBall(parent, at * CFrame.new(-0.6, 0, 0), 2, PLUSH_COLORS[index % #PLUSH_COLORS + 1])
-	end,
-	function(parent, at, index)
-		teddy(parent, at, PLUSH_COLORS[index % #PLUSH_COLORS + 1], 0.9)
-	end,
-	function(parent, at, index)
-		miniPackage(parent, at, PLUSH_COLORS[(index + 2) % #PLUSH_COLORS + 1])
-	end,
-}
-
-local function shelfPlushie(parent: Instance, at: CFrame, index: number)
-	SHELF_PLUSHIES[(index - 1) % #SHELF_PLUSHIES + 1](parent, at, index)
-end
-
--- An embroidery hoop on a wall (`face`: its middle, -Z into the room): a wooden ring
--- round a disc of fabric with a stitched picture.
-local function hoop(parent: Instance, face: CFrame, diameter: number, cloth: Color3, emoji: string)
-	local ring = makeDecor(parent, "HoopRing", Vector3.new(0.6, diameter, diameter), face * CFrame.new(0, 0, -0.3) * CFrame.Angles(0, math.pi / 2, 0), WOOD, Enum.Material.Wood)
-	ring.Shape = Enum.PartType.Cylinder
-	local fabric = makeDecor(parent, "HoopCloth", Vector3.new(0.7, diameter - 0.9, diameter - 0.9), face * CFrame.new(0, 0, -0.3) * CFrame.Angles(0, math.pi / 2, 0), cloth, Enum.Material.Fabric)
-	fabric.Shape = Enum.PartType.Cylinder
-	makeDecor(parent, "HoopClasp", Vector3.new(1, 1.2, 0.8), face * CFrame.new(0, diameter / 2 + 0.3, -0.3), Color3.fromRGB(205, 210, 220), Enum.Material.Metal)
-	wallEmoji(parent, face * CFrame.new(0, 0, -0.75), diameter * 0.6, emoji)
-end
-
--- A giant sewing button on a wall (`face`: its middle, -Z into the room).
-local function sewingButton(parent: Instance, face: CFrame, diameter: number, color: Color3)
-	local function disc(name: string, size: number, depth: number, out: number, at: CFrame, tint: Color3)
-		local part = makeDecor(parent, name, Vector3.new(depth, size, size), at * CFrame.new(0, 0, -out - depth / 2) * CFrame.Angles(0, math.pi / 2, 0), tint)
-		part.Shape = Enum.PartType.Cylinder
-	end
-	disc("ButtonRim", diameter, 0.8, 0, face, color)
-	disc("ButtonFace", diameter * 0.75, 0.2, 0.75, face, color:Lerp(Color3.new(0, 0, 0), 0.12))
-	for _, offset in { Vector2.new(-1, -1), Vector2.new(-1, 1), Vector2.new(1, -1), Vector2.new(1, 1) } do
-		disc("ButtonHole", diameter * 0.13, 0.2, 0.8, face * CFrame.new(offset.X * diameter * 0.13, offset.Y * diameter * 0.13, 0), INK)
-	end
-end
-
--- A patchwork quilt hung on a wall from a wooden rod (`face`: its middle, -Z into the
--- room), a big heart stitched in the middle.
-local function quilt(parent: Instance, face: CFrame, columns: number, rows: number, tile: number)
-	local width, height = columns * tile, rows * tile
-	local hanger = roller(parent, "QuiltRod", 0.7, width + 3, face * CFrame.new(0, height / 2 + 0.9, -0.7), WOOD)
-	hanger.Material = Enum.Material.Wood
-	for _, x in { -1, 1 } do
-		ball(parent, "QuiltRodEnd", 1.3, face * CFrame.new(x * (width / 2 + 1.6), height / 2 + 0.9, -0.7), PLUSH_COLORS[1])
-	end
-	makeDecor(parent, "QuiltBorder", Vector3.new(width + 1.2, height + 1.2, 0.3), face * CFrame.new(0, 0, -0.25), WHITE, Enum.Material.Fabric)
-	for column = 1, columns do
-		for row = 1, rows do
-			local color = PLUSH_COLORS[(column + row * 2) % #PLUSH_COLORS + 1]
-			makeDecor(parent, "QuiltPatch", Vector3.new(tile - 0.2, tile - 0.2, 0.3), face * CFrame.new(-width / 2 + (column - 0.5) * tile, -height / 2 + (row - 0.5) * tile, -0.5), color, Enum.Material.Fabric)
-		end
-	end
-	wallEmoji(parent, face * CFrame.new(0, 0, -0.75), math.min(width, height) * 0.7, "💖")
-end
-
--- A patchwork rug down a walkway (centered on `x`, from `fromZ` to `toZ`).
-local function quiltRug(parent: Instance, floor: CFrame, x: number, fromZ: number, toZ: number)
-	local tile = 5
-	local rows = math.floor((toZ - fromZ) / tile)
-	makeDecor(parent, "RugBorder", Vector3.new(tile * 2 + 0.8, 0.08, rows * tile + 0.8), floor * CFrame.new(x, 0.04, fromZ + rows * tile / 2), WHITE, Enum.Material.Fabric)
-	for row = 0, rows - 1 do
-		for column = 0, 1 do
-			makeDecor(parent, "RugPatch", Vector3.new(tile - 0.25, 0.12, tile - 0.25), floor * CFrame.new(x + (column - 0.5) * tile, 0.06, fromZ + (row + 0.5) * tile), PLUSH_COLORS[(row + column * 3) % #PLUSH_COLORS + 1], Enum.Material.Fabric)
-		end
-	end
-end
-
--- A puffy cloud lamp hanging from the ceiling (`at`: the point on the ceiling), two
--- glowing stars dangling under it.
-local function cloudLamp(parent: Instance, at: CFrame, drop: number)
-	makeDecor(parent, "CloudCord", Vector3.new(0.12, drop, 0.12), at * CFrame.new(0, -drop / 2, 0), WHITE)
-	local cloud = at * CFrame.new(0, -drop - 1.2, 0)
-	for _, puffSpot in { { 0, 0, 0, 3.6 }, { -2, -0.4, 0, 2.8 }, { 2.1, -0.3, 0.2, 3 }, { 0.6, 1, -0.3, 2.6 }, { -0.8, -0.5, 1, 2.4 }, { 0.4, -0.6, -1.1, 2.4 } } do
-		ball(parent, "Cloud", puffSpot[4], cloud * CFrame.new(puffSpot[1], puffSpot[2], puffSpot[3]), WHITE, Enum.Material.Fabric).CastShadow = false
-	end
-	for _, x in { -1.3, 1.3 } do
-		makeDecor(parent, "CloudString", Vector3.new(0.08, 1.6, 0.08), cloud * CFrame.new(x, -2.2, 0), WHITE)
-		star(parent, cloud * CFrame.new(x, -3.3, 0), 1, Color3.fromRGB(255, 230, 120), Enum.Material.Neon)
-	end
-end
-
--- A basket of yarn with knitting needles stuck in it (`at`: its foot).
-local function yarnBasket(parent: Instance, at: CFrame)
-	cylinder(parent, "Basket", 6.4, 3, at, WOOD, Enum.Material.Wood)
-	cylinder(parent, "BasketRim", 6.8, 0.6, at * CFrame.new(0, 2.7, 0), Color3.fromRGB(200, 145, 95), Enum.Material.Wood)
-	for index, spot in { Vector3.new(-1.3, 3.2, 0.4), Vector3.new(1.2, 3.3, -0.3), Vector3.new(0, 3.9, 1.1) } do
-		ball(parent, "BasketYarn", 2.8, at * CFrame.new(spot), PLUSH_COLORS[index], Enum.Material.Fabric)
-	end
-	for _, x in { -0.6, 0.6 } do
-		local from = (at * CFrame.new(x * 1.5, 3.5, 0.6)).Position
-		local to = (at * CFrame.new(x * 3.6, 9.5, 1.6)).Position
-		rod(parent, "KnittingNeedle", 0.3, from, to, Color3.fromRGB(205, 210, 225), Enum.Material.Metal)
-		ball(parent, "KnittingNeedleEnd", 0.8, CFrame.new(to), PLUSH_COLORS[1])
-	end
+	cylinder(parent, "SpoolEnd", 6, 1, at * CFrame.new(0, 6, 0), CHROME, Enum.Material.Metal)
+	cylinder(parent, "SpoolCap", 1.4, 0.6, at * CFrame.new(0, 7, 0), PLUSH_GOLD, Enum.Material.Metal)
 end
 
 local function buildPlushie(parent: Instance, floor: CFrame)
-	-- the sign over the doorway, and pom-pom garlands round the walls by the ceiling
-	neonSign(parent, wallFace(floor, { 0, 23.2, -59 }), Vector2.new(32, 5.4), "🧸 PLUSHIE ROOM 🧸", Color3.fromRGB(255, 110, 190))
+	-- the sign over the doorway, and chasing string lights round the walls by the ceiling
+	neonSign(parent, wallFace(floor, { 0, 23.2, -59 }), Vector2.new(32, 5.4), "🧵 PLUSH FACTORY 🧵", PLUSH_COLORS[1])
 	local function at(x: number, y: number, z: number): Vector3
 		return (floor * CFrame.new(x, y, z)).Position
 	end
-	for _, x in { -67, 67 } do
-		pomGarland(parent, at(x, 26, -56), at(x, 26, 0), PLUSH_COLORS, 1.6)
-		pomGarland(parent, at(x, 26, 0), at(x, 26, 56), PLUSH_COLORS, 1.6)
-	end
-	for _, z in { -58, 57 } do
-		pomGarland(parent, at(-66, 26, z), at(-20, 26, z), PLUSH_COLORS, 1.6)
-		pomGarland(parent, at(20, 26, z), at(66, 26, z), PLUSH_COLORS, 1.6)
-	end
+	local index = 0
+	index = stringLights(parent, at(-66, 26, -57), at(-66, 26, 0), 1.6, index)
+	index = stringLights(parent, at(-66, 26, 0), at(-66, 26, 57), 1.6, index)
+	index = stringLights(parent, at(-66, 26, 57), at(-21, 26, 57), 1.6, index)
+	index = stringLights(parent, at(21, 26, 57), at(66, 26, 57), 1.6, index)
+	index = stringLights(parent, at(66, 26, 57), at(66, 26, 0), 1.6, index)
+	index = stringLights(parent, at(66, 26, 0), at(66, 26, -57), 1.6, index)
+	index = stringLights(parent, at(66, 26, -58), at(20, 26, -58), 1.6, index)
+	stringLights(parent, at(-20, 26, -58), at(-66, 26, -58), 1.6, index)
 
-	-- patchwork rugs down the walkways between the lines, cloud lamps and neon signs over them
-	for index, x in { -19.6, 22.4 } do
-		quiltRug(parent, floor, x, -25, 45)
-		for _, z in { -32, -2, 30 } do
-			cloudLamp(parent, floor * CFrame.new(x, 28, z), 3.5)
+	-- catwalks down the walkways between the lines, spool lamps and neon signs over them
+	for index_, x in { -19.6, 22.4 } do
+		runway(parent, floor, x, -25, 45)
+		for k, z in { -32, -2, 30 } do
+			spoolLamp(parent, floor * CFrame.new(x, 28, z), 2.5, PLUSH_COLORS[(index_ + k) % #PLUSH_COLORS + 1])
 		end
-		hangingSign(parent, floor * CFrame.new(x, 28, 14), 6, Vector2.new(11, 2.6), if index == 1 then "✂ HANDMADE ROT ✂" else "★ PLUSH FACTORY ★", PLUSH_COLORS[if index == 1 then 1 else 2])
+		hangingSign(parent, floor * CFrame.new(x, 28, 14), 6, Vector2.new(11, 2.6), if index_ == 1 then "✂ HANDMADE ROT ✂" else "★ 100% KNITTED ★", PLUSH_COLORS[if index_ == 1 then 1 else 3])
+	end
+	for index_, x in { -60, 62.5 } do
+		pendantLamp(parent, floor * CFrame.new(x, 28, 0), 6, PLUSH_COLORS[index_ + 1])
 	end
 
-	-- the walls: a quilt on the back wall, hoops and giant buttons, plushie shelves
-	quilt(parent, wallFace(floor, { 0, 16, 58 }), 6, 3, 4.6)
-	for index, x in { -45, 45 } do
-		sewingButton(parent, wallFace(floor, { x, 15, 58 }), 6, PLUSH_COLORS[index + 2])
+	-- the back wall: the best sellers case, brainrot plush ads either side of it
+	bestSellers(parent, wallFace(floor, { 0, 0, 58 }), 20)
+	poster(parent, wallFace(floor, { -45, 14, 58 }), Vector2.new(7, 9), PLUSH_COLORS[6], PLUSH_GOLD, "🍌", "NEW DROP!")
+	poster(parent, wallFace(floor, { 45, 14, 58 }), Vector2.new(7, 9), PLUSH_COLORS[5], PLUSH_GOLD, "🐘", "LIMITED!")
+	-- the front wall: plush ads by the doorway
+	for index_, ad in { { -50, "🦈", "TRALALERO PLUSH" }, { -30, "🐊", "BOMBARDIRO PLUSH" }, { 30, "🥁", "SAHUR PLUSH" }, { 50, "☕", "BALLERINA PLUSH" } } do
+		poster(parent, wallFace(floor, { ad[1] :: number, 14, -59 }), Vector2.new(7, 9), PLUSH_COLORS[index_], PLUSH_GOLD, ad[2] :: string, ad[3] :: string)
 	end
-	for index, spot in { { -30, 14, -59 }, { -50, 15, -59 }, { 30, 14, -59 }, { 50, 15, -59 } } do
-		hoop(parent, wallFace(floor, spot), 8, PLUSH_COLORS[index % #PLUSH_COLORS + 1]:Lerp(WHITE, 0.6), ({ "🌸", "🐰", "⭐", "🧁" })[index])
-	end
-	hoop(parent, wallFace(floor, { -68, 18, -50 }), 7, Color3.fromRGB(255, 235, 245), "🎀")
-	hoop(parent, wallFace(floor, { -68, 16, 50 }), 7, Color3.fromRGB(235, 245, 255), "🧶")
-	sewingButton(parent, wallFace(floor, { 68, 18, -50 }), 6.5, PLUSH_COLORS[1])
-	hoop(parent, wallFace(floor, { 68, 17, 50 }), 7, Color3.fromRGB(255, 250, 230), "🌈")
-	local shelfBoard, shelfTrim = Color3.fromRGB(255, 245, 250), Color3.fromRGB(240, 105, 170)
-	wallShelf(parent, wallFace(floor, { -68, 0, 18 }), 18, shelfBoard, shelfTrim, shelfPlushie)
-	wallShelf(parent, wallFace(floor, { 68, 0, -18 }), 18, shelfBoard, Color3.fromRGB(165, 125, 240), shelfPlushie)
 
-	-- the big sewing machine on its table along the right wall, facing the room
+	-- the side walls: a rack of thread cones, a rack of fabric bolts
+	threadRack(parent, wallFace(floor, { -68, 0, 18 }), 7, 3)
+	fabricRack(parent, wallFace(floor, { 68, 0, -18 }), 5, 4)
+
+	-- the giant sewing machine along the right wall, facing the room, and the stuffing
+	-- silo in the back-right corner
 	sewingMachine(parent, floor * CFrame.new(62.5, 0, 18) * CFrame.Angles(0, math.pi / 2, 0), 1)
-	-- a stack of fabric bolts and a spool in the back corner
-	for index, color in { PLUSH_COLORS[1], PLUSH_COLORS[3], PLUSH_COLORS[4] } do
-		makeDecor(parent, "FabricBolt", Vector3.new(4, 1.8, 9), floor * CFrame.new(63, index * 1.8 - 0.9, 50) * CFrame.Angles(0, index * 0.12, 0), color, Enum.Material.Fabric)
+	stuffingSilo(parent, floor * CFrame.new(62.5, 0, 50), 15)
+	neonSign(parent, wallFace(floor, { 68, 21.5, 50 }), Vector2.new(9, 2.6), "☁ STUFFING", Color3.fromRGB(150, 220, 255))
+
+	-- by the doorway, dress forms in brainrot knits; a giant spool by the left wall
+	for index_, form in { { -32, "🦈" }, { -20, "🥁" }, { 20, "🐸" }, { 32, "🍌" } } do
+		dressForm(parent, floor * CFrame.new(form[1] :: number, 0, -53) * CFrame.Angles(0, math.pi, 0), PLUSH_COLORS[(index_ + 1) % #PLUSH_COLORS + 1], form[2] :: string)
 	end
-	-- by the doorway: a basket of yarn, a giant yarn ball, a spool and the pin cushion
-	yarnBasket(parent, floor * CFrame.new(-22, 0, -52))
-	yarnBall(parent, floor * CFrame.new(-31, 0, -54), 5, PLUSH_COLORS[3])
-	yarnBall(parent, floor * CFrame.new(22, 0, -53), 6, PLUSH_COLORS[1])
-	pinCushion(parent, floor * CFrame.new(31, 0, -53))
-	spool(parent, floor * CFrame.new(-63, 0, 3), PLUSH_COLORS[2])
-	yarnBall(parent, floor * CFrame.new(63, 0, 3), 5, PLUSH_COLORS[5])
+	floorSpool(parent, floor * CFrame.new(-63, 0, 3), PLUSH_COLORS[2])
 end
 
 -- Clay Studio -------------------------------------------------------------------------

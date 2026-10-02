@@ -95,13 +95,13 @@ local STATION_COLORS = {
 }
 local METAL_COLOR = Color3.fromRGB(90, 90, 100)
 local GANTRY_COLOR = Color3.fromRGB(150, 90, 255)
-local WOOD_LIGHT_COLOR = Color3.fromRGB(235, 190, 130)
 local CLAW_COLOR = Color3.fromRGB(255, 200, 60)
 local GLOVE_COLOR = Color3.fromRGB(235, 55, 70)
 local CHROME_COLOR = Color3.fromRGB(215, 220, 235)
-local SEWING_COLOR = Color3.fromRGB(240, 105, 170) -- the Plushie room's machines: hot pink...
+local SEWING_COLOR = Color3.fromRGB(235, 65, 150) -- the Plushie room's machines: magenta...
 local SEWING_LIGHT_COLOR = Color3.fromRGB(255, 240, 248) -- ...with cream...
-local LAVENDER_COLOR = Color3.fromRGB(165, 125, 240) -- ...and lavender
+local LAVENDER_COLOR = Color3.fromRGB(150, 95, 240) -- ...and violet, with gold and chrome
+local PLUSH_GOLD = Color3.fromRGB(255, 190, 40) -- solid gold: Metal, no reflectance
 local THREAD_COLORS = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 150, 90) }
 local FLUFF_PINK = Color3.fromRGB(255, 150, 200)
 local WHITE = Color3.new(1, 1, 1)
@@ -246,29 +246,12 @@ local function makeBall(parent: Instance, name: string, diameter: number, cframe
 	return part
 end
 
--- An emoji or two stuck on `part`'s `face`, like a sticker.
-local function sticker(part: BasePart, face: Enum.NormalId, text: string, size: UDim2?)
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = face
-	gui.LightInfluence = 0
-	gui.PixelsPerStud = 20
-	gui.Parent = part
-	local label = Instance.new("TextLabel")
-	label.AnchorPoint = Vector2.new(0.5, 0.5)
-	label.Position = UDim2.fromScale(0.5, 0.5)
-	label.Size = size or UDim2.fromScale(0.7, 0.7)
-	label.BackgroundTransparency = 1
-	label.TextScaled = true
-	label.Text = text
-	label.Parent = gui
-end
-
 -- Gantry colors per zone: { pillars, beam, glow }. The beam's color also goes on the
 -- belt's frame; the glow lines the rails and lights the beacon while the Assembler
 -- works.
 local GANTRY_COLORS = {
 	ToyWorkshop = { Color3.fromRGB(110, 60, 200), GANTRY_COLOR, Color3.fromRGB(255, 220, 70) },
-	PlushieRoom = { LAVENDER_COLOR, SEWING_COLOR, Color3.fromRGB(255, 120, 200) },
+	PlushieRoom = { LAVENDER_COLOR, SEWING_COLOR, Color3.fromRGB(90, 220, 255) },
 }
 
 -- The belt, raised on a frame: side girders with a white stripe, rails glowing on top
@@ -516,7 +499,8 @@ local function buildKnittingMachine(model: Model, base: CFrame, partType: string
 	local armTop = armBottom + 3
 
 	-- the column on its cushy foot
-	makeColumn(model, partType .. "KnitFoot", 6.4, 0, 1.4, column, LAVENDER_COLOR, Enum.Material.Fabric)
+	makeColumn(model, partType .. "KnitFoot", 6.4, 0, 1.4, column, LAVENDER_COLOR)
+	makeColumn(model, partType .. "KnitFootRing", 6.6, 1.1, 1.5, column, PLUSH_GOLD, Enum.Material.Metal)
 	local body = makeColumn(model, partType .. "KnitColumn", KNIT_COLUMN, 1.4, armTop, column, SEWING_COLOR)
 	body.CanCollide = true
 	for _, y in { 2.6, armBottom - 1.6 } do
@@ -524,15 +508,16 @@ local function buildKnittingMachine(model: Model, base: CFrame, partType: string
 	end
 	buildBadge(model, partType, column * CFrame.new(0, DECK + 4.6, 0), color, 0.62)
 
-	-- the arm over the belt, with a rounded nose, a white stripe and a heart on each side
+	-- the arm over the belt, with a rounded nose and a gold stripe
 	local armFrom, armTo = KNIT_X - KNIT_COLUMN / 2, KNIT_HEAD / 2
 	local arm = makeDecor(model, partType .. "KnitArm", Vector3.new(armTo - armFrom, 3, 4), base * CFrame.new((armFrom + armTo) / 2, armBottom + 1.5, 0), SEWING_COLOR)
-	makeDecor(model, partType .. "KnitArmStripe", Vector3.new(armTo - armFrom - 0.2, 0.55, 4.1), arm.CFrame, WHITE)
+	makeDecor(model, partType .. "KnitArmStripe", Vector3.new(armTo - armFrom - 0.2, 0.55, 4.1), arm.CFrame, PLUSH_GOLD, Enum.Material.Metal)
 	local nose = makeDecor(model, partType .. "KnitArmNose", Vector3.new(4, 3, 3), base * CFrame.new(armTo, armBottom + 1.5, 0) * CFrame.Angles(0, math.pi / 2, 0), SEWING_COLOR)
 	nose.Shape = Enum.PartType.Cylinder
-	sticker(arm, Enum.NormalId.Front, "💗", UDim2.fromScale(0.16, 0.6))
-	sticker(arm, Enum.NormalId.Back, "💗", UDim2.fromScale(0.16, 0.6))
-	makeBall(model, partType .. "KnitPomPom", 2.4, column * CFrame.new(0, armTop + 0.9, 0), WHITE, Enum.Material.Fabric)
+	-- a thread cone on top of the column
+	makeColumn(model, partType .. "KnitCone", 2.6, armTop, armTop + 1.4, column, color, Enum.Material.Fabric)
+	makeColumn(model, partType .. "KnitCone", 1.9, armTop + 1.4, armTop + 2.8, column, color:Lerp(WHITE, 0.2), Enum.Material.Fabric)
+	makeColumn(model, partType .. "KnitConeTip", 1, armTop + 2.8, armTop + 3.5, column, CHROME_COLOR, Enum.Material.Metal)
 
 	-- the knitting head (the Dropper) under the arm's end, its mouth glowing underneath
 	local headBottom = armBottom - KNIT_HEAD_HEIGHT
@@ -608,11 +593,11 @@ end
 local FLUFF_DOME = 11 -- across: the brainrot puffs up inside it
 
 local function buildFluffMachine(model: Model, spot: CFrame)
-	makeColumn(model, "FluffFoot", FLUFF_DOME + 2, 0, 1, spot, LAVENDER_COLOR, Enum.Material.Fabric)
+	makeColumn(model, "FluffFoot", FLUFF_DOME + 2, 0, 1, spot, LAVENDER_COLOR)
 	local ship = makeColumn(model, "Ship", FLUFF_DOME + 1, 1, DECK, spot, SEWING_COLOR, Enum.Material.Fabric)
 	ship.CanCollide = true
 	ship.CanQuery = true
-	makeColumn(model, "FluffTrim", FLUFF_DOME + 1.4, DECK - 0.6, DECK + 0.3, spot, WHITE)
+	makeColumn(model, "FluffTrim", FLUFF_DOME + 1.4, DECK - 0.6, DECK + 0.3, spot, PLUSH_GOLD, Enum.Material.Metal)
 	local deck = deckOf(spot)
 	for index, offset in { Vector3.new(-2.6, 0, 1.5), Vector3.new(2.3, 0, 2), Vector3.new(0.5, 0, -2.8), Vector3.new(-1.6, 0, -1.3), Vector3.new(3, 0, -0.8) } do
 		local size = 1.4 + (index % 3) * 0.35
@@ -780,12 +765,12 @@ local function buildTablet(model: Model, origin: CFrame, item: TycoonItems.Item,
 	local frameColor = if plushie then SEWING_COLOR else GANTRY_COLOR
 	local glowColor = if plushie then FLUFF_PINK else Color3.fromRGB(255, 220, 70)
 	if plushie then
-		-- a cushion, and a big thread spool for a stand
-		makeColumn(model, "TabletCushion", 2.6, 0, 0.7, spot, LAVENDER_COLOR, Enum.Material.Fabric)
-		makeColumn(model, "TabletSpoolEnd", 2, 0.7, 1.1, spot, WOOD_LIGHT_COLOR, Enum.Material.Wood)
+		-- a big thread spool with chrome ends for a stand, on a violet foot
+		makeColumn(model, "TabletFoot", 2.6, 0, 0.7, spot, LAVENDER_COLOR)
+		makeColumn(model, "TabletSpoolEnd", 2, 0.7, 1.1, spot, CHROME_COLOR, Enum.Material.Metal)
 		local thread = makeColumn(model, "TabletSpool", 1.4, 1.1, 3.4, spot, THREAD_COLORS[1], Enum.Material.Fabric)
 		thread.CanCollide = true
-		makeColumn(model, "TabletSpoolEnd", 2, 3.4, 3.8, spot, WOOD_LIGHT_COLOR, Enum.Material.Wood)
+		makeColumn(model, "TabletSpoolEnd", 2, 3.4, 3.8, spot, CHROME_COLOR, Enum.Material.Metal)
 	else
 		-- two toy blocks stacked up
 		makePart(model, "TabletBase", Vector3.new(2.2, 0.5, 2.2), spot * CFrame.new(0, 0.25, 0), frameColor)
@@ -794,15 +779,12 @@ local function buildTablet(model: Model, origin: CFrame, item: TycoonItems.Item,
 		makeDecor(model, "TabletMount", Vector3.new(0.8, 0.5, 0.8), spot * CFrame.new(0, 3.85, 0), METAL_COLOR)
 	end
 	local tablet = spot * CFrame.new(0, 4.9, 0) * CFrame.Angles(TABLET_TILT, 0, 0)
-	local body = makeDecor(model, "TabletBody", Vector3.new(TABLET_SCREEN.X + 0.6, TABLET_SCREEN.Y + 0.6, 0.35), tablet, frameColor)
+	makeDecor(model, "TabletBody", Vector3.new(TABLET_SCREEN.X + 0.6, TABLET_SCREEN.Y + 0.6, 0.35), tablet, frameColor)
 	local screen = makeDecor(model, "TabletScreen", Vector3.new(TABLET_SCREEN.X, TABLET_SCREEN.Y, 0.1), tablet * CFrame.new(0, 0, -0.2), SCREEN_COLOR)
 	screen.CanQuery = true -- the prompt sits on it
 	screen:SetAttribute("PromptAnchor", true)
 	tabletScreen(screen, lineIndex, glowColor)
 	makeBall(model, "TabletButton", 0.3, tablet * CFrame.new(0, -TABLET_SCREEN.Y / 2 - 0.15, -0.2), glowColor, Enum.Material.Neon)
-	if plushie then
-		sticker(body, Enum.NormalId.Back, "💖", UDim2.fromScale(0.4, 0.5)) -- a little heart on the back
-	end
 end
 
 local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Item) -> () } = {

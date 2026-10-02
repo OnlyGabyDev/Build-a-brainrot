@@ -11,6 +11,7 @@
 export type Style = {
 	Scale: number,
 	Material: Enum.Material?,
+	MaterialVariant: string?, -- a MaterialVariant in MaterialService (lives in the place file, see tools/SetupMaterials)
 	Reflectance: number?,
 	Transparency: number?,
 }
@@ -58,7 +59,7 @@ Zones.List = {
 		PriceMultiplier = 3,
 		GemMultiplier = 1.5,
 		LineCount = 3,
-		Style = { Scale = 1.25, Material = Enum.Material.Fabric },
+		Style = { Scale = 1.25, Material = Enum.Material.Fabric, MaterialVariant = "PlushKnit" },
 		SpecialStation = "Bow Tier",
 		StationNames = { Station1 = "Dye Bath", Station2 = "Sequin Shower" },
 		Available = true,

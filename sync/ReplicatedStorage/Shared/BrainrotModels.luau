@@ -119,6 +119,9 @@ local function applyStyle(model: Model, zoneId: string?)
 			if style and style.Material then
 				descendant.Material = style.Material
 			end
+			if style and style.MaterialVariant then
+				descendant.MaterialVariant = style.MaterialVariant
+			end
 			if style and style.Reflectance then
 				descendant.Reflectance = style.Reflectance
 			end

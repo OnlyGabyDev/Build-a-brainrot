@@ -11,7 +11,7 @@ The user opens a new chat per task to save tokens. Take the first unchecked task
   - The MCP's `execute_luau` gets its **own copies** of ModuleScripts. Reach the live game through `game.ServerStorage.DevCommand:Invoke(name, player, ...)` (Studio-only, `Services/DevTools.luau`): AddCoins, AddGems, AddRolls, Snapshot, Restore, ShowOnLine (puts a brainrot's 4 parts on a line).
   - The user's Studio profile **saves**. Snapshot before destructive tests (rebirths, spending), and Restore **before stopping the playtest** (if it stops first, recover from the DataStore version history: PROGRESS.md, Known quirks).
   - Buy a tycoon button from the Client executor by `PivotTo`-ing the character onto it.
-  - Verify with data probes (sample positions/sizes every 0.1 s), not bursts of screenshots. Take one `screen_capture` at a time, only when the look really matters.
+  - Verify with data probes (sample positions/sizes every 0.1 s), not bursts of screenshots. Take one `screen_capture` at a time, only when the look really matters, and only while Studio is rendering: if its window is minimized or the user is away, the capture hangs forever (ask the user first; a normal one returns in 2–10 s).
 - **Type-check:** `sh tools/typecheck.sh` (Git Bash). It must print nothing but "typecheck done".
 - **Git:** the repo is https://github.com/OnlyGabyDev/Build-a-brainrot, and you may commit and push on your own at checkpoints (type-checked + playtested). Keep files **LF**: Python on Windows writes CRLF unless you pass `newline="\n"`.
 
