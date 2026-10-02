@@ -8,15 +8,16 @@ The user opens a new chat per task to save tokens. Take the first unchecked task
 ## Workflow
 - **Sync:** code lives in `sync/` and syncs to Roblox Studio through Azul (Studio-first). `Name.server.luau` is a Script, `Name.client.luau` a LocalScript, and `Name.luau` a ModuleScript. Before editing, check that Azul is running (`Get-Process node`); if it restarts, it rewrites `sync/` from Studio.
 - **Studio MCP:** use it to playtest (`start_stop_play`, `execute_luau`, `get_console_output`). Never edit code while a playtest is running; stop it first.
-  - The MCP's `execute_luau` gets its **own copies** of ModuleScripts. Reach the live game through `game.ServerStorage.DevCommand:Invoke(name, player, ...)` (Studio-only, `Services/DevTools.luau`): AddCoins, AddGems, AddRolls, Snapshot, Restore, ShowOnLine (puts a brainrot's 4 parts on a line).
+  - The MCP's `execute_luau` can't require ModuleScripts or invoke the `DevCommand` BindableFunction (its thread lacks their capabilities). Reach the live game by setting workspace's `DevRequest` attribute on the Server to a JSON array, then reading `DevResult` (Studio-only, `Services/DevTools.luau`): AddCoins, AddGems, AddRolls, Snapshot, Restore, ShowOnLine (puts a brainrot's 4 parts on a line), SetPurchased(List), BuildUpgrade, ResetPlot.
   - The user's Studio profile **saves**. Snapshot before destructive tests (rebirths, spending), and Restore **before stopping the playtest** (if it stops first, recover from the DataStore version history: PROGRESS.md, Known quirks).
   - Buy a tycoon button from the Client executor by `PivotTo`-ing the character onto it.
+  - Name tags are AlwaysOnTop BillboardGuis, which `screen_capture` skips: set `AlwaysOnTop = false` for the shot.
   - Verify with data probes (sample positions/sizes every 0.1 s), not bursts of screenshots. Take one `screen_capture` at a time, only when the look really matters, and only while Studio is rendering: if its window is minimized or the user is away, the capture hangs forever (ask the user first; a normal one returns in 2–10 s).
 - **Type-check:** `sh tools/typecheck.sh` (Git Bash). It must print nothing but "typecheck done".
 - **Git:** the repo is https://github.com/OnlyGabyDev/Build-a-brainrot, and you may commit and push on your own at checkpoints (type-checked + playtested). Keep files **LF**: Python on Windows writes CRLF unless you pass `newline="\n"`.
 
 ## Code map
-- Server services: `sync/ServerScriptService/Services/*` (Data, Tycoon, Production, Loot, Gadget, Rebirth, Monetization, DailyWheel, DevTools), started by `Main.server.luau`, plus `FactoryBuilder` (a builder module TycoonManager uses) and `MapBuilder` (builds the hub). **Only DataManager writes player data.**
+- Server services: `sync/ServerScriptService/Services/*` (Data, Tycoon, Production, Loot, Gadget, Rebirth, Monetization, DailyWheel, DevTools), started by `Main.server.luau`, plus builder modules TycoonManager uses (`FactoryBuilder`, `RoomUpgradeBuilder`, `StationBuilder`; TycoonManager is at Luau's 200-locals limit, so new builders go in modules) and `MapBuilder` (builds the hub). **Only DataManager writes player data.**
 - Creator Store models the code clones live in `ServerStorage.Assets` (in the place file: Azul doesn't sync them, so the user must save the place; see PROGRESS.md, Known quirks).
 - Shared config: `sync/ReplicatedStorage/Shared/Config/*` (sound ids in `Config/Sounds`). Voxel brainrot art: `Shared/Art/<BrainrotId>.luau`, built by `Shared/VoxelArt.luau`.
 - Client modules: `sync/ReplicatedStorage/Client/` (`Effects` for world juice; `UI/*` for menus, built on `UI/Kit`). Client scripts: `sync/StarterPlayer/StarterPlayerScripts/*` (ProductionVisuals, TycoonFX, Atmosphere, UIController, LootBoxes, GadgetsClient).

@@ -78,7 +78,7 @@ local DEFLATED = 0.35 -- the plushie head's starting scale, before it's stuffed
 local CHUTE_DROP = 3 -- studs the brainrot sinks into the chute as it ships
 local BELT_END_GAP = 2 -- studs from the end of the belt where the brainrot stops
 local FALL_TIME = 0.5 -- a part's bounce from its dropper's mouth onto the belt
-local SHOW_GAP = 5.5 -- studs down the belt from the pad where the brainrot shows itself off
+local SHOW_GAP = 4 -- studs down the belt from the pad where the brainrot shows itself off (inside the capsule)
 local SHOW_HEIGHT = 3 -- how high it springs up as it spins
 local SPOTLIGHT_COLOR = Color3.fromRGB(255, 245, 205)
 local OUTLINE_COLOR = Color3.fromRGB(40, 25, 70) -- a cartoon ink line round your own brainrots
@@ -2009,29 +2009,56 @@ local function getMachines(line: Model, style: Style): any?
 end
 
 -- Upgrade stations -----------------------------------------------------------
--- The brainrot rides under each station's arch on its way to the chute, and the
--- station does its thing: the Paint Booth splashes it with paint, the Glitter
--- Blaster showers it in glitter. Each shows its value multiplier.
+-- Each station is a machine beside the belt (TycoonManager). As the brainrot rides up
+-- to one, its nozzle shoots at the spot in front of it and the brainrot takes the hit as
+-- it gets there: the Paint Booth sprays it a color, the Glitter Blaster rains glitter on
+-- it, the Dye Bath pours dye... Each shows its value multiplier.
 
-type StationPass = { Alpha: number, Key: string, Arch: BasePart }
+local STATION_LEAD = 3 -- studs before a station where it fires, so the shot lands as the brainrot arrives
+local SHOT_TIME = 0.25 -- the shot's flight
 
-local STATION_FX: { [string]: (build: Build, arch: BasePart, brainrot: Model, center: Vector3) -> () } = {
-	Station1 = function(build, _arch, brainrot, center)
+type StationPass = { Alpha: number, Key: string, Sign: BasePart, Source: Vector3 }
+type StationFx = (build: Build, source: Vector3, brainrot: Model, target: Vector3) -> ()
+
+-- A jet from a machine's nozzle (only near the camera).
+local function shoot(build: Build, from: Vector3, to: Vector3, color: Color3, count: number, size: number?, sparkly: boolean?)
+	if build.Near then
+		Effects.spray(from, to, color, count, size, sparkly)
+	end
+end
+
+-- Once the shot has flown, the brainrot (at `target` by then) takes it.
+local function onHit(fn: () -> ())
+	task.delay(SHOT_TIME, fn)
+end
+
+local STATION_FX: { [string]: StationFx } = {
+	-- the Paint Booth's robot sprays it a random color
+	Station1 = function(build, source, brainrot, target)
 		local color = PAINT_COLORS[math.random(1, #PAINT_COLORS)]
-		Effects.tint(brainrot, color, 0.7)
-		puff(build, center, color, 8, 0.7)
-		sparkle(build, center, PAINT_COLORS[math.random(1, #PAINT_COLORS)], 10)
-		Effects.sound(center, Sounds.Whoosh, 0.2, vary(1.8))
+		shoot(build, source, target, color, 16, 0.7)
+		Effects.sound(source, Sounds.Whoosh, 0.2, vary(1.8))
+		onHit(function()
+			Effects.tint(brainrot, color, 0.7)
+			puff(build, target, color, 8, 0.7)
+			sparkle(build, target, color, 8)
+		end)
 	end,
-	Station2 = function(build, arch, brainrot, center)
-		Effects.tint(brainrot, GLITTER_COLOR, 0.7)
-		sparkle(build, arch.Position - Vector3.new(0, arch.Size.Y / 2, 0), GLITTER_COLOR, 24)
-		sparkle(build, center, SPARKLE_COLOR, 12)
-		Effects.sound(center, Sounds.Coin, 0.35, vary(1.7))
+	-- the Glitter Blaster's cannon blasts glitter up over it, to rain down
+	Station2 = function(build, source, brainrot, target)
+		shoot(build, source, target + Vector3.new(0, 5, 0), GLITTER_COLOR, 22, 0.6, true)
+		puff(build, source, Color3.fromRGB(255, 240, 200), 4, 0.5)
+		Effects.sound(source, Sounds.Pop, 0.3, vary(0.9))
+		onHit(function()
+			Effects.tint(brainrot, GLITTER_COLOR, 0.7)
+			sparkle(build, target + Vector3.new(0, 4, 0), GLITTER_COLOR, 24)
+			sparkle(build, target, SPARKLE_COLOR, 12)
+			Effects.sound(target, Sounds.Coin, 0.35, vary(1.7))
+		end)
 	end,
 }
 
--- Zones can give the stations their own effects (and TycoonManager their own arches).
+-- Zones give the stations their own effects (and TycoonManager their own machines).
 local DYE_COLORS = {
 	Color3.fromRGB(255, 120, 190),
 	Color3.fromRGB(150, 110, 255),
@@ -2045,62 +2072,79 @@ local CLAY_PAINTS = {
 	Color3.fromRGB(130, 220, 110),
 	Color3.fromRGB(190, 130, 255),
 }
-local ZONE_STATION_FX: { [string]: { [string]: (build: Build, arch: BasePart, brainrot: Model, center: Vector3) -> () } } = {
+local GLAZE_COLOR = Color3.fromRGB(240, 250, 255)
+local ZONE_STATION_FX: { [string]: { [string]: StationFx } } = {
 	VinylCollectibles = {
-		-- the Gloss Coat sprays a high shine on it
-		Station1 = function(build, arch, brainrot, center)
-			Effects.tint(brainrot, Color3.new(1, 1, 1), 0.7)
-			puff(build, arch.Position - Vector3.new(0, arch.Size.Y / 2, 0), Color3.fromRGB(230, 240, 255), 8, 0.6)
-			sparkle(build, center, Color3.new(1, 1, 1), 14)
-			Effects.sound(center, Sounds.Whoosh, 0.2, vary(1.8))
+		-- the Gloss Coat's robot sprays a high shine on it
+		Station1 = function(build, source, brainrot, target)
+			shoot(build, source, target, Color3.fromRGB(235, 245, 255), 16, 0.6)
+			Effects.sound(source, Sounds.Whoosh, 0.2, vary(1.8))
+			onHit(function()
+				Effects.tint(brainrot, Color3.new(1, 1, 1), 0.7)
+				sparkle(build, target, Color3.new(1, 1, 1), 14)
+			end)
 		end,
-		-- the Gold Leaf gilds it
-		Station2 = function(build, arch, brainrot, center)
-			Effects.tint(brainrot, VINYL_GOLD, 0.8)
-			sparkle(build, arch.Position - Vector3.new(0, arch.Size.Y / 2, 0), VINYL_GOLD, 18)
-			sparkle(build, center, Color3.fromRGB(255, 240, 160), 12)
-			Effects.sound(center, Sounds.Coin, 0.35, vary(1.5))
+		-- the Gold Leaf's blower gilds it
+		Station2 = function(build, source, brainrot, target)
+			shoot(build, source, target, VINYL_GOLD, 22, 0.55, true)
+			Effects.sound(source, Sounds.Whoosh, 0.18, vary(1.3))
+			onHit(function()
+				Effects.tint(brainrot, VINYL_GOLD, 0.8)
+				sparkle(build, target, Color3.fromRGB(255, 240, 160), 16)
+				Effects.sound(target, Sounds.Coin, 0.35, vary(1.5))
+			end)
 		end,
 	},
 	ClayStudio = {
-		-- the Color Squish presses a blob of colored clay onto it
-		Station1 = function(build, arch, brainrot, center)
+		-- the Color Squish squirts a blob of colored clay onto it
+		Station1 = function(build, source, brainrot, target)
 			local color = CLAY_PAINTS[math.random(1, #CLAY_PAINTS)]
-			Effects.tint(brainrot, color, 0.8)
-			squish(brainrot)
-			puff(build, center, color, 10, 0.7)
-			puff(build, arch.Position - Vector3.new(0, arch.Size.Y / 2, 0), color, 5, 0.5)
-			Effects.sound(center, Sounds.Squeak, 0.25, vary(0.9))
+			shoot(build, source, target, color, 10, 0.9)
+			onHit(function()
+				Effects.tint(brainrot, color, 0.8)
+				squish(brainrot)
+				puff(build, target, color, 10, 0.7)
+				Effects.sound(target, Sounds.Squeak, 0.25, vary(0.9))
+			end)
 		end,
-		-- the Sparkle Glaze drips a glossy coat over it
-		Station2 = function(build, arch, brainrot, center)
-			Effects.tint(brainrot, Color3.fromRGB(255, 250, 235), 0.7)
-			sparkle(build, arch.Position - Vector3.new(0, arch.Size.Y / 2, 0), Color3.fromRGB(240, 250, 255), 16)
-			sparkle(build, center, Color3.new(1, 1, 1), 12)
-			Effects.sound(center, Sounds.Coin, 0.35, vary(1.6))
+		-- the Sparkle Glaze pours a glossy coat over it
+		Station2 = function(build, source, brainrot, target)
+			shoot(build, source, target + Vector3.new(0, 2, 0), GLAZE_COLOR, 14, 0.6)
+			onHit(function()
+				Effects.tint(brainrot, Color3.fromRGB(255, 250, 235), 0.7)
+				sparkle(build, target + Vector3.new(0, 2, 0), GLAZE_COLOR, 16)
+				Effects.sound(target, Sounds.Coin, 0.35, vary(1.6))
+			end)
 		end,
 	},
 	PlushieRoom = {
-		-- the Dye Bath dips it in fabric dye: a splash of color and bubbles
-		Station1 = function(build, arch, brainrot, center)
+		-- the Dye Bath pours fabric dye over it: a splash of color and bubbles
+		Station1 = function(build, source, brainrot, target)
 			local color = DYE_COLORS[math.random(1, #DYE_COLORS)]
-			Effects.tint(brainrot, color, 0.8)
-			puff(build, center, color, 12, 0.6)
-			puff(build, arch.Position + Vector3.new(0, 2, 0), color, 6, 0.5)
-			Effects.sound(center, Sounds.Squeak, 0.25, vary(0.8))
-			Effects.sound(center, Sounds.Whoosh, 0.15, vary(1.4))
+			shoot(build, source, target + Vector3.new(0, 2, 0), color, 14, 0.7)
+			Effects.sound(source, Sounds.Whoosh, 0.15, vary(1.4))
+			onHit(function()
+				Effects.tint(brainrot, color, 0.8)
+				puff(build, target, color, 12, 0.6)
+				sparkle(build, target + Vector3.new(0, 2, 0), Color3.fromRGB(230, 220, 255), 8)
+				Effects.sound(target, Sounds.Squeak, 0.25, vary(0.8))
+			end)
 		end,
-		-- the Sequin Shower rains sequins from its disco ball
-		Station2 = function(build, arch, brainrot, center)
-			Effects.tint(brainrot, Color3.fromRGB(255, 190, 235), 0.7)
-			sparkle(build, arch.Position + Vector3.new(0, 2.4, 0), Color3.fromRGB(255, 170, 230), 18)
-			sparkle(build, center, Color3.fromRGB(220, 230, 255), 14)
-			Effects.sound(center, Sounds.Coin, 0.35, vary(1.9))
+		-- the Sequin Shower's disco ball rains sequins on it
+		Station2 = function(build, source, brainrot, target)
+			shoot(build, source, target, Color3.fromRGB(255, 170, 230), 20, 0.55, true)
+			onHit(function()
+				Effects.tint(brainrot, Color3.fromRGB(255, 190, 235), 0.7)
+				sparkle(build, target + Vector3.new(0, 3, 0), Color3.fromRGB(255, 170, 230), 18)
+				sparkle(build, target, Color3.fromRGB(220, 230, 255), 14)
+				Effects.sound(target, Sounds.Coin, 0.35, vary(1.9))
+			end)
 		end,
 	},
 }
 
--- The stations on a line, as the share of the ride where the brainrot passes under.
+-- The stations on a line, as the share of the ride where each fires (STATION_LEAD
+-- before the brainrot reaches it).
 local function stationPasses(line: Model, from: Vector3, to: Vector3): { StationPass }
 	local passes = {}
 	local path = to - from
@@ -2109,10 +2153,16 @@ local function stationPasses(line: Model, from: Vector3, to: Vector3): { Station
 		return passes
 	end
 	for key in STATION_FX do
-		local arch = findPart(line, key)
-		if arch then
-			local alpha = (arch.Position - from):Dot(path.Unit) / length
-			table.insert(passes, { Alpha = math.clamp(alpha, 0, 1), Key = key, Arch = arch })
+		local sign = findPart(line, key)
+		if sign then
+			local nozzle = findPart(line, key .. "Nozzle")
+			local alpha = ((sign.Position - from):Dot(path.Unit) - STATION_LEAD) / length
+			table.insert(passes, {
+				Alpha = math.clamp(alpha, 0, 1),
+				Key = key,
+				Sign = sign,
+				Source = if nozzle then nozzle.Position else sign.Position,
+			})
 		end
 	end
 	table.sort(passes, function(a, b)
@@ -2121,21 +2171,29 @@ local function stationPasses(line: Model, from: Vector3, to: Vector3): { Station
 	return passes
 end
 
-local function stationPass(build: Build, pass: StationPass, brainrot: Model)
+-- A station fires at the brainrot, `ahead` being where it'll be when the shot lands.
+local function stationPass(build: Build, pass: StationPass, brainrot: Model, ahead: Vector3)
 	local box = brainrot:GetBoundingBox()
-	local center = box.Position
+	local target = box.Position + ahead
 	local zoneFx = ZONE_STATION_FX[build.Zone]
 	local fx = (if zoneFx then zoneFx[pass.Key] else nil) or STATION_FX[pass.Key]
-	fx(build, pass.Arch, brainrot, center)
+	fx(build, pass.Source, brainrot, target)
 
-	local glow = findPart(build.Line, pass.Key .. "Glow")
-	if glow then
-		local info = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
-		TweenService:Create(glow, info, { Color = POP_COLOR }):Play()
+	-- its sign's rims flash, and the multiplier pops up as the shot lands
+	local info = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true)
+	local rimColor = POP_COLOR
+	for _, name in { "Glow", "GlowTop" } do
+		local rim = findPart(build.Line, pass.Key .. name)
+		if rim then
+			rimColor = rim.Color
+			TweenService:Create(rim, info, { Color = POP_COLOR }):Play()
+		end
 	end
 	local item = TycoonItems.ById[`{build.Line.Name}_{pass.Key}`]
 	if item and item.Multiplier then
-		Effects.popup(center + Vector3.new(0, 3, 0), `x{item.Multiplier}`, glow and glow.Color or POP_COLOR, 1, 0.6)
+		onHit(function()
+			Effects.popup(target + Vector3.new(0, 3, 0), `x{item.Multiplier}`, rimColor, 1, 0.6)
+		end)
 	end
 end
 
@@ -2271,7 +2329,7 @@ local function showOff(build: Build, brainrot: Model, from: CFrame, spot: CFrame
 	local beam: BasePart? = nil
 	local glow: BasePart? = nil
 	if build.Near then
-		local height = 16
+		local height = 12 -- up to the capsule's roof
 		beam = newPart(effects, "Spotlight", Vector3.new(height, 7, 7), spot * CFrame.new(0, height / 2, 0) * CFrame.Angles(0, 0, math.pi / 2), SPOTLIGHT_COLOR, Enum.PartType.Cylinder)
 		glow = newPart(effects, "SpotlightPool", Vector3.new(0.1, 8, 8), spot * CFrame.new(0, 0.06, 0) * CFrame.Angles(0, 0, math.pi / 2), SPOTLIGHT_COLOR, Enum.PartType.Cylinder)
 		for _, part in { beam :: BasePart, glow :: BasePart } do
@@ -2576,13 +2634,14 @@ local function animateCycle(
 
 	-- 5) It rides through the stations to the end of the belt.
 	local passes = stationPasses(line, showSpot.Position, beltEnd.Position)
+	local ahead = (beltEnd.Position - showSpot.Position).Unit * STATION_LEAD
 	local nextPass = 1
 	run(Production.ShipTime, function(alpha)
 		brainrot:PivotTo(showSpot:Lerp(beltEnd, alpha))
 		local pass = passes[nextPass]
 		if pass and alpha >= pass.Alpha and line.Parent then
 			nextPass += 1
-			stationPass(build, pass, brainrot)
+			stationPass(build, pass, brainrot, ahead)
 		end
 	end)
 	if cancelled() then

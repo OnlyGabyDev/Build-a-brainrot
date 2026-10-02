@@ -17,7 +17,7 @@ local Production = {
 	-- a Toy Workshop chute, or a Plushie knitting machine knits it
 	SlideTime = 1.2, -- belt ride from the farthest dropper to the Assembler
 	ShowTime = 1.2, -- ta-da: the finished brainrot steps off the pad and shows itself off
-	ShipTime = 1.6, -- from there to the end of the belt, under the stations
+	ShipTime = 2.4, -- from there to the end of the belt, past the stations
 	SpecialTime = 1.3, -- the zone's special upgrade at the end of the belt (Toy Packer, Bow Tier)
 	FinishTime = 2.0, -- the zone's finishing stage (packed in a toy box, fluffed up...)
 }

@@ -144,6 +144,33 @@ function Effects.puff(position: Vector3, color: Color3, count: number, size: num
 	particles:Emit(count)
 end
 
+-- A jet shot from `from` at `to` over a quarter second: paint, dye, glaze (soft
+-- clouds), or glitter and gold (`sparkly`).
+function Effects.spray(from: Vector3, to: Vector3, color: Color3, count: number, size: number?, sparkly: boolean?)
+	local scale = size or 1
+	local lifetime = 0.3
+	local distance = (to - from).Magnitude
+	local particles = emitter({
+		Texture = if sparkly then SPARKLE_TEXTURE else PUFF_TEXTURE,
+		Color = ColorSequence.new(color),
+		LightEmission = if sparkly then 0.8 else 0.15,
+		Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35 * scale), NumberSequenceKeypoint.new(1, 1.5 * scale) }),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.75, 0.25), NumberSequenceKeypoint.new(1, 1) }),
+		Lifetime = NumberRange.new(lifetime * 0.9, lifetime * 1.1),
+		Speed = NumberRange.new(distance / lifetime * 0.85, distance / lifetime * 1.05),
+		SpreadAngle = Vector2.new(8, 8),
+		EmissionDirection = Enum.NormalId.Front,
+		Rate = count * 4,
+	})
+	local anchor = Effects.anchor(from, 1.2)
+	anchor.CFrame = CFrame.lookAt(from, to) -- Front (-Z) toward `to`
+	particles.Parent = anchor
+	particles.Enabled = true
+	task.delay(0.25, function()
+		particles.Enabled = false
+	end)
+end
+
 -- Colorful confetti that pops up and flutters down.
 function Effects.confetti(position: Vector3, count: number)
 	local anchor = Effects.anchor(position, 3)

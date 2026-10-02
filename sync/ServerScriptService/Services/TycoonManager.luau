@@ -33,6 +33,7 @@ local DataManager = require(script.Parent.DataManager)
 local FactoryBuilder = require(script.Parent.FactoryBuilder)
 local MonetizationManager = require(script.Parent.MonetizationManager)
 local RoomUpgradeBuilder = require(script.Parent.RoomUpgradeBuilder)
+local StationBuilder = require(script.Parent.StationBuilder)
 
 -- Layout ---------------------------------------------------------------------
 -- Plot space: origin on the ground at the plot's center, -Z (front) faces the hub.
@@ -65,44 +66,42 @@ local ROOM_BUTTONS = {
 local OLD_BUILDING_DELAY = 2 -- seconds the old building stays (minus its top) while the new one streams in
 local CASH_PAD_OFFSET = CFrame.new(0, FLOOR_TOP + 0.3, -46)
 
--- Line origins sit on the floor. Parts flow from the droppers (+Z) to the finishing
--- stage (-Z), along a belt raised on a chunky frame: its top is the DECK, and the
--- machines on it are measured from there.
+-- Line origins sit on the floor, at the pad (the Assembler's capsule). Parts flow from
+-- the droppers (+Z) to the finishing stage (-Z), along a belt raised on a chunky frame:
+-- its top is the DECK, and the machines on it are measured from there. The pad sits
+-- LINE_Z behind the room's middle, so the stations in front of it have room to breathe
+-- (the user: they were crammed together, hiding the brainrot).
 local LINE_X = { 0, -42, 42 }
+local LINE_Z = 10
 local DECK = 4 -- the belt's top, above the floor
 local BELT_WIDTH = 10
-local BELT_FROM, BELT_TO = -25, 53 -- the belt's ends along Z (brainrots leave at the -Z end)
+local BELT_FROM, BELT_TO = -35, 45 -- the belt's ends along Z (brainrots leave at the -Z end)
 local GIRDER_X = BELT_WIDTH / 2 + 0.6 -- the frame's side beams, with the rails on top
-local BELT_LEGS = { -19, -2.5, 11, 23, 35, 47 } -- along Z, clear of the arches and the gantry
-local DROPPER_Z = { Head = 46, Body = 36, Arms = 26, Legs = 16 }
-local STATION_Z = { Station1 = -8, Station2 = -15, Station3 = -23 } -- Station3: the zone's special, at the belt's end
-local SHIP_Z = -31.5 -- the finishing stage, just past the end of the belt
+local BELT_LEGS = { -31, -19.5, -7, 7, 18, 26, 34, 42 } -- along Z, clear of the special and the droppers
+local DROPPER_Z = { Head = 38, Body = 30, Arms = 22, Legs = 14 }
+local STATION_Z = { Station1 = -15, Station2 = -24, Station3 = -33 } -- Station3: the zone's special, at the belt's end
+local SHIP_Z = -41.5 -- the finishing stage, just past the end of the belt
 local SPEED_X = { Speed1 = -2, Speed2 = 2 }
 -- Button spots relative to the line origin, along the line's +X side. A line shows one
 -- button at a time, so Speed1 and Speed2 can share a spot.
 local BUTTON_X = 13
 local BUTTON_OFFSETS = {
-	Line = Vector3.new(0, 0, -42),
-	Head = Vector3.new(BUTTON_X, 0, 46),
-	Body = Vector3.new(BUTTON_X, 0, 36),
-	Arms = Vector3.new(BUTTON_X, 0, 26),
-	Legs = Vector3.new(BUTTON_X, 0, 16),
-	Speed1 = Vector3.new(BUTTON_X, 0, 5),
-	Speed2 = Vector3.new(BUTTON_X, 0, 5),
-	Station1 = Vector3.new(BUTTON_X, 0, -8),
-	Station2 = Vector3.new(BUTTON_X, 0, -15),
-	Station3 = Vector3.new(BUTTON_X, 0, -23),
+	Line = Vector3.new(0, 0, -52),
+	Speed1 = Vector3.new(BUTTON_X, 0, 4),
+	Speed2 = Vector3.new(BUTTON_X, 0, 4),
 }
+for partType, z in DROPPER_Z do
+	BUTTON_OFFSETS[partType] = Vector3.new(BUTTON_X, 0, z)
+end
+for key, z in STATION_Z do
+	BUTTON_OFFSETS[key] = Vector3.new(BUTTON_X, 0, z)
+end
 
 local PART_COLORS = {
 	Head = Color3.fromRGB(255, 105, 180),
 	Body = Color3.fromRGB(255, 210, 60),
 	Arms = Color3.fromRGB(80, 210, 255),
 	Legs = Color3.fromRGB(140, 230, 80),
-}
-local STATION_COLORS = {
-	Station1 = Color3.fromRGB(255, 120, 200),
-	Station2 = Color3.fromRGB(120, 240, 255),
 }
 local METAL_COLOR = Color3.fromRGB(90, 90, 100)
 local GANTRY_COLOR = Color3.fromRGB(150, 90, 255)
@@ -230,7 +229,7 @@ end
 local function lineOrigin(plot: Plot, lineId: string): CFrame
 	local line = TycoonItems.LinesById[lineId]
 	local zone = Zones.ById[line.Zone]
-	return plot.CFrame * FactoryBuilder.RoomCFrame(zone.Index) * CFrame.new(LINE_X[line.Index], 0, 0)
+	return plot.CFrame * FactoryBuilder.RoomCFrame(zone.Index) * CFrame.new(LINE_X[line.Index], 0, LINE_Z)
 end
 
 local function getLineModel(plot: Plot, lineId: string): Model
@@ -308,24 +307,82 @@ local function buildConveyor(model: Model, origin: CFrame, colors: { Color3 })
 	end
 end
 
--- The Assembler: a gantry over the pad (the deck at the line's origin), with the
--- zone's machines under it, a lamp that lights the pad and a beacon that flashes while
--- it builds. Its beam's bottom is GANTRY_BOTTOM above the deck (well over the tallest
--- brainrot, so the claw can lift a head over it).
+-- The Assembler (GDD §6): a glass capsule round the pad (the deck at the line's
+-- origin), so the brainrot is on show while it's built and while it shows itself off
+-- (the user asked for it). Glass panes stand in a ring on a base ring, with doorways
+-- front and back where the belt runs through (the panes over them stop DOOR_TOP above
+-- the deck; beside them, the belt's frame passes under the panes). A ring holds a glass
+-- roof, a crossbar (the Assembler part) carries the zone's machines and a lamp, lights
+-- turn slowly round the top and the beacon sits on the crossbar. The crossbar's
+-- underside is GANTRY_BOTTOM above the deck (well over the tallest brainrot, so the
+-- claw can lift a head over it).
 local GANTRY_BOTTOM = 13
-local GANTRY_PILLAR = Vector2.new(7.6, 5.6) -- the pillars' X and Z from the pad
+local CAPSULE_RADIUS = 10 -- the glass, from the pad (the side machines stand inside)
+local CAPSULE_PANES = 24
+local DOOR_HALF = 4 -- panes closer than this to the belt's middle leave a doorway...
+local DOOR_TOP = 11 -- ...this tall above the deck
+local FRAME_HALF = 6.6 -- panes closer than this stop over the belt's frame
+local GLASS_COLOR = Color3.fromRGB(220, 238, 255)
 local SIDE_X = 7.6 -- the pushers and spools stand on pedestals this far from the pad
+
+-- Each pane of a ring of `count` round the pad (index 0 at the front, -Z): its CFrame
+-- turned to face the middle at `radius`, `y` above the floor, and its X from the middle.
+local function ringSpot(origin: CFrame, index: number, count: number, radius: number, y: number): (CFrame, number)
+	local angle = index / count * math.pi * 2
+	return origin * CFrame.Angles(0, -angle, 0) * CFrame.new(0, y, -radius), math.abs(math.sin(angle) * radius)
+end
 
 local function buildGantry(model: Model, origin: CFrame, colors: { Color3 })
 	local deck = deckOf(origin)
-	local height = DECK + GANTRY_BOTTOM
-	for _, corner in { Vector2.new(-1, -1), Vector2.new(-1, 1), Vector2.new(1, -1), Vector2.new(1, 1) } do
-		local base = origin * CFrame.new(GANTRY_PILLAR.X * corner.X, 0, GANTRY_PILLAR.Y * corner.Y)
-		makePart(model, "AssemblerPillar", Vector3.new(1.6, height, 1.6), base * CFrame.new(0, height / 2, 0), colors[1])
-		makeDecor(model, "AssemblerPillarCap", Vector3.new(2.2, 0.6, 2.2), base * CFrame.new(0, 0.3, 0), colors[1]:Lerp(Color3.new(0, 0, 0), 0.25))
+	local top = DECK + GANTRY_BOTTOM -- the roof's underside, above the floor
+	local paneWidth = 2 * CAPSULE_RADIUS * math.tan(math.pi / CAPSULE_PANES) + 0.1
+	local base = colors[1]
+	for index = 0, CAPSULE_PANES - 1 do
+		local _, x = ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS, 0)
+		local bottom = if x < DOOR_HALF then DECK + DOOR_TOP elseif x < FRAME_HALF then DECK + 1.3 else 1.2
+		local pane = makeDecor(model, "CapsuleGlass", Vector3.new(paneWidth, top + 0.6 - bottom, 0.25), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS, (bottom + top + 0.6) / 2)), GLASS_COLOR, Enum.Material.Glass)
+		pane.Transparency = 0.78
+		pane.CastShadow = false
+		pane.CanCollide = true -- you walk round it, not into it (too clear to block the camera)
+		-- the base ring (where the belt's frame doesn't pass), a glowing strip on it
+		if x >= FRAME_HALF then
+			makePart(model, "CapsuleBase", Vector3.new(paneWidth + 0.2, 1.2, 1.4), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS, 0.6)), base)
+			makeDecor(model, "CapsuleBaseGlow", Vector3.new(paneWidth + 0.2, 0.2, 0.5), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.45, 1.25)), colors[3], Enum.Material.Neon)
+		end
+		-- the top ring with a white stripe, a glowing strip round its foot
+		makeDecor(model, "CapsuleRing", Vector3.new(paneWidth + 0.3, 1.8, 1.3), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.2, top + 0.9)), colors[2])
+		makeDecor(model, "CapsuleRingStripe", Vector3.new(paneWidth + 0.35, 0.45, 1.4), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.2, top + 1.1)), WHITE)
+		makeDecor(model, "CapsuleRingGlow", Vector3.new(paneWidth + 0.3, 0.25, 0.5), (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.75, top - 0.1)), colors[3], Enum.Material.Neon).CastShadow = false
 	end
-	local assembler = makePart(model, "Assembler", Vector3.new(17.4, 2.4, 13), deck * CFrame.new(0, GANTRY_BOTTOM + 1.2, 0), colors[2])
-	makeDecor(model, "AssemblerStripe", Vector3.new(17.5, 0.5, 13.1), deck * CFrame.new(0, GANTRY_BOTTOM + 1.2, 0), WHITE)
+	-- ribs up the glass where it reaches the floor, and posts framing each doorway
+	for _, index in { 3, 9, 15, 21 } do
+		local rib = makeColumn(model, "CapsuleRib", 0.9, 1.2, top, (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.3, 0)), base)
+		rib.CastShadow = false
+	end
+	local doorAngle = math.asin(DOOR_HALF / CAPSULE_RADIUS) / (math.pi * 2) * CAPSULE_PANES -- in panes
+	for _, index in { -doorAngle, doorAngle, CAPSULE_PANES / 2 - doorAngle, CAPSULE_PANES / 2 + doorAngle } do
+		makeColumn(model, "CapsuleDoorPost", 0.8, DECK + 1.2, top, (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS + 0.1, 0)), colors[2])
+		makeColumn(model, "CapsuleDoorLight", 0.3, DECK + 2, DECK + DOOR_TOP - 0.5, (ringSpot(origin, index, CAPSULE_PANES, CAPSULE_RADIUS - 0.35, 0)), colors[3], Enum.Material.Neon)
+	end
+	-- the glass roof
+	local roof = makeDecor(model, "CapsuleRoof", Vector3.new(0.3, CAPSULE_RADIUS * 2 + 0.6, CAPSULE_RADIUS * 2 + 0.6), origin * CFrame.new(0, top + 1.65, 0) * CFrame.Angles(0, 0, math.pi / 2), GLASS_COLOR, Enum.Material.Glass)
+	roof.Shape = Enum.PartType.Cylinder
+	roof.Transparency = 0.8
+	roof.CastShadow = false
+	-- lights turning slowly round the top (Atmosphere spins it about its pivot's Z: up)
+	local lights = Instance.new("Model")
+	lights.Name = "CapsuleLights"
+	for index = 0, 15 do
+		makeBall(lights, "CapsuleLight", 0.7, (ringSpot(origin, index + 0.5, 16, CAPSULE_RADIUS + 0.95, top + 1.1)), colors[3]:Lerp(WHITE, 0.25), Enum.Material.Neon).CastShadow = false
+	end
+	lights.WorldPivot = origin * CFrame.new(0, top + 1.1, 0) * CFrame.Angles(math.pi / 2, 0, 0)
+	lights:SetAttribute("Speed", 0.25)
+	CollectionService:AddTag(lights, "Spinner")
+	lights.Parent = model
+
+	local assembler = makePart(model, "Assembler", Vector3.new(CAPSULE_RADIUS * 2 + 1, 2, 3), deck * CFrame.new(0, GANTRY_BOTTOM + 1, 0), colors[2])
+	makeDecor(model, "AssemblerStripe", Vector3.new(CAPSULE_RADIUS * 2 + 1.1, 0.5, 3.1), assembler.CFrame, WHITE)
+	makeColumn(model, "BeaconNeck", 1, DECK + GANTRY_BOTTOM + 2, DECK + GANTRY_BOTTOM + 2.6, origin, base)
 	local lamp = Instance.new("SpotLight")
 	lamp.Face = Enum.NormalId.Bottom
 	lamp.Angle = 75
@@ -652,8 +709,8 @@ local function buildPacker(model: Model, spot: CFrame, name: string)
 	local deck = deckOf(spot) * CFrame.new(0, SPECIAL_LIFT, 0)
 	local height = DECK + 8 + SPECIAL_LIFT
 	for _, side in { -1, 1 } do
-		makePart(model, "PackerTower", Vector3.new(2, height, 5.4), spot * CFrame.new(side * SIDE_X, height / 2, 0), CLAW_COLOR)
-		makeDecor(model, "PackerStripe", Vector3.new(2.1, 1, 5.5), spot * CFrame.new(side * SIDE_X, DECK + 5.5 + SPECIAL_LIFT, 0), GANTRY_COLOR)
+		makePart(model, "PackerTower", Vector3.new(2, height, 5.4), spot * CFrame.new(side * SIDE_X, height / 2, 0), GANTRY_COLORS.ToyWorkshop[1])
+		makeDecor(model, "PackerStripe", Vector3.new(2.1, 1, 5.5), spot * CFrame.new(side * SIDE_X, DECK + 5.5 + SPECIAL_LIFT, 0), CLAW_COLOR)
 		makeDecor(model, "PackerStripe", Vector3.new(2.1, 0.5, 5.5), spot * CFrame.new(side * SIDE_X, DECK + 4.4 + SPECIAL_LIFT, 0), WHITE)
 	end
 	local top = makePart(model, "Station3", Vector3.new(17.6, 2.8, 6), deck * CFrame.new(0, 9.4, 0), GANTRY_COLOR)
@@ -702,56 +759,6 @@ local function buildBowTier(model: Model, spot: CFrame, name: string)
 	-- and a giant bow on the arch's front
 	buildRibbonBow(model, deck * CFrame.new(0, 9.9, -2.2), 3.4, SEWING_COLOR)
 	makeBillboard(top, string.upper(name), Vector2.new(8, 1.5), 5.4, 80)
-end
-
--- The upgrade arches over the belt (`spot`: on the floor under the arch). The Toy
--- Workshop's are plain colored arches (Paint Booth, Glitter Blaster); the Plushie
--- room's have lavender legs topped with yarn balls and, on the beam, the Dye Bath's
--- bucket of fabric dye or the Sequin Shower's spinning disco ball.
-local ARCH_X = 7 -- its legs, from the belt's middle
-local ARCH_TOP = 10.5 -- the beam's middle, above the deck (clear of the tallest brainrot)
-
-local function buildArch(model: Model, spot: CFrame, item: TycoonItems.Item, color: Color3, legColor: Color3, material: Enum.Material?): BasePart
-	local deck = deckOf(spot)
-	local legHeight = DECK + ARCH_TOP - 0.75
-	for _, side in { -1, 1 } do
-		local leg = makePart(model, item.Key .. (if side < 0 then "LegLeft" else "LegRight"), Vector3.new(1.4, legHeight, 1.4), spot * CFrame.new(side * ARCH_X, legHeight / 2, 0), legColor)
-		leg.Material = material or Enum.Material.SmoothPlastic
-		makeDecor(model, item.Key .. "LegFoot", Vector3.new(2.2, 0.5, 2.2), spot * CFrame.new(side * ARCH_X, 0.25, 0), legColor:Lerp(Color3.new(0, 0, 0), 0.2))
-	end
-	local top = makePart(model, item.Key, Vector3.new(ARCH_X * 2 + 1.4, 1.5, 3), deck * CFrame.new(0, ARCH_TOP, 0), color, material)
-	makePart(model, item.Key .. "Glow", Vector3.new(ARCH_X * 2 - 2, 0.3, 2.4), deck * CFrame.new(0, ARCH_TOP - 0.9, 0), WHITE, Enum.Material.Neon)
-	return top
-end
-
-local function buildPlushieArch(model: Model, spot: CFrame, item: TycoonItems.Item)
-	local deck = deckOf(spot)
-	local top = buildArch(model, spot, item, SEWING_COLOR, LAVENDER_COLOR, Enum.Material.Fabric)
-	makeDecor(model, item.Key .. "Stripe", Vector3.new(ARCH_X * 2 + 1.5, 0.4, 3.1), top.CFrame, WHITE)
-	for _, side in { -1, 1 } do
-		makeBall(model, item.Key .. "Yarn", 2, deck * CFrame.new(side * ARCH_X, ARCH_TOP + 1.7, 0), THREAD_COLORS[if side < 0 then 1 else 2], Enum.Material.Fabric)
-	end
-	if item.Key == "Station1" then
-		makeColumn(model, "DyeBucket", 3.8, DECK + ARCH_TOP + 0.75, DECK + ARCH_TOP + 3.4, spot, Color3.fromRGB(200, 215, 235), Enum.Material.Metal)
-		makeColumn(model, "DyeBucketRim", 4.1, DECK + ARCH_TOP + 3.1, DECK + ARCH_TOP + 3.5, spot, FLUFF_PINK)
-		makeColumn(model, "Dye", 3.4, DECK + ARCH_TOP + 3.4, DECK + ARCH_TOP + 3.55, spot, Color3.fromRGB(150, 110, 255), Enum.Material.Neon)
-	else
-		local ball = Instance.new("Model")
-		ball.Name = "DiscoBall"
-		local center = deck * CFrame.new(0, ARCH_TOP + 2.4, 0)
-		local disco = makeBall(ball, "DiscoBall", 3, center, Color3.fromRGB(225, 230, 245), Enum.Material.Foil)
-		disco.Reflectance = 0.4
-		for index = 0, 5 do
-			local angle = index * math.pi / 3
-			makeDecor(ball, "DiscoTile", Vector3.new(0.6, 0.6, 0.1), center * CFrame.new(math.cos(angle) * 1.45, (index % 2 - 0.5) * 0.8, math.sin(angle) * 1.45) * CFrame.Angles(0, -angle - math.pi / 2, 0), Color3.fromRGB(255, 180, 230), Enum.Material.Neon)
-		end
-		-- it spins about its upright axis (Atmosphere turns Spinners about their pivot's Z)
-		ball.WorldPivot = center * CFrame.Angles(math.pi / 2, 0, 0)
-		ball:SetAttribute("Speed", 1.2)
-		CollectionService:AddTag(ball, "Spinner")
-		ball.Parent = model
-	end
-	makeBillboard(top, string.upper(item.Name), Vector2.new(8, 1.5), if item.Key == "Station1" then 4.2 else 4.6, 80)
 end
 
 -- Clay Studio -------------------------------------------------------------------------
@@ -887,27 +894,6 @@ local function buildClayHands(parent: Model, origin: CFrame)
 	end
 	makeDecor(parent, "ClayFlashMount", Vector3.new(0.3, 1.2, 0.3), aim * CFrame.new(1, 1.4, 0), CHROME_COLOR)
 	makeBall(parent, "ClayFlash", 0.9, aim * CFrame.new(1, 2.2, 0), Color3.fromRGB(255, 245, 210), Enum.Material.Neon)
-end
-
--- Upgrade stations: terracotta arches. The Color Squish (Station1) wears a row of
--- clay balls; the Sparkle Glaze (Station2) a pot of glossy glaze dripping off the beam.
-local function buildClayArch(model: Model, spot: CFrame, item: TycoonItems.Item)
-	local deck = deckOf(spot)
-	local top = buildArch(model, spot, item, CLAY_COLOR, CLAY_DARK_COLOR)
-	makeDecor(model, item.Key .. "Stripe", Vector3.new(ARCH_X * 2 + 1.5, 0.4, 3.1), top.CFrame, CLAY_TEAL)
-	if item.Key == "Station1" then
-		for index, x in { -4, -1.3, 1.3, 4 } do
-			makeBall(model, "ClayBlob", 2.2 - (index % 2) * 0.4, deck * CFrame.new(x, ARCH_TOP + 1.8 - (index % 2) * 0.2, 0), ({ Color3.fromRGB(255, 100, 120), Color3.fromRGB(255, 200, 60), Color3.fromRGB(90, 190, 255), Color3.fromRGB(130, 220, 110) })[index], Enum.Material.Sand)
-		end
-	else
-		makeColumn(model, "GlazePot", 3.6, DECK + ARCH_TOP + 0.75, DECK + ARCH_TOP + 3.2, spot, CLAY_LIGHT_COLOR)
-		makeColumn(model, "Glaze", 3.2, DECK + ARCH_TOP + 3.2, DECK + ARCH_TOP + 3.35, spot, Color3.fromRGB(240, 250, 255), Enum.Material.Glass)
-		for _, x in { -5, -2.5, 2.5, 5 } do
-			local drip = makeDecor(model, "GlazeDrip", Vector3.new(0.5, 1.4, 0.5), deck * CFrame.new(x, ARCH_TOP - 1.3, -1.6), Color3.fromRGB(235, 245, 255), Enum.Material.Glass)
-			drip.Transparency = 0.2
-		end
-	end
-	makeBillboard(top, string.upper(item.Name), Vector2.new(8, 1.5), 3.6, 80)
 end
 
 -- Special: the Stop-Motion Camera, a big film camera on a crossbar over the end of the
@@ -1104,29 +1090,6 @@ local function buildSprayRobot(parent: Model, origin: CFrame, side: number)
 	robot.Parent = parent
 end
 
--- Upgrade stations: blue arches with gold beams. The Gloss Coat (Station1) wears two
--- spray cans; the Gold Leaf (Station2) a stack of gold leaf and a star.
-local function buildVinylArch(model: Model, spot: CFrame, item: TycoonItems.Item)
-	local deck = deckOf(spot)
-	local top = buildArch(model, spot, item, VINYL_GOLD, VINYL_BLUE)
-	makeDecor(model, item.Key .. "Stripe", Vector3.new(ARCH_X * 2 + 1.5, 0.4, 3.1), top.CFrame, VINYL_PINK, Enum.Material.Neon)
-	if item.Key == "Station1" then
-		for index, x in { -2.5, 2.5 } do
-			makeColumn(model, "SprayCan", 2, DECK + ARCH_TOP + 0.75, DECK + ARCH_TOP + 4, spot * CFrame.new(x, 0, 0), if index == 1 then VINYL_PINK else Color3.fromRGB(90, 190, 255))
-			makeColumn(model, "SprayCanCap", 1.6, DECK + ARCH_TOP + 4, DECK + ARCH_TOP + 4.8, spot * CFrame.new(x, 0, 0), WHITE)
-		end
-	else
-		for index = 0, 3 do
-			makeDecor(model, "GoldLeaf", Vector3.new(3.2, 0.15, 3.2), deck * CFrame.new(-3, ARCH_TOP + 0.85 + index * 0.18, 0) * CFrame.Angles(0, index * 0.25, 0), VINYL_GOLD)
-		end
-		local star = deck * CFrame.new(3, ARCH_TOP + 2.6, 0)
-		for _, turn in { 0, math.pi / 4 } do
-			makeDecor(model, "GoldStar", Vector3.new(2.4, 2.4, 0.4), star * CFrame.Angles(0, 0, turn), VINYL_GOLD)
-		end
-	end
-	makeBillboard(top, string.upper(item.Name), Vector2.new(8, 1.5), 3.6, 80)
-end
-
 -- Special: the Holo Sticker press over the end of the belt (Station3): a crossbar with a
 -- roll of holographic star stickers turning on top and a stamp arm; it slaps a
 -- LIMITED EDITION sticker on the brainrot.
@@ -1191,7 +1154,7 @@ end
 -- The line's tablet (GDD §6): a little stand beside the Assembler holding a tablet,
 -- themed per zone. Its screen (TabletScreen, PromptAnchor) carries the "Configure
 -- line" prompt; UIController flies the camera onto it and opens the Line menu there.
-local TABLET_SPOT = Vector3.new(10, 0, -2.5) -- from the line's origin, by the button path
+local TABLET_SPOT = Vector3.new(11.5, 0, -11.5) -- from the line's origin: by the button path, off the capsule's front
 local TABLET_FACING = Vector3.new(math.cos(math.rad(25)), 0, -math.sin(math.rad(25))) -- toward the path, a little to the front
 local TABLET_SCREEN = Vector2.new(3.2, 2.4)
 local TABLET_TILT = math.rad(30) -- leaning back, screen up toward you
@@ -1319,7 +1282,8 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		makePart(model, item.Key, Vector3.new(0.8, 0.1, length), origin * CFrame.new(SPEED_X[item.Key], DECK + 0.05, (BELT_TO + BELT_FROM) / 2), Color3.fromRGB(255, 230, 60), Enum.Material.Neon)
 	end,
 
-	-- An arch over the belt that brainrots ride through, or the zone's special machine.
+	-- A machine beside the belt that works on the brainrots riding past, or the zone's
+	-- special machine over the belt's end.
 	Station = function(model, origin, item)
 		local spot = origin * CFrame.new(0, 0, STATION_Z[item.Key])
 		if item.Key == "Station3" then
@@ -1332,16 +1296,8 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			else
 				buildPacker(model, spot, item.Name)
 			end
-		elseif item.Zone == "PlushieRoom" then
-			buildPlushieArch(model, spot, item)
-		elseif item.Zone == "ClayStudio" then
-			buildClayArch(model, spot, item)
-		elseif item.Zone == "VinylCollectibles" then
-			buildVinylArch(model, spot, item)
 		else
-			local color = STATION_COLORS[item.Key]
-			local top = buildArch(model, spot, item, color, color)
-			makeBillboard(top, string.upper(item.Name), Vector2.new(8, 1.5), 2, 80)
+			StationBuilder.Build(model, spot, item, DECK)
 		end
 	end,
 }
@@ -1410,12 +1366,12 @@ local function buildDroppersLook(model: Model, origin: CFrame, level: number)
 		local mouth = deck * CFrame.new(0, 6.5, z)
 		for k = 1, count do
 			local angle = k / count * math.pi * 2
-			trackBulb(model, mouth * CFrame.new(math.cos(angle) * 3.9, 0, math.sin(angle) * 3.9), 0.6 + tier * 0.08, tier, k)
+			trackBulb(model, mouth * CFrame.new(math.cos(angle) * 3.5, 0, math.sin(angle) * 3.5), 0.6 + tier * 0.08, tier, k)
 		end
 		if tier >= 2 then
 			for k = 1, count do
 				local angle = (k + 0.5) / count * math.pi * 2
-				makeBall(model, "TrackBulb", 0.45, mouth * CFrame.new(math.cos(angle) * 4.6, 0.25, math.sin(angle) * 4.6), TRACK_GOLD, Enum.Material.Neon).CastShadow = false
+				makeBall(model, "TrackBulb", 0.45, mouth * CFrame.new(math.cos(angle) * 3.95, 0.25, math.sin(angle) * 3.95), TRACK_GOLD, Enum.Material.Neon).CastShadow = false
 			end
 		end
 		if tier >= 3 then

@@ -12,10 +12,20 @@
 	  dev:Invoke("BuildUpgrade", player, "ToyWorkshop_Decor_ToyTrain_2") -- a room upgrade level drops in
 	  dev:Invoke("ResetPlot", player)  -- rebuilds the tycoon from the data
 	  dev:Invoke("SetPurchased", player, "Floor_3", false) -- un-buys an item (free) and rebuilds
+	  dev:Invoke("SetPurchasedList", player, { "ClayStudio_Room", "ClayStudio_1_Line" }, true)
+
+	The Studio MCP's own code can't invoke it any more (since 2026-10-02 its thread lacks
+	the modules' capabilities), but it can set attributes: set workspace's DevRequest to
+	a JSON array, the command's name then its arguments, and the result lands in
+	DevResult (JSON: { ok, result }). It runs for the first player:
+
+	  workspace:SetAttribute("DevRequest", '["AddCoins", 50000]')
 
 	Never created in live servers.
 ]]
 
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
@@ -67,6 +77,16 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 		TycoonManager.ResetPlot(player)
 		return true
 	end,
+	-- The same for several items at once, with a single rebuild.
+	SetPurchasedList = function(player, itemIds, purchased)
+		for _, itemId in itemIds do
+			if not DataManager.DevSetPurchased(player, itemId, purchased == true) then
+				return false
+			end
+		end
+		TycoonManager.ResetPlot(player)
+		return true
+	end,
 	-- Unlocks all 4 parts of a brainrot and equips them on a line (skipping the line
 	-- rules). It saves, so Snapshot first.
 	ShowOnLine = function(player, brainrotId, lineId)
@@ -92,6 +112,23 @@ function DevTools.Init()
 		return handler(player, ...)
 	end
 	command.Parent = ServerStorage
+
+	workspace:GetAttributeChangedSignal("DevRequest"):Connect(function()
+		local request = workspace:GetAttribute("DevRequest")
+		if typeof(request) ~= "string" or request == "" then
+			return
+		end
+		workspace:SetAttribute("DevRequest", nil)
+		local ok, result = pcall(function()
+			local args = HttpService:JSONDecode(request)
+			local player = Players:GetPlayers()[1]
+			assert(player, "No player")
+			local handler = COMMANDS[args[1]]
+			assert(handler, `Unknown dev command {args[1]}`)
+			return handler(player, table.unpack(args, 2))
+		end)
+		workspace:SetAttribute("DevResult", HttpService:JSONEncode({ ok = ok, result = if ok then result else tostring(result) }))
+	end)
 end
 
 return DevTools
