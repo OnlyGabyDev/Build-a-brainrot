@@ -93,6 +93,7 @@ FactoryBuilder.BaseStoreys = 2
 FactoryBuilder.MaxStoreys = STOREYS
 local topStorey = STOREYS
 local roofBase = floorY(topStorey + 1) + 0.5 -- where the roof meets the walls
+local terraceBehindTop = true -- the top storey's back opens onto a terrace (over a room below it)
 
 -- Creator Store textures (each decal's image id), white so they take a tint.
 local BRICK_TEXTURE = "rbxassetid://74130396057975" -- decal 92246549548513
@@ -1357,7 +1358,7 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 		if isLast then
 			-- the back wall; the top storey's opens onto the terrace behind it
 			local back = center * CFrame.new(0, 0, halfZ - WALL / 2) * CFrame.Angles(0, math.pi, 0)
-			local terraceDoor = storey == topStorey and storey > 1
+			local terraceDoor = storey == topStorey and storey > 1 and terraceBehindTop
 			local openings = if terraceDoor then { { X = 0, Width = TERRACE_DOOR.X, Height = TERRACE_DOOR.Y } } else {}
 			buildOuterWall(layer, back, inner, openings, facade.Windows, room, storey, palette, false)
 			if terraceDoor then
@@ -1468,10 +1469,15 @@ function FactoryBuilder.Build(model: Model, cframe: CFrame, color: Color3, heigh
 		storeys[spot.Storey] = storeys[spot.Storey] or {}
 		table.insert(storeys[spot.Storey], { ZoneId = zoneId, Z = spot.Z, Style = ROOM_STYLES[zoneId] or ROOM_STYLES.ToyWorkshop })
 	end
-	for storey, rooms in storeys do
+	for _, rooms in storeys do
 		table.sort(rooms, function(a, b)
 			return a.Z < b.Z
 		end)
+	end
+	-- a terrace lies behind the top storey when the storey under it reaches further back
+	local top, under = storeys[topStorey], storeys[topStorey - 1]
+	terraceBehindTop = under ~= nil and under[#under].Z > top[#top].Z
+	for storey, rooms in storeys do
 		buildStorey(layers, cframe, storey, rooms, palette, factory)
 	end
 
@@ -1488,7 +1494,6 @@ function FactoryBuilder.Build(model: Model, cframe: CFrame, color: Color3, heigh
 			end
 		end
 	end
-	local top = storeys[topStorey]
 	buildRoof(layers[topStorey + 1], cframe, top[1].Z - ROOM_SIZE.Z / 2, top[#top].Z + ROOM_SIZE.Z / 2, palette)
 	buildTurret(layers[topStorey + 1], cframe * CFrame.new(-HALF_X - 2, 0, FRONT_Z - 2), (cframe:VectorToWorldSpace(Vector3.new(-1, 0, -1))).Unit, palette)
 	for index, z in { FRONT_Z + ROOM_SIZE.Z + 10, BACK_Z - 10 } do
