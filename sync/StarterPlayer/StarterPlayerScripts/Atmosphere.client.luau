@@ -6,7 +6,8 @@
 	shuffle with a mute button. In the hub (MapBuilder), the statues turn slowly, the
 	balloons bob and the water's cartoon texture drifts; on the factories
 	(FactoryBuilder), pinwheels, donuts and lollipops spin, balloons bob and marquee
-	bulbs chase. Client only.
+	bulbs chase; windmills, flocks of birds and hot air balloons turn (Spinners too), and
+	butterflies flutter over the flowers. Client only.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -252,6 +253,45 @@ RunService.RenderStepped:Connect(function()
 					bulb.Color = BULB_OFF
 				end
 			end
+		end
+	end
+end)
+
+-- Butterflies (MapBuilder) flutter round their Home over the flowers, wings flapping.
+-- Only the ones near the camera move.
+local BUTTERFLY_DISTANCE = 160
+type Butterfly = { Body: BasePart, Left: BasePart, Right: BasePart, Home: Vector3, Phase: number }
+local butterflies: { [Model]: Butterfly } = {}
+
+watchTag("Butterfly", function(model)
+	if not model:IsA("Model") then
+		return
+	end
+	local body, left, right = model:FindFirstChild("Body"), model:FindFirstChild("WingLeft"), model:FindFirstChild("WingRight")
+	local home, phase = model:GetAttribute("Home"), model:GetAttribute("Phase")
+	if body and left and right and body:IsA("BasePart") and left:IsA("BasePart") and right:IsA("BasePart") and typeof(home) == "Vector3" then
+		butterflies[model] = { Body = body, Left = left, Right = right, Home = home, Phase = if typeof(phase) == "number" then phase else 0 }
+	end
+end, function(model)
+	butterflies[model :: Model] = nil
+end)
+
+-- Where a butterfly is `t` into its loop: a wobbly figure round its home.
+local function flightAt(fly: Butterfly, t: number): Vector3
+	return fly.Home + Vector3.new(math.sin(t) * 3.5 + math.sin(t * 2.3) * 1.2, 1.5 + math.sin(t * 1.7) * 0.8, math.cos(t * 0.8) * 3.5)
+end
+
+RunService.RenderStepped:Connect(function()
+	local now = os.clock()
+	local camera = workspace.CurrentCamera.CFrame.Position
+	for _, fly in butterflies do
+		if (fly.Home - camera).Magnitude < BUTTERFLY_DISTANCE then
+			local t = now * 0.7 + fly.Phase
+			local frame = CFrame.lookAt(flightAt(fly, t), flightAt(fly, t + 0.05))
+			local flap = math.sin(now * 22 + fly.Phase) * 1.1
+			fly.Body.CFrame = frame
+			fly.Left.CFrame = frame * CFrame.Angles(0, 0, -flap) * CFrame.new(-0.55, 0, 0)
+			fly.Right.CFrame = frame * CFrame.Angles(0, 0, flap) * CFrame.new(0.55, 0, 0)
 		end
 	end
 end)

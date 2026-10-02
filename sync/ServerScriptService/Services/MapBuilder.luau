@@ -7,7 +7,9 @@
 	rings the plaza; past each wooden bridge, a path in the factory's color leads on
 	to its entrance. Grassy hills and two streams (each ending in a pond) fill the
 	gaps between the factories, dotted with trees, bushes, flowers, rocks, mushrooms,
-	benches and lamps, with balloons floating over it all.
+	benches and lamps, with balloons floating over it all. Every gap has a striped tulip
+	field with butterflies, a grove of blossom and golden trees, a turning windmill and
+	birds circling above; hot air balloons drift round the valley.
 
 	The ground, hills and water are Terrain, made here at startup; everything else is
 	parts. Decor is scattered with a free-space check, so it never lands on a path, a
@@ -910,6 +912,212 @@ local function buildLollipop(parent: Instance, base: Vector3, turn: number)
 	end
 end
 
+-- Life between the factories ------------------------------------------------------------
+-- The gaps between the factories looked empty, flat and still (the user, 2026-10-02):
+-- each gets a striped tulip field on dark soil, a windmill turning on its big hill (or by
+-- the pond), a grove of blossom and golden trees, butterflies over the flowers and birds
+-- circling above; hot air balloons drift round the whole valley. The motion is
+-- client-side (Atmosphere): Spinners turn about their pivot's Z, and Butterfly models
+-- flutter round their Home.
+
+local TULIP_COLORS = {
+	Color3.fromRGB(255, 60, 90),
+	Color3.fromRGB(255, 210, 40),
+	Color3.fromRGB(255, 110, 190),
+	Color3.fromRGB(150, 90, 255),
+	Color3.fromRGB(255, 130, 40),
+	Color3.fromRGB(255, 255, 255),
+}
+local BUTTERFLY_COLORS = {
+	Color3.fromRGB(255, 120, 200),
+	Color3.fromRGB(255, 215, 60),
+	Color3.fromRGB(110, 200, 255),
+	Color3.fromRGB(190, 130, 255),
+	Color3.fromRGB(255, 150, 70),
+}
+local HOT_AIR_COLORS = {
+	{ Color3.fromRGB(255, 90, 120), Color3.fromRGB(255, 215, 60) },
+	{ Color3.fromRGB(80, 175, 255), Color3.fromRGB(255, 255, 255) },
+	{ Color3.fromRGB(160, 100, 255), Color3.fromRGB(255, 150, 210) },
+	{ Color3.fromRGB(255, 140, 50), Color3.fromRGB(90, 220, 140) },
+	{ Color3.fromRGB(255, 215, 60), Color3.fromRGB(255, 90, 160) },
+}
+local WINDMILL_WALL = Color3.fromRGB(255, 250, 240)
+local WINDOW_BLUE = Color3.fromRGB(120, 200, 255)
+local BIRD_COLOR = Color3.fromRGB(70, 75, 120)
+
+-- Makes `model` turn about `pivot`'s Z axis at `speed` radians per second (Atmosphere).
+local function spin(model: Model, pivot: CFrame, speed: number)
+	model.WorldPivot = pivot
+	model:SetAttribute("Speed", speed)
+	CollectionService:AddTag(model, "Spinner")
+end
+
+local function decorBall(parent: Instance, name: string, diameter: number, cframe: CFrame, color: Color3, material: Enum.Material?): Part
+	local ball = makeDecor(parent, name, Vector3.one * diameter, cframe, color, material)
+	ball.Shape = Enum.PartType.Ball
+	return ball
+end
+
+-- A disc or drum: a cylinder `across` wide and `depth` deep, its axis along `cframe`'s Z.
+local function decorDisc(parent: Instance, name: string, across: number, depth: number, cframe: CFrame, color: Color3, material: Enum.Material?): Part
+	local disc = makeDecor(parent, name, Vector3.new(depth, across, across), cframe * CFrame.Angles(0, math.pi / 2, 0), color, material)
+	disc.Shape = Enum.PartType.Cylinder
+	return disc
+end
+
+-- A field of tulips (`base`: its middle, turned by `turn`): rows of one color each on
+-- dark soil, every row a different color, like the bulb fields in Holland.
+local FIELD_ROWS, FIELD_LENGTH, ROW_SPACING = 7, 24, 3.2
+local FIELD_RADIUS = 18 -- what it claims
+
+local function buildTulipField(parent: Instance, base: Vector3, turn: number)
+	local origin = CFrame.new(base) * CFrame.Angles(0, turn, 0)
+	paint(origin, Vector2.new(FIELD_ROWS * ROW_SPACING + 3, FIELD_LENGTH + 4), Enum.Material.Ground)
+	local field = Instance.new("Model")
+	field.Name = "TulipField"
+	local first = random:NextInteger(0, #TULIP_COLORS - 1)
+	local count = math.floor(FIELD_LENGTH / 1.8)
+	for row = 0, FIELD_ROWS - 1 do
+		local x = (row - (FIELD_ROWS - 1) / 2) * ROW_SPACING
+		local color = TULIP_COLORS[(first + row) % #TULIP_COLORS + 1]
+		makeDecor(field, "TulipLeaves", Vector3.new(1.8, 1, FIELD_LENGTH), origin * CFrame.new(x, 0.5, 0), LEAF_SETS[2][1])
+		for k = 0, count - 1 do
+			local z = -FIELD_LENGTH / 2 + (k + 0.5) * FIELD_LENGTH / count
+			decorBall(field, "Tulip", 1.5, origin * CFrame.new(x + random:NextNumber(-0.2, 0.2), 1.6 + random:NextNumber(-0.2, 0.25), z), color)
+		end
+	end
+	field.Parent = parent
+end
+
+-- A butterfly (a body and two wings) that flutters round `home` (Atmosphere).
+local function buildButterfly(parent: Instance, home: Vector3)
+	local fly = Instance.new("Model")
+	fly.Name = "Butterfly"
+	local color = BUTTERFLY_COLORS[random:NextInteger(1, #BUTTERFLY_COLORS)]
+	makeDecor(fly, "Body", Vector3.new(0.25, 0.25, 0.9), CFrame.new(home), Color3.fromRGB(60, 45, 70)).CastShadow = false
+	for _, side in { -1, 1 } do
+		makeDecor(fly, if side < 0 then "WingLeft" else "WingRight", Vector3.new(1.1, 0.08, 1.1), CFrame.new(home + Vector3.new(side * 0.6, 0, 0)), color).CastShadow = false
+	end
+	fly:SetAttribute("Home", home)
+	fly:SetAttribute("Phase", random:NextNumber(0, math.pi * 2))
+	fly.ModelStreamingMode = Enum.ModelStreamingMode.Atomic -- the client needs all three parts
+	CollectionService:AddTag(fly, "Butterfly")
+	fly.Parent = parent
+end
+
+-- A windmill (`base`: on the ground; -Z of `facing` toward the hub): a white tower in
+-- three tiers banded in `color`, a door and round windows, a pointy cap in `color`, and
+-- four sails turning on the front.
+local function buildWindmill(parent: Instance, base: Vector3, facing: number, color: Color3)
+	local mill = Instance.new("Model")
+	mill.Name = "Windmill"
+	local origin = CFrame.new(base) * CFrame.Angles(0, facing, 0)
+	local tiers = { { 11, 0, 8 }, { 9.4, 8, 7 }, { 8, 15, 6 } } -- { across, bottom, height }
+	for _, tier in tiers do
+		makeCylinder(mill, "WindmillTower", tier[1] / 2, tier[3], base + Vector3.new(0, tier[2], 0), WINDMILL_WALL)
+		makeCylinder(mill, "WindmillBand", tier[1] / 2 + 0.2, 0.8, base + Vector3.new(0, tier[2] + tier[3] - 0.8, 0), color)
+	end
+	makeDecor(mill, "WindmillDoor", Vector3.new(3, 5, 0.8), origin * CFrame.new(0, 2.5, -5.2), WOOD_DARK, Enum.Material.Wood)
+	for _, y in { 11.5, 17.8 } do
+		local depth = if y < 15 then -4.6 else -3.9
+		decorDisc(mill, "WindmillWindowFrame", 2.8, 0.4, origin * CFrame.new(0, y, depth), Color3.new(1, 1, 1))
+		decorDisc(mill, "WindmillWindow", 2.1, 0.5, origin * CFrame.new(0, y, depth), WINDOW_BLUE)
+	end
+	-- the cap: rings narrowing to a point, and a knob
+	for index, ring in { { 9.4, 1.6 }, { 7, 1.5 }, { 4.6, 1.4 }, { 2.2, 1.2 } } do
+		makeCylinder(mill, "WindmillCap", ring[1] / 2, ring[2], base + Vector3.new(0, 21 + (index - 1) * 1.5, 0), color)
+	end
+	decorBall(mill, "WindmillKnob", 1.4, CFrame.new(base + Vector3.new(0, 27.4, 0)), Color3.new(1, 1, 1))
+	-- the sails, on an axle out of the front of the top tier
+	local axle = origin * CFrame.new(0, 18.5, -6.6)
+	decorDisc(mill, "WindmillAxle", 1, 3, origin * CFrame.new(0, 18.5, -5), WOOD_DARK)
+	local sails = Instance.new("Model")
+	sails.Name = "WindmillSails"
+	decorBall(sails, "SailHub", 2.2, axle, color)
+	for k = 0, 3 do
+		local arm = axle * CFrame.Angles(0, 0, k * math.pi / 2 + math.pi / 4)
+		makeDecor(sails, "SailSpar", Vector3.new(0.6, 15, 0.6), arm * CFrame.new(0, 7.5, 0), WOOD_DARK, Enum.Material.Wood)
+		makeDecor(sails, "Sail", Vector3.new(3.4, 10, 0.2), arm * CFrame.new(2, 9.5, -0.3), if k % 2 == 0 then color else Color3.new(1, 1, 1), Enum.Material.Fabric)
+	end
+	spin(sails, axle, 0.7)
+	sails.Parent = mill
+	mill.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+	mill.Parent = parent
+end
+
+-- A grove of blossom and golden trees (with a green one or two) round `center`.
+local function buildGrove(parent: Instance, center: Vector3, count: number)
+	local sets = { LEAF_SETS[3], LEAF_SETS[4], LEAF_SETS[3], LEAF_SETS[1] }
+	for index = 1, count do
+		local angle = index / count * math.pi * 2 + random:NextNumber(-0.3, 0.3)
+		local spot = center + onGround(angle, random:NextNumber(5, 14))
+		local at = groundAt(spot.X, spot.Z)
+		if at then
+			local leaves = sets[index % #sets + 1]
+			if random:NextNumber() < 0.5 then
+				buildPuffTree(parent, at, random:NextNumber(0.9, 1.3), leaves)
+			else
+				buildBlockTree(parent, at, random:NextNumber(0.9, 1.3), leaves)
+			end
+		end
+	end
+	buildFlowers(parent, center)
+end
+
+-- A flock of birds circling over `center` (a Spinner about the upright).
+local function buildFlock(parent: Instance, center: Vector3, count: number)
+	local flock = Instance.new("Model")
+	flock.Name = "Flock"
+	for index = 1, count do
+		local angle = index / count * math.pi * 1.2
+		local at = center + onGround(angle, 22 + random:NextNumber(-4, 6)) + Vector3.new(0, random:NextNumber(-3, 3), 0)
+		local heading = Vector3.new(math.cos(angle), 0, -math.sin(angle)) -- along the circle, the way it turns
+		local bird = CFrame.lookAt(at, at + heading)
+		makeDecor(flock, "Bird", Vector3.new(0.6, 0.6, 1.6), bird, BIRD_COLOR).CastShadow = false
+		for _, side in { -1, 1 } do
+			makeDecor(flock, "BirdWing", Vector3.new(2.6, 0.15, 0.9), bird * CFrame.Angles(0, 0, side * math.rad(18)) * CFrame.new(side * 1.3, 0, 0), BIRD_COLOR).CastShadow = false
+		end
+	end
+	-- the pivot's Z points down, so a negative speed turns it the way the birds face
+	spin(flock, CFrame.new(center) * CFrame.Angles(math.pi / 2, 0, 0), -0.3)
+	flock.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	flock.Parent = parent
+end
+
+-- A hot air balloon that drifts round the valley at `height`, `radius` from the hub (a
+-- Spinner about the hub's upright): a striped envelope, ropes, a wicker basket and a
+-- burner flame.
+local function buildHotAirBalloon(parent: Instance, radius: number, height: number, angle: number, speed: number, colors: { Color3 })
+	local balloon = Instance.new("Model")
+	balloon.Name = "HotAirBalloon"
+	local center = onGround(angle, radius) + Vector3.new(0, height, 0)
+	local size = 22
+	decorBall(balloon, "Envelope", size, CFrame.new(center), colors[1]).CastShadow = false
+	for _, y in { -4, 0, 4 } do
+		local across = math.sqrt((size / 2) ^ 2 - y ^ 2) * 2 + 0.3
+		local band = makeDecor(balloon, "EnvelopeBand", Vector3.new(1.4, across, across), CFrame.new(center + Vector3.new(0, y, 0)) * CFrame.Angles(0, 0, math.pi / 2), colors[2])
+		band.Shape = Enum.PartType.Cylinder
+		band.CastShadow = false
+	end
+	decorBall(balloon, "EnvelopeCap", 7, CFrame.new(center + Vector3.new(0, 8.6, 0)), colors[2]).CastShadow = false
+	local skirt = makeDecor(balloon, "Skirt", Vector3.new(4, 7, 7), CFrame.new(center + Vector3.new(0, -11.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), colors[1])
+	skirt.Shape = Enum.PartType.Cylinder
+	local basketTop = center + Vector3.new(0, -19, 0)
+	for k = 0, 3 do
+		local a = k * math.pi / 2 + math.pi / 4
+		local top = center + Vector3.new(math.cos(a) * 3.2, -13.5, math.sin(a) * 3.2)
+		local bottom = basketTop + Vector3.new(math.cos(a) * 2, 0, math.sin(a) * 2)
+		makeDecor(balloon, "Rope", Vector3.new(0.2, 0.2, (top - bottom).Magnitude), CFrame.lookAt((top + bottom) / 2, bottom), WOOD_DARK)
+	end
+	makeDecor(balloon, "Basket", Vector3.new(4.4, 3.2, 4.4), CFrame.new(basketTop - Vector3.new(0, 1.6, 0)), WOOD_COLOR, Enum.Material.WoodPlanks)
+	makeDecor(balloon, "BasketRim", Vector3.new(4.8, 0.5, 4.8), CFrame.new(basketTop), WOOD_DARK)
+	decorBall(balloon, "Flame", 1.6, CFrame.new(center + Vector3.new(0, -15, 0)), Color3.fromRGB(255, 170, 50), Enum.Material.Neon)
+	spin(balloon, CFrame.new(0, height, 0) * CFrame.Angles(math.pi / 2, 0, 0), speed)
+	balloon.ModelStreamingMode = Enum.ModelStreamingMode.Persistent -- part of the sky, seen from everywhere
+	balloon.Parent = parent
+end
+
 -- The island and its fountain ----------------------------------------------------------
 
 -- The starter brainrot, built from its four parts and blown up to a giant statue.
@@ -1257,6 +1465,7 @@ function MapBuilder.Init()
 	-- Two opposite gaps get streams; the others get a row of hills. Every factory gets
 	-- a big hill behind it. (Footprints keep clear of the factories and paths.)
 	local streamAngles, hillSpots = {}, {}
+	local millHills: { Vector3 } = {} -- each gap without a stream gets a windmill on its big hill
 	for index, angle in plotAngles do
 		local between = angle + gap
 		if index == 2 or index == 5 then
@@ -1265,6 +1474,7 @@ function MapBuilder.Init()
 			table.insert(hillSpots, { onGround(between, 205), 45, 22 })
 			table.insert(hillSpots, { onGround(between, 320), 35, 16 })
 			table.insert(hillSpots, { onGround(between, 470), 60, 30 })
+			table.insert(millHills, onGround(between, 470))
 		end
 		table.insert(hillSpots, { onGround(angle, 620), 70, 32 })
 	end
@@ -1296,7 +1506,10 @@ function MapBuilder.Init()
 	dressWater(hub, streamAngles)
 
 	-- Something to find in every gap between factories: a brainrot statue, a picnic, a
-	-- garden, toy blocks and lollipops.
+	-- garden (with butterflies), toy blocks and lollipops.
+	local life = Instance.new("Folder")
+	life.Name = "Life"
+	life.Parent = hub
 	for index, angle in plotAngles do
 		local between = angle + gap
 		local isStream = table.find(streamAngles, between) ~= nil
@@ -1317,6 +1530,9 @@ function MapBuilder.Init()
 		end)
 		place(side + 0.18, 340, 10, function(spot, facing)
 			buildGarden(hub, spot, facing)
+			for _ = 1, 3 do
+				buildButterfly(life, spot + Vector3.new(random:NextNumber(-5, 5), 1.5, random:NextNumber(-5, 5)))
+			end
 		end)
 		place(-side + 0.22, 420, 6, function(spot, facing)
 			buildToyBlocks(hub, spot, facing)
@@ -1328,10 +1544,44 @@ function MapBuilder.Init()
 		end
 	end
 
-	-- Trees on the hills' tops, then decor scattered over the valley.
+	-- Life in every gap (see "Life between the factories"): a tulip field with
+	-- butterflies, a grove, a windmill by the pond where there's a stream (the others
+	-- get theirs on the big hill, below), birds circling above.
+	for index, angle in plotAngles do
+		local between = angle + gap
+		local isStream = table.find(streamAngles, between) ~= nil
+		local field = claimSpot(between - (if isStream then 0.3 else 0.24), 470, FIELD_RADIUS, plots)
+		if field then
+			local facing = math.atan2(field.X, field.Z)
+			paint(CFrame.new(field) * CFrame.Angles(0, facing, 0), Vector2.new(FIELD_RADIUS * 2, FIELD_RADIUS * 2), Enum.Material.LeafyGrass)
+			buildTulipField(life, field, facing)
+			for _ = 1, 7 do
+				buildButterfly(life, field + Vector3.new(random:NextNumber(-10, 10), 2, random:NextNumber(-10, 10)))
+			end
+		end
+		local grove = claimSpot(between + (if isStream then 0.34 else 0.22), if isStream then 470 else 590, 16, plots)
+		if grove then
+			buildGrove(life, grove, 6)
+		end
+		if isStream then
+			local mill = claimSpot(between + 0.13, 575, 9, plots)
+			if mill then
+				paint(CFrame.new(mill), Vector2.new(18, 18), Enum.Material.LeafyGrass)
+				buildWindmill(life, mill, math.atan2(mill.X, mill.Z), BALLOON_COLORS[index % #BALLOON_COLORS + 1])
+			end
+		end
+		buildFlock(life, onGround(between + random:NextNumber(-0.1, 0.1), 430) + Vector3.new(0, random:NextNumber(80, 105), 0), 5)
+	end
+
+	-- Trees on the hills' tops (a windmill on the big ones), then decor scattered over
+	-- the valley.
 	for _, spot in hillSpots do
-		local top = groundAt((spot[1] :: Vector3).X, (spot[1] :: Vector3).Z)
-		if top then
+		local center = spot[1] :: Vector3
+		local top = groundAt(center.X, center.Z)
+		local mill = table.find(millHills, center)
+		if top and mill then
+			buildWindmill(life, top - Vector3.new(0, 0.5, 0), math.atan2(top.X, top.Z), BALLOON_COLORS[(mill * 2) % #BALLOON_COLORS + 1])
+		elseif top then
 			buildTree(hub, top)
 			buildFlowers(hub, top + Vector3.new(8, 0, 4))
 		end
@@ -1355,6 +1605,15 @@ function MapBuilder.Init()
 	scatter(26, from, to, 3, plots, function(spot)
 		buildMushrooms(decor, spot)
 	end)
+
+	-- Hot air balloons drifting round the valley: over the plaza, or out behind the
+	-- factories (their ring, 232 to 486 from the hub, grows taller as floors are added).
+	local orbits = { { 190, 165 }, { 540, 175 }, { 150, 185 }, { 610, 170 }, { 520, 195 } } -- { radius, height }
+	for index, colors in HOT_AIR_COLORS do
+		local orbit = orbits[index]
+		local speed = (if index % 2 == 0 then -1 else 1) * random:NextNumber(0.012, 0.02)
+		buildHotAirBalloon(life, orbit[1], orbit[2], index / #HOT_AIR_COLORS * math.pi * 2 + 0.3, speed, colors)
+	end
 
 	-- Balloons drifting over the plaza and the valley (always streamed in: the client
 	-- bobs them, and they're few).
