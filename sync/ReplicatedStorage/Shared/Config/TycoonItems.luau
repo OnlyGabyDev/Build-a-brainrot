@@ -2,11 +2,13 @@
 	Every tycoon purchase button, generated from the zones (GDD §6).
 	Ids: line "ToyWorkshop_1", its unlock "ToyWorkshop_1_Line", its items
 	"ToyWorkshop_1_Head", "ToyWorkshop_1_Speed1", ...; room upgrades (Config/RoomUpgrades)
-	"ToyWorkshop_Decor_GiftTower_1", one per level.
+	"ToyWorkshop_Decor_GiftTower_1", one per level; line upgrade tracks (Config/LineUpgrades)
+	"ToyWorkshop_1_UpDroppers_1", one per level, bought from the line's tablet (no button).
 	Buttons appear one after another: each item requires the previous one.
 	Prices are placeholders to tune in playtests.
 ]]
 
+local LineUpgrades = require(script.Parent.LineUpgrades)
 local RoomUpgrades = require(script.Parent.RoomUpgrades)
 local Zones = require(script.Parent.Zones)
 
@@ -14,14 +16,14 @@ export type Item = {
 	Id: string,
 	Key: string, -- "Line", "Head", "Speed1", ... (used for layout)
 	Name: string,
-	Kind: string, -- "Line" | "Dropper" | "Speed" | "Station" | "Decor" (a room upgrade's level)
+	Kind: string, -- "Line" | "Dropper" | "Speed" | "Station" | "Decor" (a room upgrade's level) | "Track" (a line upgrade's level)
 	Price: number,
 	Requires: string?, -- item that must be bought first
 	Zone: string,
 	LineId: string?, -- every kind but Decor
 	PartType: string?, -- Dropper only
 	Multiplier: number?, -- Speed: cycle speed ×, Station: ship value ×, Decor: the room's ship value ×
-	Level: number?, -- Decor only
+	Level: number?, -- Decor and Track
 	Rebirths: number?, -- Decor only: rebirths needed to buy it
 }
 
@@ -60,6 +62,7 @@ TycoonItems.ById = {} :: { [string]: Item }
 TycoonItems.Lines = {} :: { Line }
 TycoonItems.LinesById = {} :: { [string]: Line }
 TycoonItems.DecorByZone = {} :: { [string]: { Item } } -- every room upgrade level, per zone
+TycoonItems.TracksByLine = {} :: { [string]: { [string]: { Item } } } -- [lineId][track] = its levels, in order
 
 local function register(item: Item)
 	assert(not TycoonItems.ById[item.Id], `Duplicate tycoon item {item.Id}`)
@@ -125,6 +128,31 @@ for _, zone in Zones.List do
 			requires = id
 		end
 
+		-- its upgrade tracks, a level at a time (not in line.Items: they have no buttons)
+		local tracks = {}
+		for _, track in LineUpgrades.Tracks do
+			local levels = {}
+			local previous = `{lineId}_{track.Gate}`
+			for level = 1, track.Levels do
+				local item: Item = {
+					Id = `{lineId}_Up{track.Key}_{level}`,
+					Key = track.Key,
+					Name = track.Name,
+					Kind = "Track",
+					Price = LineUpgrades.BasePrice(track, level) * LINE_PRICE_SCALES[index] * zone.PriceMultiplier,
+					Requires = previous,
+					Zone = zone.Id,
+					LineId = lineId,
+					Level = level,
+				}
+				register(item)
+				table.insert(levels, item)
+				previous = item.Id
+			end
+			tracks[track.Key] = levels
+		end
+		TycoonItems.TracksByLine[lineId] = tracks
+
 		table.insert(TycoonItems.Lines, line)
 		TycoonItems.LinesById[lineId] = line
 	end
@@ -156,6 +184,22 @@ for _, upgrade in RoomUpgrades.List do
 		table.insert(decor, item)
 		requires = item.Id
 	end
+end
+
+-- How many levels of a line's upgrade `track` are bought (they're bought in order).
+function TycoonItems.TrackLevel(purchased: { [string]: boolean }, lineId: string, track: string): number
+	local levels = TycoonItems.TracksByLine[lineId]
+	local list = levels and levels[track]
+	local level = 0
+	if list then
+		for _, item in list do
+			if not purchased[item.Id] then
+				break
+			end
+			level = item.Level :: number
+		end
+	end
+	return level
 end
 
 return TycoonItems

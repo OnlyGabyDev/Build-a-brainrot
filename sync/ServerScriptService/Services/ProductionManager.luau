@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Brainrots = require(Shared.Config.Brainrots)
+local LineUpgrades = require(Shared.Config.LineUpgrades)
 local Production = require(Shared.Config.Production)
 local Rarities = require(Shared.Config.Rarities)
 local Rebirths = require(Shared.Config.Rebirths)
@@ -39,6 +40,7 @@ type LineStats = {
 	Droppers: { [string]: boolean },
 	CycleTime: number,
 	ValueMultiplier: number,
+	FlatBonus: number, -- base Coins added to every brainrot (the Upgraders track)
 	Special: boolean, -- has its zone's special upgrade (Station3)
 }
 
@@ -87,6 +89,7 @@ local function getLineStats(player: Player, data: DataManager.PlayerData, line: 
 		Droppers = {},
 		CycleTime = Production.BaseCycleTime / Rebirths.SpeedMultiplier(data.Upgrades),
 		ValueMultiplier = Rebirths.IncomeMultiplier(data.Rebirths, data.Upgrades) * MonetizationManager.IncomeMultiplier(player),
+		FlatBonus = 0,
 		Special = false,
 	}
 	for _, item in line.Items do
@@ -105,6 +108,20 @@ local function getLineStats(player: Player, data: DataManager.PlayerData, line: 
 	for _, item in TycoonItems.DecorByZone[line.Zone] or {} do
 		if purchased[item.Id] then
 			stats.ValueMultiplier *= item.Multiplier :: number
+		end
+	end
+	-- the line's own upgrade tracks (each level includes the ones before)
+	for _, track in LineUpgrades.Tracks do
+		local level = TycoonItems.TrackLevel(purchased, line.Id, track.Key)
+		if level == 0 then
+			continue
+		end
+		if track.Effect == "Speed" then
+			stats.CycleTime /= 1 + track.Step * level
+		elseif track.Effect == "Percent" then
+			stats.ValueMultiplier *= 1 + track.Step * level
+		elseif track.Effect == "Flat" then
+			stats.FlatBonus += track.Step * level
 		end
 	end
 	return stats
@@ -263,6 +280,9 @@ local function evaluate(line: TycoonItems.Line, stats: LineStats, config: LineCo
 			parts[partType] = brainrotId
 			value += partValue(brainrotId)
 		end
+	end
+	if value > 0 then
+		value += stats.FlatBonus
 	end
 	local matchId = fullMatchId(parts)
 	if matchId then
@@ -486,6 +506,21 @@ local function onGetLines(player: Player): { any }
 			options[partType] = list
 		end
 
+		-- its upgrade tracks: the level reached, and the next one's price (or what to buy first)
+		local upgrades = {}
+		for _, track in LineUpgrades.Tracks do
+			local level = TycoonItems.TrackLevel(data.Tycoon.Purchased, line.Id, track.Key)
+			local nextItem = (TycoonItems.TracksByLine[line.Id] or {})[track.Key][level + 1]
+			local gate = TycoonItems.ById[`{line.Id}_{track.Gate}`]
+			table.insert(upgrades, {
+				Key = track.Key,
+				Level = level,
+				Max = track.Levels,
+				Price = if nextItem then nextItem.Price else nil,
+				Needs = if gate and not data.Tycoon.Purchased[gate.Id] then gate.Name else nil,
+			})
+		end
+
 		local _, value, matchId = evaluate(line, stats, config)
 		table.insert(view, {
 			Id = line.Id,
@@ -497,6 +532,7 @@ local function onGetLines(player: Player): { any }
 			Value = value,
 			CycleTime = stats.CycleTime,
 			FullMatch = matchId ~= nil,
+			Upgrades = upgrades,
 		})
 	end
 	return view

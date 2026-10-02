@@ -25,6 +25,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Format = require(Shared.Format)
+local Remotes = require(Shared.Remotes)
 local TycoonItems = require(Shared.Config.TycoonItems)
 local Zones = require(Shared.Config.Zones)
 
@@ -846,6 +847,191 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 	end,
 }
 
+-- Line upgrade tracks (Config/LineUpgrades) ------------------------------------------
+-- Each track's highest level is built into a Model of its own beside the line
+-- ({lineId}_Up{Track}), replaced when the next level is bought, so TycoonFX pops it in
+-- with a golden flash. The look climbs in tiers: cool neon (levels 1-3), hot pink with
+-- gold (4-6), gold with sparkles (7-9), and at 10 the lights chase in candy colors
+-- (Atmosphere's Marquee).
+
+local TRACK_GOLD = Color3.fromRGB(255, 200, 50)
+local TRACK_TIER_COLORS = {
+	Color3.fromRGB(110, 230, 255),
+	Color3.fromRGB(255, 110, 220),
+	TRACK_GOLD,
+	TRACK_GOLD,
+}
+local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
+
+local function trackTier(level: number): number
+	return if level >= 10 then 4 elseif level >= 7 then 3 elseif level >= 4 then 2 else 1
+end
+
+-- A glowing bulb; at the top tier its light chases along its string (Marquee, by index).
+local function trackBulb(parent: Instance, at: CFrame, size: number, tier: number, index: number): Part
+	local bulb = makeBall(parent, "TrackBulb", size, at, TRACK_TIER_COLORS[tier], Enum.Material.Neon)
+	bulb.CastShadow = false
+	if tier >= 4 then
+		bulb:SetAttribute("Index", index)
+		CollectionService:AddTag(bulb, "Marquee")
+	end
+	return bulb
+end
+
+-- Sparkles drifting off an invisible box `size` big at `at`.
+local function trackSparkles(parent: Instance, at: CFrame, size: Vector3, rate: number)
+	local source = makeDecor(parent, "TrackSparkles", size, at, WHITE)
+	source.Transparency = 1
+	local sparkles = Instance.new("ParticleEmitter")
+	sparkles.Texture = SPARKLE_TEXTURE
+	sparkles.Color = ColorSequence.new(TRACK_GOLD:Lerp(WHITE, 0.3))
+	sparkles.LightEmission = 0.7
+	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(1, 0) })
+	sparkles.Lifetime = NumberRange.new(0.8, 1.5)
+	sparkles.Rate = rate
+	sparkles.Speed = NumberRange.new(1, 3)
+	sparkles.SpreadAngle = Vector2.new(180, 180)
+	sparkles.Parent = source
+end
+
+-- A flat gold star standing up (`at`: its middle, facing along its Z).
+local function trackStar(parent: Instance, at: CFrame, size: number)
+	for _, turn in { 0, math.pi / 4 } do
+		makeDecor(parent, "TrackStar", Vector3.new(size * 0.7, size * 0.7, 0.3), at * CFrame.Angles(0, 0, turn), TRACK_GOLD)
+	end
+end
+
+-- Droppers: a halo of lights under every dropper's mouth (where the parts come out),
+-- more lights each level, a second, gold halo from tier 2, sparkles from tier 3.
+local function buildDroppersLook(model: Model, origin: CFrame, level: number)
+	local tier = trackTier(level)
+	local deck = deckOf(origin)
+	local count = 8 + level
+	for _, z in DROPPER_Z do
+		local mouth = deck * CFrame.new(0, 6.5, z)
+		for k = 1, count do
+			local angle = k / count * math.pi * 2
+			trackBulb(model, mouth * CFrame.new(math.cos(angle) * 3.9, 0, math.sin(angle) * 3.9), 0.6 + tier * 0.08, tier, k)
+		end
+		if tier >= 2 then
+			for k = 1, count do
+				local angle = (k + 0.5) / count * math.pi * 2
+				makeBall(model, "TrackBulb", 0.45, mouth * CFrame.new(math.cos(angle) * 4.6, 0.25, math.sin(angle) * 4.6), TRACK_GOLD, Enum.Material.Neon).CastShadow = false
+			end
+		end
+		if tier >= 3 then
+			trackSparkles(model, mouth * CFrame.new(0, -1, 0), Vector3.new(6, 1, 6), 4 + tier * 2)
+		end
+	end
+end
+
+-- Belt: glowing chevrons down the middle of the belt, pointing the way it runs (more
+-- each level), and the rails' glow takes the tier's color.
+local function buildBeltLook(model: Model, line: Model, origin: CFrame, level: number)
+	local tier = trackTier(level)
+	local count = 4 + level * 2
+	local from, to = BELT_TO - 4, BELT_FROM + 3
+	for k = 1, count do
+		local tip = deckOf(origin) * CFrame.new(0, 0.05, from + (to - from) * (k - 0.5) / count)
+		for _, side in { -1, 1 } do
+			local arm = makeDecor(model, "TrackChevron", Vector3.new(0.45, 0.1, 2.2), tip * CFrame.Angles(0, side * math.rad(40), 0) * CFrame.new(0, 0, 1.1), TRACK_TIER_COLORS[tier], Enum.Material.Neon)
+			arm.CastShadow = false
+			if tier >= 4 then
+				arm:SetAttribute("Index", k)
+				CollectionService:AddTag(arm, "Marquee")
+			end
+		end
+	end
+	for _, name in { "RailLeftGlow", "RailRightGlow" } do
+		local glow = line:FindFirstChild(name)
+		if glow and glow:IsA("BasePart") then
+			glow.Color = TRACK_TIER_COLORS[tier]
+		end
+	end
+	if tier >= 3 then
+		trackSparkles(model, deckOf(origin) * CFrame.new(0, 1, (BELT_FROM + BELT_TO) / 2), Vector3.new(BELT_WIDTH, 1, BELT_TO - BELT_FROM), 6 + tier * 3)
+	end
+end
+
+-- Upgraders: lights along the top of every station the line has (front and back), a
+-- gold star on each from tier 2, sparkles from tier 3. Rebuilt when a station's bought.
+local function buildUpgradersLook(model: Model, line: Model, level: number)
+	local tier = trackTier(level)
+	for _, key in { "Station1", "Station2", "Station3" } do
+		local top = line:FindFirstChild(key)
+		if not (top and top:IsA("BasePart")) then
+			continue
+		end
+		local frame, size = top.CFrame, top.Size
+		local count = 5 + level
+		for index, side in { -1, 1 } do
+			for k = 1, count do
+				local x = -size.X / 2 + (k - 0.5) * size.X / count
+				trackBulb(model, frame * CFrame.new(x, size.Y / 2 + 0.15, side * (size.Z / 2 + 0.1)), 0.55, tier, k + (index - 1) * count)
+			end
+		end
+		if tier >= 2 then
+			trackStar(model, frame * CFrame.new(0, size.Y / 2 + 1.6, 0), 2.4 + tier * 0.3)
+		end
+		if tier >= 3 then
+			trackSparkles(model, frame, Vector3.new(size.X, 1, size.Z), 4 + tier * 2)
+		end
+	end
+end
+
+-- Shipping: a ring of lights round the delivery (more each level), an outer gold ring
+-- from tier 2, sparkles from tier 3.
+local function buildShippingLook(model: Model, origin: CFrame, zoneId: string, level: number)
+	local tier = trackTier(level)
+	local deck = deckOf(origin * CFrame.new(0, 0, SHIP_Z))
+	local radius = if zoneId == "PlushieRoom" then 5.9 else 5.4
+	local count = 10 + level * 2
+	for k = 1, count do
+		local angle = k / count * math.pi * 2
+		trackBulb(model, deck * CFrame.new(math.cos(angle) * radius, 0.4, math.sin(angle) * radius), 0.7, tier, k)
+	end
+	if tier >= 2 then
+		for k = 1, 16 do
+			local a, b = (k - 1) / 16 * math.pi * 2, k / 16 * math.pi * 2
+			local from = (deck * CFrame.new(math.cos(a) * (radius + 0.6), 0.3, math.sin(a) * (radius + 0.6))).Position
+			local to = (deck * CFrame.new(math.cos(b) * (radius + 0.6), 0.3, math.sin(b) * (radius + 0.6))).Position
+			makeDecor(model, "TrackRing", Vector3.new(0.3, 0.3, (to - from).Magnitude), CFrame.lookAt((from + to) / 2, to), TRACK_GOLD, Enum.Material.Neon).CastShadow = false
+		end
+	end
+	if tier >= 3 then
+		trackSparkles(model, deck * CFrame.new(0, 2, 0), Vector3.new(radius * 2, 1, radius * 2), 6 + tier * 2)
+	end
+end
+
+-- A track's Model beside its line, fresh for every level.
+local function getTrackModel(plot: Plot, item: TycoonItems.Item): Model
+	local name = `{item.LineId}_Up{item.Key}`
+	local old = plot.LinesFolder:FindFirstChild(name)
+	if old then
+		old:Destroy()
+	end
+	local fresh = Instance.new("Model")
+	fresh.Name = name
+	fresh.Parent = plot.LinesFolder
+	return fresh
+end
+
+local function buildTrackLook(model: Model, plot: Plot, item: TycoonItems.Item)
+	local lineId = item.LineId :: string
+	local origin = lineOrigin(plot, lineId)
+	local line = getLineModel(plot, lineId)
+	local level = item.Level :: number
+	if item.Key == "Droppers" then
+		buildDroppersLook(model, origin, level)
+	elseif item.Key == "Belt" then
+		buildBeltLook(model, line, origin, level)
+	elseif item.Key == "Upgraders" then
+		buildUpgradersLook(model, line, level)
+	elseif item.Key == "Shipping" then
+		buildShippingLook(model, origin, item.Zone, level)
+	end
+end
+
 -- A zone's room: the center of its floor, in the world.
 local function roomFloor(plot: Plot, zoneId: string): CFrame
 	return plot.CFrame * FactoryBuilder.RoomCFrame(Zones.ById[zoneId].Index)
@@ -877,7 +1063,10 @@ type Arrival = { Waves: { [Model]: number }, Count: number, Order: number }
 -- with the server time it was built, so clients can play the build animation
 -- (TycoonFX) for new things only.
 local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?, arrival: Arrival?)
-	local model = if item.Kind == "Decor" then getDecorModel(plot, item) else getLineModel(plot, item.LineId :: string)
+	local model = if item.Kind == "Decor"
+		then getDecorModel(plot, item)
+		elseif item.Kind == "Track" then getTrackModel(plot, item)
+		else getLineModel(plot, item.LineId :: string)
 	local existing = {}
 	for _, descendant in model:GetDescendants() do
 		existing[descendant] = true
@@ -898,6 +1087,8 @@ local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?, a
 		anchor.Transparency = 1
 		local tag = makeBillboard(anchor, `{item.Name} Lv{item.Level}\n+{math.floor((bonus - 1) * 100 + 0.5)}% room 💰`, Vector2.new(9, 2.4), 0, 70)
 		tag.TextColor3 = Color3.fromRGB(255, 225, 90)
+	elseif item.Kind == "Track" then
+		buildTrackLook(model, plot, item)
 	else
 		BUILDERS[item.Kind](model, lineOrigin(plot, item.LineId :: string), item)
 	end
@@ -973,6 +1164,15 @@ local function onButtonTouched(plot: Plot, item: TycoonItems.Item, hit: BasePart
 	if DataManager.PurchaseItem(player, item.Id, item.Price) then
 		buildItem(plot, item, true)
 		refreshButtons(plot)
+		-- the Upgraders track lights every station up: give the new one its lights too
+		local data = DataManager.GetData(player)
+		local lineId = item.LineId
+		if item.Kind == "Station" and data and lineId then
+			local level = TycoonItems.TrackLevel(data.Tycoon.Purchased, lineId, "Upgraders")
+			if level > 0 then
+				buildItem(plot, TycoonItems.TracksByLine[lineId].Upgraders[level])
+			end
+		end
 	end
 end
 
@@ -1008,7 +1208,8 @@ refreshButtons = function(plot: Plot)
 		local visible = false
 		if data then
 			local purchased = data.Tycoon.Purchased
-			visible = isZoneUnlocked(data, item.Zone)
+			visible = item.Kind ~= "Track" -- bought from the line's tablet, not a button
+				and isZoneUnlocked(data, item.Zone)
 				and not purchased[item.Id]
 				and (item.Requires == nil or purchased[item.Requires] == true)
 		end
@@ -1136,8 +1337,9 @@ local function furnishPlot(plot: Plot, player: Player, data: DataManager.PlayerD
 	end
 	for _, item in TycoonItems.List do
 		local purchased = data.Tycoon.Purchased
-		-- (a room upgrade shows only its highest level)
-		local outgrown = item.Kind == "Decor" and purchased[`{item.Zone}_Decor_{item.Key}_{(item.Level :: number) + 1}`]
+		-- (a room upgrade or a line upgrade track shows only its highest level)
+		local outgrown = (item.Kind == "Decor" and purchased[`{item.Zone}_Decor_{item.Key}_{(item.Level :: number) + 1}`])
+			or (item.Kind == "Track" and purchased[`{item.LineId}_Up{item.Key}_{(item.Level :: number) + 1}`])
 		if purchased[item.Id] and not outgrown then
 			buildItem(plot, item, nil, arrival)
 		end
@@ -1211,6 +1413,40 @@ end
 
 -- Public API -----------------------------------------------------------------
 
+-- A line upgrade track's next level, bought from the line's tablet (the Line menu).
+-- Returns whether it was bought, and why not: "Max", "Locked" (its gate isn't bought,
+-- or the zone isn't unlocked) or "Coins".
+local function onBuyLineUpgrade(player: Player, lineId: unknown, track: unknown): (boolean, string?)
+	if typeof(lineId) ~= "string" or typeof(track) ~= "string" then
+		return false, nil
+	end
+	local plot = plotByPlayer[player]
+	local data = DataManager.GetData(player)
+	local tracks = TycoonItems.TracksByLine[lineId]
+	local levels = tracks and tracks[track]
+	if not (plot and data and levels) then
+		return false, nil
+	end
+	local now = os.clock()
+	if (buttonCooldowns[player] or 0) > now then
+		return false, nil
+	end
+	buttonCooldowns[player] = now + BUTTON_COOLDOWN
+	local purchased = data.Tycoon.Purchased
+	local item = levels[TycoonItems.TrackLevel(purchased, lineId, track) + 1]
+	if not item then
+		return false, "Max"
+	end
+	if not isZoneUnlocked(data, item.Zone) or (item.Requires and not purchased[item.Requires]) then
+		return false, "Locked"
+	end
+	if not DataManager.PurchaseItem(player, item.Id, item.Price) then
+		return false, "Coins"
+	end
+	buildItem(plot, item, true)
+	return true, nil
+end
+
 function TycoonManager.Init()
 	local folder = Instance.new("Folder")
 	folder.Name = "Tycoons"
@@ -1218,6 +1454,7 @@ function TycoonManager.Init()
 	for index = 1, PLOT_COUNT do
 		plots[index] = buildPlot(index, folder)
 	end
+	Remotes.Function("BuyLineUpgrade").OnServerInvoke = onBuyLineUpgrade
 
 	DataManager.OnPlayerLoaded(claimPlot)
 	Players.PlayerRemoving:Connect(releasePlot)

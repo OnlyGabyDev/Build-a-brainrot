@@ -1,10 +1,12 @@
 --[[
 	Line Menu
-	Pick which part each dropper builds, or press Equip Best (GDD §6). The server builds
-	the view (GetLines) and validates every change, so this only draws what it's told
-	and sends intents.
+	Pick which part each dropper builds, or press Equip Best (GDD §6); the UPGRADES tab
+	buys the line's upgrade tracks (Config/LineUpgrades), a level at a time. The server
+	builds the view (GetLines) and validates every change, so this only draws what it's
+	told and sends intents.
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -12,6 +14,7 @@ local Config = Shared:WaitForChild("Config")
 local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
 local Brainrots = require(Config:WaitForChild("Brainrots"))
 local Format = require(Shared:WaitForChild("Format"))
+local LineUpgrades = require(Config:WaitForChild("LineUpgrades"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Zones = require(Config:WaitForChild("Zones"))
@@ -31,6 +34,7 @@ local BAD_COLOR = Color3.fromRGB(255, 90, 90)
 local GOOD_COLOR = Color3.fromRGB(110, 240, 110)
 
 type Option = { Id: string, Usable: boolean, UsedOn: string? }
+type UpgradeView = { Key: string, Level: number, Max: number, Price: number?, Needs: string? }
 type LineView = {
 	Id: string,
 	Zone: string,
@@ -41,6 +45,7 @@ type LineView = {
 	Value: number,
 	CycleTime: number,
 	FullMatch: boolean,
+	Upgrades: { UpgradeView }?,
 }
 
 local LineMenu = {}
@@ -51,7 +56,11 @@ local body: Frame? = nil -- everything inside `content`, rebuilt on each render
 local view: { LineView } = {}
 local selectedLine: string? = nil
 local selectedSlot = "Head"
+local mode = "Parts" -- or "Upgrades"
 local busy = false
+-- an upgrade track's pips by tier, like its look on the line (TycoonManager)
+local TIER_COLORS = { Color3.fromRGB(110, 230, 255), Color3.fromRGB(255, 110, 220), Color3.fromRGB(255, 200, 50) }
+local EMPTY_PIP = Color3.fromRGB(215, 215, 225)
 
 local function rarityOf(brainrotId: string): Rarities.Rarity?
 	local brainrot = Brainrots.ById[brainrotId]
@@ -106,6 +115,18 @@ local function renderTabs(parent: Frame, current: LineView)
 			Parent = parent,
 		}, if selected then Kit.Colors.Purple else Kit.Colors.Grey, `LINE {line.Index}`, function()
 			selectedLine = line.Id
+			render()
+		end)
+	end
+	-- the line's parts, or its upgrades
+	for index, spec in { { "Parts", "🧩 PARTS" }, { "Upgrades", "⚡ UPGRADES" } } do
+		Kit.button({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -24 - (2 - index) * 160, 0, 14),
+			Size = UDim2.fromOffset(150, 44),
+			Parent = parent,
+		}, if mode == spec[1] then Kit.Colors.Coins else Kit.Colors.Grey, spec[2], function()
+			mode = spec[1]
 			render()
 		end)
 	end
@@ -317,6 +338,118 @@ local function renderFooter(parent: Frame, line: LineView)
 	end).Parent = parent
 end
 
+-- Upgrades ------------------------------------------------------------------------
+
+local function buyUpgrade(lineId: string, track: string)
+	if busy then
+		return
+	end
+	busy = true
+	local remote = Remotes.Function("BuyLineUpgrade")
+	local ok, success, reason = pcall(remote.InvokeServer, remote, lineId, track)
+	busy = false
+	if ok and success then
+		Kit.toast("⚡ UPGRADED! Your line lights up!", GOOD_COLOR)
+	else
+		Kit.toast(
+			if reason == "Coins"
+				then "Not enough Coins!"
+				elseif reason == "Locked" then "Buy what it needs first!"
+				elseif reason == "Max" then "Already maxed out!"
+				else "Couldn't buy that!",
+			BAD_COLOR
+		)
+	end
+	refresh()
+end
+
+local CARD = Vector2.new(372, 200)
+
+-- A card per track: its level in pips, what it gives now and next, and a buy button.
+local function renderUpgrades(parent: Frame, line: LineView)
+	local coins = Players.LocalPlayer:GetAttribute("Coins")
+	local upgrades: { UpgradeView } = line.Upgrades or {}
+	for index, upgrade in upgrades do
+		local track = LineUpgrades.ByKey[upgrade.Key]
+		if not track then
+			continue
+		end
+		local column, row = (index - 1) % 2, (index - 1) // 2
+		local card = Kit.new("Frame", {
+			BackgroundColor3 = Kit.White,
+			Position = UDim2.fromOffset(24 + column * (CARD.X + 28), 106 + row * (CARD.Y + 16)),
+			Size = UDim2.fromOffset(CARD.X, CARD.Y),
+			Parent = parent,
+		})
+		Kit.corner(card, 18)
+		Kit.stroke(card, 4)
+		local header = Kit.new("Frame", { Size = UDim2.new(1, 0, 0, 44), BackgroundColor3 = Kit.White, Parent = card })
+		Kit.corner(header, 18)
+		Kit.gradient(header, track.Colors)
+		Kit.text({
+			Text = `{track.Icon} {string.upper(track.Name)}`,
+			Position = UDim2.fromOffset(14, 6),
+			Size = UDim2.new(1, -130, 0, 32),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = header,
+		})
+		Kit.text({
+			Text = `LV {upgrade.Level}/{upgrade.Max}`,
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -14, 0, 8),
+			Size = UDim2.fromOffset(110, 28),
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Parent = header,
+		})
+		local pipWidth = (CARD.X - 28) / upgrade.Max
+		for level = 1, upgrade.Max do
+			local tier = if level >= 7 then 3 elseif level >= 4 then 2 else 1
+			local pip = Kit.new("Frame", {
+				Position = UDim2.fromOffset(14 + (level - 1) * pipWidth, 54),
+				Size = UDim2.fromOffset(pipWidth - 6, 14),
+				BackgroundColor3 = if level <= upgrade.Level then TIER_COLORS[tier] else EMPTY_PIP,
+				Parent = card,
+			})
+			Kit.corner(pip, 6)
+		end
+		Kit.text({
+			Text = if upgrade.Level > 0 then `Now: {LineUpgrades.Describe(track, upgrade.Level)}` else "Not bought yet",
+			Position = UDim2.fromOffset(14, 76),
+			Size = UDim2.new(1, -28, 0, 26),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		local maxed = upgrade.Level >= upgrade.Max
+		Kit.text({
+			Text = if maxed then "⭐ MAXED OUT ⭐" else `Next: {LineUpgrades.Describe(track, upgrade.Level + 1)}`,
+			TextColor3 = GOOD_COLOR,
+			Position = UDim2.fromOffset(14, 104),
+			Size = UDim2.new(1, -28, 0, 26),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		local price = upgrade.Price
+		if upgrade.Needs then
+			Kit.text({
+				Text = `🔒 Buy the {upgrade.Needs} first`,
+				TextColor3 = BAD_COLOR,
+				Position = UDim2.fromOffset(14, 142),
+				Size = UDim2.new(1, -28, 0, 40),
+				Parent = card,
+			})
+		elseif price and not maxed then
+			local affordable = typeof(coins) == "number" and coins >= price
+			Kit.button({
+				Position = UDim2.fromOffset(14, 138),
+				Size = UDim2.new(1, -28, 0, 50),
+				Parent = card,
+			}, if affordable then Kit.Colors.Green else Kit.Colors.Red, `BUY  💰 {Format.Number(price)}`, function()
+				buyUpgrade(line.Id, track.Key)
+			end)
+		end
+	end
+end
+
 render = function()
 	if body then
 		body:Destroy()
@@ -345,6 +478,10 @@ render = function()
 
 	renderTabs(frame, line)
 	renderInfo(frame, line)
+	if mode == "Upgrades" then
+		renderUpgrades(frame, line)
+		return
+	end
 	for index, partType in PART_TYPES do
 		renderSlot(frame, line, partType, index)
 	end
