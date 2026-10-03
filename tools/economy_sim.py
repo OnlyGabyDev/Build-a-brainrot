@@ -33,6 +33,8 @@ BASE = dict(
         ("Upgraders", "Flat", 6, 800, 1.75, 10, "Station1"),
         ("Shipping", "Percent", 0.1, 1000, 1.8, 10, "Legs"),
     ],
+    # (the Clay and Vinyl room upgrades aren't built: without them the first rebirth takes
+    # 4.1 h instead of 4.0, so they were left out of the release; PROGRESS.md has their prices)
     room_upgrades=[  # Config/RoomUpgrades, the levels needing no rebirth
         ("ToyWorkshop", "GiftTower", [(1000, 1.1), (8000, 1.1), (40000, 1.15)]),
         ("ToyWorkshop", "BubbleWrap", [(3000, 1.1), (20000, 1.15), (100000, 1.2)]),
@@ -40,12 +42,6 @@ BASE = dict(
         ("PlushieRoom", "YarnSpinner", [(4000, 1.1), (24000, 1.15), (120000, 1.2)]),
         ("PlushieRoom", "PillowPile", [(1600, 1.1), (12000, 1.1), (60000, 1.15)]),
         ("PlushieRoom", "ButtonJar", [(8000, 1.1), (50000, 1.15)]),
-        ("ClayStudio", "ClayMixer", [(600000, 1.1), (4000000, 1.15), (20000000, 1.2)]),
-        ("ClayStudio", "SpotlightRig", [(320000, 1.1), (2400000, 1.1), (12000000, 1.15)]),
-        ("ClayStudio", "AwardShelf", [(1600000, 1.1), (10000000, 1.15)]),
-        ("VinylCollectibles", "GachaWall", [(800000, 1.1), (4800000, 1.15), (24000000, 1.2)]),
-        ("VinylCollectibles", "HallOfFigures", [(320000, 1.1), (2400000, 1.1), (12000000, 1.15)]),
-        ("VinylCollectibles", "HoloProjector", [(1600000, 1.1), (10000000, 1.15)]),
     ],
     rebirth_cost=100_000_000_000,  # Config/Rebirths
     base_cycle=4.0,  # Config/Production
