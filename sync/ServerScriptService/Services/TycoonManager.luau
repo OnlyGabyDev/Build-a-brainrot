@@ -37,6 +37,7 @@ local RailBuilder = require(script.Parent.RailBuilder)
 local RoomUpgradeBuilder = require(script.Parent.RoomUpgradeBuilder)
 local StationBuilder = require(script.Parent.StationBuilder)
 local TurntableBuilder = require(script.Parent.TurntableBuilder)
+local TowerBuilder = require(script.Parent.TowerBuilder)
 
 -- Layout ---------------------------------------------------------------------
 -- Plot space: origin on the ground at the plot's center, -Z (front) faces the hub.
@@ -953,11 +954,18 @@ local CAPSULE_COLORS = {
 -- Droppers: gacha machines (GDD §16.18). A blue column beside the belt with a glass
 -- globe of capsules turning on top (a Spinner) and an arm over the belt to the capsule
 -- chute (the Dropper, attribute Capsule): it rattles, and the part drops out sealed in
--- a capsule that pops open on the belt (ProductionVisuals).
-local function buildGacha(model: Model, base: CFrame, partType: string, color: Color3)
-	local column = base * CFrame.new(KNIT_X, 0, 0)
-	local armBottom = DECK + KNIT_ARM
-	local armTop = armBottom + 3
+-- a capsule that pops open on the belt (ProductionVisuals). In an `arc` round a tower's
+-- open capsule (LineLayouts), the columns stand outside the glass and the arms reach in
+-- over it, a little smaller, so the globes stay under the ceiling.
+local function buildGacha(model: Model, base: CFrame, partType: string, color: Color3, arc: boolean?)
+	local tower = LineLayouts.TowerSettings
+	local reach = if arc then tower.GachaRadius - tower.GachaColumn else KNIT_X
+	local column = base * CFrame.new(reach, 0, 0)
+	local chuteSize = if arc then 3.6 else 4.6
+	local chuteHeight = if arc then 4 else KNIT_HEAD_HEIGHT
+	local armBottom = if arc then tower.GachaMouth + chuteHeight else DECK + KNIT_ARM
+	local armTop = armBottom + (if arc then 2.5 else 3)
+	local globeSize = if arc then 4.4 else 6
 	makeColumn(model, partType .. "GachaFoot", 6.4, 0, 1.4, column, VINYL_NAVY)
 	makeColumn(model, partType .. "GachaFootRing", 6.6, 1.1, 1.5, column, VINYL_GOLD)
 	local body = makeColumn(model, partType .. "GachaColumn", KNIT_COLUMN, 1.4, armTop, column, VINYL_BLUE)
@@ -968,17 +976,19 @@ local function buildGacha(model: Model, base: CFrame, partType: string, color: C
 	buildBadge(model, partType, column * CFrame.new(0, DECK + 4.6, 0), color, 0.62)
 
 	-- the globe on top of the column, full of capsules tumbling round
-	makeColumn(model, partType .. "GachaCup", 5, armTop, armTop + 1, column, VINYL_PINK)
-	local globeAt = column * CFrame.new(0, armTop + 3.6, 0)
-	local globe = makeBall(model, partType .. "GachaGlobe", 6, globeAt, Color3.fromRGB(220, 240, 255), Enum.Material.Glass)
+	local cup = if arc then 0.8 else 1
+	makeColumn(model, partType .. "GachaCup", globeSize - 1, armTop, armTop + cup, column, VINYL_PINK)
+	local globeAt = column * CFrame.new(0, armTop + cup + globeSize / 2 - 0.4, 0)
+	local globe = makeBall(model, partType .. "GachaGlobe", globeSize, globeAt, Color3.fromRGB(220, 240, 255), Enum.Material.Glass)
 	globe.Transparency = 0.6
-	makeBall(model, partType .. "GachaTop", 1.6, globeAt * CFrame.new(0, 3.1, 0), VINYL_GOLD)
+	makeBall(model, partType .. "GachaTop", if arc then 1 else 1.6, globeAt * CFrame.new(0, globeSize / 2 + 0.1, 0), VINYL_GOLD)
 	local capsules = Instance.new("Model")
 	capsules.Name = partType .. "GachaCapsules"
+	local k = globeSize / 6
 	for index = 1, 9 do
 		local angle = index * 2.4
-		local radius = 1 + (index % 3) * 0.55
-		makeBall(capsules, partType .. "GachaCapsule", 1.3, globeAt * CFrame.new(math.cos(angle) * radius, -1.6 + (index % 4) * 0.8, math.sin(angle) * radius), CAPSULE_COLORS[index % #CAPSULE_COLORS + 1])
+		local radius = (1 + (index % 3) * 0.55) * k
+		makeBall(capsules, partType .. "GachaCapsule", 1.3 * k, globeAt * CFrame.new(math.cos(angle) * radius, (-1.6 + (index % 4) * 0.8) * k, math.sin(angle) * radius), CAPSULE_COLORS[index % #CAPSULE_COLORS + 1])
 	end
 	capsules.WorldPivot = globeAt * CFrame.Angles(math.pi / 2, 0, 0) -- turns about the upright (Atmosphere)
 	capsules:SetAttribute("Speed", 1.2)
@@ -986,18 +996,20 @@ local function buildGacha(model: Model, base: CFrame, partType: string, color: C
 	capsules.Parent = model
 
 	-- the arm over the belt, and the capsule chute under its end
-	local armFrom, armTo = KNIT_X - KNIT_COLUMN / 2, KNIT_HEAD / 2
-	local arm = makeDecor(model, partType .. "GachaArm", Vector3.new(armTo - armFrom, 3, 4), base * CFrame.new((armFrom + armTo) / 2, armBottom + 1.5, 0), VINYL_BLUE)
-	makeDecor(model, partType .. "GachaArmStripe", Vector3.new(armTo - armFrom - 0.2, 0.55, 4.1), arm.CFrame, VINYL_GOLD)
-	local chuteBottom = armBottom - KNIT_HEAD_HEIGHT
-	local chute = makePart(model, partType .. "Dropper", Vector3.new(4.6, KNIT_HEAD_HEIGHT, 4.6), base * CFrame.new(0, chuteBottom + KNIT_HEAD_HEIGHT / 2, 0), color)
+	local armFrom, armTo = reach - KNIT_COLUMN / 2, chuteSize / 2
+	local armWidth = if arc then 3 else 4
+	local arm = makeDecor(model, partType .. "GachaArm", Vector3.new(armTo - armFrom, armTop - armBottom, armWidth), base * CFrame.new((armFrom + armTo) / 2, (armBottom + armTop) / 2, 0), VINYL_BLUE)
+	makeDecor(model, partType .. "GachaArmStripe", Vector3.new(armTo - armFrom - 0.2, 0.55, armWidth + 0.1), arm.CFrame, VINYL_GOLD)
+	local chuteBottom = armBottom - chuteHeight
+	local chute = makePart(model, partType .. "Dropper", Vector3.new(chuteSize, chuteHeight, chuteSize), base * CFrame.new(0, chuteBottom + chuteHeight / 2, 0), color)
 	chute:SetAttribute("Capsule", true)
 	chute:SetAttribute("PartColor", color)
-	makeDecor(model, partType .. "DropperRim", Vector3.new(5, 0.4, 5), base * CFrame.new(0, chuteBottom + 0.05, 0), VINYL_GOLD, Enum.Material.Neon)
-	makeDecor(model, partType .. "DropperMouth", Vector3.new(3.4, 0.1, 3.4), base * CFrame.new(0, chuteBottom - 0.15, 0), Color3.fromRGB(35, 25, 45))
+	makeDecor(model, partType .. "DropperRim", Vector3.new(chuteSize + 0.4, 0.4, chuteSize + 0.4), base * CFrame.new(0, chuteBottom + 0.05, 0), VINYL_GOLD, Enum.Material.Neon)
+	makeDecor(model, partType .. "DropperMouth", Vector3.new(chuteSize - 1.2, 0.1, chuteSize - 1.2), base * CFrame.new(0, chuteBottom - 0.15, 0), Color3.fromRGB(35, 25, 45))
 	-- a coin slot and a crank on the chute's front, for the look
-	makeDecor(model, partType .. "GachaSlot", Vector3.new(1.4, 0.3, 0.2), base * CFrame.new(0, chuteBottom + 3.4, -2.35), Color3.fromRGB(40, 30, 50))
-	local knob = makeDecor(model, partType .. "GachaKnob", Vector3.new(0.4, 1.6, 1.6), base * CFrame.new(0, chuteBottom + 1.8, -2.4) * CFrame.Angles(0, math.pi / 2, 0), VINYL_GOLD)
+	local face = chuteSize / 2 + 0.05
+	makeDecor(model, partType .. "GachaSlot", Vector3.new(1.4, 0.3, 0.2), base * CFrame.new(0, chuteBottom + chuteHeight - 1.6, -face), Color3.fromRGB(40, 30, 50))
+	local knob = makeDecor(model, partType .. "GachaKnob", Vector3.new(0.4, 1.6, 1.6), base * CFrame.new(0, chuteBottom + 1.8, -face - 0.05) * CFrame.Angles(0, math.pi / 2, 0), VINYL_GOLD)
 	knob.Shape = Enum.PartType.Cylinder
 end
 
@@ -1043,66 +1055,6 @@ local function buildSprayRobot(parent: Model, origin: CFrame, side: number)
 	local rod = makePart(robot, "Rod", Vector3.new(0.4, 0.4, (nozzle.Position - shoulder).Magnitude), CFrame.lookAt((shoulder + nozzle.Position) / 2, nozzle.Position), CHROME_COLOR, Enum.Material.Metal)
 	rod.CanCollide = false
 	robot.Parent = parent
-end
-
--- Special: the Holo Sticker press over the end of the belt (Station3): a crossbar with a
--- roll of holographic star stickers turning on top and a stamp arm; it slaps a
--- LIMITED EDITION sticker on the brainrot.
-local function buildStickerPress(model: Model, spot: CFrame, name: string)
-	local deck = deckOf(spot) * CFrame.new(0, SPECIAL_LIFT, 0)
-	local height = DECK + 8 + SPECIAL_LIFT
-	for _, side in { -1, 1 } do
-		makeColumn(model, "StickerLeg", 1.8, 0, height, spot * CFrame.new(side * SIDE_X, 0, 0), VINYL_NAVY)
-		for _, y in { DECK + 3, DECK + 8 } do
-			makeColumn(model, "StickerLegStripe", 2, y, y + 0.6, spot * CFrame.new(side * SIDE_X, 0, 0), VINYL_GOLD)
-		end
-	end
-	local top = makePart(model, "Station3", Vector3.new(17, 1.8, 3.8), deck * CFrame.new(0, 8.9, 0), VINYL_BLUE)
-	makeDecor(model, "Station3Stripe", Vector3.new(17.1, 0.45, 3.9), deck * CFrame.new(0, 8.9, 0), VINYL_GOLD)
-	makePart(model, "Station3Glow", Vector3.new(13, 0.3, 3), deck * CFrame.new(0, 7.85, 0), WHITE, Enum.Material.Neon)
-	-- the sticker roll: a white drum dotted with rainbow stars, turning
-	local roll = Instance.new("Model")
-	roll.Name = "StickerRoll"
-	local center = deck * CFrame.new(0, 11.4, 0)
-	local drum = makeDecor(roll, "StickerDrum", Vector3.new(6, 3, 3), center, WHITE)
-	drum.Shape = Enum.PartType.Cylinder
-	for index = 0, 5 do
-		local angle = index / 6 * math.pi * 2
-		makeDecor(roll, "StickerStar", Vector3.new(0.6, 0.9, 0.9), center * CFrame.new(-2 + (index % 3) * 2, math.cos(angle) * 1.5, math.sin(angle) * 1.5) * CFrame.Angles(angle, 0, 0), CAPSULE_COLORS[index % #CAPSULE_COLORS + 1], Enum.Material.Neon)
-	end
-	for _, x in { -3.1, 3.1 } do
-		makeDecor(roll, "StickerRim", Vector3.new(0.3, 3.8, 3.8), center * CFrame.new(x, 0, 0), VINYL_GOLD).Shape = Enum.PartType.Cylinder
-	end
-	roll.WorldPivot = center * CFrame.Angles(0, math.pi / 2, 0) -- turns about its axle, X
-	roll:SetAttribute("Speed", 1.5)
-	CollectionService:AddTag(roll, "Spinner")
-	roll.Parent = model
-	makeBillboard(top, string.upper(name), Vector2.new(8, 1.5), 6.5, 80)
-end
-
--- Delivery: a display pedestal, navy with a gold trim, between two spotlight posts. The
--- pedestal is the Ship (its top level with the deck): a glass case drops over the
--- brainrot there, and it's mint (ProductionVisuals).
-local function buildDisplayPedestal(model: Model, spot: CFrame)
-	makeColumn(model, "PedestalFoot", 12, 0, 1, spot, VINYL_NAVY)
-	local ship = makeColumn(model, "Ship", 10, 1, DECK, spot, VINYL_BLUE)
-	ship.CanCollide = true
-	ship.CanQuery = true
-	makeColumn(model, "PedestalTrim", 10.6, DECK - 0.6, DECK + 0.25, spot, VINYL_GOLD)
-	for _, side in { -1, 1 } do
-		local post = spot * CFrame.new(side * 7.4, 0, -2)
-		makeColumn(model, "SpotlightPost", 0.6, 0, DECK + 10, post, VINYL_NAVY)
-		local head = post * CFrame.new(0, DECK + 10.5, 0) * CFrame.Angles(0, -side * math.rad(60), 0) * CFrame.Angles(math.rad(-35), 0, 0)
-		local housing = makeDecor(model, "SpotlightHead", Vector3.new(1.8, 1.8, 2.4), head, VINYL_NAVY)
-		makeDecor(model, "SpotlightLens", Vector3.new(1.4, 1.4, 0.2), head * CFrame.new(0, 0, -1.25), Color3.fromRGB(255, 245, 215), Enum.Material.Neon)
-		local light = Instance.new("SpotLight")
-		light.Face = Enum.NormalId.Front
-		light.Angle = 45
-		light.Range = 18
-		light.Brightness = 1.5
-		light.Color = Color3.fromRGB(255, 240, 220)
-		light.Parent = housing
-	end
 end
 
 -- The line's tablet (GDD §6): a little stand beside the Assembler holding a tablet,
@@ -1187,16 +1139,19 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		local layout = LineLayouts.For(item.Zone)
 		local rail = layout.Kind == "Rail"
 		local turntable = layout.Kind == "Turntable"
+		local tower = layout.Kind == "Tower"
 		model:SetAttribute("Origin", origin) -- line space in the world, for ProductionVisuals
 		buildTablet(model, origin, item, TycoonItems.LinesById[item.LineId].Index, layout)
 		if rail then
 			RailBuilder.BuildLine(model, origin, layout) -- a drum in the capsule, the rail overhead
 		elseif turntable then
 			TurntableBuilder.BuildLine(model, origin) -- a pad in the capsule, the table round it
+		elseif tower then
+			TowerBuilder.BuildLine(model, origin, layout) -- a pad in the capsule, the ramp up the tower, the shelf on top
 		else
 			buildConveyor(model, origin, colors)
 		end
-		buildGantry(model, origin, colors, rail or turntable)
+		buildGantry(model, origin, colors, rail or turntable or tower)
 		if item.Zone == "PlushieRoom" then
 			buildSewingMachine(model, origin)
 		elseif item.Zone == "ClayStudio" then
@@ -1218,9 +1173,7 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			RailBuilder.BuildShip(model, spot)
 		elseif item.Zone == "ClayStudio" then
 			buildKiln(model, spot)
-		elseif item.Zone == "VinylCollectibles" then
-			buildDisplayPedestal(model, spot)
-		else
+		elseif not tower then -- (a tower's shelf is its delivery)
 			buildTrapdoor(model, spot)
 		end
 	end,
@@ -1234,7 +1187,7 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 		elseif item.Zone == "ClayStudio" then
 			buildClayPress(model, base, partType, PART_COLORS[partType], layout.Kind == "Turntable")
 		elseif item.Zone == "VinylCollectibles" then
-			buildGacha(model, base, partType, PART_COLORS[partType])
+			buildGacha(model, base, partType, PART_COLORS[partType], layout.Kind == "Tower")
 		else
 			buildChute(model, base, partType, PART_COLORS[partType])
 		end
@@ -1248,6 +1201,9 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			return
 		elseif layout.Kind == "Turntable" then
 			TurntableBuilder.BuildSpeed(model, origin, item)
+			return
+		elseif layout.Kind == "Tower" then
+			TowerBuilder.BuildSpeed(model, origin, layout, item)
 			return
 		end
 		local length = BELT_TO - BELT_FROM - 2
@@ -1265,11 +1221,14 @@ local BUILDERS: { [string]: (model: Model, origin: CFrame, item: TycoonItems.Ite
 			TurntableBuilder.BuildCamera(model, spot, item)
 		elseif layout.Kind == "Turntable" then
 			StationBuilder.Build(model, spot, item, DECK, 6.5) -- closer in: the table is narrower than a belt's frame
+		elseif layout.Kind == "Tower" and item.Key == "Station3" then
+			TowerBuilder.BuildSticker(model, spot, item)
+		elseif layout.Kind == "Tower" then
+			-- beside the ramp, at its height there, its sign facing out
+			StationBuilder.Build(model, spot, item, (layout.StationDecks :: { [string]: number })[item.Key], 6.5, true)
 		elseif item.Key == "Station3" then
 			if item.Zone == "ClayStudio" then
 				buildStopMotionCamera(model, spot, item.Name)
-			elseif item.Zone == "VinylCollectibles" then
-				buildStickerPress(model, spot, item.Name)
 			else
 				buildPacker(model, spot, item.Name)
 			end
@@ -1461,6 +1420,9 @@ local function buildTrackLook(model: Model, plot: Plot, item: TycoonItems.Item)
 	elseif item.Key == "Belt" and layout.Kind == "Turntable" then
 		local tier = trackTier(level)
 		TurntableBuilder.BuildTrackLook(model, line, origin, level, { Tier = tier, Color = TRACK_TIER_COLORS[tier], Gold = TRACK_GOLD, Bulb = trackBulb, Sparkles = trackSparkles })
+	elseif item.Key == "Belt" and layout.Kind == "Tower" then
+		local tier = trackTier(level)
+		TowerBuilder.BuildTrackLook(model, line, origin, layout, level, { Tier = tier, Color = TRACK_TIER_COLORS[tier], Gold = TRACK_GOLD, Bulb = trackBulb, Sparkles = trackSparkles })
 	elseif item.Key == "Belt" then
 		buildBeltLook(model, line, origin, level)
 	elseif item.Key == "Upgraders" then

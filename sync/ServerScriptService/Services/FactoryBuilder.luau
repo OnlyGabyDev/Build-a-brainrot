@@ -198,15 +198,18 @@ local ROOM_STYLES: { [string]: RoomStyle } = {
 	VinylCollectibles = {
 		Title = "✨ VINYL COLLECTIBLES",
 		SignColor = Color3.fromRGB(90, 120, 255),
-		Floor = Color3.fromRGB(85, 95, 215),
+		-- a designer-toy gallery: a glossy navy checker floor (the white ramps and the
+		-- glossy figures pop on it), royal blue striped walls over a hot-pink band, gold
+		-- trims
+		Floor = Color3.fromRGB(38, 44, 120),
 		FloorMaterial = Enum.Material.SmoothPlastic,
-		Wall = Color3.fromRGB(175, 180, 255),
-		Band = Color3.fromRGB(95, 110, 240),
+		Wall = Color3.fromRGB(80, 105, 240),
+		Band = Color3.fromRGB(235, 70, 175),
 		BandMaterial = Enum.Material.SmoothPlastic,
 		Trim = Color3.fromRGB(255, 200, 55),
-		Ceiling = Color3.fromRGB(150, 160, 250),
-		Wallpaper = Color3.fromRGB(200, 205, 255),
-		Checker = Color3.fromRGB(120, 135, 245),
+		Ceiling = Color3.fromRGB(175, 185, 255),
+		Wallpaper = Color3.fromRGB(110, 135, 252),
+		Checker = Color3.fromRGB(56, 66, 162),
 	},
 	CandyFactory = {
 		Title = "🍭 CANDY FACTORY",

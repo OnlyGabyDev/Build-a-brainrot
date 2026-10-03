@@ -1425,7 +1425,17 @@ local function buildClay(parent: Instance, floor: CFrame)
 end
 
 -- Vinyl Collectibles --------------------------------------------------------------------
+-- A designer-toy gallery (GDD §10): a glossy navy checker floor (the white ramps and the
+-- glossy figures pop on it), royal blue striped walls over a hot-pink band, gold trims.
+-- Each line is a spiral display tower (LineLayouts "Tower"); round them: the GRAIL in a
+-- glass case behind velvet ropes, a giant gacha machine, a wall of mystery boxes, THE
+-- COLLECTION, boxed figures, figures on pedestals under spotlights, drop posters.
 
+local VINYL_BLUE = Color3.fromRGB(70, 95, 235)
+local VINYL_NAVY = Color3.fromRGB(35, 40, 110)
+local VINYL_PINK = Color3.fromRGB(255, 80, 190)
+local VINYL_GOLD = Color3.fromRGB(255, 200, 50)
+local VINYL_GLASS = Color3.fromRGB(215, 232, 255)
 local FIGURE_COLORS = {
 	Color3.fromRGB(255, 120, 170),
 	Color3.fromRGB(110, 200, 255),
@@ -1448,23 +1458,150 @@ end
 local function wallStar(parent: Instance, face: CFrame, size: number)
 	local holder = makeDecor(parent, "WallStar", Vector3.new(size, size, 0.2), face * CFrame.new(0, 0, -0.15), WHITE)
 	holder.Transparency = 1
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.LightInfluence = 0
-	gui.PixelsPerStud = 12
-	gui.Parent = holder
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.TextScaled = true
-	label.Font = Enum.Font.FredokaOne
-	label.Text = "⭐"
-	label.Parent = gui
+	label(holder, Enum.NormalId.Front, "⭐", WHITE, nil, 12)
 end
 
-local VINYL_BLUE = Color3.fromRGB(70, 95, 235)
-local VINYL_PINK = Color3.fromRGB(255, 80, 190)
-local VINYL_GOLD = Color3.fromRGB(255, 200, 50)
+-- A see-through pane (not Glass: Glass hides what's behind it and washes its colors out).
+local function pane(parent: Instance, size: Vector3, cframe: CFrame)
+	local glass = makeDecor(parent, "Glass", size, cframe, VINYL_GLASS)
+	glass.Transparency = 0.7
+	glass.CastShadow = false
+	return glass
+end
+
+-- THE GRAIL (`at`: on the floor under it, -Z its front): the rarest figure, turning
+-- slowly in a gold-framed glass case on a navy plinth, lit from above, behind velvet
+-- ropes on gold stanchions.
+local function grail(parent: Instance, at: CFrame, id: string)
+	cylinder(parent, "GrailPlinth", 7, 3.6, at, VINYL_NAVY)
+	cylinder(parent, "GrailPlinthTrim", 7.4, 0.5, at * CFrame.new(0, 3.3, 0), VINYL_GOLD, Enum.Material.Metal)
+	cylinder(parent, "GrailPlinthGlow", 7.5, 0.25, at * CFrame.new(0, 1.2, 0), VINYL_PINK, Enum.Material.Neon).CastShadow = false
+	local floor = at * CFrame.new(0, 3.8, 0)
+	-- the figure on a little gold turntable, turning
+	local turning = Instance.new("Model")
+	turning.Name = "GrailFigure"
+	cylinder(turning, "GrailStand", 4, 0.4, floor, VINYL_GOLD, Enum.Material.Metal)
+	local doll = figure(id, floor * CFrame.new(0, 0.4, 0), "VinylCollectibles")
+	doll.Parent = turning
+	spinner(turning, parent, floor * CFrame.Angles(math.pi / 2, 0, 0), 0.4)
+	-- the case: glass on four sides, gold posts and a gold top with a light in it
+	local height = 7.5
+	for side = 0, 3 do
+		local face = floor * CFrame.Angles(0, side * math.pi / 2, 0) * CFrame.new(0, height / 2, -2.6)
+		pane(parent, Vector3.new(5.2, height, 0.15), face)
+		makeDecor(parent, "GrailPost", Vector3.new(0.35, height, 0.35), face * CFrame.new(2.6, 0, 0), VINYL_GOLD, Enum.Material.Metal)
+	end
+	local lid = makeDecor(parent, "GrailLid", Vector3.new(5.8, 0.5, 5.8), floor * CFrame.new(0, height + 0.25, 0), VINYL_GOLD, Enum.Material.Metal)
+	local light = Instance.new("SpotLight")
+	light.Face = Enum.NormalId.Bottom
+	light.Angle = 70
+	light.Range = 12
+	light.Brightness = 2.5
+	light.Color = Color3.fromRGB(255, 240, 220)
+	light.Parent = lid
+	ball(parent, "GrailCrown", 1.2, floor * CFrame.new(0, height + 1.1, 0), VINYL_PINK, Enum.Material.Neon)
+	-- velvet ropes round it, sagging between gold stanchions
+	local posts = {}
+	for k = 0, 5 do
+		local angle = (k + 0.5) / 6 * math.pi * 2
+		local foot = at * CFrame.new(math.sin(angle) * 6.5, 0, math.cos(angle) * 6.5)
+		cylinder(parent, "StanchionFoot", 1.4, 0.3, foot, VINYL_GOLD, Enum.Material.Metal)
+		cylinder(parent, "Stanchion", 0.35, 3.4, foot, VINYL_GOLD, Enum.Material.Metal)
+		ball(parent, "StanchionTop", 0.6, foot * CFrame.new(0, 3.5, 0), VINYL_GOLD, Enum.Material.Metal)
+		table.insert(posts, (foot * CFrame.new(0, 3.2, 0)).Position)
+	end
+	for k = 1, #posts - 1 do -- (open at the back, toward the wall)
+		local a, b = posts[k], posts[k + 1]
+		local low = (a + b) / 2 - Vector3.new(0, 0.8, 0)
+		rod(parent, "VelvetRope", 0.3, a, low, Color3.fromRGB(200, 30, 70), Enum.Material.Fabric)
+		rod(parent, "VelvetRope", 0.3, low, b, Color3.fromRGB(200, 30, 70), Enum.Material.Fabric)
+	end
+end
+
+-- A giant gacha machine (`at`: its foot, -Z its front): a hot-pink cabinet with a coin
+-- slot, a gold crank turning and a chute, under a huge clear globe of capsules (a heap,
+-- and more swirling round), a gold cap and a GACHA! sign.
+local function giantGacha(parent: Instance, at: CFrame)
+	makeDecor(parent, "GachaCabinet", Vector3.new(9, 8, 8), at * CFrame.new(0, 4, 0), VINYL_PINK)
+	makeDecor(parent, "GachaCabinetStripe", Vector3.new(9.1, 0.8, 8.1), at * CFrame.new(0, 2, 0), WHITE)
+	makeDecor(parent, "GachaCabinetTrim", Vector3.new(9.4, 0.6, 8.4), at * CFrame.new(0, 8, 0), VINYL_GOLD, Enum.Material.Metal)
+	makeDecor(parent, "GachaFoot", Vector3.new(9.6, 0.6, 8.6), at * CFrame.new(0, 0.3, 0), VINYL_NAVY)
+	-- the front: a coin slot, the chute's flap and a big gold crank turning
+	local front = at * CFrame.new(0, 0, -4.05)
+	local plate = makeDecor(parent, "GachaSlotPlate", Vector3.new(2.6, 1.6, 0.2), front * CFrame.new(-2.5, 6, 0), VINYL_GOLD, Enum.Material.Metal)
+	label(plate, Enum.NormalId.Front, "🪙 1", VINYL_NAVY, nil, 24)
+	makeDecor(parent, "GachaChute", Vector3.new(3.4, 2.6, 0.3), front * CFrame.new(2, 2.6, 0), VINYL_NAVY)
+	makeDecor(parent, "GachaChuteFlap", Vector3.new(3, 2.2, 0.2), front * CFrame.new(2, 2.6, -0.15), Color3.fromRGB(220, 240, 255))
+	local hub = front * CFrame.new(-2.5, 3.3, -0.3)
+	local crank = Instance.new("Model")
+	crank.Name = "GachaCrank"
+	local wheel = makeDecor(crank, "GachaCrankWheel", Vector3.new(0.5, 3.2, 3.2), hub * CFrame.Angles(0, math.pi / 2, 0), VINYL_GOLD, Enum.Material.Metal)
+	wheel.Shape = Enum.PartType.Cylinder
+	makeDecor(crank, "GachaCrankBar", Vector3.new(3.8, 0.6, 0.6), hub * CFrame.new(0, 0, -0.3), WHITE)
+	spinner(crank, parent, hub, 0.8)
+	-- the globe, clear, full of capsules
+	local globeAt = at * CFrame.new(0, 13.4, 0)
+	cylinder(parent, "GachaGlobeCollar", 7.4, 1, at * CFrame.new(0, 8.3, 0), VINYL_NAVY)
+	local globe = ball(parent, "GachaGlobe", 11, globeAt, VINYL_GLASS)
+	globe.Transparency = 0.72
+	globe.CastShadow = false
+	local random = Random.new(11)
+	for k = 1, 16 do
+		local angle = random:NextNumber(0, math.pi * 2)
+		local out = random:NextNumber(0, 3.4)
+		ball(parent, "GachaCapsule", 1.9, globeAt * CFrame.new(math.cos(angle) * out, -3.6 + (k % 3) * 0.9, math.sin(angle) * out), FIGURE_COLORS[k % #FIGURE_COLORS + 1])
+	end
+	local swirl = Instance.new("Model")
+	swirl.Name = "GachaSwirl"
+	for k = 0, 7 do
+		local angle = k / 8 * math.pi * 2
+		ball(swirl, "GachaCapsule", 1.6, globeAt * CFrame.new(math.cos(angle) * 3.4, 0.6 + (k % 2) * 1.2, math.sin(angle) * 3.4), FIGURE_COLORS[k % #FIGURE_COLORS + 1])
+	end
+	spinner(swirl, parent, globeAt * CFrame.Angles(math.pi / 2, 0, 0), 0.9)
+	cylinder(parent, "GachaCap", 3, 1, at * CFrame.new(0, 18.7, 0), VINYL_GOLD, Enum.Material.Metal)
+	ball(parent, "GachaCapKnob", 1.6, at * CFrame.new(0, 20.1, 0), VINYL_PINK, Enum.Material.Neon)
+	local sign = makeDecor(parent, "GachaSign", Vector3.new(8, 2.6, 0.3), at * CFrame.new(0, 23.2, 0) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(40, 28, 60))
+	label(sign, Enum.NormalId.Back, "GACHA!", Color3.fromRGB(255, 230, 245), VINYL_PINK, 30)
+	label(sign, Enum.NormalId.Front, "GACHA!", Color3.fromRGB(255, 230, 245), VINYL_PINK, 30)
+	rod(parent, "GachaSignPole", 0.3, (at * CFrame.new(0, 20.6, 0)).Position, (at * CFrame.new(0, 21.9, 0)).Position, VINYL_GOLD)
+end
+
+-- A wall of mystery boxes (`face`: on the wall at the floor under its middle, -Z into the
+-- room): rows of colored boxes with a big ? on each, on gold shelves, a neon sign on top.
+local function mysteryWall(parent: Instance, face: CFrame)
+	local columns, rows = 5, 3
+	makeDecor(parent, "MysteryBoard", Vector3.new(columns * 4.2 + 1.4, rows * 4.6 + 1.2, 0.3), face * CFrame.new(0, 3 + rows * 2.3, -0.2), VINYL_NAVY)
+	for row = 0, rows - 1 do
+		local y = 3.5 + row * 4.6
+		makeDecor(parent, "MysteryShelf", Vector3.new(columns * 4.2 + 1, 0.4, 2.6), face * CFrame.new(0, y - 0.2, -1.5), VINYL_GOLD, Enum.Material.Metal)
+		for column = 0, columns - 1 do
+			local color = FIGURE_COLORS[(row * columns + column) % #FIGURE_COLORS + 1]
+			local box = makeDecor(parent, "MysteryBox", Vector3.new(3.4, 3.4, 2.2), face * CFrame.new(-(columns - 1) * 2.1 + column * 4.2, y + 1.7, -1.5) * CFrame.Angles(0, math.rad((column % 2) * 8 - 4), 0), color)
+			label(box, Enum.NormalId.Front, "?", WHITE, color:Lerp(Color3.new(0, 0, 0), 0.35), 20)
+			makeDecor(parent, "MysteryRibbon", Vector3.new(0.5, 3.45, 2.25), box.CFrame, WHITE)
+		end
+	end
+	neonSign(parent, face * CFrame.new(0, 4.6 + rows * 4.6, 0), Vector2.new(18, 3.2), "🎁 MYSTERY BOXES 🎁", VINYL_PINK)
+end
+
+-- A display pedestal under a spotlight (`at`: its foot) with a real vinyl figure on top.
+local function pedestal(parent: Instance, at: CFrame, id: string, lampSide: number)
+	cylinder(parent, "Pedestal", 5, 4, at, WHITE)
+	cylinder(parent, "PedestalTrim", 5.3, 0.4, at * CFrame.new(0, 3.2, 0), VINYL_PINK, Enum.Material.Neon).CastShadow = false
+	cylinder(parent, "PedestalTop", 5.6, 0.6, at * CFrame.new(0, 4, 0), VINYL_GOLD, Enum.Material.Metal)
+	figure(id, at * CFrame.new(0, 4.6, 0), "VinylCollectibles").Parent = parent
+	local lamp = at * CFrame.new(lampSide * 4, 0, -4)
+	cylinder(parent, "SpotlightStand", 0.5, 12, lamp, VINYL_NAVY)
+	local head = makeDecor(parent, "Spotlight", Vector3.new(2, 2, 2.6), CFrame.lookAt((lamp * CFrame.new(0, 12, 0)).Position, (at * CFrame.new(0, 7, 0)).Position), VINYL_NAVY)
+	local glow = makeDecor(parent, "SpotlightGlow", Vector3.new(1.4, 1.4, 0.2), head.CFrame * CFrame.new(0, 0, -1.35), Color3.fromRGB(255, 245, 200), Enum.Material.Neon)
+	local light = Instance.new("SpotLight")
+	light.Face = Enum.NormalId.Front
+	light.Angle = 40
+	light.Range = 16
+	light.Brightness = 1.5
+	light.Color = Color3.fromRGB(255, 240, 220)
+	light.Parent = glow
+end
 
 local function buildVinyl(parent: Instance, floor: CFrame)
 	-- the sign over the doorway from the Clay Studio, and chasing string lights
@@ -1481,27 +1618,28 @@ local function buildVinyl(parent: Instance, floor: CFrame)
 	index = stringLights(parent, at(66, 26, -58), at(20, 26, -58), 1.6, index)
 	stringLights(parent, at(-20, 26, -58), at(-66, 26, -58), 1.6, index)
 
-	-- royal blue carpets down the walkways, lamps and neon signs over them
+	-- royal blue carpets down the walkways between the towers, lamps and neon signs
+	-- over them
 	for index_, x in { -19.6, 22.4 } do
-		runway(parent, floor, x, -25, 45, VINYL_BLUE)
+		runway(parent, floor, x, -18, 45, VINYL_BLUE)
 		for k, z in { -32, -2, 30 } do
 			pendantLamp(parent, floor * CFrame.new(x, 28, z), 5, if (index_ + k) % 2 == 0 then VINYL_PINK else VINYL_GOLD)
 		end
 		hangingSign(parent, floor * CFrame.new(x, 28, 14), 6, Vector2.new(12, 2.6), if index_ == 1 then "✨ MINT CONDITION ✨" else "★ LIMITED EDITION ★", if index_ == 1 then VINYL_PINK else VINYL_GOLD)
 	end
 
-	-- big gold stars on the walls
-	local spots: { WallSpot } = {
-		{ -68, 17, -18 },
-		{ -68, 19, 18 },
-		{ 68, 18, -18 },
-		{ 68, 16, 18 },
-		{ 36, 18, -59 },
-		{ -36, 17, -59 },
-	}
+	-- the front wall, either side of the doorway: drop posters
+	poster(parent, wallFace(floor, { -32, 14, -59 }), Vector2.new(8, 10), VINYL_PINK, VINYL_GOLD, "🦈", "NEW DROP!")
+	poster(parent, wallFace(floor, { 32, 14, -59 }), Vector2.new(8, 10), VINYL_BLUE, VINYL_GOLD, "🥁", "LIMITED RUN")
+	-- the left wall: the wall of mystery boxes; the right wall: chase posters; gold stars
+	mysteryWall(parent, wallFace(floor, { -68, 0, -10 }))
+	poster(parent, wallFace(floor, { 68, 14, -18 }), Vector2.new(8, 10), Color3.fromRGB(120, 70, 220), VINYL_GOLD, "👑", "CHASE 1/144")
+	poster(parent, wallFace(floor, { 68, 14, 18 }), Vector2.new(8, 10), VINYL_PINK, VINYL_GOLD, "🐊", "SOLD OUT!")
+	local spots: { WallSpot } = { { -68, 19, 24 }, { 68, 21, 0 }, { 50, 19, -59 } }
 	for index_, spot in spots do
 		wallStar(parent, wallFace(floor, spot), 6 + (index_ % 2) * 2)
 	end
+
 	-- the collection case on the back wall: real brainrot figures, glossy vinyl
 	bestSellers(parent, wallFace(floor, { 0, 0, 58 }), 20, "VinylCollectibles", "💎 THE COLLECTION 💎", VINYL_PINK)
 	-- a shelf of boxed figures beside it, clear of the first line
@@ -1515,24 +1653,13 @@ local function buildVinyl(parent: Instance, floor: CFrame)
 			figureBox(parent, shelf * CFrame.new(-6 + column * 6, 1.3 + row * 5, 0), FIGURE_COLORS[(row * 3 + column) % #FIGURE_COLORS + 1])
 		end
 	end
-	-- pedestals with shiny collectibles, under spotlights
-	for index_, spot in { Vector3.new(62, 0, 52), Vector3.new(-59, 0, 47) } do
-		local foot = floor * CFrame.new(spot)
-		cylinder(parent, "Pedestal", 5, 4, foot, WHITE)
-		cylinder(parent, "PedestalTop", 5.6, 0.6, foot * CFrame.new(0, 4, 0), Color3.fromRGB(130, 175, 255))
-		local shiny = ball(parent, "Collectible", 3.6, foot * CFrame.new(0, 6.4, 0), FIGURE_COLORS[index_ * 2])
-		shiny.Reflectance = 0.3
-		local lamp = foot * CFrame.new(if spot.X > 0 then -4 else 4, 0, -4)
-		cylinder(parent, "SpotlightStand", 0.5, 12, lamp, Color3.fromRGB(80, 90, 120))
-		local head = makeDecor(parent, "Spotlight", Vector3.new(2, 2, 2.6), CFrame.lookAt((lamp * CFrame.new(0, 12, 0)).Position, (foot * CFrame.new(0, 6, 0)).Position), Color3.fromRGB(80, 90, 120))
-		makeDecor(parent, "SpotlightGlow", Vector3.new(1.4, 1.4, 0.2), head.CFrame * CFrame.new(0, 0, -1.35), Color3.fromRGB(255, 245, 200), Enum.Material.Neon)
-	end
-	-- a giant boxed figure by the door
-	local giant = floor * CFrame.new(60, 0, -46)
-	makeDecor(parent, "GiantBox", Vector3.new(8, 12, 6), giant * CFrame.new(0, 6, 0), Color3.fromRGB(255, 200, 225))
-	makeDecor(parent, "GiantBoxTop", Vector3.new(8.4, 1.4, 6.4), giant * CFrame.new(0, 11.5, 0), Color3.fromRGB(255, 120, 170))
-	ball(parent, "GiantFigure", 4.6, giant * CFrame.new(0, 6.5, -2.5), Color3.fromRGB(110, 200, 255))
-	makeDecor(parent, "GiantBoxGold", Vector3.new(8.2, 0.6, 6.2), giant * CFrame.new(0, 0.3, 0), VINYL_GOLD)
+	-- figures on pedestals under spotlights in the back corners
+	pedestal(parent, floor * CFrame.new(62, 0, 52) * CFrame.Angles(0, math.rad(20), 0), "BombardiroCrocodilo", -1)
+	pedestal(parent, floor * CFrame.new(-59, 0, 47) * CFrame.Angles(0, math.rad(-20), 0), "LaVacaSaturnoSaturnita", 1)
+	-- the front corners: THE GRAIL behind its velvet ropes, and the giant gacha machine
+	grail(parent, floor * CFrame.new(-54, 0, -49) * CFrame.Angles(0, math.rad(200), 0), "SupremoBrainrotto")
+	neonSign(parent, wallFace(floor, { -54, 17, -59 }), Vector2.new(14, 3), "👑 THE GRAIL 👑", VINYL_GOLD)
+	giantGacha(parent, floor * CFrame.new(56, 0, -49) * CFrame.Angles(0, math.rad(160), 0))
 end
 
 -- Candy Factory ---------------------------------------------------------------------------

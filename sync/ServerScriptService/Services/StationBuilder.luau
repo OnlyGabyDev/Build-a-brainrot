@@ -151,6 +151,8 @@ local function makeSpinner(model: Model, name: string, pivot: CFrame, speed: num
 end
 
 -- The parts every station shares; returns the middle of the cabinet's top.
+local signOutward = false -- (set by Build: round a tower the signs face out, toward the room)
+
 local function buildStationBase(model: Model, spot: CFrame, item: TycoonItems.Item, colors: StationColors): CFrame
 	local key = item.Key
 	local base = spot * CFrame.new(STATION_X, 0, 0)
@@ -165,7 +167,7 @@ local function buildStationBase(model: Model, spot: CFrame, item: TycoonItems.It
 		makeColumn(model, key .. "SignPost", 0.6, CABINET_TOP, SIGN_Y - SIGN.Y / 2, back * CFrame.new(0, 0, z), colors.Trim)
 	end
 	local at = (back * CFrame.new(0, SIGN_Y, 0)).Position
-	local sign = makePart(model, key, Vector3.new(SIGN.X, SIGN.Y, 0.5), CFrame.lookAt(at, at + spot.RightVector), SIGN_BACK)
+	local sign = makePart(model, key, Vector3.new(SIGN.X, SIGN.Y, 0.5), CFrame.lookAt(at, at + spot.RightVector * (if signOutward then -1 else 1)), SIGN_BACK)
 	sign.CanCollide = false
 	neonLabel(sign, item.Name, colors.Glow)
 	local rim = colors.Glow:Lerp(WHITE, 0.35)
@@ -437,12 +439,15 @@ local BUILDERS: { [string]: { [string]: Builder } } = {
 -- Builds `item` (a Station1 or Station2) into its line's `model`, at `spot` (on the
 -- floor at the belt's middle) on a belt whose top is `deck` above the floor. `reach`:
 -- the machine's middle this far from `spot` (out on its -X side) instead of a belt's
--- -STATION_X (a turntable's ride is narrower than a belt's frame).
-function StationBuilder.Build(model: Model, spot: CFrame, item: TycoonItems.Item, deck: number, reach: number?)
+-- -STATION_X (a turntable's ride is narrower than a belt's frame). `outward`: its sign
+-- faces away from the ride (round a tower, where people look from outside).
+function StationBuilder.Build(model: Model, spot: CFrame, item: TycoonItems.Item, deck: number, reach: number?, outward: boolean?)
 	local builders = BUILDERS[item.Zone] or BUILDERS.ToyWorkshop
 	local target = (spot * CFrame.new(0, deck + 4.5, 0)).Position
 	local at = if reach then spot * CFrame.new(-reach - STATION_X, 0, 0) else spot
+	signOutward = outward == true
 	builders[item.Key](model, at, item, target)
+	signOutward = false
 end
 
 return StationBuilder

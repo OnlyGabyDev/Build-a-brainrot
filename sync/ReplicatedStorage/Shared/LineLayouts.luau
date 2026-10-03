@@ -20,9 +20,31 @@
 	    arc behind a big round table and squeeze their parts into the open capsule in its
 	    middle; the brainrot hops out onto the table, which turns in stop-motion clicks,
 	    carrying it round past the stations, and it hops off onto the kiln's step.
+	  * Tower (Vinyl Collectibles): no belt. The gacha machines stand in an arc behind the
+	    open capsule and drop their capsules right into it; the figure rides out of its
+	    front on a little display stand, up a ramp spiralling round a glass display tower
+	    full of capsules, past the stations, and hops onto the lit display shelf on top.
 ]]
 
 export type Halo = { At: CFrame, Radius: number }
+
+-- A spiral tower (line space): the ramp winds round it from From to To degrees (from
+-- +Z, the capsule's side, toward +X), climbing from the deck to the shelf on top.
+export type Tower = {
+	Center: Vector3, -- on the floor under the tower's middle
+	Radius: number, -- the glass
+	Ride: number, -- the ride line round it (the figures' feet)
+	Width: number, -- the ramp
+	Top: number, -- the display shelf's top, above the floor
+	From: number,
+	To: number,
+	Step: number, -- degrees between the ramp's control points
+	HopOn: number, -- seconds at the ramp's end turning to face the cannon
+	Cannon: number, -- the Holo Sticker cannon stands this far out in front of it
+	GachaRadius: number, -- the gacha chutes, from the pad (inside the capsule)
+	GachaColumn: number, -- their columns (outside it)
+	GachaMouth: number, -- the chutes' mouths, above the floor
+}
 
 -- A turntable's table and its clock (line space, angles from -Z (the front) turning
 -- toward -X, so a brainrot rides front, left, back, right).
@@ -58,6 +80,9 @@ export type Layout = {
 	Stops: { [string]: number }?, -- Rail: the control point (index) where each thing happens
 	Table: Table?, -- Turntable: the table
 	StationAngles: { [string]: number }?, -- Turntable: where round the table each station works (radians)
+	Tower: Tower?, -- Tower: the tower
+	Ramp: { Vector3 }?, -- Tower: the ride's control points, from the show spot up to the ramp's end (y: the feet)
+	StationDecks: { [string]: number }?, -- Tower: the ramp's height at each station
 }
 
 export type Curve = {
@@ -270,10 +295,105 @@ local function turntableLayout(): Layout
 	return layout
 end
 
+-- The spiral tower (Vinyl Collectibles) -------------------------------------------
+
+-- In front of the capsule. The ramp climbs a little over three quarters of a turn (no
+-- higher: the figure on the shelf has to stay under the ceiling, 28), so it never
+-- passes over itself or the way in.
+local TOWER: Tower = {
+	Center = Vector3.new(0, 0, -27),
+	Radius = 5.8,
+	Ride = 9,
+	Width = 6,
+	Top = 12,
+	From = 40,
+	To = 325,
+	Step = 15,
+	HopOn = 0.5,
+	Cannon = 17, -- clear of the figures riding past
+	GachaRadius = 6.5,
+	GachaColumn = 15,
+	GachaMouth = 15,
+}
+LineLayouts.TowerSettings = TOWER
+
+-- The ramp's spot at `degrees` round the tower, on the floor under the ride line, its -X
+-- facing out (a station beside it is built like one beside a belt).
+function LineLayouts.TowerSpot(degrees: number, radius: number?): CFrame
+	local angle = math.rad(degrees)
+	local out = Vector3.new(math.sin(angle), 0, math.cos(angle))
+	return CFrame.fromMatrix(TOWER.Center + out * (radius or TOWER.Ride), -out, Vector3.yAxis)
+end
+
+-- The ramp's height (its top, where the figures' feet are) at `degrees`.
+function LineLayouts.TowerHeight(degrees: number): number
+	return DECK + (TOWER.Top - DECK) * math.clamp((degrees - TOWER.From) / (TOWER.To - TOWER.From), 0, 1)
+end
+
+local function towerLayout(): Layout
+	local stationDegrees = { Station1 = 130, Station2 = 235 } -- a third and two thirds of the way up
+	local ramp = { Vector3.new(0, DECK, -3), Vector3.new(0, DECK, -10.5) } -- the show spot, out through the capsule's front
+	local stops: { [string]: number } = { Show = 1, Slot = 2, Helix = 3 }
+	for degrees = TOWER.From, TOWER.To, TOWER.Step do
+		table.insert(ramp, LineLayouts.TowerSpot(degrees).Position + Vector3.new(0, LineLayouts.TowerHeight(degrees), 0))
+		for key, at in stationDegrees do
+			if at == degrees then
+				stops[key] = #ramp
+			end
+		end
+	end
+	stops.End = #ramp
+	local center = TOWER.Center
+	local front = center + Vector3.new(0, 0, -TOWER.Cannon)
+	local layout: Layout = {
+		Kind = "Tower",
+		Droppers = {},
+		Halos = {},
+		Stations = {
+			Station1 = LineLayouts.TowerSpot(stationDegrees.Station1),
+			Station2 = LineLayouts.TowerSpot(stationDegrees.Station2),
+			-- the Holo Sticker cannon out front, aimed at the shelf
+			Station3 = CFrame.lookAt(front, center),
+		},
+		-- the display shelf on top (its deck: the shelf's top), facing the room's front
+		Ship = CFrame.lookAt(center, center + Vector3.new(0, 0, -1)) + Vector3.new(0, TOWER.Top - DECK, 0),
+		ShipRadius = 5.2,
+		Buttons = {
+			Line = Vector3.new(0, 0, -52),
+			Speed1 = Vector3.new(18, 0, -2),
+			Speed2 = Vector3.new(18, 0, -2),
+			Station1 = Vector3.new(18, 0, -8),
+			Station2 = Vector3.new(18, 0, -14),
+			Station3 = Vector3.new(18, 0, -20),
+		},
+		Tablet = Vector3.new(12, 0, -8),
+		TabletFacing = Vector3.new(math.cos(math.rad(25)), 0, -math.sin(math.rad(25))),
+		ShowGap = 3,
+		RideTime = 5.2,
+		Tower = TOWER,
+		Ramp = ramp,
+		Stops = stops,
+		StationDecks = {
+			Station1 = LineLayouts.TowerHeight(stationDegrees.Station1),
+			Station2 = LineLayouts.TowerHeight(stationDegrees.Station2),
+		},
+	}
+	for partType, degrees in KNIT_ANGLES do
+		local chute = arcSpot(degrees, TOWER.GachaRadius)
+		layout.Droppers[partType] = chute
+		layout.Halos[partType] = { At = chute + Vector3.new(0, TOWER.GachaMouth - 0.4, 0), Radius = 2.4 }
+	end
+	for index, partType in { "Legs", "Body", "Arms", "Head" } do
+		layout.Buttons[partType] = Vector3.new(18, 0, 8 + index * 6) -- behind the gachas, along the path
+	end
+	return layout
+end
+
 local BELT = beltLayout()
 local LAYOUTS: { [string]: Layout } = {
 	PlushieRoom = railLayout(),
 	ClayStudio = turntableLayout(),
+	VinylCollectibles = towerLayout(),
 }
 
 -- The layout of `zoneId`'s lines.
@@ -338,10 +458,10 @@ function LineLayouts.At(curve: Curve, distance: number): (Vector3, Vector3)
 	return a:Lerp(b, if span > 0 then (d - lengths[low]) / span else 0), heading.Unit
 end
 
--- The rail of a Rail layout as a curve (line space), or nil.
+-- The rail of a Rail layout (or a Tower's ramp) as a curve (line space), or nil.
 local railCurves: { [Layout]: Curve } = {}
 function LineLayouts.RailCurve(layout: Layout): Curve?
-	local rail = layout.Rail
+	local rail = layout.Rail or layout.Ramp
 	if not rail then
 		return nil
 	end

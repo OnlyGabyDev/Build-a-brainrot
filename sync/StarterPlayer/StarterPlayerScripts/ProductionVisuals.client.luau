@@ -1215,9 +1215,12 @@ local CASE_GLASS = Color3.fromRGB(220, 240, 255)
 
 local function displayCaseFinish(build: Build, brainrot: Model, ship: BasePart, duration: number): Vector3
 	local d = duration
-	local rotation = brainrot:GetPivot().Rotation
-	local base = rotation + Vector3.new(ship.Position.X, topOf(ship), ship.Position.Z)
-	Effects.sound(brainrot:GetPivot().Position, Sounds.Boing, 0.25, vary(1.1))
+	local pivot = brainrot:GetPivot()
+	-- a tower's display shelf (up under the ceiling): the figure keeps its display stand
+	local onShelf = ship:GetAttribute("Shelf") == true
+	local lift = brainrot:GetAttribute("Lift")
+	local base = pivot.Rotation + Vector3.new(ship.Position.X, topOf(ship) + (if typeof(lift) == "number" then lift else 0), ship.Position.Z)
+	Effects.sound(pivot.Position, Sounds.Boing, 0.25, vary(1.1))
 	hopShrinking(brainrot, base, d * 0.25, 4, 0.85)
 	local _, size = brainrot:GetBoundingBox()
 	local width, height = math.max(size.X, size.Z) + 1.6, size.Y + 1.2
@@ -1233,8 +1236,9 @@ local function displayCaseFinish(build: Build, brainrot: Model, ship: BasePart, 
 	newPart(case, "CaseTop", Vector3.new(width + 0.4, 0.4, width + 0.4), base * CFrame.new(0, height + 0.2, 0), CASE_GOLD)
 	case.WorldPivot = base
 	case.Parent = effects
+	local fall = if onShelf then 5 else 10 -- (up there, under the ceiling)
 	run(d * 0.25, function(a)
-		case:PivotTo(base + Vector3.new(0, 10 * (1 - ease(a, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)), 0))
+		case:PivotTo(base + Vector3.new(0, fall * (1 - ease(a, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)), 0))
 	end)
 	case:PivotTo(base)
 	local top = base.Position + Vector3.new(0, height + 1, 0)
@@ -1246,6 +1250,21 @@ local function displayCaseFinish(build: Build, brainrot: Model, ship: BasePart, 
 	end
 	Effects.popup(top + Vector3.new(0, 1.5, 0), "MINT!", CASE_GOLD, 1.2, 0.6)
 	task.wait(d * 0.2)
+	if onShelf then
+		-- it shrinks away into the shelf, case and all, into the collection
+		local caseScale, figureScale = case:GetScale(), brainrot:GetScale()
+		Effects.sound(top, Sounds.Whoosh, 0.22, vary(1.3))
+		run(d * 0.3, function(a)
+			local f = math.clamp(1 - ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.In), 0.05, 1.2)
+			case:ScaleTo(caseScale * f)
+			brainrot:ScaleTo(figureScale * f)
+		end)
+		brainrot:Destroy()
+		case:Destroy()
+		sparkle(build, base.Position + Vector3.new(0, 1, 0), CASE_GOLD, 16)
+		puff(build, base.Position + Vector3.new(0, 0.5, 0), Color3.fromRGB(200, 210, 255), 8, 0.7)
+		return base.Position + Vector3.new(0, 3, 0)
+	end
 	-- and down into the pedestal, case and all
 	local start = brainrot:GetPivot()
 	Effects.sound(top, Sounds.Whoosh, 0.22, vary(1.1))
@@ -1617,11 +1636,26 @@ local function stickerSpecial(build: Build, brainrot: Model, machine: BasePart, 
 	sticker.WorldPivot = front
 	sticker.Parent = brainrot
 	stampMachine(build, machine)
-	local from = front + Vector3.new(0, 7, 0)
-	Effects.sound(from.Position, Sounds.Whoosh, 0.2, vary(1.6))
-	run(duration * 0.4, function(a)
-		sticker:PivotTo(from:Lerp(front, ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out)) * CFrame.Angles(0, 0, (1 - a) * math.pi * 3))
-	end)
+	local nozzle = findPart(build.Line, "Station3Nozzle")
+	if nozzle then
+		-- the cannon fires it in an arc, spinning, trailing holographic sparkles
+		local from = nozzle.Position
+		if build.Near then
+			Effects.spray(from, front.Position, HOLO_COLORS[2], 10, 0.4, true)
+			Effects.flash(from, HOLO_COLORS[1], 2, 10, 0.2)
+		end
+		Effects.sound(from, Sounds.Pop, 0.3, vary(1.2))
+		run(duration * 0.4, function(a)
+			local at = from:Lerp(front.Position, ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)) + Vector3.new(0, math.sin(a * math.pi) * 2.5, 0)
+			sticker:PivotTo((front.Rotation + at) * CFrame.Angles(0, 0, (1 - a) * math.pi * 4))
+		end)
+	else
+		local from = front + Vector3.new(0, 7, 0)
+		Effects.sound(from.Position, Sounds.Whoosh, 0.2, vary(1.6))
+		run(duration * 0.4, function(a)
+			sticker:PivotTo(from:Lerp(front, ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out)) * CFrame.Angles(0, 0, (1 - a) * math.pi * 3))
+		end)
+	end
 	sticker:PivotTo(front)
 	squish(brainrot)
 	Effects.sound(front.Position, Sounds.Stamp, 0.3, vary(1.3))
@@ -2976,6 +3010,100 @@ function Turntable.ride(build: Build, brainrot: Model, layout: LineLayouts.Layou
 	return true
 end
 
+-- The tower ------------------------------------------------------------------
+-- On a tower's line (LineLayouts "Tower": Vinyl Collectibles) there's no belt. The
+-- finished figure gets a little gold display stand under its feet and rides it out of
+-- the capsule's front and up the ramp round the glass display tower, facing out (posing
+-- for everyone round it) as the stations fire at it, and at the top turns to face the Holo
+-- Sticker cannon out front for the special; then it hops onto the lit shelf on top for the
+-- glass case (displayCaseFinish). (The special and the case each have a spot of their own:
+-- on a fast line the next figure is up there before the last one's gone.)
+local Tower = {
+	Stand = 0.5, -- the stand's height: the figure rides this much over the ramp
+	Gold = Color3.fromRGB(255, 200, 50),
+	Pink = Color3.fromRGB(255, 80, 190),
+}
+
+-- From the show to the top of the ramp, in Production.RideTime. False if the line went.
+function Tower.ride(build: Build, brainrot: Model, layout: LineLayouts.Layout, origin: CFrame, cancelled: () -> boolean): boolean
+	local line = build.Line
+	local tower = layout.Tower :: LineLayouts.Tower
+	local curve = LineLayouts.RailCurve(layout) :: LineLayouts.Curve
+	local stops = layout.Stops :: { [string]: number }
+	local center = origin * Vector3.new(tower.Center.X, 0, tower.Center.Z)
+	local helix = curve.Knots[stops.Helix]
+	local glide = (layout.RideTime or Production.ShipTime) - tower.HopOn
+
+	-- the stand pops in under its feet (about as wide as it is deep, so a sticker on
+	-- its front still lands on it)
+	local _, size = brainrot:GetBoundingBox()
+	local width = math.clamp(math.min(size.X, size.Z) * 0.9, 2.5, 5)
+	local feet = brainrot:GetPivot()
+	local disc = feet * CFrame.new(0, -Tower.Stand / 2, 0) * CFrame.Angles(0, 0, math.pi / 2)
+	newPart(brainrot, "Stand", Vector3.new(Tower.Stand, width, width), disc, Tower.Gold, Enum.PartType.Cylinder).Material = Enum.Material.Metal
+	newPart(brainrot, "StandRim", Vector3.new(0.2, width + 0.3, width + 0.3), disc, Tower.Pink, Enum.PartType.Cylinder).Material = Enum.Material.Neon
+	brainrot:SetAttribute("Lift", Tower.Stand) -- (its feet are this far over whatever it stands on)
+	Effects.sound(feet.Position, Sounds.Pop, 0.25, vary(1.3))
+	sparkle(build, feet.Position, Tower.Gold, 6)
+
+	-- the stations fire as it comes up to them (Alpha: the distance along the ramp)
+	local passes: { StationPass } = {}
+	for _, key in { "Station1", "Station2" } do
+		local sign = findPart(line, key)
+		local stop = stops[key]
+		if sign and stop then
+			local nozzle = findPart(line, key .. "Nozzle")
+			table.insert(passes, { Alpha = curve.Knots[stop] - STATION_LEAD, Key = key, Sign = sign, Source = if nozzle then nozzle.Position else sign.Position })
+		end
+	end
+	local speed = curve.Length / glide
+	local nextPass = 1
+	local start = os.clock()
+	while line.Parent do
+		local t = os.clock() - start
+		local distance = math.min(t / glide, 1) * curve.Length
+		local point, heading = LineLayouts.At(curve, distance)
+		local world = origin * point
+		local along = origin:VectorToWorldSpace(heading)
+		-- it faces the way it goes until it's round the tower, then out
+		local ahead = Vector3.new(along.X, 0, along.Z)
+		local out = Vector3.new(world.X - center.X, 0, world.Z - center.Z)
+		local facing = if ahead.Magnitude > 0.01 then ahead.Unit else origin.LookVector
+		if out.Magnitude > 0.01 then
+			local blended = facing:Lerp(out.Unit, math.clamp((distance - helix + 2) / 6, 0, 1))
+			if blended.Magnitude > 0.05 then
+				facing = blended.Unit
+			end
+		end
+		local at = world + Vector3.new(0, Tower.Stand * math.min(t / 0.15, 1), 0)
+		brainrot:PivotTo(CFrame.lookAt(at, at + facing))
+		local pass = passes[nextPass]
+		if pass and distance >= pass.Alpha then
+			nextPass += 1
+			stationPass(build, pass, brainrot, along * speed * SHOT_TIME)
+		end
+		if distance >= curve.Length then
+			break
+		end
+		RunService.Heartbeat:Wait()
+	end
+	if cancelled() then
+		return false
+	end
+
+	-- a little hop round to face the Holo Sticker cannon
+	local here = brainrot:GetPivot().Position
+	local cannon = (origin * (layout.Stations.Station3 or CFrame.new(0, 0, -60))).Position
+	Effects.sound(here, Sounds.Boing, 0.2, vary(1.4))
+	hop(brainrot, CFrame.lookAt(here, Vector3.new(cannon.X, here.Y, cannon.Z)), tower.HopOn, 1.2)
+	if cancelled() then
+		return false
+	end
+	squish(brainrot)
+	sparkle(build, here + Vector3.new(0, 2, 0), Tower.Gold, 8)
+	return true
+end
+
 -- One production cycle -------------------------------------------------------
 
 local function animateCycle(
@@ -2994,7 +3122,8 @@ local function animateCycle(
 	local origin = line:GetAttribute("Origin")
 	local rail = layout.Kind == "Rail" and typeof(origin) == "CFrame"
 	local turntable = layout.Kind == "Turntable" and typeof(origin) == "CFrame"
-	local beltless = rail or turntable -- the parts land right in the capsule
+	local tower = layout.Kind == "Tower" and typeof(origin) == "CFrame"
+	local beltless = rail or turntable or tower -- the parts land right in the capsule
 	if not (assembler and ship and (belt or beltless)) then
 		return
 	end
@@ -3288,7 +3417,7 @@ local function animateCycle(
 		end
 	else
 		local path = beltEnd.Position - root.Position
-		local showSpot = if turntable then root + rotation.LookVector * layout.ShowGap else root + path.Unit * math.min(SHOW_GAP, path.Magnitude / 3)
+		local showSpot = if turntable or tower then root + rotation.LookVector * layout.ShowGap else root + path.Unit * math.min(SHOW_GAP, path.Magnitude / 3)
 		showOff(build, brainrot, root, showSpot, Production.ShowDuration(cycleTime))
 		if cancelled() then
 			brainrot:Destroy()
@@ -3301,6 +3430,11 @@ local function animateCycle(
 			local rideOk, err = pcall(Turntable.ride, build, brainrot, layout, origin :: CFrame, cancelled)
 			if not rideOk then
 				warn(`[ProductionVisuals] {zoneId} turntable failed: {err}`)
+			end
+		elseif tower then
+			local rideOk, err = pcall(Tower.ride, build, brainrot, layout, origin :: CFrame, cancelled)
+			if not rideOk then
+				warn(`[ProductionVisuals] {zoneId} tower failed: {err}`)
 			end
 		else
 			local passes = stationPasses(line, showSpot.Position, beltEnd.Position)
