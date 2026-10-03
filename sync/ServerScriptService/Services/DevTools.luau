@@ -62,7 +62,8 @@ local THUMB_ORIGIN = CFrame.new(0, 320, -1600)
 local THUMB_HERO = { Head = "TralaleroTralala", Body = "TungTungTungSahur", Arms = "BombardiroCrocodilo", Legs = "TralaleroTralala" }
 local THUMB_HERO_SCALE = 3.2
 local THUMB_SIDES = { { "CappuccinoAssassino", -17, 1.7, 25 }, { "LaVacaSaturnoSaturnita", 17, 1.6, -25 } }
-local THUMB_PINK, THUMB_PURPLE, THUMB_GOLD = Color3.fromRGB(255, 70, 190), Color3.fromRGB(110, 40, 240), Color3.fromRGB(255, 195, 40)
+-- (matte, saturated colors: Neon blooms to white in game, so it's only for small accents)
+local THUMB_PINK, THUMB_PURPLE, THUMB_GOLD = Color3.fromRGB(235, 50, 160), Color3.fromRGB(95, 35, 200), Color3.fromRGB(255, 185, 30)
 local THUMB_RAINBOW = { Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 200, 60), Color3.fromRGB(90, 230, 120), Color3.fromRGB(80, 180, 255), Color3.fromRGB(200, 110, 255) }
 
 local function thumbPart(parent: Instance, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part
@@ -118,8 +119,7 @@ local function giftBox(parent: Instance, cframe: CFrame, size: number, color: Co
 	thumbPart(parent, Vector3.new(size * 0.22, size + 0.05, size + 0.05), cframe, THUMB_GOLD, Enum.Material.Metal)
 	thumbPart(parent, Vector3.new(size + 0.05, size + 0.05, size * 0.22), cframe, THUMB_GOLD, Enum.Material.Metal)
 	thumbPart(parent, Vector3.new(size * 1.08, size * 0.25, size * 1.08), cframe * CFrame.new(0, size * 0.5, 0), color:Lerp(Color3.new(1, 1, 1), 0.2))
-	local glow = thumbPart(parent, Vector3.one * size * 0.3, cframe * CFrame.new(0, size * 0.75, 0), THUMB_GOLD, Enum.Material.Neon, Enum.PartType.Ball)
-	sparkles(glow, THUMB_GOLD, 8)
+	thumbPart(parent, Vector3.one * size * 0.3, cframe * CFrame.new(0, size * 0.75, 0), THUMB_GOLD, Enum.Material.Metal, Enum.PartType.Ball)
 end
 
 -- Builds the icon stage and puts `player` in front of it (anchored) to frame the shot
@@ -141,9 +141,9 @@ local function createThumb(player: Player): boolean
 		return thumbPart(scene, Vector3.new(1, radius * 2, radius * 2), o * CFrame.new(0, y, 6) * CFrame.Angles(0, 0, math.pi / 2), color, material, Enum.PartType.Cylinder)
 	end
 	disc(26, -0.4, THUMB_GOLD, Enum.Material.Metal)
-	disc(24.5, -0.2, THUMB_PINK, Enum.Material.Neon)
-	disc(23, 0, Color3.fromRGB(255, 120, 210), Enum.Material.SmoothPlastic)
-	disc(12, 0.2, THUMB_GOLD, Enum.Material.Neon)
+	disc(24.5, -0.2, THUMB_PINK, Enum.Material.SmoothPlastic)
+	disc(23, 0, Color3.fromRGB(250, 140, 215), Enum.Material.SmoothPlastic)
+	disc(12, 0.2, THUMB_GOLD, Enum.Material.Metal)
 	for index = 0, 35 do
 		local angle = index / 36 * math.pi * 2
 		local bulb = thumbPart(scene, Vector3.one * 1.3, o * CFrame.new(math.cos(angle) * 25.3, 0.6, 6 + math.sin(angle) * 25.3), THUMB_RAINBOW[index % #THUMB_RAINBOW + 1], Enum.Material.Neon, Enum.PartType.Ball)
@@ -154,20 +154,12 @@ local function createThumb(player: Player): boolean
 	local center = o * CFrame.new(0, 18, 40)
 	for index = 0, 31 do
 		local color = if index % 2 == 0 then THUMB_PINK else THUMB_PURPLE
-		thumbPart(scene, Vector3.new(9, 150, 0.5), center * CFrame.Angles(0, 0, index * math.pi / 16) * CFrame.new(0, 75, 0), color, Enum.Material.Neon)
+		thumbPart(scene, Vector3.new(9, 150, 0.5), center * CFrame.Angles(0, 0, index * math.pi / 16) * CFrame.new(0, 75, 0), color, Enum.Material.SmoothPlastic)
 	end
 	for index = 0, 15 do
-		thumbPart(scene, Vector3.new(3, 60, 0.5), center * CFrame.new(0, 0, -0.6) * CFrame.Angles(0, 0, (index + 0.5) * math.pi / 8) * CFrame.new(0, 30, 0), Color3.fromRGB(255, 230, 120), Enum.Material.Neon)
+		thumbPart(scene, Vector3.new(2, 50, 0.5), center * CFrame.new(0, 0, -0.6) * CFrame.Angles(0, 0, (index + 0.5) * math.pi / 8) * CFrame.new(0, 25, 0), Color3.fromRGB(255, 170, 60), Enum.Material.SmoothPlastic)
 	end
-	thumbPart(scene, Vector3.new(0.6, 34, 34), center * CFrame.new(0, 0, -1.2) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 250, 200), Enum.Material.Neon, Enum.PartType.Cylinder)
-
-	-- light beams from above onto the star
-	for _, x in { -14, 14 } do
-		local top = o * CFrame.new(x * 2.2, 60, 20)
-		local foot = o * CFrame.new(x * 0.3, 0, 6)
-		local beam = thumbPart(scene, Vector3.new((top.Position - foot.Position).Magnitude, 12, 12), CFrame.lookAt(top.Position:Lerp(foot.Position, 0.5), foot.Position) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 250, 210), Enum.Material.Neon, Enum.PartType.Cylinder)
-		beam.Transparency = 0.82
-	end
+	thumbPart(scene, Vector3.new(0.6, 30, 30), center * CFrame.new(0, 0, -1.2) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 200, 80), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
 
 	-- the star: the custom brainrot, crowned, glowing, sparkling
 	local hero = thumbBrainrot(THUMB_HERO, THUMB_HERO_SCALE, o * CFrame.new(0, 0.7, 6))
@@ -182,18 +174,13 @@ local function createThumb(player: Player): boolean
 		thumbPart(scene, Vector3.new(crownSize * 0.2, crownSize * 0.5, crownSize * 0.2), spike, THUMB_GOLD, Enum.Material.Metal)
 		thumbPart(scene, Vector3.one * crownSize * 0.22, spike * CFrame.new(0, crownSize * 0.3, 0), THUMB_RAINBOW[index + 1], Enum.Material.Neon, Enum.PartType.Ball)
 	end
-	local highlight = Instance.new("Highlight")
+	local highlight = Instance.new("Highlight") -- a dark cartoon outline, so it pops off the background
 	highlight.FillTransparency = 1
-	highlight.OutlineColor = Color3.fromRGB(255, 240, 120)
+	highlight.OutlineColor = Color3.fromRGB(30, 20, 50)
 	highlight.Parent = hero
-	local core = thumbPart(scene, Vector3.one, box, THUMB_GOLD, Enum.Material.Neon)
+	local core = thumbPart(scene, Vector3.one, box, THUMB_GOLD)
 	core.Transparency = 1
-	sparkles(core, Color3.fromRGB(255, 240, 150), 30)
-	local light = Instance.new("PointLight")
-	light.Color = Color3.fromRGB(255, 220, 160)
-	light.Brightness = 3
-	light.Range = 30
-	light.Parent = core
+	sparkles(core, Color3.fromRGB(255, 230, 120), 8)
 
 	-- its two friends, smaller, turned in toward it
 	for _, spec in THUMB_SIDES do
