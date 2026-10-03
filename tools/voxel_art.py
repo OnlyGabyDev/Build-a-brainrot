@@ -104,6 +104,19 @@ def mirror(shape):
     return copy
 
 
+def shift(shapes, dx=0, dy=0, dz=0):
+    """The shapes moved by (dx, dy, dz) voxels."""
+    out = []
+    for shape in shapes:
+        copy = dict(shape)
+        for key in ("Min", "Max", "Center"):
+            if key in shape:
+                v = shape[key]
+                copy[key] = (v[0] + dx, v[1] + dy, v[2] + dz)
+        out.append(copy)
+    return out
+
+
 def both(*shapes):
     """The shapes plus their mirrors."""
     out = []
