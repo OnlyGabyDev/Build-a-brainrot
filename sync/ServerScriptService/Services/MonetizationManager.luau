@@ -133,6 +133,16 @@ function MonetizationManager.Init()
 	MarketplaceService.ProcessReceipt = processReceipt
 end
 
+-- Studio only: gives `player` a pass for this session (DevTools' GrantPass), to test
+-- its perks before the passes exist. Nothing is saved: ownership is Roblox's.
+function MonetizationManager.GrantForTesting(player: Player, key: string): boolean
+	if not (RunService:IsStudio() and Gamepasses[key]) then
+		return false
+	end
+	grant(player, key)
+	return true
+end
+
 -- Runs `callback(player, passKey)` whenever a player gets a pass (on join or bought).
 function MonetizationManager.OnPassGranted(callback: (player: Player, key: string) -> ())
 	table.insert(grantedCallbacks, callback)

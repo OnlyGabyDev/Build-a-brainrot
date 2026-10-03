@@ -9,6 +9,7 @@
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -25,7 +26,7 @@ local TAB_KINDS = { GEMS = "Gems", ROLLS = "Rolls", SPINS = "WheelSpins" }
 local GOLD_COLOR = Color3.fromRGB(255, 215, 60)
 local GOOD_COLOR = Color3.fromRGB(120, 245, 110)
 
-type Item = { Kind: string, Key: string, Id: number, Order: number, Name: string, Icon: string, Text: string }
+type Item = { Kind: string, Key: string, Id: number, Order: number, Name: string, Icon: string, Text: string, Perks: { string }, Colors: { Color3 }, Ribbon: string? }
 
 local player = Players.LocalPlayer
 local panel: Frame? = nil
@@ -33,6 +34,7 @@ local content: Frame? = nil
 local body: Frame? = nil
 local tab = "PASSES"
 local prices: { [string]: number | false } = {}
+local bubbles: { GuiObject } = {} -- the cards' icons (they bob while the shop is open)
 
 local Shop = {}
 
@@ -54,13 +56,13 @@ local function items(): { Item }
 	local list: { Item } = {}
 	if tab == "PASSES" then
 		for key, pass in Gamepasses do
-			table.insert(list, { Kind = "Pass", Key = key, Id = pass.Id, Order = pass.Order, Name = pass.Name, Icon = pass.Icon, Text = pass.Description })
+			table.insert(list, { Kind = "Pass", Key = key, Id = pass.Id, Order = pass.Order, Name = pass.Name, Icon = pass.Icon, Text = pass.Description, Perks = pass.Perks, Colors = pass.Colors, Ribbon = pass.Ribbon })
 		end
 	else
 		for key, product in Products do
 			if product.Kind == TAB_KINDS[tab] then
 				local text = `+{product.Amount} {product.Icon}`
-				table.insert(list, { Kind = "Product", Key = key, Id = product.Id, Order = product.Order, Name = product.Name, Icon = product.Icon, Text = text })
+				table.insert(list, { Kind = "Product", Key = key, Id = product.Id, Order = product.Order, Name = product.Name, Icon = product.Icon, Text = text, Perks = { text }, Colors = Kit.Colors.Gems })
 			end
 		end
 	end
@@ -85,26 +87,62 @@ end
 
 -- Rendering --------------------------------------------------------------------
 
+-- A glossy card in the pass's own colors: its icon bobbing in a bubble, a ribbon in the
+-- corner for the best deals, what you get as a list of ticks, and the buy button with
+-- its Robux price.
 local function renderCard(parent: Instance, item: Item)
 	local owned = item.Kind == "Pass" and player:GetAttribute(`Pass_{item.Key}`) == true
 	local card = Kit.new("Frame", { LayoutOrder = item.Order, BackgroundColor3 = Kit.White, Parent = parent })
 	Kit.corner(card, 20)
 	Kit.stroke(card, 4)
-	Kit.gradient(card, if item.Kind == "Pass" then Kit.Colors.Purple else Kit.Colors.Gems)
-	Kit.text({ Text = item.Icon, Position = UDim2.fromOffset(0, 8), Size = UDim2.new(1, 0, 0, 64), StrokeThickness = 0, Parent = card })
-	Kit.text({ Text = item.Name, Position = UDim2.fromOffset(10, 76), Size = UDim2.new(1, -20, 0, 32), StrokeThickness = 3, Parent = card })
-	Kit.text({
-		Text = item.Text,
-		TextColor3 = Color3.fromRGB(240, 235, 255),
-		Position = UDim2.fromOffset(12, 110),
-		Size = UDim2.new(1, -24, 0, 54),
-		StrokeThickness = 1.5,
+	Kit.gradient(card, item.Colors)
+	Kit.shine(card, 16)
+	local bubble = Kit.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 6),
+		Size = UDim2.fromOffset(66, 66),
+		BackgroundColor3 = Kit.White,
+		ZIndex = 2,
 		Parent = card,
 	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = bubble })
+	Kit.stroke(bubble, 4)
+	Kit.gradient(bubble, { Kit.White, item.Colors[1] })
+	Kit.text({ Text = item.Icon, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.72, 0.72), StrokeThickness = 0, ZIndex = 3, Parent = bubble })
+	table.insert(bubbles, bubble)
+	if owned then
+		Kit.text({ Text = "✓", TextColor3 = Color3.fromRGB(120, 245, 110), AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(1, -18, 1, 6), Size = UDim2.fromOffset(34, 34), StrokeThickness = 3, ZIndex = 4, Parent = bubble })
+	end
+	Kit.text({ Text = item.Name, Position = UDim2.fromOffset(10, 74), Size = UDim2.new(1, -20, 0, 28), StrokeThickness = 3, Parent = card })
+	for index, perk in item.Perks do
+		Kit.text({
+			Text = `✔ {perk}`,
+			Position = UDim2.fromOffset(14, 104 + (index - 1) * 20),
+			Size = UDim2.new(1, -28, 0, 18),
+			TextXAlignment = if #item.Perks > 1 then Enum.TextXAlignment.Left else Enum.TextXAlignment.Center,
+			StrokeThickness = 1.5,
+			Parent = card,
+		})
+	end
+	if item.Ribbon and not owned then
+		local ribbon = Kit.new("Frame", {
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, 14, 0, -10),
+			Size = UDim2.fromOffset(118, 30),
+			Rotation = 12,
+			BackgroundColor3 = Kit.White,
+			ZIndex = 5,
+			Parent = card,
+		})
+		Kit.corner(ribbon, 10)
+		Kit.stroke(ribbon, 3)
+		Kit.gradient(ribbon, Kit.Colors.Red)
+		Kit.text({ Text = `⭐ {item.Ribbon}`, Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 1, -8), StrokeThickness = 2, ZIndex = 6, Parent = ribbon })
+	end
 	local button = Kit.button({
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -12),
-		Size = UDim2.new(1, -28, 0, 48),
+		Position = UDim2.new(0.5, 0, 1, -10),
+		Size = UDim2.new(1, -28, 0, 44),
 		Parent = card,
 	}, if owned then Kit.Colors.Grey else Kit.Colors.Green, if owned then "OWNED ✓" elseif item.Id <= 0 then "SOON" else "...", function()
 		buy(item)
@@ -119,6 +157,17 @@ local function renderCard(parent: Instance, item: Item)
 		end)
 	end
 end
+
+-- The cards' icons bob while the shop is open.
+RunService.RenderStepped:Connect(function()
+	if not (panel and panel.Visible) then
+		return
+	end
+	local t = os.clock()
+	for index, bubble in bubbles do
+		bubble.Position = UDim2.new(0.5, 0, 0, 6 + math.sin(t * 2.4 + index) * 3)
+	end
+end)
 
 -- The odds of a random purchase, shown before buying.
 local function renderOdds(parent: Frame, title: string, lines: { { Text: string, Color: Color3 } })
@@ -185,6 +234,7 @@ render = function()
 	end
 	local frame = Kit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = content })
 	body = frame
+	table.clear(bubbles)
 
 	for index, name in TABS do
 		Kit.button({

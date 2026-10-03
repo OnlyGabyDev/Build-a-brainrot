@@ -13,6 +13,7 @@
 	  dev:Invoke("ResetPlot", player)  -- rebuilds the tycoon from the data
 	  dev:Invoke("SetPurchased", player, "Floor_3", false) -- un-buys an item (free) and rebuilds
 	  dev:Invoke("SetPurchasedList", player, { "ClayStudio_Room", "ClayStudio_1_Line" }, true)
+	  dev:Invoke("GrantPass", player, "Sprint") -- a gamepass for this session (not saved)
 
 	The Studio MCP's own code can't invoke it any more (since 2026-10-02 its thread lacks
 	the modules' capabilities), but it can set attributes: set workspace's DevRequest to
@@ -32,11 +33,15 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Brainrots = require(ReplicatedStorage.Shared.Config.Brainrots)
 local DataManager = require(script.Parent.DataManager)
+local MonetizationManager = require(script.Parent.MonetizationManager)
 local TycoonManager = require(script.Parent.TycoonManager)
 
 local snapshots: { [Player]: DataManager.PlayerData } = {}
 
 local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
+	GrantPass = function(player, key)
+		return MonetizationManager.GrantForTesting(player, key)
+	end,
 	AddCoins = function(player, amount)
 		return DataManager.AddCurrency(player, "Coins", amount)
 	end,

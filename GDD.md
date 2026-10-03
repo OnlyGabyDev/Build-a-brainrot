@@ -310,7 +310,8 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 - **Auto-Collect:** collector coins bank automatically, **and you can configure your lines from anywhere** (the HUD LINES button) ✅. Without it, you configure a line by walking up to its robot (free; the server checks reach). Set the pass id in `Config/Gamepasses` once it exists.
 - **Lucky:** +Luck on loot box and Roll rarity.
 - **Fast Open:** skips or speeds up the wheel animation (Pet Sim–style QoL).
-- **Sprint** 🟡 (requested): hold Shift to run.
+- ✅ **Sprint** (v2.6): hold Shift to run 60% faster (a SPRINT button on touch screens).
+- ✅ (v2.6) The shop shows each pass as a glossy card in its own colors with a list of what you get, its icon bobbing, and a BEST VALUE / POPULAR ribbon on VIP and 2x Coins. The VIP lounge isn't built yet.
 - **Custom Paint** 🟡 (requested): paint each limb a different color at the Paint Booth (§6).
 
 **Developer Products**
@@ -511,6 +512,7 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v2.6 (2026-10-02):** Gamepasses (§12): checked end to end in Studio (a test grant), the Sprint pass added, the shop's pass cards redone.
 - **v2.5 (2026-10-02):** The UI pass (§5, §8, §13): the loot wheel is a prize reel (case-opening style), the Index is a sticker book, and the HUD and every menu got juice (gloss, sounds, bounces, floating "+N", a sunburst).
 - **v2.4 (2026-10-02):** Vinyl Collectibles' spiral tower line (§6) and its quality pass: a designer-toy gallery (§10). Every room of the first run now has its own layout. Next (the user): the HUD, the gamepasses, then the brainrot art rework.
 - **v2.3 (2026-10-02):** The economy pass (§10 Economy): ~5 h to the first rebirth (the user). Each room earns and costs 15× the one before; the 2nd and 3rd lines cost 3×/9× (were 8×/60×); line items, line tracks and room upgrades cost 2×; rooms open at 25K / 80M / 4B; the first rebirth costs 100B (was 50K, reachable in ~10 min); the 3rd floor 1B.
