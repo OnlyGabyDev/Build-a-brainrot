@@ -86,6 +86,48 @@ if clouds then
 	clouds.Enabled = false -- the skybox has its own clouds
 end
 
+-- What the camera sees ----------------------------------------------------------------
+
+-- Everything below moves only where you'd see it: off-screen things hold still, far
+-- ones move less often (their pose follows the clock, so nothing drifts). A box storm
+-- of factories can carry thousands of bulbs and spinners: this keeps them cheap.
+local view = { Position = Vector3.zero, Inverse = CFrame.identity, TanX = 1, TanY = 1, Frame = 0 }
+
+local function updateView()
+	local camera = workspace.CurrentCamera
+	local tanY = math.tan(math.rad(camera.FieldOfView) / 2)
+	local size = camera.ViewportSize
+	view.Position = camera.CFrame.Position
+	view.Inverse = camera.CFrame:Inverse()
+	view.TanY = tanY
+	view.TanX = tanY * (if size.Y > 0 then size.X / size.Y else 1)
+	view.Frame += 1
+end
+
+-- Whether a ball of `radius` round `position` is (at least partly) on screen.
+local function onScreen(position: Vector3, radius: number): boolean
+	local p = view.Inverse * position
+	local depth = -p.Z
+	if depth < -radius then
+		return false -- behind the camera
+	end
+	local slack = radius * 1.5
+	return math.abs(p.X) <= depth * view.TanX + slack and math.abs(p.Y) <= depth * view.TanY + slack
+end
+
+-- Whether something `distance` away should move this frame: every frame up close,
+-- every other frame past NEAR_MOTION, every fourth past MID_MOTION.
+local NEAR_MOTION, MID_MOTION = 120, 260
+local function dueAt(distance: number, salt: number): boolean
+	if distance < NEAR_MOTION then
+		return true
+	end
+	local every = if distance < MID_MOTION then 2 else 4
+	return (view.Frame + salt) % every == 0
+end
+
+RunService:BindToRenderStep("AtmosphereView", Enum.RenderPriority.Camera.Value + 2, updateView)
+
 -- The hub: statues, balloons, water -------------------------------------------------
 
 -- The giant statue in the fountain and every showcase statue turn slowly (the ones near
@@ -118,13 +160,21 @@ end)
 
 -- The cartoon texture on the river and streams drifts along with the flow, each layer
 -- at its own speed, from where its stretch sits along the flow (MapBuilder.waterSkin).
-local flowing: { [Texture]: { Base: number, Drift: number } } = {}
+local WATER_DISTANCE = 400
+local flowing: { [Texture]: { Base: number, Drift: number, Position: Vector3, Radius: number } } = {}
 local function flow(texture: Instance)
 	if texture:IsA("Texture") then
 		local base, drift = texture:GetAttribute("Base"), texture:GetAttribute("Drift")
+		local part = texture.Parent
+		local position, radius = Vector3.zero, math.huge -- (unknown: always on)
+		if part and part:IsA("BasePart") then
+			position, radius = part.Position, part.Size.Magnitude / 2
+		end
 		flowing[texture] = {
 			Base = if typeof(base) == "number" then base else 0,
 			Drift = if typeof(drift) == "number" then drift else 1,
+			Position = position,
+			Radius = radius,
 		}
 	end
 end
@@ -138,8 +188,11 @@ end)
 RunService.RenderStepped:Connect(function()
 	local now = os.clock()
 	for texture, layer in flowing do
-		-- a falling offset slides the texture toward -Z, downstream
-		texture.OffsetStudsV = (layer.Base - now * layer.Drift) % texture.StudsPerTileV
+		local distance = (layer.Position - view.Position).Magnitude - layer.Radius
+		if distance < WATER_DISTANCE and onScreen(layer.Position, layer.Radius) and dueAt(distance, 0) then
+			-- a falling offset slides the texture toward -Z, downstream
+			texture.OffsetStudsV = (layer.Base - now * layer.Drift) % texture.StudsPerTileV
+		end
 	end
 end)
 
@@ -186,10 +239,22 @@ local MARQUEE_COLORS = {
 }
 local BULB_OFF = Color3.fromRGB(255, 215, 130)
 
-type Mover = { Rest: CFrame, Speed: number, Phase: number }
+-- (Center and Radius: a ball round the whole thing as it turns, for the on-screen test)
+type Mover = { Rest: CFrame, Speed: number, Phase: number, Center: Vector3, Radius: number, Salt: number }
 local spinners: { [Model]: Mover } = {}
 local bobbers: { [Model]: Mover } = {}
-local bulbs: { [BasePart]: number } = {} -- bulb → its index along its string
+type Bulb = { Index: number, Lit: number? } -- its index along its string; its lit color's slot (0: off)
+local bulbs: { [BasePart]: Bulb } = {}
+local movers = 0
+
+local function mover(model: Model, speed: number, phase: number): Mover
+	local rest = model:GetPivot()
+	local box, size = model:GetBoundingBox()
+	movers += 1
+	-- it turns about its pivot: the ball round it must reach its far corner from there
+	local reach = (box.Position - rest.Position).Magnitude + size.Magnitude / 2
+	return { Rest = rest, Speed = speed, Phase = phase, Center = rest.Position, Radius = reach, Salt = movers }
+end
 
 local function watchTag(tag: string, added: (Instance) -> (), removed: (Instance) -> ())
 	for _, instance in CollectionService:GetTagged(tag) do
@@ -202,7 +267,7 @@ end
 watchTag("Spinner", function(model)
 	if model:IsA("Model") then
 		local speed = model:GetAttribute("Speed")
-		spinners[model] = { Rest = model:GetPivot(), Speed = if typeof(speed) == "number" then speed else 1, Phase = 0 }
+		spinners[model] = mover(model, if typeof(speed) == "number" then speed else 1, 0)
 	end
 end, function(model)
 	spinners[model :: Model] = nil
@@ -210,7 +275,7 @@ end)
 watchTag("Bobbing", function(model)
 	if model:IsA("Model") then
 		local rest = model:GetPivot()
-		bobbers[model] = { Rest = rest, Speed = 1.3, Phase = (rest.X * 0.37 + rest.Z * 0.61) % (math.pi * 2) }
+		bobbers[model] = mover(model, 1.3, (rest.X * 0.37 + rest.Z * 0.61) % (math.pi * 2))
 	end
 end, function(model)
 	bobbers[model :: Model] = nil
@@ -218,39 +283,51 @@ end)
 watchTag("Marquee", function(bulb)
 	if bulb:IsA("BasePart") then
 		local index = bulb:GetAttribute("Index")
-		bulbs[bulb] = if typeof(index) == "number" then index else 0
+		bulbs[bulb] = { Index = if typeof(index) == "number" then index else 0, Lit = nil }
 	end
 end, function(bulb)
 	bulbs[bulb :: BasePart] = nil
 end)
 
+-- Whether a mover should move this frame (near enough, on screen, and its turn).
+local function moves(item: Mover): boolean
+	local distance = (item.Center - view.Position).Magnitude - item.Radius
+	return distance < DECOR_DISTANCE and onScreen(item.Center, item.Radius) and dueAt(distance, item.Salt)
+end
+
 local marqueeStep = -1
 RunService.RenderStepped:Connect(function()
 	local now = os.clock()
-	local camera = workspace.CurrentCamera.CFrame.Position
-	for model, mover in spinners do
-		if (mover.Rest.Position - camera).Magnitude < DECOR_DISTANCE then
-			model:PivotTo(mover.Rest * CFrame.Angles(0, 0, now * mover.Speed))
+	for model, item in spinners do
+		if moves(item) then
+			model:PivotTo(item.Rest * CFrame.Angles(0, 0, now * item.Speed))
 		end
 	end
-	for model, mover in bobbers do
-		if (mover.Rest.Position - camera).Magnitude < DECOR_DISTANCE then
-			model:PivotTo(mover.Rest + Vector3.new(0, math.sin(now * mover.Speed + mover.Phase) * 0.8, 0))
+	for model, item in bobbers do
+		if moves(item) then
+			model:PivotTo(item.Rest + Vector3.new(0, math.sin(now * item.Speed + item.Phase) * 0.8, 0))
 		end
 	end
-	-- every third bulb lit, each light keeping its color as it runs along the string
+	-- every third bulb lit, each light keeping its color as it runs along the string; a
+	-- bulb is only written when its light changes (and only if it's on screen: one
+	-- that comes back into view catches up on the next step)
 	local step = math.floor(now / MARQUEE_STEP)
 	if step ~= marqueeStep then
 		marqueeStep = step
-		for bulb, index in bulbs do
-			if (bulb.Position - camera).Magnitude < DECOR_DISTANCE then
-				local offset = index - step
-				if offset % 3 == 0 then
-					bulb.Material = Enum.Material.Neon
-					bulb.Color = MARQUEE_COLORS[(offset // 3) % #MARQUEE_COLORS + 1]
-				else
-					bulb.Material = Enum.Material.SmoothPlastic
-					bulb.Color = BULB_OFF
+		for bulb, entry in bulbs do
+			local position = bulb.Position
+			if (position - view.Position).Magnitude < DECOR_DISTANCE and onScreen(position, 1) then
+				local offset = entry.Index - step
+				local lit = if offset % 3 == 0 then (offset // 3) % #MARQUEE_COLORS + 1 else 0
+				if lit ~= entry.Lit then
+					entry.Lit = lit
+					if lit > 0 then
+						bulb.Material = Enum.Material.Neon
+						bulb.Color = MARQUEE_COLORS[lit]
+					else
+						bulb.Material = Enum.Material.SmoothPlastic
+						bulb.Color = BULB_OFF
+					end
 				end
 			end
 		end
@@ -290,9 +367,8 @@ end
 
 RunService.RenderStepped:Connect(function()
 	local now = os.clock()
-	local camera = workspace.CurrentCamera.CFrame.Position
 	for _, fly in butterflies do
-		if (fly.Home - camera).Magnitude < BUTTERFLY_DISTANCE then
+		if (fly.Home - view.Position).Magnitude < BUTTERFLY_DISTANCE and onScreen(fly.Home, 8) then
 			local t = now * 0.7 + fly.Phase
 			local frame = CFrame.lookAt(flightAt(fly, t), flightAt(fly, t + 0.05))
 			local flap = math.sin(now * 22 + fly.Phase) * 1.1

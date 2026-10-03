@@ -28,7 +28,6 @@ local NukeManager = require(script.Parent.NukeManager)
 -- Flip on to test pass perks in Studio before the passes exist.
 local STUDIO_OWNS_ALL = false
 local PERK_FLAGS = { "RemoteLines", "AutoCollect" }
-local CURRENCY_ICONS = { Gems = "💎", Rolls = "🎲", WheelSpins = "🎡", Nuke = "☢️" }
 local passPrices: { [number]: number } = {} -- Robux, fetched once (for the Robux-spent leaderboard)
 
 local owned: { [Player]: { [string]: boolean } } = {}
@@ -88,28 +87,47 @@ end
 
 -- Developer products ------------------------------------------------------------
 
+-- How each product Kind is granted: it gives the player the goods and returns the
+-- thank-you line. Kinds that need another service (Coins: income; BoxDrop: the map)
+-- are registered by it at Init (MonetizationManager.HandleProduct), so this module
+-- doesn't require them (they require it).
+type ProductHandler = (player: Player, product: Products.Product) -> string
+local productHandlers: { [string]: ProductHandler } = {
+	Gems = function(player, product)
+		DataManager.AddCurrency(player, "Gems", product.Amount)
+		return `Thanks! +{product.Amount} 💎`
+	end,
+	Rolls = function(player, product)
+		DataManager.AddRolls(player, product.Amount)
+		return `Thanks! +{product.Amount} 🎲`
+	end,
+	WheelSpins = function(player, product)
+		DataManager.AddWheelSpins(player, product.Amount)
+		return `Thanks! +{product.Amount} 🎡`
+	end,
+	Nuke = function(player)
+		NukeManager.Launch(player)
+		return "☢️ NUKE INCOMING! ☢️"
+	end,
+}
+
 local function processReceipt(receipt: { [string]: any }): Enum.ProductPurchaseDecision
 	local player = Players:GetPlayerByUserId(receipt.PlayerId)
 	local product = productsById[receipt.ProductId]
-	if not (player and product and DataManager.IsLoaded(player)) then
+	local handler = product and productHandlers[product.Kind]
+	if not (player and product and handler and DataManager.IsLoaded(player)) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet -- Roblox retries later
 	end
+	local thanks: string? = nil
 	local granted = DataManager.ProcessReceipt(player, tostring(receipt.PurchaseId), function()
-		if product.Kind == "Gems" then
-			DataManager.AddCurrency(player, "Gems", product.Amount)
-		elseif product.Kind == "Rolls" then
-			DataManager.AddRolls(player, product.Amount)
-		elseif product.Kind == "WheelSpins" then
-			DataManager.AddWheelSpins(player, product.Amount)
-		elseif product.Kind == "Nuke" then
-			NukeManager.Launch(player)
-		end
+		thanks = handler(player, product)
 		DataManager.AddStat(player, "RobuxSpent", tonumber(receipt.CurrencySpent) or 0)
 	end)
 	if not granted then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	purchasedRemote:FireClient(player, if product.Kind == "Nuke" then "☢️ NUKE INCOMING! ☢️" else `Thanks! +{product.Amount} {CURRENCY_ICONS[product.Kind] or ""}`)
+	-- (no `thanks` when this receipt was already granted: a retry after a failed save)
+	purchasedRemote:FireClient(player, thanks or "Thanks!")
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
@@ -155,6 +173,24 @@ function MonetizationManager.GrantForTesting(player: Player, key: string): boole
 	end
 	grant(player, key)
 	return true
+end
+
+-- Studio only: grants a product as if bought (DevTools' GrantProduct), to test it
+-- before its id exists. Nothing is charged and no receipt is kept.
+function MonetizationManager.GrantProductForTesting(player: Player, key: string): boolean
+	local product = Products[key]
+	local handler = product and productHandlers[product.Kind]
+	if not (RunService:IsStudio() and handler and DataManager.IsLoaded(player)) then
+		return false
+	end
+	purchasedRemote:FireClient(player, handler(player, product))
+	return true
+end
+
+-- Registers how products of `kind` are granted (see productHandlers). Call it at Init.
+function MonetizationManager.HandleProduct(kind: string, handler: ProductHandler)
+	assert(productHandlers[kind] == nil, `product kind {kind} already has a handler`)
+	productHandlers[kind] = handler
 end
 
 -- Runs `callback(player, passKey)` whenever a player gets a pass (on join or bought).

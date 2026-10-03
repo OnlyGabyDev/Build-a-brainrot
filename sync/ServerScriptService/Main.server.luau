@@ -4,6 +4,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Services = ServerScriptService:WaitForChild("Services")
 
 local DataManager = require(Services:WaitForChild("DataManager"))
+local BadgeManager = require(Services:WaitForChild("BadgeManager"))
 local MonetizationManager = require(Services:WaitForChild("MonetizationManager"))
 local TycoonManager = require(Services:WaitForChild("TycoonManager"))
 local ProductionManager = require(Services:WaitForChild("ProductionManager"))
@@ -16,6 +17,7 @@ local DevTools = require(Services:WaitForChild("DevTools"))
 local LeaderboardManager = require(Services:WaitForChild("LeaderboardManager"))
 
 DataManager.Init()
+BadgeManager.Init()
 MonetizationManager.Init()
 TycoonManager.Init()
 MapBuilder.Init() -- lays the hub out around the plots

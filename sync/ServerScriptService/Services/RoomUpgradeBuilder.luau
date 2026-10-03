@@ -30,6 +30,8 @@ local ConveyorPath = require(ReplicatedStorage.Shared.ConveyorPath)
 local LoopPath = require(ReplicatedStorage.Shared.LoopPath)
 local RibbonBow = require(ReplicatedStorage.Shared.RibbonBow)
 
+local FactoryBuilder = require(script.Parent.FactoryBuilder)
+
 local RoomUpgradeBuilder = {}
 
 local WHITE = Color3.new(1, 1, 1)
@@ -320,11 +322,14 @@ local function buildGiftTower(model: Model, floor: CFrame, level: number)
 			local angle = math.rad(45) + (k - (if tierIndex == 1 then 0.5 else 1)) / tier.Count * math.pi * 2
 			local spot = GIFT_CENTER + Vector3.new(math.cos(angle) * tier.Radius, y, math.sin(angle) * tier.Radius)
 			local across = tier.Size * random:NextNumber(0.9, 1.05)
+			-- neighbours in a tier overlap a little: a hair's difference in height keeps
+			-- their tops from sharing a plane (they'd flicker)
+			local tall = tier.Height * (1 - (k % 3) * 0.008)
 			local color = TOY_COLORS[(tierIndex * 2 + k) % #TOY_COLORS + 1]
 			local ribbon = if golden then (if count % 2 == 0 then WHITE else GOLD) elseif count % 3 == 0 then WHITE else TOY_COLORS[(tierIndex * 2 + k + 3) % #TOY_COLORS + 1]
 			local gift = Instance.new("Model")
 			gift.Name = "Gift"
-			top = present(gift, floor * CFrame.new(spot) * CFrame.Angles(0, -angle + random:NextNumber(-0.25, 0.25), 0), Vector3.new(across, tier.Height, across), color, ribbon)
+			top = present(gift, floor * CFrame.new(spot) * CFrame.Angles(0, -angle + random:NextNumber(-0.25, 0.25), 0), Vector3.new(across, tall, across), color, ribbon)
 			gift.Parent = model
 		end
 		y += tier.Height
@@ -1180,8 +1185,9 @@ end
 -- plushies (other brainrots) gather round its feet on the cushion; level 3 rings the
 -- cushion with chasing lights, level 4 crowns it in gold, sparkling.
 
--- (a knitted brainrot is ~8 studs tall at scale 1: at 2.8 the giant's crown just clears
--- the ceiling, 28 up)
+-- Scale is the giant's size at each level, but never more than fits under the ceiling
+-- with its crown on: its height is measured from the art (brainrot art changes size:
+-- the v2 Tung made a fixed 2.8 poke its crown through the ceiling).
 type PlushieLevel = { Scale: number, Cushion: number, Minis: number }
 local PLUSHIE_LEVELS: { PlushieLevel } = {
 	{ Scale = 1.7, Cushion = 11, Minis = 0 },
@@ -1191,6 +1197,9 @@ local PLUSHIE_LEVELS: { PlushieLevel } = {
 }
 local PLUSHIE_ID = "TungTungTungSahur"
 local MINI_SCALE = 0.8
+local PLUSHIE_CUSHION_HEIGHT = 1.8
+local CROWN_RISE = 3.3 -- the crown's gems top out this far over the giant's head
+local HEADROOM = 0.6 -- kept free under the ceiling
 -- the little ones in the order they join, and where round the big one's feet (degrees
 -- from the way it faces)
 local MINI_PLUSHIES = {
@@ -1206,7 +1215,7 @@ local function buildGiantPlushie(model: Model, floor: CFrame, level: number)
 	local spec = PLUSHIE_LEVELS[level]
 	local spot = floor * CFrame.new(58.5, 0, -49)
 	local cushion = spec.Cushion
-	cylinder(model, "PlushieCushion", cushion, 1.8, spot, PLUSH_COLORS[1], Enum.Material.Fabric).MaterialVariant = KNIT
+	cylinder(model, "PlushieCushion", cushion, PLUSHIE_CUSHION_HEIGHT, spot, PLUSH_COLORS[1], Enum.Material.Fabric).MaterialVariant = KNIT
 	for _, y in { 0.15, 1.2 } do -- piping bands round its side (the top stays magenta)
 		cylinder(model, "PlushieCushionPiping", cushion + 0.4, 0.35, spot * CFrame.new(0, y, 0), GOLD, if level >= 4 then Enum.Material.Metal else nil)
 	end
@@ -1220,9 +1229,14 @@ local function buildGiantPlushie(model: Model, floor: CFrame, level: number)
 	end
 	-- facing into the room (toward its middle and the front)
 	local roomward = (floor * CFrame.new(20, 0, -20)).Position
-	local top = spot * CFrame.new(0, 1.8, 0)
+	local top = spot * CFrame.new(0, PLUSHIE_CUSHION_HEIGHT, 0)
 	local root = CFrame.lookAt(top.Position, Vector3.new(roomward.X, top.Y, roomward.Z))
-	local brainrot = plushie(PLUSHIE_ID, spec.Scale, root)
+	-- built at scale 1 to measure it (its pivot is its feet, on the cushion), then grown
+	local brainrot = plushie(PLUSHIE_ID, 1, root)
+	local measured, extent = brainrot:GetBoundingBox()
+	local height = measured.Y + extent.Y / 2 - root.Y
+	local room = FactoryBuilder.CeilingHeight - HEADROOM - PLUSHIE_CUSHION_HEIGHT - (if level >= 4 then CROWN_RISE else 0)
+	brainrot:ScaleTo(math.min(spec.Scale, room / math.max(height, 0.1)))
 	brainrot.Name = "Plushie"
 	brainrot.Parent = model
 	-- the little ones round its feet, each looking into the room too

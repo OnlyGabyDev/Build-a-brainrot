@@ -474,7 +474,7 @@ local function buildSewingMachine(parent: Model, origin: CFrame)
 		local suffix = if side < 0 then "Left" else "Right"
 		local x = SIDE_X * side
 		makePart(parent, `Pedestal{suffix}`, Vector3.new(2, DECK + 0.6, 2), origin * CFrame.new(x, (DECK + 0.6) / 2, 0), LAVENDER_COLOR)
-		makeDecor(parent, `PedestalTrim{suffix}`, Vector3.new(2.1, 0.4, 2.1), origin * CFrame.new(x, DECK + 0.4, 0), WHITE)
+		makeDecor(parent, `PedestalTrim{suffix}`, Vector3.new(2.1, 0.4, 2.1), origin * CFrame.new(x, DECK + 0.35, 0), WHITE) -- (its top under the pedestal's)
 		local spool = makePart(parent, `Spool{suffix}`, Vector3.new(1.4, 1.8, 1.8), deck * CFrame.new(x, 1.3, 0) * CFrame.Angles(0, 0, math.pi / 2), THREAD_COLORS[index])
 		spool.Shape = Enum.PartType.Cylinder -- rotated so the spool stands upright
 		local tip = (deck * CFrame.new(x - 1.2 * side, 1.3, 0)).Position
@@ -912,7 +912,7 @@ local function buildKiln(model: Model, spot: CFrame)
 	-- the door: a glowing arch facing the belt (+Z), in a cream frame
 	local door = deck * CFrame.new(0, 2.4, KILN / 2 - 0.35)
 	makeDecor(model, "KilnDoorFrame", Vector3.new(0.6, 5.4, 5.4), door * CFrame.Angles(0, math.pi / 2, 0), CLAY_LIGHT_COLOR).Shape = Enum.PartType.Cylinder
-	local glow = makeDecor(model, "KilnGlow", Vector3.new(0.7, 4.4, 4.4), door * CFrame.new(0, 0, 0.05) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 140, 40), Enum.Material.Neon)
+	local glow = makeDecor(model, "KilnGlow", Vector3.new(0.68, 4.4, 4.4), door * CFrame.new(0, 0, 0.06) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 140, 40), Enum.Material.Neon)
 	glow.Shape = Enum.PartType.Cylinder
 	local light = Instance.new("PointLight")
 	light.Color = Color3.fromRGB(255, 150, 60)

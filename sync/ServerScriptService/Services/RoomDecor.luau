@@ -80,6 +80,11 @@ end
 -- front or back wall's at Z = ±58, a wall between two rooms' at Z = ±59.
 type WallSpot = { number }
 
+-- Things on a wall must not end in the planes of what's already on it, or they
+-- flicker where they meet (z-fighting): FactoryBuilder's wainscot band stands 0.3 off the
+-- wall, a window's frame 0.4 and its glass 0.5, the wallpaper 0.1. Faces go between those
+-- (0.42, 0.62...), checked with tools/lab (analyze.py zfight).
+
 -- The spot's CFrame, -Z pointing into the room.
 local function wallFace(floor: CFrame, spot: WallSpot): CFrame
 	local at = Vector3.new(spot[1], spot[2], spot[3])
@@ -139,7 +144,7 @@ end
 -- panel framed by neon tubes, its words in glowing letters.
 local SIGN_BACK = Color3.fromRGB(40, 28, 60)
 local function neonSign(parent: Instance, face: CFrame, size: Vector2, text: string, color: Color3)
-	local panel = makeDecor(parent, "NeonSign", Vector3.new(size.X, size.Y, 0.4), face * CFrame.new(0, 0, -0.3), SIGN_BACK)
+	local panel = makeDecor(parent, "NeonSign", Vector3.new(size.X, size.Y, 0.52), face * CFrame.new(0, 0, -0.36), SIGN_BACK)
 	label(panel, Enum.NormalId.Front, text, color:Lerp(WHITE, 0.65), color)
 	local tube = color:Lerp(WHITE, 0.3)
 	for _, y in { -1, 1 } do
@@ -219,8 +224,8 @@ end
 -- A framed poster on a wall (`face`: its middle on the wall, -Z into the room): a big
 -- emoji on a colored background, a caption under it.
 local function poster(parent: Instance, face: CFrame, size: Vector2, background: Color3, frame: Color3, emoji: string, caption: string)
-	makeDecor(parent, "PosterFrame", Vector3.new(size.X + 0.8, size.Y + 0.8, 0.3), face * CFrame.new(0, 0, -0.15), frame)
-	local sheet = makeDecor(parent, "Poster", Vector3.new(size.X, size.Y, 0.2), face * CFrame.new(0, 0, -0.35), background)
+	makeDecor(parent, "PosterFrame", Vector3.new(size.X + 0.8, size.Y + 0.8, 0.42), face * CFrame.new(0, 0, -0.21), frame)
+	local sheet = makeDecor(parent, "Poster", Vector3.new(size.X, size.Y, 0.2), face * CFrame.new(0, 0, -0.38), background)
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -253,7 +258,7 @@ end
 -- the room): a back board with a scalloped top, two shelves on brackets, and a row
 -- of things on each (`things` builds one at a CFrame on the shelf, by index).
 local function wallShelf(parent: Instance, face: CFrame, width: number, board: Color3, trim: Color3, things: (parent: Instance, at: CFrame, index: number) -> ())
-	makeDecor(parent, "ShelfBack", Vector3.new(width + 1, 12.5, 0.3), face * CFrame.new(0, 14.5, -0.15), board)
+	makeDecor(parent, "ShelfBack", Vector3.new(width + 1, 12.5, 0.42), face * CFrame.new(0, 14.5, -0.21), board)
 	local scallops = math.floor(width / 3)
 	for index = 0, scallops do
 		-- discs standing in the wall's plane, their tops peeking over the board
@@ -858,7 +863,7 @@ local function sewingMachine(parent: Instance, at: CFrame, scale: number)
 		return makeDecor(parent, name, size * scale, at * CFrame.new(offset * scale), color, material)
 	end
 	box("SewingTable", Vector3.new(20, 1, 8), Vector3.new(0, 5, 0), PLUM)
-	box("SewingTableEdge", Vector3.new(20.4, 0.4, 8.4), Vector3.new(0, 5.3, 0), PLUSH_GOLD)
+	box("SewingTableEdge", Vector3.new(20.4, 0.4, 8.4), Vector3.new(0, 5.25, 0), PLUSH_GOLD) -- (its top under the table's)
 	for _, x in { -9, 9 } do
 		box("SewingLeg", Vector3.new(1, 4.5, 7), Vector3.new(x, 2.25, 0), CHROME, Enum.Material.Metal)
 	end
@@ -1083,16 +1088,18 @@ local function wallReel(parent: Instance, face: CFrame, diameter: number, speed:
 	local reel = Instance.new("Model")
 	reel.Name = "FilmReel"
 	local hub = face * CFrame.new(0, 0, -0.6)
+	-- nested discs, each ending in planes of its own (the face toward the room, then the
+	-- back): disc -0.25/0.25, rim -0.2/0.2, film -0.3/0.3, holes -0.38/0.28, hub -0.67/0.23
 	roller(reel, "ReelDisc", diameter, 0.5, hub * CFrame.Angles(0, math.pi / 2, 0), FILM)
-	roller(reel, "ReelRim", diameter + 0.4, 0.3, hub * CFrame.new(0, 0, -0.1) * CFrame.Angles(0, math.pi / 2, 0), CLAY_GOLD).Material = Enum.Material.Metal
-	roller(reel, "ReelFilm", diameter * 0.72, 0.6, hub * CFrame.new(0, 0, -0.05) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(90, 70, 60))
+	roller(reel, "ReelRim", diameter + 0.4, 0.4, hub * CFrame.Angles(0, math.pi / 2, 0), CLAY_GOLD).Material = Enum.Material.Metal
+	roller(reel, "ReelFilm", diameter * 0.72, 0.6, hub * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(90, 70, 60))
 	for k = 0, 4 do
 		local angle = k / 5 * math.pi * 2
-		local hole = roller(reel, "ReelHole", diameter * 0.2, 0.7, hub * CFrame.new(math.cos(angle) * diameter * 0.24, math.sin(angle) * diameter * 0.24, -0.1) * CFrame.Angles(0, math.pi / 2, 0), CLAY_TEAL)
+		local hole = roller(reel, "ReelHole", diameter * 0.2, 0.66, hub * CFrame.new(math.cos(angle) * diameter * 0.24, math.sin(angle) * diameter * 0.24, -0.05) * CFrame.Angles(0, math.pi / 2, 0), CLAY_TEAL)
 		hole.Material = Enum.Material.Neon
 		hole.CastShadow = false
 	end
-	roller(reel, "ReelHub", diameter * 0.16, 0.9, hub * CFrame.new(0, 0, -0.2) * CFrame.Angles(0, math.pi / 2, 0), CLAY_GOLD).Material = Enum.Material.Metal
+	roller(reel, "ReelHub", diameter * 0.16, 0.9, hub * CFrame.new(0, 0, -0.22) * CFrame.Angles(0, math.pi / 2, 0), CLAY_GOLD).Material = Enum.Material.Metal
 	spinner(reel, parent, hub, speed)
 end
 
@@ -1573,7 +1580,7 @@ local function mysteryWall(parent: Instance, face: CFrame)
 	makeDecor(parent, "MysteryBoard", Vector3.new(columns * 4.2 + 1.4, rows * 4.6 + 1.2, 0.3), face * CFrame.new(0, 3 + rows * 2.3, -0.2), VINYL_NAVY)
 	for row = 0, rows - 1 do
 		local y = 3.5 + row * 4.6
-		makeDecor(parent, "MysteryShelf", Vector3.new(columns * 4.2 + 1, 0.4, 2.6), face * CFrame.new(0, y - 0.2, -1.5), VINYL_GOLD, Enum.Material.Metal)
+		makeDecor(parent, "MysteryShelf", Vector3.new(columns * 4.2 + 1, 0.4, 2.55), face * CFrame.new(0, y - 0.2, -1.525), VINYL_GOLD, Enum.Material.Metal)
 		for column = 0, columns - 1 do
 			local color = FIGURE_COLORS[(row * columns + column) % #FIGURE_COLORS + 1]
 			local box = makeDecor(parent, "MysteryBox", Vector3.new(3.4, 3.4, 2.2), face * CFrame.new(-(columns - 1) * 2.1 + column * 4.2, y + 1.7, -1.5) * CFrame.Angles(0, math.rad((column % 2) * 8 - 4), 0), color)

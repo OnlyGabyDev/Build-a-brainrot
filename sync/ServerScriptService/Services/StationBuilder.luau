@@ -160,7 +160,8 @@ local function buildStationBase(model: Model, spot: CFrame, item: TycoonItems.It
 	makePart(model, key .. "Cabinet", CABINET, base * CFrame.new(0, 0.6 + CABINET.Y / 2, 0), colors.Body)
 	makeDecor(model, key .. "CabinetStripe", Vector3.new(CABINET.X + 0.1, 0.5, CABINET.Z + 0.1), base * CFrame.new(0, 2.6, 0), WHITE)
 	makeDecor(model, key .. "CabinetBand", Vector3.new(CABINET.X + 0.12, 0.25, CABINET.Z + 0.12), base * CFrame.new(0, CABINET_TOP - 0.75, 0), colors.Glow, Enum.Material.Neon)
-	makeDecor(model, key .. "CabinetTrim", Vector3.new(CABINET.X + 0.3, 0.5, CABINET.Z + 0.3), base * CFrame.new(0, CABINET_TOP - 0.25, 0), colors.Trim)
+	-- (its top a hair under the cabinet's: a shared top face flickers)
+	makeDecor(model, key .. "CabinetTrim", Vector3.new(CABINET.X + 0.3, 0.5, CABINET.Z + 0.3), base * CFrame.new(0, CABINET_TOP - 0.3, 0), colors.Trim)
 	-- the sign on two posts at the back, facing the button path
 	local back = base * CFrame.new(-CABINET.X / 2 + 0.5, 0, 0)
 	for _, z in { -1.9, 1.9 } do

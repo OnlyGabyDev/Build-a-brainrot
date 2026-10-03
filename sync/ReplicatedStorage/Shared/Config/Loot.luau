@@ -22,6 +22,21 @@ local Loot = {
 	-- Coin duplicates also pay this many seconds of the player's current income, so
 	-- they stay worth something as the factory grows.
 	DuplicateIncomeSeconds = 15,
+
+	-- Bought box drops (Config/Products, Kind "BoxDrop"): they rain onto the map round
+	-- the buyer, one every `Interval` seconds, on top of the map's own boxes (they don't
+	-- count toward MaxBoxes and aren't replaced when opened). Each rolls its rarity like a
+	-- Roll with `Luck` extra luck, from the rarities the buyer has unlocked, so the buyer
+	-- can open every one. For `ReservedSeconds` only the buyer can (long enough to walk
+	-- round a 100-box storm: they paid for it), then they're anyone's, and at once if
+	-- the buyer leaves. At most `MaxBought` are out at once; the rest wait their turn.
+	Drops = {
+		Luck = 1,
+		Interval = 0.12, -- seconds between boxes (100 rain down in 12 s)
+		Spread = 45, -- studs round the buyer
+		ReservedSeconds = 120,
+		MaxBought = 120,
+	},
 }
 
 export type Odds = { [string]: number } -- [rarityId] = relative weight
@@ -56,6 +71,32 @@ function Loot.BoxOdds(boxRarity: string, rebirths: number, luck: number?): Odds
 		weight *= upgrade
 	end
 	return odds
+end
+
+local function total(odds: Odds): number
+	local sum = 0
+	for _, weight in odds do
+		sum += weight
+	end
+	return sum
+end
+
+-- The chance of each rarity for the part one box of a bought drop gives (0..1; what
+-- the shop shows before purchase): the box's rarity rolls like a Roll with the drop's
+-- extra luck (Drops.Luck), then opening it may upgrade it like any box (BoxOdds).
+-- `luck` is the buyer's own (they open their boxes).
+function Loot.DropPartOdds(rebirths: number, luck: number): Odds
+	local boxOdds = Loot.RollOdds(rebirths, luck + Loot.Drops.Luck)
+	local boxTotal = total(boxOdds)
+	local chances: Odds = {}
+	for boxRarity, weight in boxOdds do
+		local partOdds = Loot.BoxOdds(boxRarity, rebirths, luck)
+		local partTotal = total(partOdds)
+		for rarity, partWeight in partOdds do
+			chances[rarity] = (chances[rarity] or 0) + weight / boxTotal * partWeight / partTotal
+		end
+	end
+	return chances
 end
 
 return Loot

@@ -15,6 +15,7 @@ local SoundService = game:GetService("SoundService")
 local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 
+local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
@@ -238,22 +239,6 @@ local function blast(folder: Folder)
 	end)
 end
 
--- The camera shakes for a moment.
-local function shake(seconds: number, strength: number)
-	local camera = workspace.CurrentCamera
-	local started = os.clock()
-	local name = "NukeShake"
-	RunService:BindToRenderStep(name, Enum.RenderPriority.Camera.Value + 1, function()
-		local t = os.clock() - started
-		if t > seconds then
-			RunService:UnbindFromRenderStep(name)
-			return
-		end
-		local power = strength * (1 - t / seconds)
-		camera.CFrame *= CFrame.new(math.random(-100, 100) / 100 * power, math.random(-100, 100) / 100 * power, 0)
-	end)
-end
-
 -- The show -----------------------------------------------------------------------------
 
 local function play(buyer: string, start: number)
@@ -331,7 +316,7 @@ local function play(buyer: string, start: number)
 	TweenService:Create(white, TweenInfo.new(0.12), { BackgroundTransparency = 0 }):Play()
 	playFor(Sounds.Boom, 1, 6, 0.75)
 	playFor(Sounds.Boom, 0.8, 6, 0.5)
-	shake(2, 2.5)
+	Effects.shake(2, 2.5)
 	blast(folder)
 	task.wait(0.12 + Nuke.WhiteHold)
 	TweenService:Create(white, TweenInfo.new(Nuke.WhiteFade, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()

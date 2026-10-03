@@ -14,6 +14,7 @@
 	  dev:Invoke("SetPurchased", player, "Floor_3", false) -- un-buys an item (free) and rebuilds
 	  dev:Invoke("SetPurchasedList", player, { "ClayStudio_Room", "ClayStudio_1_Line" }, true)
 	  dev:Invoke("GrantPass", player, "Sprint") -- a gamepass for this session (not saved)
+	  dev:Invoke("GrantProduct", player, "Drop100") -- a developer product, free (it saves)
 	  dev:Invoke("Nuke", player)          -- drops a nuke on the server (everyone dies)
 
 	The Studio MCP's own code can't invoke it any more (since 2026-10-02 its thread lacks
@@ -43,6 +44,11 @@ local snapshots: { [Player]: DataManager.PlayerData } = {}
 local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	GrantPass = function(player, key)
 		return MonetizationManager.GrantForTesting(player, key)
+	end,
+	-- Grants a developer product as if bought (Config/Products key: "Coins1h",
+	-- "Drop25"...). Gems, Coins and the like are saved, so Snapshot first.
+	GrantProduct = function(player, key)
+		return MonetizationManager.GrantProductForTesting(player, key)
 	end,
 	Nuke = function(player)
 		NukeManager.Launch(player)

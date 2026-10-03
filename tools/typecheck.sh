@@ -4,11 +4,16 @@
 # patched with every sync/ script it hasn't picked up yet.
 # luau-lsp comes from the VS Code extension (Luau Language Server) or, without it, from
 # %LOCALAPPDATA%/luau-lsp: the release's luau-lsp.exe next to globalTypes.PluginSecurity.d.luau
-# (github.com/JohnnyMorganz/luau-lsp, scripts/ folder).
-LSP=$(ls "$HOME"/.vscode/extensions/johnnymorganz.luau-lsp-*/bin/server.exe 2>/dev/null | tail -n 1)
+# (github.com/JohnnyMorganz/luau-lsp, scripts/ folder). Elsewhere (Linux, a cloud
+# session) set LUAU_LSP and LUAU_DEFS to the binary and the definitions file.
+# Without Azul's sourcemap.json (it's generated, not committed) the map is built from
+# sync/ alone.
+LSP="${LUAU_LSP:-}"
+[ -n "$LSP" ] || LSP=$(ls "$HOME"/.vscode/extensions/johnnymorganz.luau-lsp-*/bin/server.exe 2>/dev/null | tail -n 1)
 [ -n "$LSP" ] || LSP="$LOCALAPPDATA/luau-lsp/luau-lsp.exe"
-DEFS="$APPDATA/Code/User/globalStorage/johnnymorganz.luau-lsp/globalTypes.PluginSecurity.d.luau"
+DEFS="${LUAU_DEFS:-$APPDATA/Code/User/globalStorage/johnnymorganz.luau-lsp/globalTypes.PluginSecurity.d.luau}"
 [ -f "$DEFS" ] || DEFS="$LOCALAPPDATA/luau-lsp/globalTypes.PluginSecurity.d.luau"
+PYTHON=$(command -v python || command -v python3)
 for need in "$LSP" "$DEFS"; do
 	if [ ! -f "$need" ]; then
 		echo "typecheck FAILED: missing $need"
@@ -17,9 +22,21 @@ for need in "$LSP" "$DEFS"; do
 done
 PATCHED="${TMPDIR:-/tmp}/brainrot-sourcemap.json"
 
-python - "$PATCHED" <<'PY'
+"$PYTHON" - "$PATCHED" <<'PY'
 import json, os, sys
-m = json.load(open('sourcemap.json', encoding='utf-8'))
+if os.path.exists('sourcemap.json'):
+    m = json.load(open('sourcemap.json', encoding='utf-8'))
+else:
+    # the services our code lives in (their classes matter to the type checker)
+    m = {'name': 'Game', 'className': 'DataModel', 'children': [
+        {'name': 'ReplicatedStorage', 'className': 'ReplicatedStorage', 'children': []},
+        {'name': 'ServerScriptService', 'className': 'ServerScriptService', 'children': []},
+        {'name': 'ServerStorage', 'className': 'ServerStorage', 'children': []},
+        {'name': 'StarterPlayer', 'className': 'StarterPlayer', 'children': [
+            {'name': 'StarterPlayerScripts', 'className': 'StarterPlayerScripts', 'children': []},
+        ]},
+        {'name': 'Workspace', 'className': 'Workspace', 'children': []},
+    ]}
 SUFFIXES = [('.server.luau', 'Script'), ('.client.luau', 'LocalScript'), ('.luau', 'ModuleScript')]
 def child(node, name, cls):
     for c in node.setdefault('children', []):

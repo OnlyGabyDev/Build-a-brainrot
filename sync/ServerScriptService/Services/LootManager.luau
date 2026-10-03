@@ -10,7 +10,12 @@
 	    sometimes a rarer one. Boxes only spawn in rarities someone in the server has
 	    unlocked, and players who haven't unlocked a box's rarity can't open it.
 	    Rare+ spawns are announced to everyone.
+	  * Bought box drops (Config/Products, Kind "BoxDrop"; Config/Loot.Drops): boxes rain
+	    onto the map round the buyer, rolled like a Roll with extra luck from the
+	    rarities the buyer has unlocked, theirs alone for a while, then anyone's. They
+	    sit on top of the map's own boxes and aren't replaced when opened.
 	  * Duplicates convert into Coins (plus some income) or Gems, per rarity.
+	The first map box a player opens earns the FirstBox badge (Rolls don't count).
 ]]
 
 local Players = game:GetService("Players")
@@ -23,6 +28,7 @@ local Rarities = require(Shared.Config.Rarities)
 local Rebirths = require(Shared.Config.Rebirths)
 local Remotes = require(Shared.Remotes)
 
+local BadgeManager = require(script.Parent.BadgeManager)
 local DataManager = require(script.Parent.DataManager)
 local MapBuilder = require(script.Parent.MapBuilder)
 local MonetizationManager = require(script.Parent.MonetizationManager)
@@ -32,13 +38,21 @@ local PART_TYPES = Brainrots.PartTypes
 local REQUEST_COOLDOWN = 0.25 -- per player, for open requests
 local BOX_HEIGHT = 1.5 -- box center above the ground
 local LUCK_SYNC_INTERVAL = 2 -- seconds between refreshes of the "Luck" attribute
+local BOX_GAP = 7 -- studs kept between boxes (the biggest is ~5 across)
 
 export type Box = {
 	Id: number,
 	Position: Vector3,
 	Rarity: string,
 	PartType: string,
+	Bought: boolean?, -- a bought drop (not counted toward the map's own boxes)
+	Owner: number?, -- a bought drop's buyer (UserId): only they can open it...
+	OwnerName: string?,
+	ReservedUntil: number?, -- ...until this server time (workspace:GetServerTimeNow)
 }
+
+-- a bought drop still to rain down
+type Drop = { UserId: number, Name: string, Left: number }
 
 export type Result = {
 	Source: string, -- "Roll" | "Box"
@@ -53,7 +67,10 @@ export type Result = {
 
 local random = Random.new()
 local boxes: { [number]: Box } = {}
-local boxCount = 0
+local boxCount = 0 -- the map's own boxes (bought drops not included)
+local boughtCount = 0
+local dropQueue: { Drop } = {}
+local dropping = false
 local lastRequest: { [Player]: number } = {}
 local nextBoxId = 0
 local boxesRemote: RemoteEvent
@@ -137,9 +154,23 @@ end
 
 -- Map loot boxes -------------------------------------------------------------
 
-local function randomBoxPosition(): Vector3
+-- Whether a spot is clear of every box (across the ground).
+local function clearOfBoxes(spot: Vector3): boolean
+	for _, other in boxes do
+		local offset = other.Position - spot
+		if offset.X * offset.X + offset.Z * offset.Z < BOX_GAP * BOX_GAP then
+			return false
+		end
+	end
+	return true
+end
+
+-- A spot for a box: on dry ground (hills included), clear of decor and other boxes;
+-- round `near` if given (falling back to anywhere in the ring).
+local function randomBoxPosition(near: Vector3?): Vector3
 	local min, max = Loot.SpawnRadius.Min, Loot.SpawnRadius.Max
-	local spot = MapBuilder.FindSpot(min, max, random) -- on dry ground, hills included
+	local spot = near and MapBuilder.FindSpot(min, max, random, { Near = near, Spread = Loot.Drops.Spread, Accept = clearOfBoxes })
+	spot = spot or MapBuilder.FindSpot(min, max, random, { Accept = clearOfBoxes })
 	if spot then
 		return spot + Vector3.new(0, BOX_HEIGHT, 0)
 	end
@@ -175,6 +206,16 @@ local function serverRebirths(): number
 	return best
 end
 
+local function addBox(box: Box)
+	boxes[box.Id] = box
+	if box.Bought then
+		boughtCount += 1
+	else
+		boxCount += 1
+	end
+	boxesRemote:FireAllClients("Add", box)
+end
+
 local function spawnBox()
 	if boxCount >= targetBoxCount() then
 		return
@@ -187,11 +228,70 @@ local function spawnBox()
 		Rarity = rarityId,
 		PartType = rollPartType(),
 	}
-	boxes[box.Id] = box
-	boxCount += 1
-	boxesRemote:FireAllClients("Add", box)
+	addBox(box)
 	if Rarities.ById[rarityId].Rank >= Loot.AnnounceRank then
 		boxesRemote:FireAllClients("Announce", box)
+	end
+end
+
+-- Bought drops ---------------------------------------------------------------
+
+-- One box of `drop`, round its buyer (anywhere if they've left). Its rarity rolls like
+-- a Roll with the buyer's luck plus the drop's, from the rarities they've unlocked.
+local function spawnDropBox(drop: Drop)
+	local buyer = Players:GetPlayerByUserId(drop.UserId)
+	local data = buyer and DataManager.GetData(buyer)
+	local rebirths, luck = serverRebirths(), Loot.Drops.Luck
+	local near: Vector3? = nil
+	if buyer and data then
+		rebirths = data.Rebirths
+		luck += luckOf(buyer, data)
+		local root = buyer.Character and buyer.Character:FindFirstChild("HumanoidRootPart")
+		near = if root and root:IsA("BasePart") then root.Position else nil
+	end
+	nextBoxId += 1
+	addBox({
+		Id = nextBoxId,
+		Position = randomBoxPosition(near),
+		Rarity = rollRarity(Loot.RollOdds(rebirths, luck), Rarities.List[1].Id),
+		PartType = rollPartType(),
+		Bought = true,
+		Owner = if buyer then drop.UserId else nil,
+		OwnerName = if buyer then drop.Name else nil,
+		ReservedUntil = if buyer then workspace:GetServerTimeNow() + Loot.Drops.ReservedSeconds else nil,
+	})
+end
+
+-- Rains the queued drops down one box at a time, holding back while MaxBought are out.
+local function runDrops()
+	if dropping then
+		return
+	end
+	dropping = true
+	while #dropQueue > 0 do
+		if boughtCount >= Loot.Drops.MaxBought then
+			task.wait(1)
+		else
+			local drop = dropQueue[1]
+			spawnDropBox(drop)
+			drop.Left -= 1
+			if drop.Left <= 0 then
+				table.remove(dropQueue, 1)
+			end
+			task.wait(Loot.Drops.Interval)
+		end
+	end
+	dropping = false
+end
+
+-- A buyer who leaves frees their boxes for everyone at once (and the rest of their drop
+-- still rains down, for everyone: spawnDropBox finds no buyer).
+local function releaseBoxesOf(player: Player)
+	for _, box in boxes do
+		if box.Owner == player.UserId then
+			box.Owner, box.OwnerName, box.ReservedUntil = nil, nil, nil
+			boxesRemote:FireAllClients("Update", box)
+		end
 	end
 end
 
@@ -233,11 +333,19 @@ local function onOpenBox(player: Player, boxId: unknown): Result?
 	if data.Rebirths < Rarities.ById[box.Rarity].UnlockRebirths then
 		return nil -- this rarity is still locked for them
 	end
+	if box.Owner and box.Owner ~= player.UserId and workspace:GetServerTimeNow() < (box.ReservedUntil or 0) then
+		return nil -- someone's bought box, still theirs
+	end
 
 	boxes[box.Id] = nil
-	boxCount -= 1
+	if box.Bought then
+		boughtCount -= 1
+	else
+		boxCount -= 1
+		task.delay(random:NextNumber(Loot.RespawnTime.Min, Loot.RespawnTime.Max), spawnBox)
+	end
 	boxesRemote:FireAllClients("Remove", box.Id, player)
-	task.delay(random:NextNumber(Loot.RespawnTime.Min, Loot.RespawnTime.Max), spawnBox)
+	BadgeManager.Award(player, "FirstBox")
 	local odds = Loot.BoxOdds(box.Rarity, data.Rebirths, luckOf(player, data))
 	local rarityId = rollRarity(odds, box.Rarity)
 	local result = grant(player, "Box", rollBrainrot(rarityId), box.PartType)
@@ -257,6 +365,13 @@ end
 
 -- Public API -----------------------------------------------------------------
 
+-- Rains `count` boxes onto the map round `player` (a bought drop). Doesn't yield.
+function LootManager.Drop(player: Player, count: number)
+	table.insert(dropQueue, { UserId = player.UserId, Name = player.DisplayName, Left = count })
+	boxesRemote:FireAllClients("Drop", { Name = player.DisplayName, Count = count })
+	task.spawn(runDrops)
+end
+
 function LootManager.Init()
 	boxesRemote = Remotes.Event("LootBoxes")
 	Remotes.Function("OpenRoll").OnServerInvoke = onOpenRoll
@@ -266,6 +381,11 @@ function LootManager.Init()
 	DataManager.OnPlayerLoaded(fillBoxes)
 	Players.PlayerRemoving:Connect(function(player)
 		lastRequest[player] = nil
+		releaseBoxesOf(player)
+	end)
+	MonetizationManager.HandleProduct("BoxDrop", function(player, product)
+		LootManager.Drop(player, product.Amount)
+		return `🎁 {product.Amount} {if product.Amount == 1 then "box is" else "boxes are"} raining down round you!`
 	end)
 
 	-- The loot wheel shows odds with the player's luck, which changes with upgrades,

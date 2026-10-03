@@ -4,7 +4,9 @@
 	cards in a lit gold frame, case-opening style) spins and stops on the server's result
 	under the marker, then a reveal card shows the part. The server rolled the result
 	before any of this plays; the reel is only for show. Results queue up, so grabbing
-	several boxes plays their reels one after another. The Daily Wheel uses the same reel.
+	several boxes plays their reels one after another; while they pile up (a bought box
+	storm), the rest skip the reel and pop into a quick feed on the right instead (a
+	new Rare+ part still gets the full reel). The Daily Wheel uses the same reel.
 ]]
 
 local Players = game:GetService("Players")
@@ -42,6 +44,10 @@ local CURRENCY_ICONS = { Coins = "💰", Gems = "💎" }
 local NEW_COLOR = Color3.fromRGB(120, 245, 110)
 local BAD_COLOR = Color3.fromRGB(255, 90, 90)
 local LAYOUT_SEED = 7 -- a fixed shuffle, so the rarity wheel always looks the same
+local QUICK_LINGER = 3 -- seconds the quick feed stays on after its last result
+local QUICK_GAP = 0.15 -- seconds between quick results
+local FEED_HOLD = 2.6 -- seconds a quick result stays in the feed
+local FEED_MAX = 6 -- quick results shown at once
 
 export type Result = {
 	Source: string, -- "Roll" | "Box"
@@ -60,6 +66,9 @@ local player = Players.LocalPlayer
 local queue: { Result } = {}
 local playing = false
 local rolling = false
+local lastQuick = -math.huge
+local feed: Frame? = nil
+local feedOrder = 0
 local tickSound: Sound? = nil
 
 local Loot = {}
@@ -527,6 +536,111 @@ local function play(result: Result)
 	screen:Destroy()
 end
 
+-- The quick feed: a column of small result cards on the right, newest at the bottom.
+local function getFeed(): Frame
+	if feed and feed.Parent then
+		return feed
+	end
+	local column = Kit.new("Frame", {
+		Name = "LootFeed",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -16, 0.55, 0),
+		Size = UDim2.fromOffset(330, FEED_MAX * 70),
+		BackgroundTransparency = 1,
+		ZIndex = 20,
+		Parent = Kit.getGui(),
+	})
+	Kit.new("UIListLayout", {
+		Padding = UDim.new(0, 6),
+		VerticalAlignment = Enum.VerticalAlignment.Bottom,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = column,
+	})
+	feed = column
+	return column
+end
+
+-- One result in the quick feed: no reel, no overlay; it slides in, then fades.
+local function quickShow(result: Result)
+	local rarity = Rarities.ById[result.Rarity]
+	local brainrot = Brainrots.ById[result.BrainrotId]
+	local column = getFeed()
+	feedOrder += 1
+	local card = Kit.new("Frame", { LayoutOrder = feedOrder, Size = UDim2.fromOffset(330, 64), BackgroundColor3 = Kit.White, ZIndex = 20, Parent = column })
+	Kit.corner(card, 14)
+	Kit.stroke(card, 3)
+	Kit.gradient(card, { rarity.Color:Lerp(Kit.White, 0.3), rarity.Color:Lerp(Color3.new(0, 0, 0), 0.3) })
+	Kit.shine(card, 10)
+	Kit.text({
+		Text = if result.New then "✨ NEW PART!" else `+{Format.Number(result.Amount or 0)} {CURRENCY_ICONS[result.Currency or "Coins"] or ""}`,
+		TextColor3 = if result.New then NEW_COLOR else Color3.fromRGB(255, 225, 90),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Position = UDim2.fromOffset(12, 5),
+		Size = UDim2.new(1, -90, 0, 28),
+		StrokeThickness = 2.5,
+		ZIndex = 21,
+		Parent = card,
+	})
+	Kit.text({
+		Text = `{brainrot.Name} · {string.upper(result.PartType)}`,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Position = UDim2.fromOffset(12, 34),
+		Size = UDim2.new(1, -24, 0, 24),
+		StrokeThickness = 2,
+		ZIndex = 21,
+		Parent = card,
+	})
+	Kit.text({
+		Text = string.rep("⭐", rarity.Rank),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Position = UDim2.new(1, -96, 0, 6),
+		Size = UDim2.fromOffset(84, 22),
+		StrokeThickness = 0,
+		ZIndex = 21,
+		Parent = card,
+	})
+	Kit.pop(card, 0.25)
+	Kit.playSound(if result.New then Sounds.Reveal else Sounds.Coin, 0.3, 1.05 + math.random() * 0.2)
+	-- only the newest FEED_MAX stay
+	local cards = {}
+	for _, child in column:GetChildren() do
+		if child:IsA("Frame") then
+			table.insert(cards, child)
+		end
+	end
+	table.sort(cards, function(a, b)
+		return a.LayoutOrder < b.LayoutOrder
+	end)
+	for index = 1, #cards - FEED_MAX do
+		cards[index]:Destroy()
+	end
+	task.delay(FEED_HOLD, function()
+		if card.Parent then
+			TweenService:Create(card, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+			for _, child in card:GetDescendants() do
+				if child:IsA("TextLabel") then
+					TweenService:Create(child, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+				elseif child:IsA("UIStroke") then
+					TweenService:Create(child, TweenInfo.new(0.3), { Transparency = 1 }):Play()
+				elseif child:IsA("Frame") then
+					TweenService:Create(child, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+				end
+			end
+			task.wait(0.35)
+			card:Destroy()
+		end
+	end)
+end
+
+-- While results pile up (or just did), they go to the quick feed; a new Rare+ part
+-- always gets its reel.
+local function isQuick(result: Result): boolean
+	if result.New and Rarities.ById[result.Rarity].Rank >= BIG_RANK then
+		return false
+	end
+	return #queue > 0 or os.clock() - lastQuick < QUICK_LINGER
+end
+
 local function processQueue()
 	if playing then
 		return
@@ -534,7 +648,14 @@ local function processQueue()
 	playing = true
 	while #queue > 0 do
 		local result = table.remove(queue, 1) :: Result
-		local ok, err = pcall(play, result)
+		local quick = isQuick(result)
+		if quick then
+			lastQuick = os.clock()
+		end
+		local ok, err = pcall(if quick then quickShow else play, result)
+		if quick then
+			task.wait(QUICK_GAP)
+		end
 		if not ok then
 			warn(`[Loot] couldn't show a result: {err}`)
 			local leftover = Kit.getGui():FindFirstChild("LootOverlay")

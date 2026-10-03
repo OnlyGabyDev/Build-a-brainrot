@@ -9,7 +9,9 @@
 	The real parts stay where the server put them (RoomFX and Atmosphere move some and
 	remember their rest poses), hidden on this client while look-alike copies fall onto
 	them, following them if they move. A piece is one of the upgrade's sub-Models (a
-	train car, a lid, the plushie) or a loose part. Client only.
+	train car, a lid, the plushie) or a loose part. The copies are made only when the
+	drop-in actually plays near the camera: a whole factory being furnished across the
+	map would otherwise copy ~15K parts on every client for nothing. Client only.
 
 	TycoonFX calls `hide` on each freshly built part as it arrives, then `play` with the
 	whole batch: for a room upgrade's new level, and for everything in a plot when it's
@@ -35,7 +37,7 @@ local EXTRAS = { "SurfaceGui", "BillboardGui", "ParticleEmitter", "Light", "Beam
 
 local DropIn = {}
 
-type Saved = { Clone: BasePart?, Extras: { [Instance]: boolean } }
+type Saved = { Clone: BasePart?, Visible: boolean, Extras: { [Instance]: boolean } }
 local saved: { [BasePart]: Saved } = {}
 
 local function isExtra(instance: Instance): boolean
@@ -48,13 +50,22 @@ local function isExtra(instance: Instance): boolean
 end
 
 -- A bare look-alike of `part`: no tags (Atmosphere and RoomFX would animate it), no
--- glows, particles or floating labels, just its shape, color and printing.
-local function lookAlike(part: BasePart): BasePart
+-- glows, particles or floating labels, just its shape, color and printing. `extras`:
+-- what `hide` switched off on the real part (its printing comes back on the copy).
+local function lookAlike(part: BasePart, extras: { [Instance]: boolean }): BasePart
+	local originals = part:GetDescendants()
 	local clone = part:Clone()
-	for _, thing in clone:GetDescendants() do
+	for index, thing in clone:GetDescendants() do
+		local original = originals[index]
+		local same = original ~= nil and original.ClassName == thing.ClassName and original.Name == thing.Name
 		if isExtra(thing) and not thing:IsA("SurfaceGui") then
 			thing:Destroy()
 		else
+			if thing:IsA("SurfaceGui") then
+				thing.Enabled = if same and extras[original :: Instance] ~= nil then extras[original :: Instance] else true
+			elseif thing:IsA("Decal") then
+				thing.LocalTransparencyModifier = 0
+			end
 			for _, tag in thing:GetTags() do
 				thing:RemoveTag(tag)
 			end
@@ -63,6 +74,7 @@ local function lookAlike(part: BasePart): BasePart
 	for _, tag in clone:GetTags() do
 		clone:RemoveTag(tag)
 	end
+	clone.LocalTransparencyModifier = 0
 	clone.Anchored = true
 	clone.CanCollide = false
 	clone.CanQuery = false
@@ -75,7 +87,6 @@ function DropIn.hide(part: BasePart)
 	if saved[part] then
 		return
 	end
-	local clone = if part.Transparency < 1 then lookAlike(part) else nil
 	local extras = {}
 	for _, child in part:GetDescendants() do
 		if isExtra(child) then
@@ -86,7 +97,7 @@ function DropIn.hide(part: BasePart)
 		end
 	end
 	part.LocalTransparencyModifier = 1
-	saved[part] = { Clone = clone, Extras = extras }
+	saved[part] = { Clone = nil, Visible = part.Transparency < 1, Extras = extras }
 end
 
 local function reveal(part: BasePart)
@@ -228,6 +239,9 @@ function DropIn.play(model: Model, parts: { BasePart }, options: Options?)
 	local hidden = {}
 	for index, part in live do
 		local entry = saved[part]
+		if entry and entry.Visible and not entry.Clone then
+			entry.Clone = lookAlike(part, entry.Extras) -- (now that it's sure to play)
+		end
 		if entry and entry.Clone then
 			local node: Instance = part
 			while node.Parent and node.Parent ~= model do

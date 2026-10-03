@@ -86,14 +86,19 @@ local function decorateBelt(belt: BasePart)
 	addTexture(skin, BELT_ARROWS, Vector2.new(6, belt.Size.X), Color3.fromRGB(255, 255, 255), 0.7, true)
 end
 
+local BELT_DISTANCE = 250 -- farther belts don't scroll (you can't tell)
 local beltOffset = 0
 RunService.RenderStepped:Connect(function(dt)
 	beltOffset += dt * BELT_SPEED
+	local camera = workspace.CurrentCamera.CFrame.Position
 	for texture, alongU in scrolling do
-		if alongU then
-			texture.OffsetStudsU = -(beltOffset % texture.StudsPerTileU)
-		else
-			texture.OffsetStudsV = -(beltOffset % texture.StudsPerTileV)
+		local part = texture.Parent
+		if part and part:IsA("BasePart") and (part.Position - camera).Magnitude < BELT_DISTANCE then
+			if alongU then
+				texture.OffsetStudsU = -(beltOffset % texture.StudsPerTileU)
+			else
+				texture.OffsetStudsV = -(beltOffset % texture.StudsPerTileV)
+			end
 		end
 	end
 end)
@@ -433,7 +438,9 @@ end
 RunService.RenderStepped:Connect(function()
 	local bounce = math.abs(math.sin(os.clock() * 4)) * 1.2
 	for _, gui in arrows do
-		gui.StudsOffset = Vector3.new(0, 6 + bounce, 0)
+		if gui.Enabled then -- (only affordable buttons show theirs)
+			gui.StudsOffset = Vector3.new(0, 6 + bounce, 0)
+		end
 	end
 end)
 

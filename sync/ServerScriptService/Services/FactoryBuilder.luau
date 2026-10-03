@@ -426,9 +426,10 @@ end
 -- A sign with text on its front face (-Z of `cframe`), in a colored border with a
 -- dark outline.
 local function makeSign(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, border: Color3, outline: Color3, text: string): TextLabel
+	-- three layers, each ending in planes of its own (their backs used to share one)
 	makeDecor(parent, name .. "Outline", size + Vector3.new(2.8, 2.8, -0.6), cframe * CFrame.new(0, 0, 0.3), outline)
-	makeDecor(parent, name .. "Border", size + Vector3.new(2, 2, -0.4), cframe * CFrame.new(0, 0, 0.2), border)
-	local sign = makePart(parent, name, size, cframe, WHITE)
+	makeDecor(parent, name .. "Border", size + Vector3.new(2, 2, -0.44), cframe * CFrame.new(0, 0, 0.2), border)
+	local sign = makePart(parent, name, size - Vector3.new(0, 0, 0.04), cframe * CFrame.new(0, 0, -0.02), WHITE)
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
 	gui.LightInfluence = 0
@@ -557,8 +558,11 @@ type Skin = { Texture: string?, Tile: number, Color: Color3 }
 -- into it. Its color is the room's inside; `skin` covers its outer face: a texture
 -- lined up across the slabs so the pattern runs on, or a thin colored skin. A
 -- `thickness` builds half of a two-faced wall.
-local function buildWall(parent: Instance, base: CFrame, length: number, openings: { Opening }, color: Color3, skin: Skin?, thickness: number?)
+-- `height`: STOREY unless given (a wall between rooms stops a hair under the floor above,
+-- or its top shares the floor's top and flickers through it).
+local function buildWall(parent: Instance, base: CFrame, length: number, openings: { Opening }, color: Color3, skin: Skin?, thickness: number?, height: number?)
 	local depth = thickness or WALL
+	local top = height or STOREY
 	local function slab(x0: number, x1: number, y0: number, y1: number)
 		if x1 - x0 < 0.01 or y1 - y0 < 0.01 then
 			return
@@ -573,11 +577,11 @@ local function buildWall(parent: Instance, base: CFrame, length: number, opening
 		end
 	end
 	for index, span in solidSpans(length, openings) do
-		slab(span[1], span[2], 0, STOREY)
+		slab(span[1], span[2], 0, top)
 		local opening = openings[index]
 		if opening then
 			local left, right = opening.X - opening.Width / 2, opening.X + opening.Width / 2
-			slab(left, right, opening.Height, STOREY)
+			slab(left, right, opening.Height, top)
 		end
 	end
 end
@@ -828,7 +832,8 @@ local function buildFlight(parent: Instance, cframe: CFrame, zFrom: number, yFro
 	local steps = math.floor(yTo - yFrom) - 1 -- the landing is the last step
 	local run = 2
 	for index = 1, steps do
-		makePart(parent, "Step", Vector3.new(STAIR_WIDTH, 1, run), cframe * CFrame.new(x, yFrom + index - 0.5, zFrom + (index - 0.5) * run), WOOD_COLOR, Enum.Material.WoodPlanks)
+		-- (a hair narrower than the stringers' span, so its ends hide inside them)
+		makePart(parent, "Step", Vector3.new(STAIR_WIDTH - 0.1, 1, run), cframe * CFrame.new(x, yFrom + index - 0.5, zFrom + (index - 0.5) * run), WOOD_COLOR, Enum.Material.WoodPlanks)
 	end
 	local zTo = zFrom + steps * run
 	local rise = yTo - yFrom
@@ -1009,9 +1014,10 @@ local function buildDonut(parent: Instance, face: CFrame, diameter: number, fros
 	local donut = Instance.new("Model")
 	donut.Name = "Donut"
 	local back = face * CFrame.new(0, 0, -0.5) -- off the wall, so it turns clear of it
+	-- (each layer's back a little further out than the one under it: shared planes flicker)
 	makeDisc(donut, "Dough", diameter, 1.6, back, DOUGH_COLOR)
-	makeDisc(donut, "Frosting", diameter * 0.86, 2, back, frosting)
-	makeDisc(donut, "DonutHole", diameter * 0.3, 2.1, back, DOUGH_COLOR:Lerp(Color3.new(0, 0, 0), 0.35))
+	makeDisc(donut, "Frosting", diameter * 0.86, 1.95, back * CFrame.new(0, 0, -0.05), frosting)
+	makeDisc(donut, "DonutHole", diameter * 0.3, 2, back * CFrame.new(0, 0, -0.1), DOUGH_COLOR:Lerp(Color3.new(0, 0, 0), 0.35))
 	for index = 1, 15 do
 		local angle = index * math.pi * 2 / 15
 		local radius = diameter * (0.22 + (index % 3) * 0.07)
@@ -1346,8 +1352,8 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 			local half = WALL / 2
 			local previous = rooms[index - 1]
 			local openings = { { X = 0, Width = DOORWAY.X, Height = DOORWAY.Y } }
-			buildWall(layer, divider * CFrame.new(0, 0, -half / 2), inner, openings, previous.Style.Wall or palette.Pastel, nil, half)
-			buildWall(layer, divider * CFrame.new(0, 0, half / 2), inner, openings, style.Wall or palette.Pastel, nil, half)
+			buildWall(layer, divider * CFrame.new(0, 0, -half / 2), inner, openings, previous.Style.Wall or palette.Pastel, nil, half, STOREY - 0.05)
+			buildWall(layer, divider * CFrame.new(0, 0, half / 2), inner, openings, style.Wall or palette.Pastel, nil, half, STOREY - 0.05)
 			buildBand(layer, divider * CFrame.Angles(0, math.pi, 0), inner, openings, half, previous.Style)
 			buildBand(layer, divider, inner, openings, half, style)
 			if previous.Style.Wallpaper then

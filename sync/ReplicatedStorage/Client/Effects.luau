@@ -278,6 +278,25 @@ function Effects.popup(position: Vector3, text: string, color: Color3, height: n
 	TweenService:Create(stroke, fade, { Transparency = 1 }):Play()
 end
 
+-- The camera shakes for `seconds`, `strength` studs at first, dying down. Shakes can
+-- overlap (each has its own render step).
+local shakes = 0
+function Effects.shake(seconds: number, strength: number)
+	local camera = workspace.CurrentCamera
+	local started = os.clock()
+	shakes += 1
+	local name = `EffectsShake{shakes}`
+	RunService:BindToRenderStep(name, Enum.RenderPriority.Camera.Value + 1, function()
+		local t = os.clock() - started
+		if t > seconds then
+			RunService:UnbindFromRenderStep(name)
+			return
+		end
+		local power = strength * (1 - t / seconds)
+		camera.CFrame *= CFrame.new(math.random(-100, 100) / 100 * power, math.random(-100, 100) / 100 * power, 0)
+	end)
+end
+
 -- A spinning gold coin, for flying and piling up.
 function Effects.makeCoin(size: number?): Part
 	local diameter = size or 1

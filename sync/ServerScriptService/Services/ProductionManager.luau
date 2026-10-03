@@ -22,6 +22,7 @@ local Rarities = require(Shared.Config.Rarities)
 local Rebirths = require(Shared.Config.Rebirths)
 local TycoonItems = require(Shared.Config.TycoonItems)
 local Zones = require(Shared.Config.Zones)
+local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local DataManager = require(script.Parent.DataManager)
@@ -566,6 +567,14 @@ function ProductionManager.Init()
 	Remotes.Function("EquipBestLine").OnServerInvoke = onEquipBest
 	Remotes.Function("GetLines").OnServerInvoke = onGetLines
 	Remotes.Function("EquipBrainrot").OnServerInvoke = onEquipBrainrot
+
+	-- Coin packs (Config/Products): minutes of the buyer's own income, so they stay
+	-- worth buying as the factory grows
+	MonetizationManager.HandleProduct("Coins", function(player, product)
+		local amount = math.floor(math.max(ProductionManager.GetIncome(player) * product.Amount, product.MinCoins or 0))
+		DataManager.AddCurrency(player, "Coins", amount)
+		return `Thanks! +{Format.Number(amount)} 💰`
+	end)
 
 	Players.PlayerRemoving:Connect(function(player)
 		lineTimers[player] = nil

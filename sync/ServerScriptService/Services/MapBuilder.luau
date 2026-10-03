@@ -1468,17 +1468,40 @@ end
 
 -- API --------------------------------------------------------------------------------
 
--- A spot for a loot box near a random point between `minRadius` and `maxRadius`: on
--- the ground (never water), clear of decor and buildings. Nil if none turned up.
-function MapBuilder.FindSpot(minRadius: number, maxRadius: number, rng: Random): Vector3?
+export type SpotOptions = {
+	Near: Vector3?, -- look within `Spread` studs of this point (still inside the ring)
+	Spread: number?,
+	Accept: ((spot: Vector3) -> boolean)?, -- an extra test (e.g. clear of other boxes)
+}
+
+-- A spot for a loot box near a random point between `minRadius` and `maxRadius` from
+-- the hub: on the ground (never water), clear of decor and buildings. With `Near`,
+-- bought box drops rain round the buyer. Nil if none turned up.
+function MapBuilder.FindSpot(minRadius: number, maxRadius: number, rng: Random, options: SpotOptions?): Vector3?
+	local near = options and options.Near
+	local spread = options and options.Spread or 40
+	local accept = options and options.Accept
 	local overlap = OverlapParams.new()
 	overlap.FilterType = Enum.RaycastFilterType.Exclude
 	overlap.FilterDescendantsInstances = { ground }
 	for _ = 1, 25 do
-		local radius = math.sqrt(rng:NextNumber(minRadius * minRadius, maxRadius * maxRadius))
-		local flat = onGround(rng:NextNumber(0, math.pi * 2), radius)
+		local flat: Vector3
+		if near then
+			local reach = math.sqrt(rng:NextNumber(0, 1)) * spread
+			local angle = rng:NextNumber(0, math.pi * 2)
+			flat = Vector3.new(near.X + math.cos(angle) * reach, 0, near.Z + math.sin(angle) * reach)
+			local fromHub = flat.Magnitude
+			if fromHub < minRadius or fromHub > maxRadius then
+				-- pulled back into the ring along the same line from the hub
+				local direction = if fromHub > 0.01 then flat / fromHub else Vector3.xAxis
+				flat = direction * math.clamp(fromHub, minRadius, maxRadius)
+			end
+		else
+			local radius = math.sqrt(rng:NextNumber(minRadius * minRadius, maxRadius * maxRadius))
+			flat = onGround(rng:NextNumber(0, math.pi * 2), radius)
+		end
 		local spot = groundAt(flat.X, flat.Z)
-		if spot and #workspace:GetPartBoundsInRadius(spot + Vector3.new(0, 2.5, 0), 3, overlap) == 0 then
+		if spot and (not accept or accept(spot)) and #workspace:GetPartBoundsInRadius(spot + Vector3.new(0, 2.5, 0), 3, overlap) == 0 then
 			return spot
 		end
 	end
