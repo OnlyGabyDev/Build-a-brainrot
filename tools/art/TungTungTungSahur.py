@@ -16,23 +16,23 @@ head = [
 ]
 # wood grain: darker strips down the sides and the back
 for x, y0, y1 in ((-2.5, 15.5, 24.5), (1.0, 17, 25), (3.0, 15, 22)):
-    body.append(plate(x, (y0 + y1) / 2, D / 2 + 0.1, 0.6, y1 - y0, "Grain", depth=0.2))
+    body.append(plate(x, (y0 + y1) / 2, D / 2, 0.6, y1 - y0, "Grain", depth=0.8))
 for x, y0, y1 in ((-3, 25.5, 34), (0.5, 27, 35), (2.5, 25, 31)):
-    head.append(plate(x, (y0 + y1) / 2, D / 2 + 0.1, 0.6, y1 - y0, "Grain", depth=0.2))
-body += both(block(W / 2 + 0.1, 20, -1, 0.2, 8, 0.6, "Grain"))
-head += both(block(W / 2 + 0.1, 30, 1, 0.2, 7, 0.6, "Grain"))
+    head.append(plate(x, (y0 + y1) / 2, D / 2, 0.6, y1 - y0, "Grain", depth=0.8))
+body += both(block(W / 2, 20, -1, 0.8, 8, 0.6, "Grain"))
+head += both(block(W / 2, 30, 1, 0.8, 7, 0.6, "Grain"))
 
 head += both(
-    plate(1.9, 30.8, FRONT - 0.1, 2.4, 2.8, "White", depth=0.2),  # big eyes
-    plate(1.6, 30.6, FRONT - 0.25, 1.2, 1.5, "Pupil", depth=0.2),
-    plate(1.35, 31.0, FRONT - 0.35, 0.45, 0.45, "White", depth=0.1),  # glints
-    plate(1.9, 33.2, FRONT - 0.1, 2.8, 0.6, "Brow", depth=0.3, rot=(0, 0, -10)),  # arched brows
+    plate(1.9, 30.8, FRONT - 0.1, 2.4, 2.8, "White", depth=0.8),  # big eyes
+    plate(1.6, 30.6, FRONT - 0.4, 1.2, 1.5, "Pupil", depth=0.8),
+    plate(1.35, 31.0, FRONT - 0.75, 0.45, 0.45, "White", depth=0.5),  # glints
+    plate(1.9, 33.2, FRONT - 0.1, 2.8, 0.6, "Brow", depth=1.0, rot=(0, 0, -10)),  # arched brows
 )
 head += [
     block(0, 28.6, FRONT - 0.5, 1.4, 2.2, 1.0, "Wood"),  # the nose
     plate(0, 27.5, FRONT - 1.0, 1.4, 0.3, "Grain", depth=0.1),
-    plate(-0.4, 26.4, FRONT - 0.1, 3.2, 0.5, "Mouth", depth=0.2),  # a smirk, up at its right end
-    plate(1.6, 26.8, FRONT - 0.1, 1.2, 0.5, "Mouth", depth=0.2, rot=(0, 0, 30)),
+    plate(-0.4, 26.4, FRONT - 0.1, 3.2, 0.5, "Mouth", depth=1.0),  # a smirk, up at its right end
+    plate(1.6, 26.8, FRONT - 0.1, 1.2, 0.5, "Mouth", depth=1.0, rot=(0, 0, 30)),
 ]
 
 arms = [
