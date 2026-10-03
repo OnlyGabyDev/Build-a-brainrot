@@ -248,6 +248,8 @@ The pipeline works: the voxel Tralalero already runs on the lines in game (60 fp
 
 **In-game screenshot** (with bloom): the camera script resets the camera every frame, so pin it on the Client with `RunService:BindToRenderStep("ShotCam", Enum.RenderPriority.Last.Value, fn)` (set `Scriptable` and the CFrame inside), `screen_capture` with no camera arguments, then unbind and set the camera back to `Custom`.
 
+**Details must stand off their face:** `tools/voxel_art.py` runs `standoff()` on every spec (a thin solid within 0.35 voxel of a parallel face under it grows outward to 0.35), because details a hair off a face vanished from a few studs away (Tung's face, Tralalero's eyes, 2026-10-03). Regenerate a spec after editing it; never hand-place a plate flush.
+
 After each brainrot: `sh tools/typecheck.sh`, a preview screenshot, then commit and push. Tick it off in the task queue.
 
 ## The lab (tools/lab)
