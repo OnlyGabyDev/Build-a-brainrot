@@ -29,7 +29,7 @@ local PART_COLORS = {
 	Arms = { Color3.fromRGB(120, 225, 255), Color3.fromRGB(50, 170, 240) },
 	Legs = { Color3.fromRGB(170, 240, 110), Color3.fromRGB(100, 200, 60) },
 }
-local SIZE = Vector2.new(820, 620)
+local SIZE = Vector2.new(1000, 660)
 local SELECTED_COLOR = Color3.fromRGB(255, 200, 40)
 local BAD_COLOR = Color3.fromRGB(255, 90, 90)
 local GOOD_COLOR = Color3.fromRGB(110, 240, 110)
@@ -197,46 +197,62 @@ local function renderInfo(parent: Frame, line: LineView)
 	end
 end
 
+-- A rarity's gradient for a card's face, light at the top.
+local function rarityColors(rarity: Rarities.Rarity): { Color3 }
+	return { rarity.Color:Lerp(Kit.White, 0.55), rarity.Color:Lerp(Kit.White, 0.1) }
+end
+
+-- The four slots across the top: each a big card in its part's color, the part on it
+-- (a turning figure) on its rarity's colors; the selected one lifted, rimmed in gold,
+-- with a pointer down to the picker.
+local SLOT_W, SLOT_H, SLOT_GAP, SLOT_TOP = 220, 196, 18, 102
 local function renderSlot(parent: Frame, line: LineView, partType: string, index: number)
 	local hasDropper = line.Droppers[partType] == true
 	local brainrotId = line.Parts[partType]
 	local selected = partType == selectedSlot
+	local rarity = brainrotId and rarityOf(brainrotId)
+	local left = (SIZE.X - 4 * SLOT_W - 3 * SLOT_GAP) / 2
 
 	local card = Kit.new("TextButton", {
 		AutoButtonColor = false,
 		Text = "",
 		BackgroundColor3 = Kit.White,
-		Position = UDim2.fromOffset(32 + (index - 1) * 192, 106),
-		Size = UDim2.fromOffset(180, 200),
+		Position = UDim2.fromOffset(left + (index - 1) * (SLOT_W + SLOT_GAP), SLOT_TOP - (if selected then 6 else 0)),
+		Size = UDim2.fromOffset(SLOT_W, SLOT_H),
 		Parent = parent,
 	})
-	Kit.corner(card, 18)
-	Kit.stroke(card, if selected then 6 else 4, if selected then SELECTED_COLOR else nil)
+	Kit.corner(card, 20)
+	Kit.stroke(card, if selected then 7 else 4, if selected then SELECTED_COLOR else nil)
+	Kit.gradient(card, if rarity then rarityColors(rarity) else { Color3.fromRGB(245, 245, 250), Color3.fromRGB(215, 215, 228) })
+	Kit.shine(card, 18)
 
-	local header = Kit.new("Frame", { Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = Kit.White, Parent = card })
-	Kit.corner(header, 18)
+	local header = Kit.new("Frame", { Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Kit.White, Parent = card })
+	Kit.corner(header, 20)
 	Kit.gradient(header, PART_COLORS[partType])
-	Kit.text({ Text = string.upper(partType), Position = UDim2.fromOffset(0, 5), Size = UDim2.new(1, 0, 0, 28), Parent = header })
+	Kit.text({ Text = string.upper(partType), Position = UDim2.fromOffset(0, 4), Size = UDim2.new(1, 0, 0, 32), StrokeThickness = 3, Parent = header })
 
-	local rarity = brainrotId and rarityOf(brainrotId)
 	if brainrotId and rarity then
 		local model = BrainrotModels.CreatePart(brainrotId, partType)
-		Kit.viewport({ Position = UDim2.fromOffset(10, 42), Size = UDim2.fromOffset(160, 106), Parent = card }, model)
-		Kit.text({ Text = Brainrots.ById[brainrotId].Name, Position = UDim2.fromOffset(8, 150), Size = UDim2.new(1, -16, 0, 24), Parent = card })
-		Kit.text({ Text = string.upper(rarity.Id), TextColor3 = rarity.Color, Position = UDim2.fromOffset(8, 174), Size = UDim2.new(1, -16, 0, 18), Parent = card })
+		Kit.viewport({ Position = UDim2.fromOffset(12, 44), Size = UDim2.new(1, -24, 0, 100), Parent = card }, model)
+		Kit.text({ Text = Brainrots.ById[brainrotId].Name, Position = UDim2.fromOffset(8, 144), Size = UDim2.new(1, -16, 0, 26), StrokeThickness = 3, Parent = card })
+		Kit.text({ Text = `{string.rep("⭐", rarity.Rank)} {string.upper(rarity.Id)}`, TextColor3 = Kit.White, Position = UDim2.fromOffset(8, 170), Size = UDim2.new(1, -16, 0, 20), StrokeThickness = 2, Parent = card })
 	else
-		Kit.text({ Text = "EMPTY", TextColor3 = Color3.fromRGB(190, 190, 200), Position = UDim2.fromOffset(20, 80), Size = UDim2.new(1, -40, 0, 40), Parent = card })
+		Kit.text({ Text = "➕\nTAP TO PICK", TextColor3 = Color3.fromRGB(150, 145, 170), Position = UDim2.fromOffset(20, 70), Size = UDim2.new(1, -40, 0, 70), StrokeThickness = 0, Parent = card })
+	end
+
+	if selected then
+		Kit.text({ Text = "▼", TextColor3 = SELECTED_COLOR, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.fromOffset(40, 28), StrokeThickness = 3, Parent = card })
 	end
 
 	if not hasDropper then
 		local lock = Kit.new("Frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = Color3.fromRGB(40, 40, 55),
-			BackgroundTransparency = 0.25,
+			BackgroundTransparency = 0.2,
 			ZIndex = 3,
 			Parent = card,
 		})
-		Kit.corner(lock, 18)
+		Kit.corner(lock, 20)
 		Kit.text({
 			Text = `🔒\nBUY THE {string.upper(partType)} DROPPER`,
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -254,6 +270,10 @@ local function renderSlot(parent: Frame, line: LineView, partType: string, index
 	end)
 end
 
+-- A part to pick: a big tile on its rarity's colors with the part turning in it, its
+-- name and stars; EQUIPPED on the one in the slot, IN USE (dimmed) on one used by
+-- another line.
+local TILE_W, TILE_H = 140, 168
 local function renderTile(parent: Instance, order: number, text: string?, brainrotId: string?, option: Option?, onClick: () -> ())
 	local rarity = brainrotId and rarityOf(brainrotId)
 	local tile = Kit.new("TextButton", {
@@ -263,29 +283,35 @@ local function renderTile(parent: Instance, order: number, text: string?, brainr
 		BackgroundColor3 = Kit.White,
 		Parent = parent,
 	})
-	Kit.corner(tile, 14)
-	Kit.stroke(tile, 4, if rarity then rarity.Color else nil)
+	Kit.corner(tile, 18)
+	Kit.stroke(tile, 4)
+	Kit.gradient(tile, if rarity then rarityColors(rarity) else { Color3.fromRGB(245, 245, 250), Color3.fromRGB(215, 215, 228) })
+	Kit.shine(tile, 16)
 
-	if brainrotId and option then
+	if brainrotId and option and rarity then
 		local model = BrainrotModels.CreatePart(brainrotId, selectedSlot)
-		Kit.viewport({ Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 0, 84), Parent = tile }, model)
-		Kit.text({ Text = Brainrots.ById[brainrotId].Name, Position = UDim2.fromOffset(6, 90), Size = UDim2.new(1, -12, 0, 38), Parent = tile })
+		Kit.viewport({ Position = UDim2.fromOffset(8, 8), Size = UDim2.new(1, -16, 0, 96), Parent = tile }, model)
+		Kit.text({ Text = Brainrots.ById[brainrotId].Name, Position = UDim2.fromOffset(6, 104), Size = UDim2.new(1, -12, 0, 36), StrokeThickness = 2.5, Parent = tile })
+		Kit.text({ Text = string.rep("⭐", rarity.Rank), Position = UDim2.fromOffset(6, 140), Size = UDim2.new(1, -12, 0, 20), StrokeThickness = 0, Parent = tile })
 		if not option.Usable then
 			local dim = Kit.new("Frame", {
 				Size = UDim2.fromScale(1, 1),
 				BackgroundColor3 = Color3.fromRGB(40, 40, 55),
-				BackgroundTransparency = 0.35,
+				BackgroundTransparency = 0.3,
 				ZIndex = 3,
 				Parent = tile,
 			})
-			Kit.corner(dim, 14)
+			Kit.corner(dim, 18)
 			local where = if option.UsedOn then lineLabel(option.UsedOn) else "ANOTHER LINE"
-			Kit.text({ Text = `IN USE\n{where}`, TextColor3 = BAD_COLOR, Position = UDim2.fromOffset(8, 36), Size = UDim2.new(1, -16, 0, 44), ZIndex = 4, Parent = dim })
+			Kit.text({ Text = `IN USE\n{where}`, TextColor3 = BAD_COLOR, Position = UDim2.fromOffset(8, 50), Size = UDim2.new(1, -16, 0, 50), ZIndex = 4, Parent = dim })
 		end
 	else
-		Kit.text({ Text = text or "", TextColor3 = Color3.fromRGB(160, 160, 175), Position = UDim2.fromOffset(10, 40), Size = UDim2.new(1, -20, 0, 56), Parent = tile })
+		Kit.text({ Text = text or "", TextColor3 = Color3.fromRGB(150, 145, 170), Position = UDim2.fromOffset(10, 50), Size = UDim2.new(1, -20, 0, 66), StrokeThickness = 0, Parent = tile })
 	end
 
+	tile.MouseEnter:Connect(function()
+		Kit.pop(tile, 0.05)
+	end)
 	tile.Activated:Connect(function()
 		Kit.click()
 		onClick()
@@ -295,12 +321,13 @@ end
 
 local function renderPicker(parent: Frame, line: LineView)
 	local hasDropper = line.Droppers[selectedSlot] == true
+	local top = SLOT_TOP + SLOT_H + 30
 	Kit.text({
 		Text = if hasDropper
-			then `Pick a {string.upper(selectedSlot)} part  ·  one part, one line`
+			then `PICK A {string.upper(selectedSlot)}  ·  each part works on one line at a time`
 			else `Buy the {string.upper(selectedSlot)} dropper to use this slot`,
-		Position = UDim2.fromOffset(24, 318),
-		Size = UDim2.fromOffset(560, 26),
+		Position = UDim2.fromOffset(28, top),
+		Size = UDim2.new(1, -56, 0, 28),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = parent,
 	})
@@ -309,33 +336,41 @@ local function renderPicker(parent: Frame, line: LineView)
 	end
 
 	local scroller = Kit.new("ScrollingFrame", {
-		Position = UDim2.fromOffset(24, 350),
-		Size = UDim2.new(1, -48, 0, 134),
-		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(20, top + 34),
+		Size = UDim2.new(1, -40, 1, -(top + 34) - 78),
+		BackgroundColor3 = Color3.fromRGB(235, 230, 248),
 		BorderSizePixel = 0,
-		ScrollBarThickness = 8,
-		ScrollingDirection = Enum.ScrollingDirection.X,
-		AutomaticCanvasSize = Enum.AutomaticSize.X,
+		ScrollBarThickness = 10,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
 		Parent = parent,
 	})
-	Kit.new("UIListLayout", {
-		FillDirection = Enum.FillDirection.Horizontal,
-		Padding = UDim.new(0, 10),
+	Kit.corner(scroller, 16)
+	Kit.new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(TILE_W, TILE_H),
+		CellPadding = UDim2.fromOffset(12, 12),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Parent = scroller,
 	})
-	Kit.new("UIPadding", { PaddingLeft = UDim.new(0, 6), PaddingTop = UDim.new(0, 6), Parent = scroller })
+	Kit.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), Parent = scroller })
 
 	local current = line.Parts[selectedSlot]
-	local emptyTile = renderTile(scroller, 0, "✖\nEMPTY", nil, nil, function()
+	renderTile(scroller, 0, "✖\nEMPTY SLOT", nil, nil, function()
 		if current then
 			request("SetLinePart", "Couldn't empty that slot!", line.Id, selectedSlot, nil)
 		end
 	end)
-	emptyTile.Size = UDim2.fromOffset(100, 122)
 
-	local options: { Option } = line.Options[selectedSlot] or {}
+	-- the rarest first; usable ones before the ones in use elsewhere
+	local options: { Option } = table.clone(line.Options[selectedSlot] or {})
+	table.sort(options, function(a, b)
+		if a.Usable ~= b.Usable then
+			return a.Usable
+		end
+		local ra, rb = rarityOf(a.Id), rarityOf(b.Id)
+		return (if ra then ra.Rank else 0) > (if rb then rb.Rank else 0)
+	end)
 	for order, option in options do
 		local tile = renderTile(scroller, order, nil, option.Id, option, function()
 			if option.Id == current then
@@ -347,33 +382,36 @@ local function renderPicker(parent: Frame, line: LineView)
 			end
 			request("SetLinePart", "Couldn't equip that part!", line.Id, selectedSlot, option.Id)
 		end)
-		tile.Size = UDim2.fromOffset(100, 122)
 		if option.Id == current then
-			Kit.text({
-				Text = "✔",
-				TextColor3 = GOOD_COLOR,
-				AnchorPoint = Vector2.new(1, 0),
-				Position = UDim2.new(1, -4, 0, 2),
-				Size = UDim2.fromOffset(28, 28),
+			Kit.stroke(tile, 6, GOOD_COLOR)
+			local ribbon = Kit.new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0),
+				Position = UDim2.new(0.5, 0, 0, -4),
+				Size = UDim2.fromOffset(110, 26),
+				BackgroundColor3 = GOOD_COLOR,
 				ZIndex = 5,
 				Parent = tile,
 			})
+			Kit.corner(ribbon, 10)
+			Kit.stroke(ribbon, 3)
+			Kit.text({ Text = "✔ EQUIPPED", Position = UDim2.fromOffset(4, 3), Size = UDim2.new(1, -8, 1, -6), StrokeThickness = 2, ZIndex = 6, Parent = ribbon })
 		end
 	end
 end
 
 local function renderFooter(parent: Frame, line: LineView)
 	Kit.text({
-		Text = "Full match (all 4 from one brainrot) = 💰 x2 + completion!",
-		Position = UDim2.fromOffset(24, 498),
-		Size = UDim2.fromOffset(520, 30),
+		Text = "✨ Full match (all 4 from one brainrot) = 💰 x2 + completion!",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 28, 1, -22),
+		Size = UDim2.fromOffset(600, 32),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = parent,
 	})
 	Kit.button({
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -24, 0, 488),
-		Size = UDim2.fromOffset(220, 52),
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -24, 1, -14),
+		Size = UDim2.fromOffset(250, 58),
 	}, Kit.Colors.Green, "⭐ EQUIP BEST", function()
 		request("EquipBestLine", "Couldn't equip best!", line.Id)
 	end).Parent = parent
