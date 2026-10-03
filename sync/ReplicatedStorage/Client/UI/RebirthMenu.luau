@@ -132,15 +132,16 @@ local function renderRebirth(parent: Frame)
 
 	-- What you get and what resets.
 	local nextIncome = Rebirths.IncomeMultiplier(rebirths + 1, levels())
-	line(parent, "YOU GET", 122, GOLD_COLOR)
-	line(parent, `⭐ +{Rebirths.Points(math.max(coins, cost), rebirths)} Rebirth Points (more if you save up!)`, 152)
-	line(parent, `💰 +{math.floor(Rebirths.IncomeBonus * 100)}% Coins forever (x{string.format("%.2f", nextIncome)} total)`, 182)
-	local y = 212
+	-- (bigger lines that fill the column down to the button)
+	line(parent, "🎁 YOU GET", 124, GOLD_COLOR, 36)
+	line(parent, `⭐ +{Rebirths.Points(math.max(coins, cost), rebirths)} Rebirth Points (more if you save up!)`, 166, nil, 34)
+	line(parent, `💰 +{math.floor(Rebirths.IncomeBonus * 100)}% Coins forever (x{string.format("%.2f", nextIncome)} total)`, 204, nil, 34)
+	local y = 244
 	for _, unlock in unlocksAt(rebirths + 1) do
-		line(parent, unlock, y, GOOD_COLOR)
-		y += 30
+		line(parent, unlock, y, GOOD_COLOR, 32)
+		y += 36
 	end
-	line(parent, "Resets your Coins and tycoon. Keeps parts, Gems,\ncompletions, Rolls and line setups.", math.max(y + 8, 280), MUTED_COLOR, 52)
+	line(parent, "♻️ Resets your Coins and tycoon.\n✅ Keeps parts, Gems, completions, Rolls and line setups.", math.max(y + 10, 300), MUTED_COLOR, 90)
 
 	Kit.button({
 		Position = UDim2.fromOffset(24, 420),
