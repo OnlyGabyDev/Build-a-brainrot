@@ -1,7 +1,8 @@
 --[[
 	Shop
 	Gamepasses and Robux products (GDD §12). Prices come live from Roblox; items whose
-	id is still 0 (not created yet) show "SOON". Roll packs, wheel spins and box drops
+	id is still 0 (not created yet) show "SOON". Box drops and wheel spins cost Gems
+	(their GemPrice; the server checks and takes them). Wheel spins and box drops
 	give random rewards, so their odds are shown next to the buy buttons, before
 	purchase (Roblox's paid random items policy). Purchases are granted by the server
 	(ProcessReceipt).
@@ -21,22 +22,22 @@ local Products = require(Config:WaitForChild("Products"))
 local Format = require(Shared:WaitForChild("Format"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
 local Passes = require(script.Parent:WaitForChild("Passes"))
 
 local SIZE = Vector2.new(980, 620)
-local TABS = { "PASSES", "GEMS", "COINS", "BOXES", "ROLLS", "SPINS" }
-local TAB_KINDS = { GEMS = "Gems", COINS = "Coins", BOXES = "BoxDrop", ROLLS = "Rolls", SPINS = "WheelSpins" }
+local TABS = { "PASSES", "GEMS", "COINS", "BOXES", "SPINS" }
+local TAB_KINDS = { GEMS = "Gems", COINS = "Coins", BOXES = "BoxDrop", SPINS = "WheelSpins" }
 local KIND_COLORS = {
 	Gems = Kit.Colors.Gems,
 	Coins = Kit.Colors.Coins,
 	BoxDrop = { Color3.fromRGB(255, 170, 90), Color3.fromRGB(235, 70, 120) },
-	Rolls = Kit.Colors.Rolls,
 	WheelSpins = Kit.Colors.Purple,
 }
 local GOLD_COLOR = Color3.fromRGB(255, 215, 60)
 local GOOD_COLOR = Color3.fromRGB(120, 245, 110)
 
-type Item = { Kind: string, Key: string, Id: number, Order: number, Name: string, Icon: string, Text: string, Perks: { string }, Colors: { Color3 }, Ribbon: string?, Limited: boolean? }
+type Item = { Kind: string, Key: string, Id: number, Order: number, Name: string, Icon: string, Text: string, Perks: { string }, Colors: { Color3 }, Ribbon: string?, Limited: boolean?, GemPrice: number? }
 
 local player = Players.LocalPlayer
 local panel: Frame? = nil
@@ -88,7 +89,7 @@ local function items(): { Item }
 		for key, product in Products do
 			if product.Kind == TAB_KINDS[tab] then
 				local perks = perksOf(product)
-				table.insert(list, { Kind = "Product", Key = key, Id = product.Id, Order = product.Order, Name = product.Name, Icon = product.Icon, Text = perks[1], Perks = perks, Colors = KIND_COLORS[product.Kind] or Kit.Colors.Gems, Ribbon = product.Ribbon })
+				table.insert(list, { Kind = "Product", Key = key, Id = product.Id, Order = product.Order, Name = product.Name, Icon = product.Icon, Text = perks[1], Perks = perks, Colors = KIND_COLORS[product.Kind] or Kit.Colors.Gems, Ribbon = product.Ribbon, GemPrice = product.GemPrice })
 			end
 		end
 	end
@@ -102,7 +103,15 @@ local function buy(item: Item)
 	if item.Kind == "Pass" and Passes.Owns(item.Key) then
 		return
 	end
-	if item.Id <= 0 then
+	if item.GemPrice then
+		task.spawn(function()
+			local remote = Remotes.Function("BuyWithGems")
+			local ok, bought = pcall(remote.InvokeServer, remote, item.Key)
+			if not (ok and bought) then
+				Kit.toast(`Not enough Gems! You need 💎 {item.GemPrice}.`, Color3.fromRGB(255, 90, 90))
+			end
+		end)
+	elseif item.Id <= 0 then
 		Kit.toast("Coming soon!", GOLD_COLOR)
 	elseif item.Kind == "Pass" then
 		Passes.Prompt(item.Key)
@@ -173,10 +182,10 @@ local function renderCard(parent: Instance, item: Item)
 		Position = UDim2.new(0.5, 0, 1, -10),
 		Size = UDim2.new(1, -28, 0, 44),
 		Parent = card,
-	}, if owned then Kit.Colors.Grey else Kit.Colors.Green, if owned then "OWNED ✓" elseif item.Id <= 0 then "SOON" else "...", function()
+	}, if owned then Kit.Colors.Grey elseif item.GemPrice then Kit.Colors.Gems else Kit.Colors.Green, if owned then "OWNED ✓" elseif item.GemPrice then `💎 {item.GemPrice}` elseif item.Id <= 0 then "SOON" else "...", function()
 		buy(item)
 	end)
-	if not owned and item.Id > 0 then
+	if not owned and not item.GemPrice and item.Id > 0 then
 		task.spawn(function()
 			local price = Passes.PriceOf(item.Kind, item.Id)
 			local label = button:FindFirstChildOfClass("TextLabel")
@@ -229,23 +238,6 @@ local function percent(weight: number, total: number): string
 	return if value >= 1 then string.format("%.1f%%", value) else string.format("%.2f%%", value)
 end
 
-local function rollOddsLines(): { { Text: string, Color: Color3 } }
-	local odds = LootConfig.RollOdds(player:GetAttribute("Rebirths") or 0, player:GetAttribute("Luck") or 0)
-	local total = 0
-	for _, weight in odds do
-		total += weight
-	end
-	local lines = {}
-	for _, rarity in Rarities.List do
-		local weight = odds[rarity.Id]
-		if weight then
-			table.insert(lines, { Text = `{rarity.Id}: {percent(weight, total)}`, Color = rarity.Color })
-		end
-	end
-	table.insert(lines, { Text = "Part type: 25% each", Color = Kit.White })
-	return lines
-end
-
 -- One box of a bought drop: the part's rarity (the box's roll and the upgrade when it's
 -- opened, combined), for the player's rebirths and luck.
 local function dropOddsLines(): { { Text: string, Color: Color3 } }
@@ -296,7 +288,7 @@ render = function()
 		end)
 	end
 
-	local hasOdds = tab == "ROLLS" or tab == "SPINS" or tab == "BOXES"
+	local hasOdds = tab == "SPINS" or tab == "BOXES"
 	local grid = Kit.new("Frame", {
 		Position = UDim2.fromOffset(24, 70),
 		Size = UDim2.fromOffset(if hasOdds then 560 else 932, 460),
@@ -314,9 +306,7 @@ render = function()
 		renderCard(grid, item)
 	end
 
-	if tab == "ROLLS" then
-		renderOdds(frame, "ODDS PER ROLL", rollOddsLines())
-	elseif tab == "SPINS" then
+	if tab == "SPINS" then
 		renderOdds(frame, "WHEEL ODDS", wheelOddsLines())
 	elseif tab == "BOXES" then
 		renderOdds(frame, "ODDS PER BOX", dropOddsLines())
@@ -325,7 +315,7 @@ end
 
 -- Public API -------------------------------------------------------------------
 
--- Opens the shop, optionally on a tab ("PASSES", "GEMS", "COINS", "BOXES", "ROLLS", "SPINS").
+-- Opens the shop, optionally on a tab ("PASSES", "GEMS", "COINS", "BOXES", "SPINS").
 function Shop.Open(openTab: string?)
 	if not panel then
 		local newPanel, newContent = Kit.modal("Shop", "🛒 SHOP", Kit.Colors.Coins, SIZE)

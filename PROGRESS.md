@@ -269,6 +269,7 @@ How `MapBuilder` builds the world (read this before touching the map or anything
 ## Before going live
 - Create the gamepasses and developer products on the Creator Dashboard, and paste their ids into `Config/Gamepasses` and `Config/Products` (Coin packs and box drops included; each product's `SuggestedPrice` is the proposal).
 - Create the two badges (Welcome, FirstBox: names and descriptions in `Config/Badges`) and paste their ids. Icons for the passes and badges: `tools/icons/` (512×512, Twemoji).
+- **Ids in (2026-10-03):** all 7 gamepasses, the 4 Gem packs, the 4 Coin packs and the NUKE. Roll packs were removed; box drops and wheel spins cost Gems (`GemPrice` in `Config/Products`, placeholders: tune them against how many Gems players earn). Still missing: the 2 badge ids, Max Players 6, a live-server test.
 - Gamepass prices proposed in the 2026-10-03 chat: Starter Pack 499, VIP 1,499, 2x Coins 1,999, Auto-Collect 449, Lucky 349, Fast Open 199, Sprint 149 R$.
 - Set the place's Max Players to 6 (one plot each).
 - Test on a live server (DataStores, purchases).

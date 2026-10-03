@@ -7,7 +7,9 @@
 	    for a specific pass. Owned passes and perks are mirrored to Player attributes
 	    ("Pass_<Key>", "Perk_<Name>") for the UI; the attributes are display-only.
 	  * Developer products: granted in ProcessReceipt through DataManager, which records
-	    each receipt so a purchase is never granted twice.
+	    each receipt so a purchase is never granted twice. Products with a GemPrice (box
+	    drops, wheel spins) are bought with Gems instead (remote BuyWithGems), through the
+	    same handlers.
 	The Daily Wheel lives in DailyWheelManager.
 ]]
 
@@ -131,10 +133,26 @@ local function processReceipt(receipt: { [string]: any }): Enum.ProductPurchaseD
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
+-- A product bought with Gems: the server checks its price and takes the Gems before
+-- granting it with the same handler as a Robux purchase. True if it went through.
+local function buyWithGems(player: Player, key: unknown): boolean
+	local product = if type(key) == "string" then Products[key] else nil
+	local handler = product and productHandlers[product.Kind]
+	if not (product and product.GemPrice and handler and DataManager.IsLoaded(player)) then
+		return false
+	end
+	if not DataManager.SpendCurrency(player, "Gems", product.GemPrice) then
+		return false
+	end
+	purchasedRemote:FireClient(player, handler(player, product))
+	return true
+end
+
 -- Public API -------------------------------------------------------------------
 
 function MonetizationManager.Init()
 	purchasedRemote = Remotes.Event("Purchased")
+	Remotes.Function("BuyWithGems").OnServerInvoke = buyWithGems
 	NukeManager.Init()
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	for _, player in Players:GetPlayers() do

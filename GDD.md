@@ -321,10 +321,10 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 
 **Developer Products**
 - **Gem packs** (S / M / L / XL)
-- **Roll packs** (x3, x10)
-- **Daily wheel spins** (x1, x5)
+- ~~Roll packs~~ (removed before the release, the user 2026-10-03)
+- **Daily wheel spins** (x1, x5): **bought with Gems** (v3.3, the user; 40 / 180 💎, placeholders)
 - ✅ **Coin packs** (v2.9, the user): 10 min / 1 h / 4 h / 12 h of the buyer's own income, never less than 5K / 40K / 200K / 800K, so they stay worth buying as the factory grows. Suggested 49 / 199 / 599 / 1,299 R$.
-- ✅ **Box drops** (v2.9, the user asked for 1/5/10/25/100, the 100 at "5000 R$ or less, by other games' prices"): see §5. Suggested 39 / 179 / 329 / 749 / **2,499** R$ (~40 down to 25 R$ a box). Why not 5,000: *Steal a Brainrot*'s dearest single item is a 2,399 R$ Secret Lucky Block (one box), its 15 min of 2x Server Luck is 249 R$, and *Pet Simulator 99*'s packs run 50–2,400 R$; a 100-box storm near 2,500 reads as the top deal, at 5,000 it would be twice the genre leader's dearest item.
+- ✅ **Box drops** (v3.3: **bought with Gems**, 50 / 225 / 400 / 900 / 3,000 💎, placeholders; the server checks and takes them, remote BuyWithGems) (v2.9, the user asked for 1/5/10/25/100, the 100 at "5000 R$ or less, by other games' prices"): see §5. Suggested 39 / 179 / 329 / 749 / **2,499** R$ (~40 down to 25 R$ a box). Why not 5,000: *Steal a Brainrot*'s dearest single item is a 2,399 R$ Secret Lucky Block (one box), its 15 min of 2x Server Luck is 249 R$, and *Pet Simulator 99*'s packs run 50–2,400 R$; a 100-box storm near 2,500 reads as the top deal, at 5,000 it would be twice the genre leader's dearest item.
 - Prices are set on the Creator Dashboard; `SuggestedPrice` in `Config/Products` is the note for Go live.
 - **Server Luck Boost** 💡: everyone in the server gets 2x Luck for 15 min, with a server-wide announcement of who bought it.
 
