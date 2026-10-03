@@ -127,6 +127,48 @@ function Kit.pop(object: GuiObject, amount: number?)
 	TweenService:Create(popScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 end
 
+-- A glossy highlight across the top of a button or pill (under its text: ZIndex 0).
+function Kit.shine(parent: GuiObject, radius: number?): Frame
+	local gloss = Kit.new("Frame", {
+		Name = "Shine",
+		Position = UDim2.new(0, 5, 0, 4),
+		Size = UDim2.new(1, -10, 0.42, 0),
+		BackgroundColor3 = WHITE,
+		BackgroundTransparency = 0.62,
+		BorderSizePixel = 0,
+		ZIndex = 0,
+		Parent = parent,
+	})
+	Kit.corner(gloss, radius or 10)
+	Kit.new("UIGradient", {
+		Transparency = NumberSequence.new(0, 0.7),
+		Rotation = 90,
+		Parent = gloss,
+	})
+	return gloss
+end
+
+-- Text that floats up from `position` (in `parent`) and fades, like "+1.2K".
+function Kit.floatText(parent: GuiObject, text: string, color: Color3, position: UDim2, zIndex: number?)
+	local label = Kit.text({
+		Text = text,
+		TextColor3 = color,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = position,
+		Size = UDim2.fromOffset(180, 38),
+		StrokeThickness = 3,
+		ZIndex = zIndex or 20,
+		Parent = parent,
+	})
+	Kit.pop(label, 0.4)
+	local info = TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(label, info, { Position = position - UDim2.fromOffset(0, 46), TextTransparency = 1 }):Play()
+	TweenService:Create(label:FindFirstChildOfClass("UIStroke") :: UIStroke, info, { Transparency = 1 }):Play()
+	task.delay(1, function()
+		label:Destroy()
+	end)
+end
+
 -- A chunky, bouncy button. `colors` is a gradient pair from Kit.Colors.
 function Kit.button(props: { [string]: any }, colors: { Color3 }, text: string?, onClick: () -> ()): TextButton
 	local button = Kit.new("TextButton", {
@@ -143,6 +185,7 @@ function Kit.button(props: { [string]: any }, colors: { Color3 }, text: string?,
 	Kit.corner(button, 14)
 	Kit.stroke(button, 3.5)
 	Kit.gradient(button, colors)
+	Kit.shine(button, 10)
 	if text then
 		Kit.text({
 			Text = text,
@@ -279,25 +322,53 @@ function Kit.modal(name: string, title: string, colors: { Color3 }, size: Vector
 	return panel, content
 end
 
--- Shows a panel with a bounce, closing whichever menu was open.
+-- Shows a panel with a whoosh and a bounce (up from a little lower), closing whichever
+-- menu was open.
 function Kit.open(panel: Frame)
 	if openModal and openModal ~= panel then
 		openModal.Visible = false
 	end
 	openModal = panel
+	local shown = panel:GetAttribute("Shown")
+	panel:SetAttribute("Shown", (if typeof(shown) == "number" then shown else 0) + 1) -- (cancels a close still shrinking it)
 	panel.Visible = true
+	local home = panel:GetAttribute("Home")
+	if typeof(home) ~= "UDim2" then
+		home = panel.Position
+		panel:SetAttribute("Home", home)
+	end
+	local bounce = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	panel.Position = (home :: UDim2) + UDim2.fromOffset(0, 40)
+	TweenService:Create(panel, bounce, { Position = home }):Play()
 	local scale = panel:FindFirstChild("OpenScale") :: UIScale?
 	if scale then
 		scale.Scale = 0.6
-		TweenService:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		TweenService:Create(scale, bounce, { Scale = 1 }):Play()
 	end
+	Kit.playSound(Sounds.Whoosh, 0.22, 1.7)
 end
 
 function Kit.close(panel: Frame)
-	panel.Visible = false
 	if openModal == panel then
 		openModal = nil
 	end
+	if not panel.Visible then
+		return
+	end
+	local scale = panel:FindFirstChild("OpenScale") :: UIScale?
+	if not scale then
+		panel.Visible = false
+		return
+	end
+	Kit.playSound(Sounds.Pop, 0.18, 1.4)
+	local shown = panel:GetAttribute("Shown")
+	TweenService:Create(scale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.8 }):Play()
+	task.delay(0.1, function()
+		if panel:GetAttribute("Shown") == shown then
+			panel.Visible = false
+			scale.Scale = 1
+		end
+	end)
 end
 
 -- Hype effects ---------------------------------------------------------------
@@ -342,33 +413,73 @@ function Kit.confetti(parent: GuiObject, colors: { Color3 }, count: number, zInd
 	end
 end
 
--- Two big rotating squares behind something special. Returns a function that stops
--- and removes them.
+-- A sunburst behind something special: two wheels of light rays turning opposite
+-- ways round a soft glow, in `color`. Returns a function that stops and removes it.
 function Kit.rays(parent: GuiObject, color: Color3, size: number, zIndex: number): () -> ()
-	local rays = {}
-	for index = 1, 2 do
-		local ray = Kit.new("Frame", {
+	local holder = Kit.new("Frame", {
+		Name = "Sunburst",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(size, size),
+		BackgroundTransparency = 1,
+		ZIndex = zIndex,
+		Parent = parent,
+	})
+	local glow = Kit.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.55, 0.55),
+		BackgroundColor3 = color:Lerp(WHITE, 0.4),
+		BackgroundTransparency = 0.45,
+		ZIndex = zIndex,
+		Parent = holder,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = glow })
+	Kit.new("UIGradient", {
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1) }),
+		Parent = glow,
+	})
+	local wheels = {}
+	for index, spec in { { Bars = 6, Width = 0.09, Fade = 0.35 }, { Bars = 6, Width = 0.04, Fade = 0.15 } } do
+		local wheel = Kit.new("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(size, size),
-			BackgroundColor3 = color,
-			BackgroundTransparency = 0.65,
-			Rotation = index * 45,
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			Rotation = (index - 1) * 15,
 			ZIndex = zIndex,
-			Parent = parent,
+			Parent = holder,
 		})
-		Kit.corner(ray, size / 10)
-		rays[index] = ray
+		for bar = 0, spec.Bars - 1 do
+			local ray = Kit.new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromScale(1, spec.Width),
+				Rotation = bar * 180 / spec.Bars,
+				BackgroundColor3 = if index == 1 then color else color:Lerp(WHITE, 0.5),
+				BorderSizePixel = 0,
+				ZIndex = zIndex,
+				Parent = wheel,
+			})
+			Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = ray })
+			Kit.new("UIGradient", {
+				Transparency = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, 1),
+					NumberSequenceKeypoint.new(0.5, spec.Fade),
+					NumberSequenceKeypoint.new(1, 1),
+				}),
+				Parent = ray,
+			})
+		end
+		wheels[index] = wheel
 	end
 	local connection = RunService.RenderStepped:Connect(function(dt)
-		rays[1].Rotation += dt * 25
-		rays[2].Rotation -= dt * 18
+		wheels[1].Rotation += dt * 22
+		wheels[2].Rotation -= dt * 14
 	end)
 	return function()
 		connection:Disconnect()
-		for _, ray in rays do
-			ray:Destroy()
-		end
+		holder:Destroy()
 	end
 end
 

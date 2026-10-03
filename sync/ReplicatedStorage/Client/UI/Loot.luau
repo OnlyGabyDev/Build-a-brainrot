@@ -1,13 +1,15 @@
 --[[
 	Loot
-	Opens Rolls and shows loot results (GDD §5): a prize wheel spins and lands on the
-	server's result, then a reveal card shows the part. The server rolled the result
-	before any of this plays; the wheel is only for show. Results queue up, so grabbing
-	several boxes plays their wheels one after another.
+	Opens Rolls and shows loot results (GDD §5): a prize reel (a strip of glossy rarity
+	cards in a lit gold frame, case-opening style) spins and stops on the server's result
+	under the marker, then a reveal card shows the part. The server rolled the result
+	before any of this plays; the reel is only for show. Results queue up, so grabbing
+	several boxes plays their reels one after another. The Daily Wheel uses the same reel.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
@@ -25,10 +27,15 @@ local Kit = require(script.Parent:WaitForChild("Kit"))
 local LineMenu = require(script.Parent:WaitForChild("LineMenu"))
 
 local SLOT_COUNT = 12
-local WHEEL_SIZE = 480
-local SLOT_RADIUS = 172
-local SPIN_TIME = 3.2
-local SPIN_TURNS = 4
+local CARD = 156 -- a reel card, square
+local PITCH = 174 -- card to card
+local REEL = Vector2.new(980, 236)
+local STRIP_CARDS = 44
+local TARGET_AT = 36 -- the strip's card that stops under the marker
+local SPIN_TIME = 3.8
+local REEL_BACK = { Color3.fromRGB(60, 36, 110), Color3.fromRGB(26, 16, 58) }
+local REEL_GOLD = Color3.fromRGB(255, 205, 70)
+local BULB_COLORS = { Color3.fromRGB(255, 235, 120), Color3.fromRGB(255, 110, 220), Color3.fromRGB(110, 230, 255) }
 local AUTO_CLOSE = 8 -- seconds before a reveal closes itself
 local BIG_RANK = 3 -- Rare and up get the bigger reveal
 local CURRENCY_ICONS = { Coins = "💰", Gems = "💎" }
@@ -47,7 +54,7 @@ export type Result = {
 	Amount: number?,
 }
 
-export type Slot = { Key: string, Label: string, Color: Color3 }
+export type Slot = { Key: string, Label: string, Color: Color3, Stars: number? }
 
 local player = Players.LocalPlayer
 local queue: { Result } = {}
@@ -86,7 +93,7 @@ local function buildSlots(result: Result): { Slot }
 
 	local slots: { Slot } = {}
 	local function add(rarity: Rarities.Rarity)
-		table.insert(slots, { Key = rarity.Id, Label = string.upper(rarity.Id), Color = rarity.Color })
+		table.insert(slots, { Key = rarity.Id, Label = string.upper(rarity.Id), Color = rarity.Color, Stars = rarity.Rank })
 	end
 	for rank = #Rarities.List, 1, -1 do -- rarest first, so each is guaranteed a slot
 		local rarity = Rarities.List[rank]
@@ -126,105 +133,220 @@ local function pickTarget(slots: { Slot }, result: Result): number
 	return matches[math.random(1, #matches)]
 end
 
--- Wheel ----------------------------------------------------------------------
+-- Reel -----------------------------------------------------------------------
 
-local function circle(parent: Instance)
-	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = parent })
+local RAINBOW = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 90, 90)),
+	ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 220, 70)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 240, 120)),
+	ColorSequenceKeypoint.new(0.75, Color3.fromRGB(90, 180, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 110, 255)),
+})
+
+-- A glossy card for `slot`: its color top to bottom (Godly in a rainbow), stars for its
+-- rarity, its label.
+local function reelCard(parent: Frame, slot: Slot, x: number): Frame
+	local card = Kit.new("Frame", {
+		Position = UDim2.new(0, x, 0.5, -CARD / 2),
+		Size = UDim2.fromOffset(CARD, CARD),
+		BackgroundColor3 = Kit.White,
+		ZIndex = 33,
+		Parent = parent,
+	})
+	Kit.corner(card, 22)
+	Kit.stroke(card, 4)
+	if slot.Key == "Godly" then
+		Kit.new("UIGradient", { Color = RAINBOW, Rotation = 45, Parent = card })
+	else
+		Kit.gradient(card, { slot.Color:Lerp(Kit.White, 0.35), slot.Color:Lerp(Color3.new(0, 0, 0), 0.18) })
+	end
+	Kit.shine(card, 16)
+	local stars = slot.Stars
+	if stars then
+		Kit.text({
+			Text = string.rep("⭐", stars),
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 16),
+			Size = UDim2.new(0.86, 0, 0, 40),
+			StrokeThickness = 0,
+			ZIndex = 34,
+			Parent = card,
+		})
+	end
+	Kit.text({
+		Text = slot.Label,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -14),
+		Size = UDim2.new(0.9, 0, 0, if stars then 52 else CARD - 32),
+		StrokeThickness = 3,
+		ZIndex = 34,
+		Parent = card,
+	})
+	Kit.new("UIScale", { Name = "PopScale", Parent = card })
+	return card
 end
 
-local function buildWheel(parent: Frame, slots: { Slot }, hubText: string): (Frame, Frame, { Frame })
-	local wheel = Kit.new("Frame", {
+type Reel = { Root: Frame, Strip: Frame, Cards: { Frame }, Marker: Frame, Bulbs: { Frame }, Width: number }
+
+-- The reel on the overlay: a dark frame with a gold rim and chasing bulbs, the strip of
+-- cards clipped inside it (faded at the ends), the gold marker in the middle, and its
+-- title in a pill above it. Card TARGET_AT shows `slots[target]`; the rest are random
+-- picks from `slots` (which already holds each prize about as often as it comes up).
+local function buildReel(parent: Frame, slots: { Slot }, target: number, title: string): Reel
+	local root = Kit.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(WHEEL_SIZE, WHEEL_SIZE),
+		Size = UDim2.fromOffset(REEL.X, REEL.Y),
 		BackgroundColor3 = Kit.White,
 		ZIndex = 31,
 		Parent = parent,
 	})
-	circle(wheel)
-	Kit.stroke(wheel, 8)
-	Kit.gradient(wheel, Kit.Colors.Rolls)
+	Kit.corner(root, 30)
+	Kit.stroke(root, 7, REEL_GOLD)
+	Kit.gradient(root, REEL_BACK)
 
-	local spinner = Kit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 32, Parent = wheel })
-	local cards = {}
-	for index, slot in slots do
-		local angle = (index - 1) / #slots * math.pi * 2
-		local card = Kit.new("Frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, math.sin(angle) * SLOT_RADIUS, 0.5, -math.cos(angle) * SLOT_RADIUS),
-			Size = UDim2.fromOffset(92, 92),
-			Rotation = math.deg(angle),
-			BackgroundColor3 = slot.Color,
-			ZIndex = 33,
-			Parent = spinner,
-		})
-		Kit.corner(card, 18)
-		Kit.stroke(card, 4)
-		Kit.text({
-			Text = slot.Label,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(0.9, 0.55),
-			ZIndex = 34,
-			Parent = card,
-		})
-		cards[index] = card
+	-- the title, in a pill over the top edge
+	local pill = Kit.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 0, 22),
+		Size = UDim2.fromOffset(440, 74),
+		BackgroundColor3 = Kit.White,
+		ZIndex = 38,
+		Parent = root,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = pill })
+	Kit.stroke(pill, 5)
+	Kit.gradient(pill, Kit.Colors.Rolls)
+	Kit.shine(pill, 24)
+	Kit.text({
+		Text = string.gsub(title, "\n", "  ·  "),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(0.86, 0, 0, 46),
+		StrokeThickness = 3,
+		ZIndex = 39,
+		Parent = pill,
+	})
+
+	-- chasing bulbs along the top and bottom edges
+	local bulbs = {}
+	for row = 0, 1 do
+		for k = 0, 15 do
+			local bulb = Kit.new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0, 60 + k * (REEL.X - 120) / 15, row, if row == 0 then 12 else -12),
+				Size = UDim2.fromOffset(14, 14),
+				BackgroundColor3 = BULB_COLORS[k % #BULB_COLORS + 1],
+				ZIndex = 32,
+				Parent = root,
+			})
+			Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = bulb })
+			table.insert(bulbs, bulb)
+		end
 	end
 
-	local hub = Kit.new("Frame", {
+	-- the strip, clipped inside the frame
+	local width = REEL.X - 36
+	local clip = Kit.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(170, 170),
-		BackgroundColor3 = Kit.White,
-		ZIndex = 35,
-		Parent = wheel,
+		Size = UDim2.fromOffset(width, CARD + 30),
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+		ZIndex = 32,
+		Parent = root,
 	})
-	circle(hub)
-	Kit.stroke(hub, 6)
-	Kit.gradient(hub, Kit.Colors.Purple)
-	Kit.text({
-		Text = hubText,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(0.75, 0.5),
-		ZIndex = 36,
-		Parent = hub,
-	})
+	local strip = Kit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 32, Parent = clip })
+	local random = Random.new()
+	local cards = {}
+	for index = 1, STRIP_CARDS do
+		local slot = if index == TARGET_AT then slots[target] else slots[random:NextInteger(1, #slots)]
+		cards[index] = reelCard(strip, slot, (index - 1) * PITCH)
+	end
+	-- the ends fade into the frame
+	for side = 0, 1 do
+		local fade = Kit.new("Frame", {
+			AnchorPoint = Vector2.new(side, 0),
+			Position = UDim2.fromScale(side, 0),
+			Size = UDim2.new(0, 170, 1, 0),
+			BackgroundColor3 = REEL_BACK[2]:Lerp(REEL_BACK[1], 0.5),
+			BorderSizePixel = 0,
+			ZIndex = 36,
+			Parent = clip,
+		})
+		Kit.new("UIGradient", { Transparency = NumberSequence.new(if side == 0 then 0 else 1, if side == 0 then 1 else 0), Parent = fade })
+	end
 
-	Kit.text({
-		Text = "▼",
-		TextColor3 = Color3.fromRGB(255, 220, 60),
+	-- the marker: a gold line down the middle with a pointer at each end
+	local marker = Kit.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0.5, -WHEEL_SIZE / 2 - 18),
-		Size = UDim2.fromOffset(80, 80),
-		StrokeThickness = 4,
-		ZIndex = 40,
-		Parent = wheel,
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(0, 6, 1, -20),
+		BackgroundColor3 = REEL_GOLD,
+		BorderSizePixel = 0,
+		ZIndex = 37,
+		Parent = root,
 	})
-	return wheel, spinner, cards
+	Kit.stroke(marker, 2)
+	for _, y in { 0, 1 } do
+		local pointer = Kit.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, y),
+			Size = UDim2.fromOffset(30, 30),
+			Rotation = 45,
+			BackgroundColor3 = REEL_GOLD,
+			ZIndex = 37,
+			Parent = marker,
+		})
+		Kit.corner(pointer, 6)
+		Kit.stroke(pointer, 3)
+	end
+	Kit.new("UIScale", { Name = "PopScale", Parent = marker })
+	return { Root = root, Strip = strip, Cards = cards, Marker = marker, Bulbs = bulbs, Width = width }
 end
 
--- Spins so the target slot stops under the pointer, ticking as slots pass it.
-local function spin(spinner: Frame, slotCount: number, target: number)
-	local step = 360 / slotCount
-	local jitter = (math.random() - 0.5) * step * 0.6 -- stop anywhere on the slot, for suspense
-	local final = SPIN_TURNS * 360 + (360 - (target - 1) * step) % 360 + jitter
+-- Where the strip sits (its X offset) with the middle of card `index` (plus `nudge`)
+-- under the marker.
+local function stripX(reel: Reel, index: number, nudge: number): number
+	return reel.Width / 2 - ((index - 1) * PITCH + CARD / 2 + nudge)
+end
 
+-- Spins the strip from a few cards in to TARGET_AT, slowing down, ticking as each card
+-- passes the marker (the marker bounces), the bulbs chasing; it stops a little off the
+-- card's middle, then settles onto it.
+local function spin(reel: Reel)
+	local nudge = (math.random() - 0.5) * CARD * 0.7 -- stop anywhere on the card, for suspense
 	local value = Instance.new("NumberValue")
-	local lastSlot = 0
-	value.Changed:Connect(function(rotation)
-		spinner.Rotation = rotation
-		local slot = math.floor((rotation + step / 2) / step)
-		if slot ~= lastSlot then
-			lastSlot = slot
+	value.Value = stripX(reel, 3, 0)
+	local lastCard = 0
+	value.Changed:Connect(function(x)
+		reel.Strip.Position = UDim2.fromOffset(x, 0)
+		local under = math.floor((reel.Width / 2 - x) / PITCH)
+		if under ~= lastCard then
+			lastCard = under
 			playTick()
+			Kit.pop(reel.Marker, 0.25)
+		end
+	end)
+	reel.Strip.Position = UDim2.fromOffset(value.Value, 0)
+	local chase = RunService.RenderStepped:Connect(function()
+		local step = math.floor(os.clock() * 12)
+		for index, bulb in reel.Bulbs do
+			bulb.BackgroundTransparency = if (index + step) % 3 == 0 then 0 else 0.55
 		end
 	end)
 	local speed = if player:GetAttribute("Pass_FastOpen") then Gamepasses.FastOpen.WheelSpeed or 1 else 1
 	local info = TweenInfo.new(SPIN_TIME / speed, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-	local tween = TweenService:Create(value, info, { Value = final })
+	local tween = TweenService:Create(value, info, { Value = stripX(reel, TARGET_AT, nudge) })
 	tween:Play()
 	tween.Completed:Wait()
+	local settle = TweenService:Create(value, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Value = stripX(reel, TARGET_AT, 0) })
+	settle:Play()
+	settle.Completed:Wait()
+	chase:Disconnect()
+	for _, bulb in reel.Bulbs do
+		bulb.BackgroundTransparency = 0
+	end
 	value:Destroy()
 end
 
@@ -286,6 +408,15 @@ local function reveal(parent: Frame, result: Result)
 
 	Kit.text({ Text = brainrot.Name, Position = UDim2.fromOffset(20, 314), Size = UDim2.new(1, -40, 0, 44), ZIndex = 33, Parent = card })
 	Kit.text({
+		Text = string.rep("⭐", rarity.Rank),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0, 78),
+		Size = UDim2.fromOffset(240, 34),
+		StrokeThickness = 0,
+		ZIndex = 35,
+		Parent = card,
+	})
+	Kit.text({
 		Text = `{string.upper(result.PartType)}  ·  {string.upper(rarity.Id)}`,
 		TextColor3 = rarity.Color,
 		Position = UDim2.fromOffset(20, 358),
@@ -325,6 +456,17 @@ local function reveal(parent: Frame, result: Result)
 	end
 
 	Kit.playSound(if big then Sounds.RevealBig else Sounds.Reveal, 0.5)
+	if big then
+		-- a little shake for the rare ones
+		task.spawn(function()
+			local home = card.Position
+			for k = 1, 8 do
+				card.Position = home + UDim2.fromOffset(math.random(-8, 8) * (1 - k / 9), math.random(-6, 6) * (1 - k / 9))
+				task.wait(0.03)
+			end
+			card.Position = home
+		end)
+	end
 	if result.New or big then
 		local colors = { rarity.Color, Color3.fromRGB(255, 220, 60), Color3.fromRGB(120, 220, 255), Color3.fromRGB(255, 120, 220) }
 		Kit.confetti(parent, colors, if big then 60 else 30)
@@ -340,26 +482,38 @@ end
 
 -- Playback -------------------------------------------------------------------
 
--- Shows a prize wheel on a dim overlay, spins it until slot `target` is under the
--- pointer, and flashes `color`. Returns the overlay: the caller shows its reveal on
--- it, then destroys it.
+-- Shows the prize reel on a dim overlay, spins it until slot `target` stops under the
+-- marker, and flashes `color`. Returns the overlay: the caller shows its reveal on it,
+-- then destroys it.
 function Loot.PlayWheel(slots: { Slot }, target: number, hubText: string, color: Color3): Frame
 	local screen = Kit.new("Frame", {
 		Name = "LootOverlay",
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Color3.new(0, 0, 0),
-		BackgroundTransparency = 0.45,
+		BackgroundColor3 = Color3.fromRGB(20, 10, 40),
+		BackgroundTransparency = 0.4,
 		Active = true,
 		ZIndex = 30,
 		Parent = Kit.getGui(),
 	})
-	local wheel, spinner, cards = buildWheel(screen, slots, hubText)
-	Kit.pop(wheel, -0.6)
-	spin(spinner, #slots, target)
-	Kit.pop(cards[target], 0.35)
+	local reel = buildReel(screen, slots, target, hubText)
+	Kit.new("UIScale", { Name = "PopScale", Parent = reel.Root })
+	Kit.pop(reel.Root, -0.4)
+	Kit.playSound(Sounds.Whoosh, 0.25, 1.4)
+	task.wait(0.25)
+	spin(reel)
+	-- the winner pops out of the strip
+	local winner = reel.Cards[TARGET_AT]
+	local scale = winner:FindFirstChild("PopScale") :: UIScale
+	TweenService:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.18 }):Play()
+	local rim = winner:FindFirstChildOfClass("UIStroke")
+	if rim then
+		rim.Color = REEL_GOLD
+		rim.Thickness = 6
+	end
+	Kit.playSound(Sounds.Coin, 0.4, 1.2)
 	Kit.flash(screen, color)
-	task.wait(0.45)
-	wheel:Destroy()
+	task.wait(0.6)
+	reel.Root:Destroy()
 	return screen
 end
 

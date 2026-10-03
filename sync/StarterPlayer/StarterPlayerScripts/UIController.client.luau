@@ -9,6 +9,7 @@
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 
@@ -27,10 +28,11 @@ local RebirthMenu = require(UI:WaitForChild("RebirthMenu"))
 local Shop = require(UI:WaitForChild("Shop"))
 
 local COUNTERS = {
-	{ Stat = "Coins", Icon = "💰", Colors = Kit.Colors.Coins },
-	{ Stat = "Gems", Icon = "💎", Colors = Kit.Colors.Gems },
-	{ Stat = "Rolls", Icon = "🎲", Colors = Kit.Colors.Rolls },
+	{ Stat = "Coins", Icon = "💰", Colors = Kit.Colors.Coins, Float = Color3.fromRGB(255, 235, 110), Gap = 70 },
+	{ Stat = "Gems", Icon = "💎", Colors = Kit.Colors.Gems, Float = Color3.fromRGB(140, 235, 255), Gap = 110 },
+	{ Stat = "Rolls", Icon = "🎲", Colors = Kit.Colors.Rolls, Float = Color3.fromRGB(255, 160, 240), Gap = 160 },
 }
+local COIN_BATCH = 0.7 -- Coins come in all the time: their "+N" shows at most this often
 local LINE_REACH = 28 -- a bit under the server's reach, so an open here always works
 local TABLET_DISTANCE = 3.4 -- studs from the tablet's screen to the camera, flown in
 local TABLET_FOV = 50
@@ -42,11 +44,13 @@ local player = Players.LocalPlayer
 local gui = Kit.getGui()
 
 -- Counters -------------------------------------------------------------------
+-- Top left, Pet Simulator style: a glossy pill per currency with its icon in a bubble
+-- sticking out of its left end; it counts up smoothly, pops, and floats a "+N" off its
+-- right end when it goes up.
 
 local counters = Kit.new("Frame", {
 	Name = "Counters",
-	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 28, 0.5, -70),
+	Position = UDim2.fromOffset(34, 84),
 	Size = UDim2.fromOffset(360, 212),
 	BackgroundTransparency = 1,
 	Parent = gui,
@@ -54,22 +58,36 @@ local counters = Kit.new("Frame", {
 Kit.new("UIListLayout", { Padding = UDim.new(0, 16), SortOrder = Enum.SortOrder.LayoutOrder, Parent = counters })
 
 -- A pill that shows a Player attribute, counting up smoothly with a pop.
-local function makeCounter(order: number, stat: string, icon: string, colors: { Color3 }): Frame
+local function makeCounter(order: number, counter: typeof(COUNTERS[1])): Frame
+	local stat = counter.Stat
 	local pill = Kit.new("Frame", {
 		Name = stat,
 		LayoutOrder = order,
-		Size = UDim2.fromOffset(230, 60),
+		Size = UDim2.fromOffset(236, 60),
 		BackgroundColor3 = Kit.White,
 		Parent = counters,
 	})
 	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = pill })
 	Kit.stroke(pill, 4)
-	Kit.gradient(pill, colors)
-	Kit.text({ Text = icon, Position = UDim2.fromOffset(-16, -10), Size = UDim2.fromOffset(76, 76), StrokeThickness = 0, Parent = pill })
+	Kit.gradient(pill, counter.Colors)
+	Kit.shine(pill, 18)
+	-- the icon in its bubble
+	local bubble = Kit.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0, 14, 0.5, 0),
+		Size = UDim2.fromOffset(72, 72),
+		BackgroundColor3 = Kit.White,
+		ZIndex = 2,
+		Parent = pill,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = bubble })
+	Kit.stroke(bubble, 4)
+	Kit.gradient(bubble, { Kit.White, counter.Colors[1] })
+	Kit.text({ Text = counter.Icon, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.72, 0.72), StrokeThickness = 0, ZIndex = 3, Parent = bubble })
 	local label = Kit.text({
 		Text = "0",
-		Position = UDim2.fromOffset(66, 9),
-		Size = UDim2.new(1, -84, 1, -18),
+		Position = UDim2.fromOffset(60, 9),
+		Size = UDim2.new(1, -78, 1, -18),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		StrokeThickness = 3,
 		Parent = pill,
@@ -79,21 +97,44 @@ local function makeCounter(order: number, stat: string, icon: string, colors: { 
 	shown.Changed:Connect(function(value)
 		label.Text = Format.Number(math.floor(value + 0.5))
 	end)
+	local last = player:GetAttribute(stat) or 0
+	local pending, flushing = 0, false
+	local function float(amount: number)
+		Kit.floatText(pill, `+{Format.Number(amount)}`, counter.Float, UDim2.new(1, counter.Gap, 0.5, 0))
+		Kit.pop(bubble, 0.2)
+	end
 	local function update()
 		local target = player:GetAttribute(stat) or 0
 		if target > shown.Value then
 			Kit.pop(pill, 0.08)
 		end
+		local gain = target - last
+		last = target
+		if gain > 0 and stat == "Coins" then
+			-- batched, so a busy factory doesn't flood the screen
+			pending += gain
+			if not flushing then
+				flushing = true
+				task.delay(COIN_BATCH, function()
+					flushing = false
+					float(pending)
+					pending = 0
+				end)
+			end
+		elseif gain > 0 then
+			float(gain)
+		end
 		TweenService:Create(shown, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = target }):Play()
 	end
 	player:GetAttributeChangedSignal(stat):Connect(update)
-	update()
+	shown.Value = last
+	label.Text = Format.Number(last)
 	return pill
 end
 
 local pills = {}
 for order, counter in COUNTERS do
-	pills[counter.Stat] = makeCounter(order, counter.Stat, counter.Icon, counter.Colors)
+	pills[counter.Stat] = makeCounter(order, counter)
 end
 
 Kit.button({
@@ -102,30 +143,48 @@ Kit.button({
 	Size = UDim2.fromOffset(96, 50),
 	Parent = pills.Rolls,
 }, Kit.Colors.Green, "OPEN", Loot.OpenRoll)
+Kit.button({
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(1, 12, 0.5, 0),
+	Size = UDim2.fromOffset(50, 50),
+	Parent = pills.Gems,
+}, Kit.Colors.Green, "+", function()
+	Shop.Open("GEMS")
+end)
 
 -- Menu buttons ---------------------------------------------------------------
 
+-- Under the counters, two to a row: big glossy squares, their icons bobbing gently.
 local buttons = Kit.new("Frame", {
 	Name = "MenuButtons",
-	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 28, 0.5, 130),
-	Size = UDim2.fromOffset(620, 110),
+	Position = UDim2.fromOffset(28, 316),
+	Size = UDim2.fromOffset(216, 340),
 	BackgroundTransparency = 1,
 	Parent = gui,
 })
-Kit.new("UIListLayout", {
-	FillDirection = Enum.FillDirection.Horizontal,
-	Padding = UDim.new(0, 14),
+Kit.new("UIGridLayout", {
+	CellSize = UDim2.fromOffset(100, 100),
+	CellPadding = UDim2.fromOffset(14, 14),
 	SortOrder = Enum.SortOrder.LayoutOrder,
 	Parent = buttons,
 })
 
+local bobbing: { GuiObject } = {}
 local function menuButton(order: number, icon: string, label: string, colors: { Color3 }, onClick: () -> ()): TextButton
-	local button = Kit.button({ LayoutOrder = order, Size = UDim2.fromOffset(104, 104), Parent = buttons }, colors, nil, onClick)
-	Kit.text({ Text = icon, Position = UDim2.fromScale(0.1, 0.06), Size = UDim2.fromScale(0.8, 0.56), StrokeThickness = 0, Parent = button })
+	local button = Kit.button({ LayoutOrder = order, Parent = buttons }, colors, nil, onClick)
+	local glyph = Kit.text({ Text = icon, Position = UDim2.fromScale(0.12, 0.04), Size = UDim2.fromScale(0.76, 0.58), StrokeThickness = 0, Parent = button })
 	Kit.text({ Text = label, Position = UDim2.fromScale(0.06, 0.64), Size = UDim2.fromScale(0.88, 0.28), Parent = button })
+	table.insert(bobbing, glyph)
 	return button
 end
+
+RunService.RenderStepped:Connect(function()
+	local t = os.clock()
+	for index, glyph in bobbing do
+		glyph.Position = UDim2.new(0.12, 0, 0.04, math.sin(t * 2.2 + index * 0.9) * 3)
+		glyph.Rotation = math.sin(t * 1.6 + index) * 4
+	end
+end)
 
 -- The line you're standing at, if any.
 local function nearbyLine(): string?
@@ -191,6 +250,9 @@ Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = wheelBadge })
 task.spawn(function()
 	while true do
 		wheelBadge.Visible = DailyWheelMenu.CanSpin()
+		if wheelBadge.Visible then
+			Kit.pop(wheelBadge, 0.3) -- (a little pulse, so you notice it)
+		end
 		task.wait(1)
 	end
 end)

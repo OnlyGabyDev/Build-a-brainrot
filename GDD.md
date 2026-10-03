@@ -125,7 +125,7 @@ All numbers are **placeholders**. Tune them in playtests.
 **Opening (box or Roll)**
 1. The server validates the request: the box exists, belongs to the player and is in range, or the player has a Roll.
 2. The **server rolls the result first**.
-3. The client plays the **wheel animation**, which lands on the server's result. It is purely visual.
+3. The client plays the **wheel animation**, which lands on the server's result. It is purely visual. ✅ (v2.5) The wheel is a **prize reel**: a strip of glossy rarity cards slides through a lit gold frame and stops on the result under a gold marker, ticking as each card passes (the Daily Wheel uses it too).
 4. The reveal plays: a new part is unlocked (with an "Equip it on a line?" shortcut), or a duplicate is converted to currency.
 
 **Duplicates**
@@ -208,6 +208,7 @@ Every zone builds brainrots in its own **edition**: its own size, material and t
 - The header shows overall progress, e.g. `Parts 23/72 · Completed 5/18 · Editions 7/…`.
 - Clicking a card opens details: the 4 part slots, rarity, per-edition rewards, and **Morph** / **Equip Gadget** buttons once completed. It also has an **"Equip on a line"** shortcut when every part is unlocked.
 - ✅ A functional version is built (grid, silhouettes, filters, details, equip, morph, gadget).
+- ✅ (v2.5) The sticker book look below: stickers with a white die-cut border on their rarity's colors (sparkles from Rare up, a turning rainbow for Godly), progress bars for parts, completions and editions, edition dots on every sticker and round edition buttons in the details.
 
 **Polish target (the look we're going for):** a **sticker book**, very colorful and pretty.
 - Each brainrot is a big, popped-out sticker. Its **rarity is the sticker's background**, with effects that scale with rarity (sparkles, shine, animated rainbow for Godly).
@@ -334,6 +335,7 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 - **Audio:** a click SFX on every button, machine clanks, a cash-register sound on each ship, a wheel tick, a rarity reveal stinger, and upbeat background music.
 - ✅ **Core-loop juice pass (v0.7):** every assembly step has its own sound (plop, boing, servo whir, BONK, ratchet, sewing, squeak, pop), the droppers squash and spit, the Assembler's beacon flashes while it builds, the upgrade stations paint or glitter each brainrot as it passes (with its ×multiplier), coins hop from the chute to the Cash Pad, full matches get confetti and "PERFECT!". The belts scroll, bought items pop in piece by piece, the Cash Pad piles up coins and bursts (coins fly into the HUD counter) when collected, and affordable buttons get a bouncing arrow. Lighting: bloom (Neon glows), color grading, pastel haze; shuffled background music with a mute button. Ids live in `Config/Sounds`.
 - **Numbers:** abbreviated (1.2K, 3.4M, 5.6B…).
+- ✅ **UI juice (v2.5):** glossy highlights on every button and pill, menus whoosh and bounce up into place and pop shut, a sunburst behind reveals, a shake on Rare+ reveals; the HUD has the counters top left (icon bubbles, "+N" floating up as they rise) and the menu buttons in a grid under them with bobbing icons.
 - **Assets:** toolbox models, maps and UI kits are allowed. Restyle them to fit the palette.
 
 ---
@@ -509,6 +511,7 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v2.5 (2026-10-02):** The UI pass (§5, §8, §13): the loot wheel is a prize reel (case-opening style), the Index is a sticker book, and the HUD and every menu got juice (gloss, sounds, bounces, floating "+N", a sunburst).
 - **v2.4 (2026-10-02):** Vinyl Collectibles' spiral tower line (§6) and its quality pass: a designer-toy gallery (§10). Every room of the first run now has its own layout. Next (the user): the HUD, the gamepasses, then the brainrot art rework.
 - **v2.3 (2026-10-02):** The economy pass (§10 Economy): ~5 h to the first rebirth (the user). Each room earns and costs 15× the one before; the 2nd and 3rd lines cost 3×/9× (were 8×/60×); line items, line tracks and room upgrades cost 2×; rooms open at 25K / 80M / 4B; the first rebirth costs 100B (was 50K, reachable in ~10 min); the 3rd floor 1B.
 - **v2.2 (2026-10-02):** The Clay Studio's stop-motion turntable line (§6) and its quality pass: a film-studio room (§10), studio lights and a golden clapperboard as its Belt Boost look, a shutter sound on every frame.

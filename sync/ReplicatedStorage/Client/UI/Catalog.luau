@@ -1,13 +1,17 @@
 --[[
 	Catalog (the Index)
-	Every brainrot as a card (GDD §8): its silhouette with unlocked parts in color and
-	locked ones blacked out, "???" until you find one of its parts, and a badge per
-	zone edition. Click a card for its details, edition rewards, and to put the whole
-	brainrot on a line.
+	A sticker book (GDD §8): every brainrot is a big, glossy sticker with a white die-cut
+	border, its rarity the sticker's background (sparkles twinkle on the rare ones, Godly
+	in a turning rainbow); its figure with unlocked parts in color and locked ones blacked
+	out (empty sticker pieces), "???" until you find one of its parts, and a round dot per
+	zone edition (gray: zone still locked, blue: can be collected, green: collected).
+	Progress bars up top. Click a sticker for the big picture with round edition buttons
+	under it, its rewards, and to put the whole brainrot on a line.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -27,6 +31,20 @@ local GOOD_COLOR = Color3.fromRGB(110, 240, 110)
 local BAD_COLOR = Color3.fromRGB(255, 90, 90)
 local MUTED_COLOR = Color3.fromRGB(175, 175, 190)
 local FILTERS = { "ALL", "COMPLETED", "MISSING" }
+local CARD = Vector2.new(176, 228)
+local EDITION_ICONS = { ToyWorkshop = "🧸", PlushieRoom = "🧵", ClayStudio = "🎨", VinylCollectibles = "💎", CandyFactory = "🍭" }
+local EDITION_COLORS = {
+	Locked = { Color3.fromRGB(190, 190, 200), Color3.fromRGB(130, 130, 145) },
+	Open = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(40, 110, 240) },
+	Done = { Color3.fromRGB(140, 245, 120), Color3.fromRGB(40, 175, 60) },
+}
+local RAINBOW = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)),
+	ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 220, 80)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(110, 240, 130)),
+	ColorSequenceKeypoint.new(0.75, Color3.fromRGB(100, 180, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 120, 255)),
+})
 
 type Inventory = {
 	Parts: { [string]: { [string]: boolean } },
@@ -42,6 +60,8 @@ local lineIds: { { Id: string, Index: number } } = {}
 local filter = "ALL"
 local rarestFirst = false
 local selected: string? = nil -- the brainrot shown in details
+local twinkles: { TextLabel } = {} -- sparkles on the rare stickers (they twinkle while the book is open)
+local rainbows: { UIGradient } = {} -- the Godly stickers' backgrounds (they turn)
 
 local Catalog = {}
 
@@ -106,6 +126,77 @@ local function buildFigure(brainrotId: string): Model
 	return figure
 end
 
+-- An edition's state for a brainrot: "Done" (collected), "Open" (can be collected: ship
+-- a full one from that zone) or "Locked" (the zone needs more rebirths).
+local function editionState(brainrotId: string, zone: Zones.Zone): string
+	if isCompleted(brainrotId, zone.Id) then
+		return "Done"
+	end
+	return if (player:GetAttribute("Rebirths") or 0) < zone.UnlockRebirths then "Locked" else "Open"
+end
+
+-- A sticker: a white die-cut border (`frame` itself, outlined dark) round a glossy face
+-- in the rarity's colors (dimmed until it's discovered), twinkling sparkles from Rare up,
+-- a turning rainbow for Godly. Returns the face.
+local function stickerFace(frame: GuiObject, rarity: Rarities.Rarity, discovered: boolean, inset: number, radius: number): Frame
+	frame.BackgroundColor3 = Kit.White
+	Kit.corner(frame, radius + inset)
+	Kit.stroke(frame, 3.5)
+	local face = Kit.new("Frame", {
+		Name = "Face",
+		Position = UDim2.fromOffset(inset, inset),
+		Size = UDim2.new(1, -inset * 2, 1, -inset * 2),
+		BackgroundColor3 = Kit.White,
+		ZIndex = 0,
+		Parent = frame,
+	})
+	Kit.corner(face, radius)
+	local color = if discovered then rarity.Color else rarity.Color:Lerp(Color3.fromRGB(120, 120, 135), 0.65)
+	if rarity.Id == "Godly" and discovered then
+		table.insert(rainbows, Kit.new("UIGradient", { Color = RAINBOW, Rotation = 45, Parent = face }))
+	else
+		Kit.gradient(face, { color:Lerp(Kit.White, 0.45), color:Lerp(Color3.new(0, 0, 0), 0.12) })
+	end
+	Kit.shine(face, radius - 4)
+	if discovered and rarity.Rank >= 3 then
+		local random = Random.new(rarity.Rank * 7 + #twinkles)
+		for _ = 1, 2 + rarity.Rank do
+			local spark = Kit.text({
+				Text = "✦",
+				TextColor3 = Color3.fromRGB(255, 252, 220),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(random:NextNumber(0.1, 0.9), random:NextNumber(0.08, 0.6)),
+				Size = UDim2.fromOffset(18 + rarity.Rank * 2, 18 + rarity.Rank * 2),
+				StrokeThickness = 0,
+				ZIndex = 2,
+				Parent = face,
+			})
+			spark:SetAttribute("Phase", random:NextNumber(0, math.pi * 2))
+			table.insert(twinkles, spark)
+		end
+	end
+	return face
+end
+
+-- The twinkles and rainbows move while the book is open.
+RunService.RenderStepped:Connect(function(dt)
+	if not (panel and panel.Visible) then
+		return
+	end
+	local t = os.clock()
+	for _, spark in twinkles do
+		if spark.Parent then
+			local phase = spark:GetAttribute("Phase") or 0
+			local wave = (math.sin(t * 3 + phase) + 1) / 2
+			spark.TextTransparency = 1 - wave
+			spark.Rotation = (t * 40 + phase * 30) % 360
+		end
+	end
+	for _, rainbow in rainbows do
+		rainbow.Rotation = (rainbow.Rotation + dt * 60) % 360
+	end
+end)
+
 local function sortedBrainrots(): { Brainrots.Brainrot }
 	local list = {}
 	for order, brainrot in Brainrots.List do
@@ -168,17 +259,41 @@ local function renderHeader(parent: Frame)
 			end
 		end
 	end
-	Kit.text({
-		Text = `Parts {parts}/{totalParts}  ·  Completed {completed}/{#Brainrots.List}  ·  Editions {claimed}/{totalEditions}`,
-		Position = UDim2.fromOffset(24, 14),
-		Size = UDim2.fromOffset(560, 30),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = parent,
-	})
+	-- three progress bars
+	for index, bar in { { "🧩 PARTS", parts, totalParts, Kit.Colors.Rolls }, { "⭐ COMPLETED", completed, #Brainrots.List, Kit.Colors.Coins }, { "🏅 EDITIONS", claimed, totalEditions, Kit.Colors.Green } } do
+		local share = if (bar[3] :: number) > 0 then (bar[2] :: number) / (bar[3] :: number) else 0
+		local track = Kit.new("Frame", {
+			Position = UDim2.fromOffset(24 + (index - 1) * 318, 12),
+			Size = UDim2.fromOffset(300, 36),
+			BackgroundColor3 = Color3.fromRGB(70, 60, 95),
+			Parent = parent,
+		})
+		Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = track })
+		Kit.stroke(track, 3)
+		if share > 0 then
+			local fill = Kit.new("Frame", {
+				Size = UDim2.new(math.max(share, 0.12), 0, 1, 0),
+				BackgroundColor3 = Kit.White,
+				Parent = track,
+			})
+			Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = fill })
+			Kit.gradient(fill, bar[4] :: { Color3 })
+			Kit.shine(fill, 12)
+		end
+		Kit.text({
+			Text = `{bar[1]}  {bar[2]}/{bar[3]}`,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.new(0.9, 0, 0, 26),
+			StrokeThickness = 2.5,
+			ZIndex = 2,
+			Parent = track,
+		})
+	end
 
 	for index, name in FILTERS do
 		Kit.button({
-			Position = UDim2.fromOffset(24 + (index - 1) * 150, 54),
+			Position = UDim2.fromOffset(24 + (index - 1) * 150, 58),
 			Size = UDim2.fromOffset(140, 42),
 			Parent = parent,
 		}, if filter == name then Kit.Colors.Purple else Kit.Colors.Grey, name, function()
@@ -188,7 +303,7 @@ local function renderHeader(parent: Frame)
 	end
 	Kit.button({
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -24, 0, 54),
+		Position = UDim2.new(1, -24, 0, 58),
 		Size = UDim2.fromOffset(210, 42),
 		Parent = parent,
 	}, Kit.Colors.Gems, if rarestFirst then "RARITY ▼" else "RARITY ▲", function()
@@ -199,65 +314,79 @@ end
 
 local function renderCard(parent: Instance, order: number, brainrot: Brainrots.Brainrot)
 	local rarity = Rarities.ById[brainrot.Rarity]
-	local discovered = ownedCount(brainrot.Id) > 0
+	local count = ownedCount(brainrot.Id)
+	local discovered = count > 0
 	local card = Kit.new("TextButton", {
 		AutoButtonColor = false,
 		Text = "",
 		LayoutOrder = order,
-		BackgroundColor3 = Kit.White,
 		Parent = parent,
 	})
-	Kit.corner(card, 16)
-	Kit.stroke(card, 4, rarity.Color)
-	Kit.viewport({ Position = UDim2.fromOffset(8, 6), Size = UDim2.new(1, -16, 0, 124) }, buildFigure(brainrot.Id)).Parent = card
-	Kit.text({
-		Text = if discovered then brainrot.Name else "???",
-		Position = UDim2.fromOffset(8, 132),
-		Size = UDim2.new(1, -16, 0, 26),
-		Parent = card,
-	})
-	Kit.text({
-		Text = `{string.upper(rarity.Id)}  ·  {ownedCount(brainrot.Id)}/4`,
-		TextColor3 = rarity.Color,
-		Position = UDim2.fromOffset(8, 158),
-		Size = UDim2.new(1, -16, 0, 18),
-		Parent = card,
-	})
+	local face = stickerFace(card, rarity, discovered, 6, 16)
+	Kit.viewport({ Position = UDim2.fromOffset(6, 24), Size = UDim2.new(1, -12, 0, 128), ZIndex = 1 }, buildFigure(brainrot.Id)).Parent = face
 
-	-- One badge per edition: ✓ claimed, 🔒 zone still locked.
-	local rebirths = player:GetAttribute("Rebirths") or 0
+	-- the rarity on a little tag at the top, the parts found in a bubble in the corner
+	local tag = Kit.new("Frame", {
+		Position = UDim2.fromOffset(8, 6),
+		Size = UDim2.fromOffset(104, 22),
+		BackgroundColor3 = Color3.fromRGB(40, 30, 60),
+		BackgroundTransparency = 0.25,
+		ZIndex = 3,
+		Parent = face,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = tag })
+	Kit.text({ Text = string.upper(rarity.Id), TextColor3 = if rarity.Id == "Godly" then Color3.fromRGB(255, 240, 150) else rarity.Color:Lerp(Kit.White, 0.3), Position = UDim2.fromOffset(6, 2), Size = UDim2.new(1, -12, 1, -4), StrokeThickness = 1.5, ZIndex = 4, Parent = tag })
+	local done = isCompleted(brainrot.Id)
+	local bubble = Kit.new("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -4, 0, 2),
+		Size = UDim2.fromOffset(40, 40),
+		BackgroundColor3 = Kit.White,
+		ZIndex = 3,
+		Parent = face,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = bubble })
+	Kit.stroke(bubble, 3)
+	Kit.gradient(bubble, if done then Kit.Colors.Coins elseif count == #PART_TYPES then Kit.Colors.Green else Kit.Colors.Grey)
+	Kit.text({ Text = if done then "⭐" else `{count}/4`, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.78, 0.6), StrokeThickness = if done then 0 else 2, ZIndex = 4, Parent = bubble })
+
+	-- its name on a ribbon, the edition dots under it
+	local ribbon = Kit.new("Frame", {
+		Position = UDim2.new(0, 4, 0, 156),
+		Size = UDim2.new(1, -8, 0, 30),
+		BackgroundColor3 = Color3.fromRGB(40, 30, 60),
+		BackgroundTransparency = 0.15,
+		ZIndex = 3,
+		Parent = face,
+	})
+	Kit.corner(ribbon, 10)
+	Kit.text({ Text = if discovered then brainrot.Name else "???", Position = UDim2.fromOffset(6, 3), Size = UDim2.new(1, -12, 1, -6), StrokeThickness = 2, ZIndex = 4, Parent = ribbon })
 	local zones = editions()
+	local dot = 24
+	local start = (CARD.X - 12 - #zones * dot - (#zones - 1) * 6) / 2
 	for index, zone in zones do
-		local width = (170 - 16 - (#zones - 1) * 4) / #zones
-		local claimed = isCompleted(brainrot.Id, zone.Id)
-		local locked = rebirths < zone.UnlockRebirths
-		local badge = Kit.new("Frame", {
-			Position = UDim2.fromOffset(8 + (index - 1) * (width + 4), 182),
-			Size = UDim2.fromOffset(width, 22),
-			BackgroundColor3 = if claimed then GOOD_COLOR else Color3.fromRGB(215, 215, 225),
-			Parent = card,
+		local state = editionState(brainrot.Id, zone)
+		local circle = Kit.new("Frame", {
+			Position = UDim2.fromOffset(start + (index - 1) * (dot + 6), 190),
+			Size = UDim2.fromOffset(dot, dot),
+			BackgroundColor3 = Kit.White,
+			ZIndex = 3,
+			Parent = face,
 		})
-		Kit.corner(badge, 8)
-		Kit.text({
-			Text = zone.Edition .. (if claimed then " ✓" elseif locked then " 🔒" else ""),
-			Position = UDim2.fromOffset(4, 2),
-			Size = UDim2.new(1, -8, 1, -4),
-			StrokeThickness = 1.5,
-			Parent = badge,
-		})
+		Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = circle })
+		Kit.stroke(circle, 2.5)
+		Kit.gradient(circle, EDITION_COLORS[state])
+		Kit.text({ Text = if state == "Done" then "✓" elseif state == "Locked" then "🔒" else "", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.7, 0.7), StrokeThickness = 1.5, ZIndex = 4, Parent = circle })
 	end
 
-	if isCompleted(brainrot.Id) then
-		Kit.text({
-			Text = "⭐",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -4, 0, 2),
-			Size = UDim2.fromOffset(32, 32),
-			StrokeThickness = 0,
-			Parent = card,
-		})
-	end
-
+	-- it bounces when you point at it
+	local scale = Kit.new("UIScale", { Parent = card })
+	card.MouseEnter:Connect(function()
+		scale.Scale = 1.05
+	end)
+	card.MouseLeave:Connect(function()
+		scale.Scale = 1
+	end)
 	card.Activated:Connect(function()
 		Kit.click()
 		selected = brainrot.Id
@@ -268,8 +397,8 @@ end
 local function renderGrid(parent: Frame)
 	renderHeader(parent)
 	local scroller = Kit.new("ScrollingFrame", {
-		Position = UDim2.fromOffset(16, 106),
-		Size = UDim2.new(1, -32, 1, -118),
+		Position = UDim2.fromOffset(16, 108),
+		Size = UDim2.new(1, -32, 1, -120),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 10,
@@ -278,12 +407,12 @@ local function renderGrid(parent: Frame)
 		Parent = parent,
 	})
 	Kit.new("UIGridLayout", {
-		CellSize = UDim2.fromOffset(170, 212),
+		CellSize = UDim2.fromOffset(CARD.X, CARD.Y),
 		CellPadding = UDim2.fromOffset(12, 12),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Parent = scroller,
 	})
-	Kit.new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingTop = UDim.new(0, 8), Parent = scroller })
+	Kit.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), Parent = scroller })
 	for order, brainrot in sortedBrainrots() do
 		renderCard(scroller, order, brainrot)
 	end
@@ -325,14 +454,52 @@ local function renderDetails(parent: Frame, brainrot: Brainrots.Brainrot)
 	end)
 
 	local stage = Kit.new("Frame", {
-		Position = UDim2.fromOffset(24, 70),
-		Size = UDim2.fromOffset(400, 430),
-		BackgroundColor3 = Kit.White,
+		Position = UDim2.fromOffset(24, 68),
+		Size = UDim2.fromOffset(400, 412),
 		Parent = parent,
 	})
-	Kit.corner(stage, 20)
-	Kit.stroke(stage, 5, rarity.Color)
-	Kit.viewport({ Position = UDim2.fromOffset(10, 10), Size = UDim2.new(1, -20, 1, -20) }, buildFigure(brainrot.Id)).Parent = stage
+	local face = stickerFace(stage, rarity, discovered, 9, 20)
+	local figure = buildFigure(brainrot.Id)
+	local view = Kit.viewport({ Position = UDim2.fromOffset(8, 8), Size = UDim2.new(1, -16, 1, -16), ZIndex = 1 }, figure)
+	view.Parent = face
+	local stopOrbit = Kit.orbit(view, figure)
+	view.Destroying:Connect(stopOrbit)
+
+	-- round edition buttons under it: gray (zone locked), blue (can be collected), green
+	-- (collected); tap one to read about it
+	local zones = editions()
+	local hint = Kit.text({
+		Text = "Tap an edition!",
+		TextColor3 = MUTED_COLOR,
+		Position = UDim2.fromOffset(24, 552),
+		Size = UDim2.fromOffset(400, 24),
+		Parent = parent,
+	})
+	local size = 58
+	local start = 24 + (400 - #zones * size - (#zones - 1) * 14) / 2
+	for index, zone in zones do
+		local state = editionState(brainrot.Id, zone)
+		local button = Kit.button({
+			Position = UDim2.fromOffset(start + (index - 1) * (size + 14), 488),
+			Size = UDim2.fromOffset(size, size),
+			Parent = parent,
+		}, EDITION_COLORS[state], nil, function()
+			local gems = math.floor(rarity.CompletionGems * zone.GemMultiplier)
+			hint.Text = if state == "Done"
+				then `{zone.Edition} edition: collected! (+{gems} 💎)`
+				elseif state == "Locked" then `{zone.Edition} edition: 🔒 Rebirth {zone.UnlockRebirths}`
+				else `{zone.Edition} edition: ship a full one from the {zone.Name} (+{gems} 💎)`
+			hint.TextColor3 = if state == "Done" then GOOD_COLOR elseif state == "Open" then Color3.fromRGB(140, 210, 255) else MUTED_COLOR
+		end)
+		local round = button:FindFirstChildOfClass("UICorner")
+		if round then
+			round.CornerRadius = UDim.new(0.5, 0)
+		end
+		Kit.text({ Text = EDITION_ICONS[zone.Id] or string.sub(zone.Edition, 1, 1), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromScale(0.62, 0.62), StrokeThickness = 0, Parent = button })
+		if state ~= "Open" then
+			Kit.text({ Text = if state == "Done" then "✓" else "🔒", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 4, 1, 4), Size = UDim2.fromOffset(24, 24), StrokeThickness = 2, Parent = button })
+		end
+	end
 
 	local x = 450
 	Kit.text({
@@ -359,11 +526,13 @@ local function renderDetails(parent: Frame, brainrot: Brainrots.Brainrot)
 		local chip = Kit.new("Frame", {
 			Position = UDim2.fromOffset(x + (index - 1) * 128, 162),
 			Size = UDim2.fromOffset(118, 44),
-			BackgroundColor3 = if has then GOOD_COLOR else Color3.fromRGB(120, 120, 135),
+			BackgroundColor3 = Kit.White,
 			Parent = parent,
 		})
 		Kit.corner(chip, 12)
 		Kit.stroke(chip, 3)
+		Kit.gradient(chip, if has then Kit.Colors.Green else Kit.Colors.Grey)
+		Kit.shine(chip, 8)
 		Kit.text({
 			Text = string.upper(partType) .. (if has then " ✓" else " 🔒"),
 			Position = UDim2.fromOffset(6, 6),
@@ -467,6 +636,8 @@ render = function()
 	if body then
 		body:Destroy()
 	end
+	table.clear(twinkles)
+	table.clear(rainbows)
 	local frame = Kit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = content })
 	body = frame
 	local brainrot = selected and Brainrots.ById[selected]
@@ -481,7 +652,7 @@ end
 
 function Catalog.Open()
 	if not panel then
-		local newPanel, newContent = Kit.modal("Catalog", "📖 BRAINROT INDEX", Kit.Colors.Gems, SIZE)
+		local newPanel, newContent = Kit.modal("Catalog", "📖 BRAINROT STICKER BOOK", Kit.Colors.Gems, SIZE)
 		panel, content = newPanel, newContent
 	end
 	selected = nil
