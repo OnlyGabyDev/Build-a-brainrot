@@ -116,7 +116,7 @@ All numbers are **placeholders**. Tune them in playtests.
   - Boxes only roll rarities that **someone in the server** has unlocked. Players who haven't unlocked a box's rarity see it locked (`🔒 Rebirth 4`) and can't open it, which is a visible reason to rebirth.
   - **Rare+ spawns are announced** to the whole server, and so is who grabbed them.
   - **What a box gives** ✅: mostly a part of its own rarity, sometimes a rarer one. Each tier above is 15% as likely as the one below (Common box ≈ 87% Common, 13% Uncommon, 2% Rare…), limited to tiers the opener has unlocked. Upgrades get a "RARITY UP!" reveal. Odds live in `Config/Loot`, so the wheel shows exactly what the server rolls.
-- 🟡 Polish: per-rarity box looks, particles, spawn animations and open effects. For example, Godly boxes arrive through a black hole.
+- ✅ (v2.8) Per-rarity looks, arrivals and openings: the rarer, the bigger and louder. Rare boxes glow at the edges; Legendary ones are gold under a halo in a beam of light; Mythic ones are crystal with a glowing core and orbiting stars, and crash down like meteors; Godly ones cycle through the rainbow and rise out of a black hole, which closes when they're opened. Opening one bursts in confetti, a shockwave and a flash, bigger with its rarity.
 
 **Rolls**
 - A **Roll** is a loot box you carry. Open it from the HUD any time, and it gives a random rarity (from unlocked tiers) and a random part type.
@@ -516,6 +516,7 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v2.8 (2026-10-03):** Per-rarity loot box looks, arrivals (a Godly box rises out of a black hole) and openings (§5). The brainrots' art v2 is in a block style like Steal a Brainrot's (clean blocks, flat faces, ramps).
 - **v2.7 (2026-10-03):** The NUKE (§12), the hub's leaderboards and podium (§12), and the brainrot art v2's first batch (Tung Tung Tung Sahur and Tralalero Tralala, finer voxels, matched to references).
 - **v2.6 (2026-10-02):** Gamepasses (§12): checked end to end in Studio (a test grant), the Sprint pass added, the shop's pass cards redone.
 - **v2.5 (2026-10-02):** The UI pass (§5, §8, §13): the loot wheel is a prize reel (case-opening style), the Index is a sticker book, and the HUD and every menu got juice (gloss, sounds, bounces, floating "+N", a sunburst).
