@@ -373,6 +373,93 @@ def render(art, path):
     return len(cells) + sum(1 for part in art["Parts"].values() for s in part if s["Kind"] == "Solid")
 
 
+# Stand-off -----------------------------------------------------------------------------
+# A detail (an eye, a mouth, a stripe) is a thin solid lying on another face. If its front
+# face is only a hair (0.1 voxel = 0.02 studs) out of the face under it, the two lose the
+# depth test from a few studs away and the detail vanishes (Tralalero's eyes and mouth,
+# Tung's face did on the belt). standoff() pushes every such front face STANDOFF voxels
+# out (growing the solid outward, so its back stays where it was), in build order, so a
+# pupil still sits on the white it was on.
+
+STANDOFF = 0.35  # voxels (0.07 studs at VoxelSize 0.2)
+THIN = 1.0  # voxels: a solid this thin along a face's normal counts as a detail
+
+
+def _faces_of_cells(cells):
+    out = []
+    for cell in cells:
+        for normal, corners in FACES:
+            if (cell[0] + normal[0], cell[1] + normal[1], cell[2] + normal[2]) in cells:
+                continue
+            pts = [(cell[0] + o[0], cell[1] + o[1], cell[2] + o[2]) for o in corners]
+            out.append((normal, dot(normal, pts[0]), pts))
+    return out
+
+
+def _flat_faces(shape):
+    if shape["Solid"]["Shape"] not in ("Block", "Wedge"):
+        return []
+    return [(n, dot(n, pts[0]), pts) for pts, n in solid_polygons(shape)]
+
+
+def _covers(point, normal, pts):
+    """Whether `point` (on the face's plane) is within the convex face `pts`."""
+    sign = 0
+    for i in range(len(pts)):
+        a, b = pts[i], pts[(i + 1) % len(pts)]
+        edge = tuple(b[k] - a[k] for k in range(3))
+        to = tuple(point[k] - a[k] for k in range(3))
+        side = dot(cross(edge, to), normal)
+        if abs(side) < 1e-6:
+            continue
+        if sign == 0:
+            sign = 1 if side > 0 else -1
+        elif (side > 0) != (sign > 0):
+            return False
+    return True
+
+
+def standoff(art):
+    """Pushes details out of the faces they lie on (see above). Returns how many moved."""
+    moved = 0
+    for part, shapes in art["Parts"].items():
+        bases = _faces_of_cells(voxelize(shapes))
+        for index, shape in enumerate(shapes):
+            if shape["Kind"] != "Solid" or shape.get("Carve") or shape.get("Paint"):
+                continue
+            sol = shape["Solid"]
+            if sol["Shape"] == "Block":
+                size, center = list(sol["Size"]), list(shape["Center"])
+                for k in range(3):
+                    if size[k] > THIN:
+                        continue
+                    axis = [0, 0, 0]
+                    axis[k] = 1
+                    axis = turn(tuple(axis), sol["Rotation"])
+                    for sign in (1, -1):
+                        normal = tuple(sign * a for a in axis)
+                        front = tuple(center[i] + normal[i] * size[k] / 2 for i in range(3))
+                        worst = None
+                        for n, offset, pts in bases:
+                            if dot(n, normal) < 0.999:
+                                continue
+                            gap = dot(normal, front) - offset
+                            if -0.05 < gap < STANDOFF:
+                                foot = tuple(front[i] - normal[i] * gap for i in range(3))
+                                if _covers(foot, n, pts) and (worst is None or gap < worst):
+                                    worst = gap
+                        if worst is not None:
+                            grow = STANDOFF - worst
+                            size[k] += grow
+                            center = [center[i] + normal[i] * grow / 2 for i in range(3)]
+                            moved += 1
+                c = tuple(center)
+                shape["Solid"] = dict(sol, Size=tuple(size))
+                shape["Center"], shape["Min"], shape["Max"] = c, c, c
+            bases += _flat_faces(shape)
+    return moved
+
+
 # Luau --------------------------------------------------------------------------------
 
 def num(v):
@@ -455,9 +542,10 @@ def main():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     spec.loader.exec_module(module)
     art = module.ART
+    pushed = standoff(art)
     count = render(art, preview)
     emit(name, art, os.path.join(ROOT, "sync", "ReplicatedStorage", "Shared", "Art", f"{name}.luau"))
-    print(f"{name}: {count} voxels, {overlaps(art)} cells shared between parts, preview {preview}")
+    print(f"{name}: {count} voxels, {overlaps(art)} cells shared between parts, {pushed} detail faces pushed out, preview {preview}")
 
 
 if __name__ == "__main__":
