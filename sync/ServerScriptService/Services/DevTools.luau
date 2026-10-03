@@ -59,9 +59,9 @@ local snapshots: { [Player]: DataManager.PlayerData } = {}
 -- it; behind, a turning-looking sunburst; light beams, sparkles, floating loot boxes,
 -- coins and a big neon sign.
 local THUMB_ORIGIN = CFrame.new(0, 320, -1600)
-local THUMB_HERO = { Head = "TralaleroTralala", Body = "TungTungTungSahur", Arms = "BombardiroCrocodilo", Legs = "TralaleroTralala" }
-local THUMB_HERO_SCALE = 3.2
-local THUMB_SIDES = { { "CappuccinoAssassino", -17, 1.7, 25 }, { "LaVacaSaturnoSaturnita", 17, 1.6, -25 } }
+local THUMB_HERO = { Head = "TrippiTroppi", Body = "LaVacaSaturnoSaturnita", Arms = "ChimpanziniBananini", Legs = "ChimpanziniBananini" }
+local THUMB_HERO_SCALE = 4.2
+local THUMB_SIDES = {} -- { id, x, scale, turn }: brainrots beside the star (none: all eyes on it)
 -- (matte, saturated colors: Neon blooms to white in game, so it's only for small accents)
 local THUMB_PINK, THUMB_PURPLE, THUMB_GOLD = Color3.fromRGB(235, 50, 160), Color3.fromRGB(95, 35, 200), Color3.fromRGB(255, 185, 30)
 local THUMB_RAINBOW = { Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 200, 60), Color3.fromRGB(90, 230, 120), Color3.fromRGB(80, 180, 255), Color3.fromRGB(200, 110, 255) }
@@ -136,7 +136,7 @@ local function createThumb(player: Player): boolean
 	local random = Random.new(7)
 
 	-- floor and the gold stage, a neon rainbow ring round it
-	thumbPart(scene, Vector3.new(200, 1, 140), o * CFrame.new(0, -1, -10), Color3.fromRGB(40, 15, 80))
+	thumbPart(scene, Vector3.new(200, 1, 140), o * CFrame.new(0, -1, -10), THUMB_PURPLE:Lerp(Color3.new(0, 0, 0), 0.55))
 	local disc = function(radius: number, y: number, color: Color3, material: Enum.Material)
 		return thumbPart(scene, Vector3.new(1, radius * 2, radius * 2), o * CFrame.new(0, y, 6) * CFrame.Angles(0, 0, math.pi / 2), color, material, Enum.PartType.Cylinder)
 	end
@@ -150,16 +150,13 @@ local function createThumb(player: Player): boolean
 		bulb.Name = "Bulb"
 	end
 
-	-- the sunburst: two layers of rays, a glowing core
-	local center = o * CFrame.new(0, 18, 40)
-	for index = 0, 31 do
-		local color = if index % 2 == 0 then THUMB_PINK else THUMB_PURPLE
-		thumbPart(scene, Vector3.new(9, 150, 0.5), center * CFrame.Angles(0, 0, index * math.pi / 16) * CFrame.new(0, 75, 0), color, Enum.Material.SmoothPlastic)
+	-- the backdrop: a deep purple wall with a halo of rings behind the star
+	thumbPart(scene, Vector3.new(220, 140, 1), o * CFrame.new(0, 40, 46), Color3.fromRGB(60, 20, 130))
+	local halo = o * CFrame.new(0, 16, 44)
+	local rings = { { 34, Color3.fromRGB(110, 40, 210) }, { 28, Color3.fromRGB(170, 50, 220) }, { 22, Color3.fromRGB(230, 60, 190) }, { 16, Color3.fromRGB(255, 110, 170) }, { 10, Color3.fromRGB(255, 180, 120) } }
+	for index, ring in rings do
+		thumbPart(scene, Vector3.new(0.4, ring[1] * 2, ring[1] * 2), halo * CFrame.new(0, 0, -index * 0.3) * CFrame.Angles(0, math.pi / 2, 0), ring[2], Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
 	end
-	for index = 0, 15 do
-		thumbPart(scene, Vector3.new(2, 50, 0.5), center * CFrame.new(0, 0, -0.6) * CFrame.Angles(0, 0, (index + 0.5) * math.pi / 8) * CFrame.new(0, 25, 0), Color3.fromRGB(255, 170, 60), Enum.Material.SmoothPlastic)
-	end
-	thumbPart(scene, Vector3.new(0.6, 30, 30), center * CFrame.new(0, 0, -1.2) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 200, 80), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
 
 	-- the star: the custom brainrot, crowned, glowing, sparkling
 	local hero = thumbBrainrot(THUMB_HERO, THUMB_HERO_SCALE, o * CFrame.new(0, 0.7, 6))
@@ -195,12 +192,12 @@ local function createThumb(player: Player): boolean
 	end
 
 	-- loot boxes floating round it, coins piled at its feet
-	local boxes = { { -24, 16, THUMB_PURPLE }, { 24, 18, Color3.fromRGB(60, 200, 255) }, { -19, 30, THUMB_PINK }, { 20, 31, Color3.fromRGB(80, 230, 120) } }
+	local boxes = { { -22, 20, Color3.fromRGB(60, 200, 255) }, { 22, 22, Color3.fromRGB(80, 230, 120) } }
 	for _, spec in boxes do
 		local x, y, color = spec[1] :: number, spec[2] :: number, spec[3] :: Color3
 		giftBox(scene, o * CFrame.new(x, y, 6) * CFrame.Angles(random:NextNumber(-0.4, 0.4), random:NextNumber(0, 6), random:NextNumber(-0.4, 0.4)), 4.5, color)
 	end
-	for _ = 1, 70 do
+	for _ = 1, 30 do
 		local angle = random:NextNumber(0, math.pi * 2)
 		local radius = random:NextNumber(9, 24)
 		local spot = o * CFrame.new(math.cos(angle) * radius, random:NextNumber(0.8, 2.5), 2 + math.sin(angle) * radius * 0.5)

@@ -229,7 +229,12 @@ local function openLines()
 end
 
 menuButton(1, "🏭", "LINES", Kit.Colors.Purple, openLines)
-menuButton(2, "📖", "INDEX", Kit.Colors.Gems, Catalog.Open)
+-- (the Index's "NEW!" badge: something new to see there, cleared when it's opened)
+local indexBadge: TextLabel
+local indexButton = menuButton(2, "📖", "INDEX", Kit.Colors.Gems, function()
+	indexBadge.Visible = false
+	Catalog.Open()
+end)
 menuButton(3, "🔄", "REBIRTH", Kit.Colors.Coins, RebirthMenu.Open)
 local wheelButton = menuButton(4, "🎡", "WHEEL", Kit.Colors.Rolls, DailyWheelMenu.Open)
 menuButton(5, "🛒", "SHOP", Kit.Colors.Green, function()
@@ -352,16 +357,54 @@ end
 player:GetAttributeChangedSignal("PlotIndex"):Connect(watchPlot)
 task.spawn(watchPlot)
 
+-- A "NEW!" on the Index button while there's something new there (a new part, a
+-- brainrot completed: its morph and gadget), pulsing so you notice it.
+indexBadge = Kit.text({
+	Text = "NEW!",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.new(1, -10, 0, 6),
+	Size = UDim2.fromOffset(64, 30),
+	BackgroundTransparency = 0,
+	BackgroundColor3 = Color3.fromRGB(255, 70, 90),
+	StrokeThickness = 2,
+	Rotation = 12,
+	ZIndex = 5,
+	Visible = false,
+	Parent = indexButton,
+})
+Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = indexBadge })
+Kit.stroke(indexBadge, 3)
+task.spawn(function()
+	while true do
+		if indexBadge.Visible then
+			Kit.pop(indexBadge, 0.35)
+			Kit.pop(indexButton, 0.12)
+		end
+		task.wait(1.2)
+	end
+end)
+
 -- New parts and completions show up in open menus right away.
+local inventoryLoaded = false -- (the first update is the data loading on join: nothing new)
 Remotes.Event("InventoryUpdated").OnClientEvent:Connect(function()
 	LineMenu.Refresh()
 	Catalog.Refresh()
+	if inventoryLoaded then
+		indexBadge.Visible = true
+	end
+	inventoryLoaded = true
 end)
 
 -- Completions ----------------------------------------------------------------
 
 Remotes.Event("Completion").OnClientEvent:Connect(function(_plot, _lineId, brainrotId, editions, gems, firstEver)
 	Celebration.Show(brainrotId, editions, gems, firstEver)
+	indexBadge.Visible = true
+	if firstEver then
+		task.delay(6, function()
+			Kit.toast("🎁 New MORPH + GADGET unlocked! Open the 📖 INDEX to use them!", Color3.fromRGB(255, 220, 80))
+		end)
+	end
 end)
 
 -- Big moments from other players (your own get the full banner instead).

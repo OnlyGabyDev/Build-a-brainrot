@@ -26,6 +26,7 @@ local TycoonManager = require(script.Parent.TycoonManager)
 local PART_TYPES = Brainrots.PartTypes
 local MORPH_SCALE = 0.85
 local DEFAULT_WALK_SPEED = 16
+local DEFAULT_JUMP_HEIGHT = 7.2
 local REQUEST_COOLDOWN = 0.5
 local KNOCKBACK_TIME = 0.25
 local SWING_ARC = 0.3 -- targets must be roughly in front (dot product with your facing)
@@ -164,6 +165,22 @@ local function swing(player: Player, tool: Tool, gadget: Gadgets.Gadget)
 	end
 end
 
+-- A Launch gadget: throws you Forward (the way you face) and Up, every Cooldown s.
+local lastLaunch: { [Player]: number } = {}
+local function launch(player: Player, gadget: Gadgets.Gadget)
+	local now = os.clock()
+	if (lastLaunch[player] or 0) + (gadget.Cooldown or 2) > now then
+		return
+	end
+	lastLaunch[player] = now
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		local look = root.CFrame.LookVector
+		knockback(root, Vector3.new(look.X, 0, look.Z).Unit * (gadget.Forward or 0) + Vector3.new(0, gadget.Up or 0, 0))
+	end
+end
+
 local function buildTool(brainrotId: string, gadget: Gadgets.Gadget): Tool
 	local brainrot = Brainrots.ById[brainrotId]
 	local tool = Instance.new("Tool")
@@ -206,6 +223,7 @@ local function removeGadgetTools(player: Player)
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.WalkSpeed = DEFAULT_WALK_SPEED
+		humanoid.JumpHeight = DEFAULT_JUMP_HEIGHT
 	end
 end
 
@@ -221,17 +239,24 @@ local function giveGadget(player: Player, brainrotId: string)
 			local humanoid = tool.Parent and tool.Parent:FindFirstChildOfClass("Humanoid")
 			if humanoid then
 				humanoid.WalkSpeed = gadget.WalkSpeed or DEFAULT_WALK_SPEED
+				humanoid.UseJumpPower = false -- (JumpHeight only counts then)
+				humanoid.JumpHeight = gadget.JumpHeight or DEFAULT_JUMP_HEIGHT
 			end
 		end)
 		tool.Unequipped:Connect(function()
 			local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 			if humanoid then
 				humanoid.WalkSpeed = DEFAULT_WALK_SPEED
+				humanoid.JumpHeight = DEFAULT_JUMP_HEIGHT
 			end
 		end)
 	elseif gadget.Archetype == "Melee" then
 		tool.Activated:Connect(function()
 			swing(player, tool, gadget)
+		end)
+	elseif gadget.Archetype == "Launch" then
+		tool.Activated:Connect(function()
+			launch(player, gadget)
 		end)
 	end
 	tool.Parent = backpack
@@ -312,6 +337,7 @@ function GadgetManager.Init()
 		gadgets[player] = nil
 		lastRequest[player] = nil
 		lastSwing[player] = nil
+		lastLaunch[player] = nil
 	end)
 end
 

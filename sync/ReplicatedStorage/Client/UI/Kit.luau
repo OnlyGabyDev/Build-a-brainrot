@@ -15,6 +15,8 @@ local TweenService = game:GetService("TweenService")
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Sounds"))
 
 local DESIGN_SIZE = Vector2.new(1600, 900)
+local UI_BOOST = 1.18
+local FIT_PANEL = Vector2.new(1060, 770) -- the Index (1000 x 660) with its title bar and a margin
 local WHITE = Color3.new(1, 1, 1)
 
 local Kit = {}
@@ -330,7 +332,10 @@ function Kit.getGui(): Frame
 	local function rescale()
 		local camera = workspace.CurrentCamera
 		local size = if camera then camera.ViewportSize else DESIGN_SIZE
-		local factor = math.clamp(math.min(size.X / DESIGN_SIZE.X, size.Y / DESIGN_SIZE.Y), 0.45, 1.4)
+		-- UI_BOOST bigger than the plain fit (the user: menus were small and fiddly to
+		-- tap), but never so big that the largest panel (FIT_PANEL) runs off the screen
+		local fit = math.min(size.X / DESIGN_SIZE.X, size.Y / DESIGN_SIZE.Y) * UI_BOOST
+		local factor = math.clamp(math.min(fit, size.X / FIT_PANEL.X, size.Y / FIT_PANEL.Y), 0.45, 1.6)
 		scale.Scale = factor
 		canvas.Size = UDim2.fromOffset(size.X / factor, size.Y / factor)
 	end
