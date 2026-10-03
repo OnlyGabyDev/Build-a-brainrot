@@ -384,7 +384,7 @@ local STARTER_FIRST, STARTER_EVERY = 12, 300
 task.spawn(function()
 	task.wait(STARTER_FIRST)
 	while true do
-		Upsell.Offer("StarterPack", "A Mythic Bombardiro, 250K Coins, 10 boxes + daily Rolls!")
+		Upsell.Offer("StarterPack", "A Mythic Bombardiro, 250K Coins, 3 Rolls + 10 boxes!")
 		task.wait(STARTER_EVERY)
 	end
 end)

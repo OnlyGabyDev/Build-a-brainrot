@@ -26,13 +26,13 @@ export type Pass = {
 	Ribbon: string?, -- a corner ribbon ("BEST VALUE")
 }
 
--- What the Starter Pack gives: parts ({ brainrotId, partType }), Coins and boxes once,
--- and Rolls once a day for as long as you own it.
+-- What the Starter Pack gives, once: parts ({ brainrotId, partType }), Coins, Rolls and
+-- boxes raining round you.
 export type StarterReward = {
 	Parts: { { string } },
 	Coins: number,
+	Rolls: number,
 	Boxes: number,
-	DailyRolls: number,
 }
 
 local Gamepasses: { [string]: Pass } = {
@@ -44,7 +44,7 @@ local Gamepasses: { [string]: Pass } = {
 		Order = 0,
 		Name = "Starter Pack",
 		Icon = "🎉",
-		Description = "A full Bombardiro Crocodilo, Tung Tung Tung Sahur's arms, 250K Coins, 10 random loot boxes and 3 free Rolls every day.",
+		Description = "A full Bombardiro Crocodilo, Tung Tung Tung Sahur's arms, 250K Coins, 3 Rolls and 10 random loot boxes.",
 		Starter = {
 			Parts = {
 				{ "BombardiroCrocodilo", "Legs" },
@@ -54,11 +54,11 @@ local Gamepasses: { [string]: Pass } = {
 				{ "TungTungTungSahur", "Arms" },
 			},
 			Coins = 250000,
+			Rolls = 3,
 			Boxes = 10,
-			DailyRolls = 3,
 		},
 		OfferHours = 24,
-		Perks = { "Bombardiro (Mythic!) + Sahur arms", "💰 250K Coins + 🎁 10 boxes", "🎲 3 free Rolls every day" },
+		Perks = { "Bombardiro (Mythic!) + Sahur arms", "💰 250K Coins + 🎁 10 boxes", "🎲 3 Rolls" },
 		Colors = { Color3.fromRGB(255, 120, 200), Color3.fromRGB(140, 60, 255) },
 		Ribbon = "LIMITED!", -- the shop shows the offer's countdown on it
 	},

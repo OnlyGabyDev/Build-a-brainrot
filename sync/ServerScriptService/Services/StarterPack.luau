@@ -1,17 +1,15 @@
 --[[
 	StarterPack
 	The newcomer's bundle (Config/Gamepasses, any pass with a `Starter` reward; GDD §12):
-	once, its parts, Coins and a rain of loot boxes; then its Rolls once a day for as
-	long as the player owns it. Both are DataManager claims, so nothing is given twice,
-	whether the pass is noticed on join, bought mid-game, or the data loads after the
-	ownership check (both paths try; the claim decides).
+	its parts, Coins, Rolls and a rain of loot boxes, once. It's a DataManager claim, so
+	nothing is given twice, whether the pass is noticed on join, bought mid-game, or the
+	data loads after the ownership check (both paths try; the claim decides).
 
 	The offer itself (the shop card, the corner ad) is sold only for the pass's
 	OfferHours after the player's first join: the "StarterOfferEnds" attribute (server
 	epoch seconds) tells the client when it ends.
 ]]
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
@@ -22,9 +20,6 @@ local Remotes = require(Shared.Remotes)
 local DataManager = require(script.Parent.DataManager)
 local LootManager = require(script.Parent.LootManager)
 local MonetizationManager = require(script.Parent.MonetizationManager)
-
-local DAY = 24 * 60 * 60
-local DAILY_CHECK = 10 * 60 -- seconds between checks for the daily Rolls while playing
 
 local StarterPack = {}
 
@@ -38,18 +33,12 @@ local function giveOnce(player: Player, key: string, reward: Gamepasses.StarterR
 		DataManager.AddPart(player, entry[1], entry[2])
 	end
 	DataManager.AddCurrency(player, "Coins", reward.Coins)
+	DataManager.AddRolls(player, reward.Rolls)
 	LootManager.Drop(player, reward.Boxes)
-	purchasedRemote:FireClient(player, `🎉 Starter Pack! New parts, +{Format.Number(reward.Coins)} 💰 and {reward.Boxes} boxes raining down!`)
+	purchasedRemote:FireClient(player, `🎉 Starter Pack! New parts, +{Format.Number(reward.Coins)} 💰, +{reward.Rolls} 🎲 and {reward.Boxes} boxes raining down!`)
 end
 
-local function giveDaily(player: Player, key: string, reward: Gamepasses.StarterReward)
-	if reward.DailyRolls > 0 and DataManager.Claim(player, `Pass_{key}_Daily`, DAY) then
-		DataManager.AddRolls(player, reward.DailyRolls)
-		purchasedRemote:FireClient(player, `🎲 Your daily {reward.DailyRolls} free Rolls are here!`)
-	end
-end
-
--- Gives whatever's due for every Starter pass the player owns.
+-- Gives every Starter pass the player owns (if not given yet).
 local function update(player: Player)
 	if not DataManager.IsLoaded(player) then
 		return
@@ -58,7 +47,6 @@ local function update(player: Player)
 		local reward = pass.Starter
 		if reward and MonetizationManager.OwnsPass(player, key) then
 			giveOnce(player, key, reward)
-			giveDaily(player, key, reward)
 		end
 	end
 end
@@ -81,14 +69,6 @@ function StarterPack.Init()
 	MonetizationManager.OnPassGranted(function(player, key)
 		if Gamepasses[key].Starter then
 			update(player)
-		end
-	end)
-	task.spawn(function()
-		while true do
-			task.wait(DAILY_CHECK)
-			for _, player in Players:GetPlayers() do
-				update(player)
-			end
 		end
 	end)
 end
