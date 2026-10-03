@@ -1,5 +1,10 @@
 -- Server entry point: requires each service and initializes it, in dependency order.
+local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
+
+-- The world is built over several frames (Services/WorkBudget): nobody spawns until
+-- it's there (no falling through ground that isn't filled in yet).
+Players.CharacterAutoLoads = false
 
 local Services = ServerScriptService:WaitForChild("Services")
 
@@ -21,6 +26,12 @@ BadgeManager.Init()
 MonetizationManager.Init()
 TycoonManager.Init()
 MapBuilder.Init() -- lays the hub out around the plots
+Players.CharacterAutoLoads = true
+for _, player in Players:GetPlayers() do
+	if not player.Character then
+		task.spawn(player.LoadCharacter, player)
+	end
+end
 LeaderboardManager.Init() -- the boards and the podium, in the spots the plaza left
 ProductionManager.Init()
 LootManager.Init()

@@ -26,6 +26,7 @@ local RunService = game:GetService("RunService")
 
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Sounds"))
 local Effects = require(script.Parent:WaitForChild("Effects"))
+local Performance = require(script.Parent:WaitForChild("Performance")) -- (Low: builds just appear)
 
 local NEAR = 250 -- studs from the camera; farther builds just appear
 local FALL_TIME = 0.4
@@ -224,7 +225,7 @@ function DropIn.play(model: Model, parts: { BasePart }, options: Options?)
 		high = high:Max(part.Position + half)
 	end
 	local center = (low + high) / 2
-	if not Effects.near(center, NEAR) then
+	if Performance.Low or not Effects.near(center, NEAR) then
 		for _, part in live do
 			reveal(part)
 		end

@@ -19,6 +19,7 @@ local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local Client = ReplicatedStorage:WaitForChild("Client")
 local Effects = require(Client:WaitForChild("Effects"))
 local Kit = require(Client:WaitForChild("UI"):WaitForChild("Kit"))
+local Performance = require(Client:WaitForChild("Performance")) -- (Low: the decor holds still)
 
 local MUSIC_VOLUME = 0.3
 local STATUE_SPIN = 0.25 -- radians per second
@@ -149,6 +150,9 @@ task.spawn(function()
 	spin(workspace:WaitForChild("Hub"):WaitForChild("Statue"))
 end)
 RunService.RenderStepped:Connect(function()
+	if Performance.Low then
+		return
+	end
 	local camera = workspace.CurrentCamera.CFrame.Position
 	local turn = CFrame.Angles(0, os.clock() * STATUE_SPIN, 0)
 	for statue, rest in spinning do
@@ -186,6 +190,9 @@ CollectionService:GetInstanceRemovedSignal("FlowingWater"):Connect(function(text
 	flowing[texture :: Texture] = nil
 end)
 RunService.RenderStepped:Connect(function()
+	if Performance.Low then
+		return
+	end
 	local now = os.clock()
 	for texture, layer in flowing do
 		local distance = (layer.Position - view.Position).Magnitude - layer.Radius
@@ -215,6 +222,9 @@ task.spawn(function()
 	end
 	folder.ChildAdded:Connect(track)
 	RunService.RenderStepped:Connect(function()
+		if Performance.Low then
+			return
+		end
 		local now = os.clock()
 		for index, part in parts do
 			local phase = phases[index]
@@ -297,6 +307,9 @@ end
 
 local marqueeStep = -1
 RunService.RenderStepped:Connect(function()
+	if Performance.Low then
+		return
+	end
 	local now = os.clock()
 	for model, item in spinners do
 		if moves(item) then
@@ -366,6 +379,9 @@ local function flightAt(fly: Butterfly, t: number): Vector3
 end
 
 RunService.RenderStepped:Connect(function()
+	if Performance.Low then
+		return
+	end
 	local now = os.clock()
 	for _, fly in butterflies do
 		if (fly.Home - view.Position).Magnitude < BUTTERFLY_DISTANCE and onScreen(fly.Home, 8) then

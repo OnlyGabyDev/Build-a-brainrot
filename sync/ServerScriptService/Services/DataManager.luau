@@ -81,6 +81,7 @@ export type PlayerData = {
 	DailyWheel: { FreeSpins: { number }, Spins: number }, -- free spins used (times), bought spins
 	Receipts: { string }, -- recent Robux purchase ids, so none is granted twice
 	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number },
+	Settings: { LowGraphics: boolean }, -- the player's own (Client/Performance)
 }
 
 export type AddPartResult = "New" | "Duplicate" | "NotLoaded"
@@ -120,7 +121,13 @@ local TEMPLATE: PlayerData = {
 		RobuxSpent = 0, -- every Robux purchase, for the leaderboards
 		Playtime = 0, -- seconds in game
 	},
+	Settings = {
+		LowGraphics = false,
+	},
 }
+
+-- What a client may set in its Settings, and the type each takes.
+local SETTING_TYPES: { [string]: string } = { LowGraphics = "boolean" }
 
 -- MIGRATIONS[n] upgrades saved data from version n to n + 1.
 -- Adding a new field doesn't need one (reconcile fills it in). Renaming or
@@ -275,6 +282,13 @@ local function replicateUpgrades(profile: Profile)
 	end
 end
 
+-- The player's settings, as "Setting_<Name>" attributes for the client.
+local function replicateSettings(profile: Profile)
+	for name, value in profile.Data.Settings do
+		profile.Player:SetAttribute(`Setting_{name}`, value)
+	end
+end
+
 -- Boost expiry times ("Boost_<Id>", os.time()) and bought wheel spins, for the UI.
 local function replicateExtras(profile: Profile)
 	for id, expires in profile.Data.Boosts do
@@ -298,6 +312,7 @@ local function setupReplication(profile: Profile)
 	end
 	replicateUpgrades(profile)
 	replicateExtras(profile)
+	replicateSettings(profile)
 	leaderstats.Parent = profile.Player
 	profile.Player:SetAttribute("DataLoaded", true)
 	replicateInventory(profile)
@@ -542,6 +557,12 @@ function DataManager.Init()
 	end
 
 	inventoryRemote = Remotes.Event("InventoryUpdated")
+	-- A client changing one of its own settings (only known ones, of the right type).
+	Remotes.Event("SetSetting").OnServerEvent:Connect(function(player: Player, name: unknown, value: unknown)
+		if typeof(name) == "string" and SETTING_TYPES[name] ~= nil and typeof(value) == SETTING_TYPES[name] then
+			DataManager.SetSetting(player, name, value)
+		end
+	end)
 	-- The catalog fetches the inventory when it opens (it may miss the initial push).
 	Remotes.Function("GetInventory").OnServerInvoke = function(player: Player)
 		local profile = profiles[player]
@@ -564,6 +585,17 @@ function DataManager.OnPlayerLoaded(callback: (Player) -> ())
 	for player in profiles do
 		task.spawn(callback, player)
 	end
+end
+
+-- Sets one of the player's settings (SETTING_TYPES) and mirrors it to their client.
+function DataManager.SetSetting(player: Player, name: string, value: any): boolean
+	local profile = profiles[player]
+	if not (profile and SETTING_TYPES[name] and typeof(value) == SETTING_TYPES[name]) then
+		return false
+	end
+	;(profile.Data.Settings :: any)[name] = value
+	player:SetAttribute(`Setting_{name}`, value)
+	return true
 end
 
 function DataManager.IsLoaded(player: Player): boolean

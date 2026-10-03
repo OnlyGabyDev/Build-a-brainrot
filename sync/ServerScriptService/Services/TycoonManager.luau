@@ -38,6 +38,7 @@ local RoomUpgradeBuilder = require(script.Parent.RoomUpgradeBuilder)
 local StationBuilder = require(script.Parent.StationBuilder)
 local TurntableBuilder = require(script.Parent.TurntableBuilder)
 local TowerBuilder = require(script.Parent.TowerBuilder)
+local WorkBudget = require(script.Parent.WorkBudget)
 
 -- Layout ---------------------------------------------------------------------
 -- Plot space: origin on the ground at the plot's center, -Z (front) faces the hub.
@@ -1833,6 +1834,10 @@ local function furnishPlot(plot: Plot, player: Player, data: DataManager.PlayerD
 			DataManager.PurchaseItem(player, item.Id, 0)
 		end
 	end
+	-- A whole factory is ~15K parts: built over several frames (WorkBudget), so a player
+	-- joining doesn't stall the server for everyone. A reset, a rebirth or the owner
+	-- leaving meanwhile bumps the plot's Generation: then this build gives way.
+	local generation = plot.Generation
 	for _, item in TycoonItems.List do
 		local purchased = data.Tycoon.Purchased
 		-- (a room upgrade or a line upgrade track shows only its highest level)
@@ -1840,6 +1845,10 @@ local function furnishPlot(plot: Plot, player: Player, data: DataManager.PlayerD
 			or (item.Kind == "Track" and purchased[`{item.LineId}_Up{item.Key}_{(item.Level :: number) + 1}`])
 		if purchased[item.Id] and not outgrown then
 			buildItem(plot, item, nil, arrival)
+			WorkBudget.Step()
+			if plot.Generation ~= generation or plot.Owner ~= player then
+				return
+			end
 		end
 	end
 	refreshButtons(plot)
@@ -1952,6 +1961,7 @@ function TycoonManager.Init()
 	folder.Parent = workspace
 	for index = 1, PLOT_COUNT do
 		plots[index] = buildPlot(index, folder)
+		WorkBudget.Step()
 	end
 	Remotes.Function("BuyLineUpgrade").OnServerInvoke = onBuyLineUpgrade
 

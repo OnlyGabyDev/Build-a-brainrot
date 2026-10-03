@@ -28,6 +28,7 @@ local Rarities = require(Shared.Config.Rarities)
 
 local FactoryBuilder = require(script.Parent.FactoryBuilder)
 local TycoonManager = require(script.Parent.TycoonManager)
+local WorkBudget = require(script.Parent.WorkBudget)
 
 local Terrain = workspace.Terrain
 
@@ -287,6 +288,7 @@ local function buildTerrain(streamAngles: { number }, hillSpots: { { Vector3 | n
 		local size = random:NextNumber(14, 40)
 		local cframe = CFrame.new(center.X, GROUND_FILL_TOP - 4, center.Z) * CFrame.Angles(0, random:NextNumber(0, math.pi), 0)
 		Terrain:FillBlock(cframe, Vector3.new(size, 8, size * random:NextNumber(0.5, 1)), Enum.Material.LeafyGrass)
+		WorkBudget.Step()
 	end
 
 	-- The river around the plaza: sandy banks, dug out and filled with water, then the
@@ -305,10 +307,12 @@ local function buildTerrain(streamAngles: { number }, hillSpots: { { Vector3 | n
 				fillDisc(point, 16, BANK_FILL_TOP, Enum.Material.Sand)
 			end
 			table.insert(streams, point)
+			WorkBudget.Step()
 		end
 		fillDisc(pond, POND_RADIUS + 8, BANK_FILL_TOP, Enum.Material.Sand)
 		for _, point in course do
 			pool(point, 11)
+			WorkBudget.Step()
 		end
 		pool(pond, POND_RADIUS)
 		table.insert(streams, pond)
@@ -316,6 +320,7 @@ local function buildTerrain(streamAngles: { number }, hillSpots: { { Vector3 | n
 
 	for _, spot in hillSpots do
 		hill(spot[1] :: Vector3, spot[2] :: number, spot[3] :: number)
+		WorkBudget.Step()
 	end
 
 	-- Mountains close the valley (tall enough to hide the world's edge).
@@ -323,6 +328,7 @@ local function buildTerrain(streamAngles: { number }, hillSpots: { { Vector3 | n
 		local angle = index / 26 * math.pi * 2 + random:NextNumber(-0.04, 0.04)
 		local footprint = random:NextNumber(140, 190)
 		hill(onGround(angle, MOUNTAIN_RING + random:NextNumber(0, 80)), footprint, random:NextNumber(120, 160))
+		WorkBudget.Step()
 	end
 
 	local baseplate = workspace:FindFirstChild("Baseplate")
@@ -419,6 +425,7 @@ local function scatter(count: number, minRadius: number, maxRadius: number, clea
 		if spot then
 			place(spot)
 			placed += 1
+			WorkBudget.Step()
 		end
 	end
 end
@@ -1509,6 +1516,19 @@ function MapBuilder.FindSpot(minRadius: number, maxRadius: number, rng: Random, 
 	return nil
 end
 
+-- What the Low Performance setting hides (Client/Performance): the small, many,
+-- purely decorative things. Trees, windmills, balloons, statues and the paths stay.
+local DETAIL_NAMES = {
+	TulipField = true, Flower = true, Butterfly = true, Tuft = true, Bush = true, Rock = true,
+	MushroomDot = true, MushroomStem = true, MushroomCap = true, Reed = true, Cattail = true,
+	LilyPad = true, LilyFlower = true, RubberDuck = true, Flock = true,
+}
+local function tagDetail(item: Instance)
+	if DETAIL_NAMES[item.Name] then
+		CollectionService:AddTag(item, "Detail")
+	end
+end
+
 -- Builds the world once, after TycoonManager has laid out the plots.
 function MapBuilder.Init()
 	local started = os.clock()
@@ -1554,6 +1574,7 @@ function MapBuilder.Init()
 	for _, plot in plots do
 		local lawn = Vector2.new(lot.HalfWidth * 2 + 4, lot.Back - lot.Front + 4)
 		paint(plot.CFrame * CFrame.new(0, 0, (lot.Front + lot.Back) / 2), lawn, Enum.Material.LeafyGrass)
+		WorkBudget.Step()
 	end
 	for index, plot in plots do
 		local entrance = (plot.CFrame * CFrame.new(0, 0, -60)).Position
@@ -1561,6 +1582,7 @@ function MapBuilder.Init()
 		local color = FactoryBuilder.Vivid(plot.Color)
 		buildPath(hub, plotAngles[index], entrance, color, sway)
 		buildBridge(hub, plotAngles[index], color)
+		WorkBudget.Step()
 	end
 	buildPlaza(hub, plots, plotAngles)
 	for _, angle in streamAngles do
@@ -1606,6 +1628,7 @@ function MapBuilder.Init()
 				buildLollipop(hub, spot, facing)
 			end)
 		end
+		WorkBudget.Step()
 	end
 
 	-- Life in every gap (see "Life between the factories"): a tulip field with
@@ -1635,6 +1658,7 @@ function MapBuilder.Init()
 			end
 		end
 		buildFlock(life, onGround(between + random:NextNumber(-0.1, 0.1), 430) + Vector3.new(0, random:NextNumber(80, 105), 0), 5)
+		WorkBudget.Step()
 	end
 
 	-- Trees on the hills' tops (a windmill on the big ones), then decor scattered over
@@ -1701,6 +1725,16 @@ function MapBuilder.Init()
 			if child:IsA("Decal") then
 				child:Destroy()
 			end
+		end
+	end
+
+	-- The small stuff (Low Performance hides it on a player's client: Client/Performance)
+	for _, item in hub:GetChildren() do
+		tagDetail(item)
+	end
+	for _, folder in { life, decor } do
+		for _, item in folder:GetChildren() do
+			tagDetail(item)
 		end
 	end
 

@@ -23,6 +23,8 @@ local CONFETTI_COLORS = {
 	Color3.fromRGB(190, 120, 255),
 }
 
+local Performance = require(script.Parent:WaitForChild("Performance")) -- (Low: fewer particles, no flashes)
+
 local Effects = {}
 
 local folder = workspace:FindFirstChild("Effects") or Instance.new("Folder")
@@ -124,7 +126,7 @@ function Effects.sparkle(position: Vector3, color: Color3, count: number, speed:
 		RotSpeed = NumberRange.new(-180, 180),
 	})
 	particles.Parent = Effects.anchor(position, 1.5)
-	particles:Emit(count)
+	particles:Emit(Performance.Particles(count))
 end
 
 -- Soft clouds (dust, stuffing, paint mist).
@@ -141,7 +143,7 @@ function Effects.puff(position: Vector3, color: Color3, count: number, size: num
 		Drag = 4,
 	})
 	particles.Parent = Effects.anchor(position, 1.5)
-	particles:Emit(count)
+	particles:Emit(Performance.Particles(count))
 end
 
 -- A jet shot from `from` at `to` over a quarter second: paint, dye, glaze (soft
@@ -160,7 +162,7 @@ function Effects.spray(from: Vector3, to: Vector3, color: Color3, count: number,
 		Speed = NumberRange.new(distance / lifetime * 0.85, distance / lifetime * 1.05),
 		SpreadAngle = Vector2.new(8, 8),
 		EmissionDirection = Enum.NormalId.Front,
-		Rate = count * 4,
+		Rate = Performance.Particles(count) * 4,
 	})
 	local anchor = Effects.anchor(from, 1.2)
 	anchor.CFrame = CFrame.lookAt(from, to) -- Front (-Z) toward `to`
@@ -189,7 +191,7 @@ function Effects.confetti(position: Vector3, count: number)
 			RotSpeed = NumberRange.new(-360, 360),
 		})
 		particles.Parent = anchor
-		particles:Emit(math.ceil(count / #CONFETTI_COLORS))
+		particles:Emit(math.ceil(Performance.Particles(count) / #CONFETTI_COLORS))
 	end
 end
 
@@ -215,6 +217,9 @@ end
 
 -- A quick point light that fades out.
 function Effects.flash(position: Vector3, color: Color3, brightness: number, range: number, duration: number?)
+	if Performance.Low then
+		return -- (a light per flash is what costs most)
+	end
 	local time = duration or 0.35
 	local light = Instance.new("PointLight")
 	light.Color = color
