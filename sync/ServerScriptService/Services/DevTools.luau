@@ -15,6 +15,7 @@
 	  dev:Invoke("SetPurchasedList", player, { "ClayStudio_Room", "ClayStudio_1_Line" }, true)
 	  dev:Invoke("GrantPass", player, "Sprint") -- a gamepass for this session (not saved)
 	  dev:Invoke("GrantProduct", player, "Drop100") -- a developer product, free (it saves)
+	  dev:Invoke("SpawnBox", player, "Legendary", 3) -- loot boxes of a rarity land round you
 	  dev:Invoke("Nuke", player)          -- drops a nuke on the server (everyone dies)
 
 	The Studio MCP's own code can't invoke it any more (since 2026-10-02 its thread lacks
@@ -35,6 +36,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Brainrots = require(ReplicatedStorage.Shared.Config.Brainrots)
 local DataManager = require(script.Parent.DataManager)
+local LootManager = require(script.Parent.LootManager)
 local MonetizationManager = require(script.Parent.MonetizationManager)
 local NukeManager = require(script.Parent.NukeManager)
 local TycoonManager = require(script.Parent.TycoonManager)
@@ -49,6 +51,11 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	-- "Drop25"...). Gems, Coins and the like are saved, so Snapshot first.
 	GrantProduct = function(player, key)
 		return MonetizationManager.GrantProductForTesting(player, key)
+	end,
+	-- Loot boxes of one rarity ("Common" ... "Godly") land round you, to watch their
+	-- arrival. Opening one of a rarity you haven't unlocked needs its rebirths.
+	SpawnBox = function(player, rarity, count)
+		return LootManager.DevSpawnBoxes(player, rarity, count)
 	end,
 	Nuke = function(player)
 		NukeManager.Launch(player)

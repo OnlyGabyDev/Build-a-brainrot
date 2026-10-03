@@ -20,6 +20,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage.Shared
 local Brainrots = require(Shared.Config.Brainrots)
@@ -364,6 +365,26 @@ local function onGetBoxes(): { Box }
 end
 
 -- Public API -----------------------------------------------------------------
+
+-- Studio only (DevTools' SpawnBox): `count` boxes of one rarity land round `player`
+-- (to watch each rarity's arrival). They're anyone's, like a bought box whose buyer left.
+function LootManager.DevSpawnBoxes(player: Player, rarityId: string, count: number?): boolean
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not (RunService:IsStudio() and Rarities.ById[rarityId] and root and root:IsA("BasePart")) then
+		return false
+	end
+	for _ = 1, math.clamp(count or 1, 1, 50) do
+		nextBoxId += 1
+		addBox({
+			Id = nextBoxId,
+			Position = randomBoxPosition(root.Position),
+			Rarity = rarityId,
+			PartType = rollPartType(),
+			Bought = true,
+		})
+	end
+	return true
+end
 
 -- Rains `count` boxes onto the map round `player` (a bought drop). Doesn't yield.
 function LootManager.Drop(player: Player, count: number)

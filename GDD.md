@@ -116,7 +116,10 @@ All numbers are **placeholders**. Tune them in playtests.
   - Boxes only roll rarities that **someone in the server** has unlocked. Players who haven't unlocked a box's rarity see it locked (`🔒 Rebirth 4`) and can't open it, which is a visible reason to rebirth.
   - **Rare+ spawns are announced** to the whole server, and so is who grabbed them.
   - **What a box gives** ✅: mostly a part of its own rarity, sometimes a rarer one. Each tier above is 15% as likely as the one below (Common box ≈ 87% Common, 13% Uncommon, 2% Rare…), limited to tiers the opener has unlocked. Upgrades get a "RARITY UP!" reveal. Odds live in `Config/Loot`, so the wheel shows exactly what the server rolls.
-- ✅ (v2.8) Per-rarity looks, arrivals and openings: the rarer, the bigger and louder. Rare boxes glow at the edges; Legendary ones are gold under a halo in a beam of light; Mythic ones are crystal with a glowing core and orbiting stars, and crash down like meteors; Godly ones cycle through the rainbow and rise out of a black hole, which closes when they're opened. Opening one bursts in confetti, a shockwave and a flash, bigger with its rarity.
+- ✅ (v2.8) Per-rarity looks, arrivals and openings: the rarer, the bigger and louder. Rare boxes glow at the edges; Legendary ones are gold under a halo in a beam of light; Mythic ones are crystal with a glowing core and orbiting stars; Godly ones cycle through the rainbow over a black hole, which closes when they're opened. Opening one bursts in confetti, a shockwave and a flash, bigger with its rarity.
+- ✅ (v2.9, the user: every rarity its own arrival) **Arrivals:** Common drops out of the sky and bounces; Uncommon floats down under a striped parachute that collapses onto it; Rare bursts up out of the ground in a spray of dirt and leaves a mound; Legendary is a meteor (a fireball streaking in at a slant, trailing fire and smoke, a boom, a camera shake, a scorched crater that cools); Mythic is summoned (a magic circle lights up, lightning strikes it, the box materializes in stars); Godly rises out of its black hole. Only boxes near the camera animate (a box storm can put ~150 on the map).
+- ✅ (v2.9, the user) **Bought box drops** (§12): 1, 5, 10, 25 or 100 boxes (a "BOX STORM") rain onto the map round the buyer, one every 0.12 s. Each rolls its rarity like a Roll with extra luck (+1), from the rarities the buyer has unlocked, so the buyer can open them all; they're the buyer's alone for 2 minutes (their name and a countdown over each), then anyone's, at once if the buyer leaves. They don't count toward the map's own boxes and aren't replaced; at most 120 are out at once (the rest wait). The whole server sees "NAME started a BOX STORM!". Tuning: `Config/Loot.Drops`.
+- ✅ (v2.9) Results that pile up (a storm) skip the reel: they pop into a quick feed on the right (new part or the duplicate's reward), and a new Rare+ part still gets its full reel.
 
 **Rolls**
 - A **Roll** is a loot box you carry. Open it from the HUD any time, and it gives a random rarity (from unlocked tiers) and a random part type.
@@ -318,6 +321,9 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 - **Gem packs** (S / M / L / XL)
 - **Roll packs** (x3, x10)
 - **Daily wheel spins** (x1, x5)
+- ✅ **Coin packs** (v2.9, the user): 10 min / 1 h / 4 h / 12 h of the buyer's own income, never less than 5K / 40K / 200K / 800K, so they stay worth buying as the factory grows. Suggested 49 / 199 / 599 / 1,299 R$.
+- ✅ **Box drops** (v2.9, the user asked for 1/5/10/25/100, the 100 at "5000 R$ or less, by other games' prices"): see §5. Suggested 39 / 179 / 329 / 749 / **2,499** R$ (~40 down to 25 R$ a box). Why not 5,000: *Steal a Brainrot*'s dearest single item is a 2,399 R$ Secret Lucky Block (one box), its 15 min of 2x Server Luck is 249 R$, and *Pet Simulator 99*'s packs run 50–2,400 R$; a 100-box storm near 2,500 reads as the top deal, at 5,000 it would be twice the genre leader's dearest item.
+- Prices are set on the Creator Dashboard; `SuggestedPrice` in `Config/Products` is the note for Go live.
 - **Server Luck Boost** 💡: everyone in the server gets 2x Luck for 15 min, with a server-wide announcement of who bought it.
 
 - ✅ **NUKE** (v2.7, a developer product, 2000 R$; the user's request): the whole server is warned (a flashing banner and a chat message: "⚠️ NAME BOUGHT A NUKE! ⚠️", an air-raid siren), a giant Bombardiro Crocodilo slowly fades in over the valley and drops a nuke on the hub; when it hits the ground every screen goes white and everyone dies (every Humanoid: players and, later, bosses), then a mushroom cloud rises. Bought again and again (a product, not a pass).
@@ -329,7 +335,9 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 - Prizes: Coins, Gems, Rolls, temporary Luck boosts, and a small chance at a Mythic box.
 - ✅ Built (`Config/DailyWheel`): Coins (2 min of income) 30%, 25 Gems 22%, 1 Roll 18%, Luck boost 15 min 12%, 100 Gems 8%, 3 Rolls 7%, **500 Gems jackpot 3%**. The jackpot replaces the Mythic box, because rarities stay locked behind rebirths. VIP gets 2 free spins a day.
 
-**Compliance:** anything bought with Robux that grants random rewards (Roll packs, paid wheel spins) must **show the odds in the UI before purchase** (Roblox paid random items policy). All purchases are handled server-side via `ProcessReceipt`, with receipt IDs stored to prevent double-granting.
+**Badges** ✅ (v2.9, the user): "Welcome to the Factory!" for joining, "Finders Keepers" for the first loot box opened **on the map** (Rolls and the wheel don't count; bought drop boxes do, they're on the map). `Config/Badges` (ids from the Creator Dashboard), `Services/BadgeManager` (checks Roblox once per session).
+
+**Compliance:** anything bought with Robux that grants random rewards (Roll packs, paid wheel spins, box drops) must **show the odds in the UI before purchase** (Roblox paid random items policy). The BOXES tab shows each box's final odds (its rarity roll and the upgrade when it's opened, combined: `Loot.DropPartOdds`). All purchases are handled server-side via `ProcessReceipt`, with receipt IDs stored to prevent double-granting.
 
 ---
 
@@ -342,6 +350,7 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 - **Numbers:** abbreviated (1.2K, 3.4M, 5.6B…).
 - ✅ **UI juice (v2.5):** glossy highlights on every button and pill, menus whoosh and bounce up into place and pop shut, a sunburst behind reveals, a shake on Rare+ reveals; the HUD has the counters top left (icon bubbles, "+N" floating up as they rise) and the menu buttons in a grid under them with bobbing icons.
 - **Assets:** toolbox models, maps and UI kits are allowed. Restyle them to fit the palette.
+- ✅ **Low Performance** (v2.9, the user: never cut the decor, make it an option): a 🐢/⚡ button on the HUD, saved per player. On: no shadows, bloom or sun rays; the world's particles and lights off; the hub's small decor hidden (tulip fields, flowers, reeds, rocks...: MapBuilder tags it `Detail`); moving decor holds still; fewer particles in effects; builds just appear. Off (the default): everything, as designed.
 
 ---
 
@@ -431,6 +440,11 @@ StarterPlayer/StarterPlayerScripts/
     TotalCoinsEarned = 0,
     FirstJoin = 0,
     LastJoin = 0,
+    RobuxSpent = 0,
+    Playtime = 0,
+  },
+  Settings = {
+    LowGraphics = false, -- the player's own (v2.9), set through the SetSetting remote
   },
 }
 ```
@@ -516,6 +530,7 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v2.9 (2026-10-03):** From the user's list: Coin packs and bought box drops (1–100 boxes rain round the buyer, a BOX STORM at 100; prices from *Steal a Brainrot* / *Pet Sim 99*) (§12, §5); badges for joining and for the first map box (§12); an arrival of its own per rarity (parachute, out of the ground, meteor, lightning...) (§5); a quick feed for piled-up loot results. The Giant Plushie fits under the ceiling with its crown (its size is measured). Z-fighting fixed across the rooms (found with the new geometry lab, `tools/lab`). Performance: the world builds over several frames (no startup freeze), the client only animates what's on screen, and a Low Performance setting (§13).
 - **v2.8 (2026-10-03):** Per-rarity loot box looks, arrivals (a Godly box rises out of a black hole) and openings (§5). The brainrots' art v2 is in a block style like Steal a Brainrot's (clean blocks, flat faces, ramps).
 - **v2.7 (2026-10-03):** The NUKE (§12), the hub's leaderboards and podium (§12), and the brainrot art v2's first batch (Tung Tung Tung Sahur and Tralalero Tralala, finer voxels, matched to references).
 - **v2.6 (2026-10-02):** Gamepasses (§12): checked end to end in Studio (a test grant), the Sprint pass added, the shop's pass cards redone.
