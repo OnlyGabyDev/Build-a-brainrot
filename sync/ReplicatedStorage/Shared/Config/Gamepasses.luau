@@ -18,13 +18,50 @@ export type Pass = {
 	RemoteLines: boolean?, -- configure lines from anywhere (ProductionManager)
 	AutoCollect: boolean?, -- collector Coins bank themselves (TycoonManager)
 	Sprint: number?, -- × walk speed while holding Shift (client: Sprint)
+	Starter: StarterReward?, -- a newcomer's bundle, granted once (Services/StarterPack)
+	OfferHours: number?, -- sold only this long after the player's first join (the shop and the ads)
 	-- the shop card (Client/UI/Shop)
 	Perks: { string }, -- what you get, one short line each
 	Colors: { Color3 }, -- the card's gradient, top to bottom
 	Ribbon: string?, -- a corner ribbon ("BEST VALUE")
 }
 
+-- What the Starter Pack gives: parts ({ brainrotId, partType }), Coins and boxes once,
+-- and Rolls once a day for as long as you own it.
+export type StarterReward = {
+	Parts: { { string } },
+	Coins: number,
+	Boxes: number,
+	DailyRolls: number,
+}
+
 local Gamepasses: { [string]: Pass } = {
+	-- A limited-time offer for newcomers (the user, 2026-10-03): the shop and a corner ad
+	-- count down 24 h from the first join, then it's gone from the game. (A pass can still
+	-- be bought from its page on the website afterwards; it grants the same way.)
+	StarterPack = {
+		Id = 0,
+		Order = 0,
+		Name = "Starter Pack",
+		Icon = "🎉",
+		Description = "A full Bombardiro Crocodilo, Tung Tung Tung Sahur's arms, 250K Coins, 10 random loot boxes and 3 free Rolls every day.",
+		Starter = {
+			Parts = {
+				{ "BombardiroCrocodilo", "Legs" },
+				{ "BombardiroCrocodilo", "Body" },
+				{ "BombardiroCrocodilo", "Arms" },
+				{ "BombardiroCrocodilo", "Head" },
+				{ "TungTungTungSahur", "Arms" },
+			},
+			Coins = 250000,
+			Boxes = 10,
+			DailyRolls = 3,
+		},
+		OfferHours = 24,
+		Perks = { "Bombardiro (Mythic!) + Sahur arms", "💰 250K Coins + 🎁 10 boxes", "🎲 3 free Rolls every day" },
+		Colors = { Color3.fromRGB(255, 120, 200), Color3.fromRGB(140, 60, 255) },
+		Ribbon = "LIMITED!", -- the shop shows the offer's countdown on it
+	},
 	VIP = {
 		Id = 0,
 		Order = 1,

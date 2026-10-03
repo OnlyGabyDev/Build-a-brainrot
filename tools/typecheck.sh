@@ -29,6 +29,7 @@ if os.path.exists('sourcemap.json'):
 else:
     # the services our code lives in (their classes matter to the type checker)
     m = {'name': 'Game', 'className': 'DataModel', 'children': [
+        {'name': 'ReplicatedFirst', 'className': 'ReplicatedFirst', 'children': []},
         {'name': 'ReplicatedStorage', 'className': 'ReplicatedStorage', 'children': []},
         {'name': 'ServerScriptService', 'className': 'ServerScriptService', 'children': []},
         {'name': 'ServerStorage', 'className': 'ServerStorage', 'children': []},

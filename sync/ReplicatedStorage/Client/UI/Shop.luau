@@ -21,6 +21,7 @@ local Products = require(Config:WaitForChild("Products"))
 local Format = require(Shared:WaitForChild("Format"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
+local Passes = require(script.Parent:WaitForChild("Passes"))
 
 local SIZE = Vector2.new(980, 620)
 local TABS = { "PASSES", "GEMS", "COINS", "BOXES", "ROLLS", "SPINS" }
@@ -35,31 +36,17 @@ local KIND_COLORS = {
 local GOLD_COLOR = Color3.fromRGB(255, 215, 60)
 local GOOD_COLOR = Color3.fromRGB(120, 245, 110)
 
-type Item = { Kind: string, Key: string, Id: number, Order: number, Name: string, Icon: string, Text: string, Perks: { string }, Colors: { Color3 }, Ribbon: string? }
+type Item = { Kind: string, Key: string, Id: number, Order: number, Name: string, Icon: string, Text: string, Perks: { string }, Colors: { Color3 }, Ribbon: string?, Limited: boolean? }
 
 local player = Players.LocalPlayer
 local panel: Frame? = nil
 local content: Frame? = nil
 local body: Frame? = nil
 local tab = "PASSES"
-local prices: { [string]: number | false } = {}
 local bubbles: { GuiObject } = {} -- the cards' icons (they bob while the shop is open)
+local countdowns: { [TextLabel]: string } = {} -- limited offers' ribbons: [label] = pass key
 
 local Shop = {}
-
--- Robux price of a pass or product, fetched once. Nil if unknown.
-local function priceOf(kind: string, id: number): number?
-	if id <= 0 then
-		return nil
-	end
-	local key = kind .. id
-	if prices[key] == nil then
-		local infoType = if kind == "Pass" then Enum.InfoType.GamePass else Enum.InfoType.Product
-		local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, id, infoType)
-		prices[key] = if ok and info and info.PriceInRobux then info.PriceInRobux else false
-	end
-	return prices[key] or nil
-end
 
 -- "10 min", "1 hour", "12 hours"
 local function duration(seconds: number): string
@@ -85,7 +72,10 @@ local function items(): { Item }
 	local list: { Item } = {}
 	if tab == "PASSES" then
 		for key, pass in Gamepasses do
-			table.insert(list, { Kind = "Pass", Key = key, Id = pass.Id, Order = pass.Order, Name = pass.Name, Icon = pass.Icon, Text = pass.Description, Perks = pass.Perks, Colors = pass.Colors, Ribbon = pass.Ribbon })
+			-- a limited offer is gone once it's over (unless it's owned: it shows OWNED)
+			if Passes.OnSale(key) or Passes.Owns(key) then
+				table.insert(list, { Kind = "Pass", Key = key, Id = pass.Id, Order = pass.Order, Name = pass.Name, Icon = pass.Icon, Text = pass.Description, Perks = pass.Perks, Colors = pass.Colors, Ribbon = pass.Ribbon, Limited = pass.OfferHours ~= nil })
+			end
 		end
 		-- the NUKE leads the page (a product: it can be bought again and again)
 		for key, product in Products do
@@ -109,13 +99,13 @@ local function items(): { Item }
 end
 
 local function buy(item: Item)
-	if item.Kind == "Pass" and player:GetAttribute(`Pass_{item.Key}`) then
+	if item.Kind == "Pass" and Passes.Owns(item.Key) then
 		return
 	end
 	if item.Id <= 0 then
 		Kit.toast("Coming soon!", GOLD_COLOR)
 	elseif item.Kind == "Pass" then
-		MarketplaceService:PromptGamePassPurchase(player, item.Id)
+		Passes.Prompt(item.Key)
 	else
 		MarketplaceService:PromptProductPurchase(player, item.Id)
 	end
@@ -127,7 +117,7 @@ end
 -- corner for the best deals, what you get as a list of ticks, and the buy button with
 -- its Robux price.
 local function renderCard(parent: Instance, item: Item)
-	local owned = item.Kind == "Pass" and player:GetAttribute(`Pass_{item.Key}`) == true
+	local owned = item.Kind == "Pass" and Passes.Owns(item.Key)
 	local card = Kit.new("Frame", { LayoutOrder = item.Order, BackgroundColor3 = Kit.White, Parent = parent })
 	Kit.corner(card, 20)
 	Kit.stroke(card, 4)
@@ -173,7 +163,10 @@ local function renderCard(parent: Instance, item: Item)
 		Kit.corner(ribbon, 10)
 		Kit.stroke(ribbon, 3)
 		Kit.gradient(ribbon, Kit.Colors.Red)
-		Kit.text({ Text = `⭐ {item.Ribbon}`, Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 1, -8), StrokeThickness = 2, ZIndex = 6, Parent = ribbon })
+		local label = Kit.text({ Text = `⭐ {item.Ribbon}`, Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 1, -8), StrokeThickness = 2, ZIndex = 6, Parent = ribbon })
+		if item.Limited then
+			countdowns[label] = item.Key
+		end
 	end
 	local button = Kit.button({
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -185,7 +178,7 @@ local function renderCard(parent: Instance, item: Item)
 	end)
 	if not owned and item.Id > 0 then
 		task.spawn(function()
-			local price = priceOf(item.Kind, item.Id)
+			local price = Passes.PriceOf(item.Kind, item.Id)
 			local label = button:FindFirstChildOfClass("TextLabel")
 			if label then
 				label.Text = if price then `R$ {price}` else "BUY"
@@ -194,7 +187,7 @@ local function renderCard(parent: Instance, item: Item)
 	end
 end
 
--- The cards' icons bob while the shop is open.
+-- The cards' icons bob while the shop is open, and limited offers count down.
 RunService.RenderStepped:Connect(function()
 	if not (panel and panel.Visible) then
 		return
@@ -202,6 +195,9 @@ RunService.RenderStepped:Connect(function()
 	local t = os.clock()
 	for index, bubble in bubbles do
 		bubble.Position = UDim2.new(0.5, 0, 0, 6 + math.sin(t * 2.4 + index) * 3)
+	end
+	for label, key in countdowns do
+		label.Text = `⏰ {Passes.Clock(Passes.OfferLeft(key) or 0)}`
 	end
 end)
 
@@ -287,6 +283,7 @@ render = function()
 	local frame = Kit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = content })
 	body = frame
 	table.clear(bubbles)
+	table.clear(countdowns)
 
 	for index, name in TABS do
 		Kit.button({

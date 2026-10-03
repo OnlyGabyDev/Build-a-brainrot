@@ -80,6 +80,7 @@ export type PlayerData = {
 	Boosts: { [string]: number }, -- [boostId] = os.time() it expires
 	DailyWheel: { FreeSpins: { number }, Spins: number }, -- free spins used (times), bought spins
 	Receipts: { string }, -- recent Robux purchase ids, so none is granted twice
+	Claims: { [string]: number }, -- [claim] = os.time() it was last claimed (one-off and daily rewards)
 	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number },
 	Settings: { LowGraphics: boolean }, -- the player's own (Client/Performance)
 }
@@ -114,6 +115,7 @@ local TEMPLATE: PlayerData = {
 	Boosts = {},
 	DailyWheel = { FreeSpins = {}, Spins = 0 },
 	Receipts = {},
+	Claims = {},
 	Stats = {
 		TotalCoinsEarned = 0,
 		FirstJoin = 0,
@@ -147,6 +149,7 @@ type Profile = {
 	LockLost: boolean,
 	LastSave: number,
 	StatValues: { [string]: any },
+	UnsavedReceipts: { [string]: boolean }, -- granted, but no save has gone through since
 }
 
 type LoadResult = "Loaded" | "Offline" | "Failed" | "Cancelled"
@@ -483,6 +486,7 @@ local function onPlayerAdded(player: Player)
 		LockLost = false,
 		LastSave = os.clock(),
 		StatValues = {},
+		UnsavedReceipts = {},
 	}
 
 	if not player:IsDescendantOf(Players) then
@@ -759,14 +763,42 @@ function DataManager.ProcessReceipt(player: Player, receiptId: string, grant: ()
 	end
 	local receipts = profile.Data.Receipts
 	if table.find(receipts, receiptId) then
+		-- granted before: done once a save holding it went through (Roblox only retries
+		-- when we said NotProcessedYet, so save again rather than claim it's safe)
+		if not profile.UnsavedReceipts[receiptId] then
+			return true
+		end
+	else
+		grant()
+		table.insert(receipts, receiptId)
+		while #receipts > MAX_RECEIPTS do
+			table.remove(receipts, 1)
+		end
+		profile.UnsavedReceipts[receiptId] = true
+	end
+	if saveProfile(profile, false) then
+		profile.UnsavedReceipts[receiptId] = nil
 		return true
 	end
-	grant()
-	table.insert(receipts, receiptId)
-	while #receipts > MAX_RECEIPTS do
-		table.remove(receipts, 1)
+	return false
+end
+
+-- Claims a reward named `claim` (e.g. "StarterPack"): true, and it's stamped with the
+-- time, if it was never claimed, or (with `cooldown` seconds) not for that long. The
+-- caller grants the reward only on true, so a one-off is never given twice.
+function DataManager.Claim(player: Player, claim: string, cooldown: number?): boolean
+	checkId("claim", claim)
+	local profile = profiles[player]
+	if not profile then
+		return false
 	end
-	return saveProfile(profile, false)
+	local now = os.time()
+	local last = profile.Data.Claims[claim]
+	if last and (cooldown == nil or now - last < cooldown) then
+		return false
+	end
+	profile.Data.Claims[claim] = now
+	return true
 end
 
 -- Starts or extends a timed boost (e.g. "Luck") by `seconds`.

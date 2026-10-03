@@ -23,6 +23,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
 local LineMenu = require(script.Parent:WaitForChild("LineMenu"))
+local Upsell = require(script.Parent:WaitForChild("Upsell"))
 
 local AUTO_CLOSE = 8 -- seconds before a reveal closes itself
 local BIG_RANK = 3 -- Rare and up get the bigger reveal
@@ -326,6 +327,8 @@ local function processQueue()
 		if quick then
 			lastQuick = os.clock()
 		end
+		-- the corner ad: skip the reveals while they pile up, or find rarer parts
+		Upsell.Offer(if quick then { "FastOpen", "Lucky" } else { "Lucky", "FastOpen" })
 		local ok, err = pcall(if quick then quickShow else play, result)
 		if quick then
 			task.wait(QUICK_GAP)

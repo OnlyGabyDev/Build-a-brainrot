@@ -27,6 +27,7 @@ local Loot = require(UI:WaitForChild("Loot"))
 local RebirthMenu = require(UI:WaitForChild("RebirthMenu"))
 local SettingsMenu = require(UI:WaitForChild("SettingsMenu"))
 local Shop = require(UI:WaitForChild("Shop"))
+local Upsell = require(UI:WaitForChild("Upsell"))
 
 local COUNTERS = {
 	{ Stat = "Coins", Icon = "💰", Colors = Kit.Colors.Coins, Float = Color3.fromRGB(255, 235, 110), Gap = 70 },
@@ -375,6 +376,17 @@ end)
 -- The server thanks you once a Robux purchase is granted.
 Remotes.Event("Purchased").OnClientEvent:Connect(function(text: string)
 	Shop.Thanks(text)
+end)
+
+-- A newcomer's Starter Pack offer pops up in the corner a little after joining, and
+-- again now and then while it lasts (Upsell keeps it from nagging).
+local STARTER_FIRST, STARTER_EVERY = 12, 300
+task.spawn(function()
+	task.wait(STARTER_FIRST)
+	while true do
+		Upsell.Offer("StarterPack", "A Mythic Bombardiro, 250K Coins, 10 boxes + daily Rolls!")
+		task.wait(STARTER_EVERY)
+	end
 end)
 
 -- VIPs get a gold tag in chat.

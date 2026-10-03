@@ -27,6 +27,7 @@ local TycoonItems = require(Shared:WaitForChild("Config"):WaitForChild("TycoonIt
 local DropIn = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("DropIn"))
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
 local FactoryView = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("FactoryView"))
+local Upsell = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("UI"):WaitForChild("Upsell"))
 
 local BELT_RIBS = "rbxassetid://17320090479"
 local BELT_ARROWS = "rbxassetid://7140341425"
@@ -377,6 +378,7 @@ local function watchCashPad(plot: Instance, pad: BasePart)
 		end
 		if isOwnPlot(plot) then
 			flyToCounter(top, math.clamp(math.floor(math.log10(amount + 1) * 2), 3, 10))
+			Upsell.Offer({ "DoubleCoins", "AutoCollect", "VIP" })
 		end
 	end
 

@@ -13,6 +13,7 @@ local UserInputService = game:GetService("UserInputService")
 local UI = ReplicatedStorage:WaitForChild("Client"):WaitForChild("UI")
 local Gamepasses = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Gamepasses"))
 local Kit = require(UI:WaitForChild("Kit"))
+local Upsell = require(UI:WaitForChild("Upsell"))
 
 local player = Players.LocalPlayer
 local running = false
@@ -50,8 +51,13 @@ end
 -- (not `processed`: Roblox's shift lock binds Shift too, which marks it processed and
 -- would block the sprint; only typing in a text box should)
 UserInputService.InputBegan:Connect(function(input)
-	if owns() and not UserInputService:GetFocusedTextBox() and (input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift) then
+	if UserInputService:GetFocusedTextBox() or not (input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift) then
+		return
+	end
+	if owns() then
 		setRunning(true)
+	else
+		Upsell.Offer("Sprint", "Hold Shift to run 60% faster!")
 	end
 end)
 UserInputService.InputEnded:Connect(function(input)
