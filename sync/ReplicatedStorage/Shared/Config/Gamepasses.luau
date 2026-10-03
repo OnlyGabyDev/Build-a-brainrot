@@ -58,7 +58,7 @@ local Gamepasses: { [string]: Pass } = {
 			Boxes = 10,
 		},
 		OfferHours = 24,
-		Perks = { "Bombardiro (Mythic!) + Sahur arms", "💰 250K Coins + 🎁 10 boxes", "🎲 3 Rolls" },
+		Perks = { "Mythic Bombardiro!", "Tung Sahur's arms", "💰 250K + 🎁 10 boxes", "🎲 3 Rolls" },
 		Colors = { Color3.fromRGB(255, 120, 200), Color3.fromRGB(140, 60, 255) },
 		Ribbon = "LIMITED!", -- the shop shows the offer's countdown on it
 	},
@@ -122,7 +122,7 @@ local Gamepasses: { [string]: Pass } = {
 		Icon = "👟",
 		Description = "Hold Shift to run 60% faster.",
 		Sprint = 1.6,
-		Perks = { "Hold Shift to run", "60% faster (a button on mobile)" },
+		Perks = { "Run 60% faster!", "Hold Shift (a button on mobile)" },
 		Colors = { Color3.fromRGB(255, 160, 110), Color3.fromRGB(235, 70, 80) },
 	},
 }

@@ -181,21 +181,23 @@ local function renderShop(parent: Frame)
 		Kit.stroke(row, 4)
 		Kit.gradient(row, Kit.Colors.Purple)
 		Kit.text({ Text = upgrade.Icon, Position = UDim2.fromOffset(10, 14), Size = UDim2.fromOffset(64, 64), StrokeThickness = 0, Parent = row })
-		Kit.text({
-			Text = `{upgrade.Name}  ·  Lv {level}/{upgrade.MaxLevel}`,
-			Position = UDim2.fromOffset(84, 12),
-			Size = UDim2.fromOffset(200, 34),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Parent = row,
-		})
-		Kit.text({
-			Text = `{upgrade.Description} per level`,
-			TextColor3 = Color3.fromRGB(235, 225, 255),
-			Position = UDim2.fromOffset(84, 50),
-			Size = UDim2.fromOffset(200, 28),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Parent = row,
-		})
+		-- name, level and what it does on their own lines, each capped at one size so
+		-- every row reads the same (a long name used to shrink its whole line)
+		for _, spec in {
+			{ upgrade.Name, 8, 30, 28, Kit.White },
+			{ `LV {level}/{upgrade.MaxLevel}`, 40, 22, 20, GOLD_COLOR },
+			{ `{upgrade.Description} per level`, 64, 22, 17, Color3.fromRGB(235, 225, 255) },
+		} do
+			local label = Kit.text({
+				Text = spec[1],
+				TextColor3 = spec[5],
+				Position = UDim2.fromOffset(84, spec[2]),
+				Size = UDim2.fromOffset(206, spec[3]),
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = row,
+			})
+			Kit.new("UITextSizeConstraint", { MaxTextSize = spec[4], Parent = label })
+		end
 		Kit.button({
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.new(1, -14, 0.5, 0),

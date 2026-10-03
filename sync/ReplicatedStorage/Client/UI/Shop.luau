@@ -152,8 +152,9 @@ local function renderCard(parent: Instance, item: Item)
 	for index, perk in item.Perks do
 		Kit.text({
 			Text = `✔ {perk}`,
-			Position = UDim2.fromOffset(12, 122 + (index - 1) * 24),
-			Size = UDim2.new(1, -24, 0, 21),
+			-- (four lines pack tighter, so the last stays clear of the buy button)
+			Position = UDim2.fromOffset(12, 120 + (index - 1) * (if #item.Perks > 3 then 18 else 24)),
+			Size = UDim2.new(1, -24, 0, if #item.Perks > 3 then 17 else 21),
 			TextXAlignment = if #item.Perks > 1 then Enum.TextXAlignment.Left else Enum.TextXAlignment.Center,
 			StrokeThickness = 1.5,
 			Parent = card,
