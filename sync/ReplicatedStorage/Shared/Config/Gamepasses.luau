@@ -127,7 +127,7 @@ local Gamepasses: { [string]: Pass } = {
 		Colors = { Color3.fromRGB(255, 160, 110), Color3.fromRGB(235, 70, 80) },
 	},
 	BoxRadar = {
-		Id = 0,
+		Id = 2006924923,
 		Order = 7,
 		Name = "Box Radar",
 		Icon = "📡",
