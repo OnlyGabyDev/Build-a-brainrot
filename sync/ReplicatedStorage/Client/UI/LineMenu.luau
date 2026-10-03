@@ -163,8 +163,8 @@ local function renderTabs(parent: Frame, current: LineView)
 	for index, spec in { { "Parts", "🧩 PARTS" }, { "Upgrades", "⚡ UPGRADES" } } do
 		Kit.button({
 			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -24 - (2 - index) * 148, 0, 14),
-			Size = UDim2.fromOffset(140, 44),
+			Position = UDim2.new(1, -24 - (2 - index) * 188, 0, 14),
+			Size = UDim2.fromOffset(180, 44),
 			Parent = parent,
 		}, if mode == spec[1] then Kit.Colors.Coins else Kit.Colors.Grey, spec[2], function()
 			mode = spec[1]
@@ -203,9 +203,8 @@ local function rarityColors(rarity: Rarities.Rarity): { Color3 }
 end
 
 -- The four slots across the top: each a big card in its part's color, the part on it
--- (a turning figure) on its rarity's colors; the selected one lifted, rimmed in gold,
--- with a pointer down to the picker.
-local SLOT_W, SLOT_H, SLOT_GAP, SLOT_TOP = 220, 176, 18, 102
+-- (a turning figure) on its rarity's colors; the selected one rimmed in gold.
+local SLOT_W, SLOT_H, SLOT_GAP, SLOT_TOP = 220, 176, 18, 108
 local function renderSlot(parent: Frame, line: LineView, partType: string, index: number)
 	local hasDropper = line.Droppers[partType] == true
 	local brainrotId = line.Parts[partType]
@@ -217,7 +216,7 @@ local function renderSlot(parent: Frame, line: LineView, partType: string, index
 		AutoButtonColor = false,
 		Text = "",
 		BackgroundColor3 = Kit.White,
-		Position = UDim2.fromOffset(left + (index - 1) * (SLOT_W + SLOT_GAP), SLOT_TOP - (if selected then 6 else 0)),
+		Position = UDim2.fromOffset(left + (index - 1) * (SLOT_W + SLOT_GAP), SLOT_TOP),
 		Size = UDim2.fromOffset(SLOT_W, SLOT_H),
 		Parent = parent,
 	})
@@ -240,9 +239,6 @@ local function renderSlot(parent: Frame, line: LineView, partType: string, index
 		Kit.text({ Text = "➕\nTAP TO PICK", TextColor3 = Color3.fromRGB(150, 145, 170), Position = UDim2.fromOffset(20, 70), Size = UDim2.new(1, -40, 0, 70), StrokeThickness = 0, Parent = card })
 	end
 
-	if selected then
-		Kit.text({ Text = "▼", TextColor3 = SELECTED_COLOR, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.fromOffset(40, 28), StrokeThickness = 3, Parent = card })
-	end
 
 	if not hasDropper then
 		local lock = Kit.new("Frame", {
@@ -321,7 +317,7 @@ end
 
 local function renderPicker(parent: Frame, line: LineView)
 	local hasDropper = line.Droppers[selectedSlot] == true
-	local top = SLOT_TOP + SLOT_H + 18
+	local top = SLOT_TOP + SLOT_H + 12
 	Kit.text({
 		Text = if hasDropper
 			then `PICK A {string.upper(selectedSlot)}  ·  each part works on one line at a time`
