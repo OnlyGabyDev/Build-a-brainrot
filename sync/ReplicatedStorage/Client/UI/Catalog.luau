@@ -586,44 +586,49 @@ local function renderDetails(parent: Frame, brainrot: Brainrots.Brainrot)
 	end
 	y += math.ceil(#editions() / 2) * (pill.Y + 6) + 8
 
-	-- Morph and gadget, unlocked by the first completion.
-	if isCompleted(brainrot.Id) then
+	-- Morph and gadget, unlocked by the first completion: a framed REWARDS box, so you
+	-- see they're there (locked ones say what you'd get).
+	local gadget = Gadgets[brainrot.Id]
+	local unlocked = isCompleted(brainrot.Id)
+	local box = Kit.new("Frame", {
+		Position = UDim2.fromOffset(x, y),
+		Size = UDim2.fromOffset(COLUMN_WIDTH, 128),
+		BackgroundColor3 = Kit.White,
+		Parent = parent,
+	})
+	Kit.corner(box, 16)
+	Kit.stroke(box, 4, if unlocked then Color3.fromRGB(255, 200, 40) else nil)
+	Kit.gradient(box, if unlocked then { Color3.fromRGB(255, 235, 150), Color3.fromRGB(255, 170, 60) } else { Color3.fromRGB(200, 195, 215), Color3.fromRGB(150, 145, 170) })
+	Kit.text({
+		Text = if unlocked then "🎁 YOUR REWARDS" else "🔒 COMPLETE IT TO UNLOCK",
+		Position = UDim2.fromOffset(12, 6),
+		Size = UDim2.new(1, -24, 0, 26),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		StrokeThickness = 2.5,
+		Parent = box,
+	})
+	local half = (COLUMN_WIDTH - 36) / 2
+	if unlocked then
 		local morphed = player:GetAttribute("Morph") == brainrot.Id
-		Kit.button({ Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(180, 46), Parent = parent }, Kit.Colors.Purple, if morphed then "UNMORPH" else "MORPH", function()
+		Kit.button({ Position = UDim2.fromOffset(12, 38), Size = UDim2.fromOffset(half, 52), Parent = box }, Kit.Colors.Purple, if morphed then "🔄 UNMORPH" else "🦸 MORPH!", function()
 			setChoice("SetMorph", if morphed then nil else brainrot.Id)
 		end)
-		local gadget = Gadgets[brainrot.Id]
 		if gadget then
 			local equipped = player:GetAttribute("Gadget") == brainrot.Id
-			Kit.button({
-				Position = UDim2.fromOffset(x + 192, y),
-				Size = UDim2.fromOffset(COLUMN_WIDTH - 192, 46),
-				Parent = parent,
-			}, Kit.Colors.Gems, if equipped then "UNEQUIP GADGET" else "EQUIP GADGET", function()
+			Kit.button({ Position = UDim2.fromOffset(24 + half, 38), Size = UDim2.fromOffset(half, 52), Parent = box }, if equipped then Kit.Colors.Grey else Kit.Colors.Green, if equipped then "✖ UNEQUIP" else `{gadget.Icon or "🎁"} GADGET!`, function()
 				setChoice("EquipGadget", if equipped then nil else brainrot.Id)
 			end)
-			Kit.text({
-				Text = `🎁 {gadget.Name}`,
-				Position = UDim2.fromOffset(x, y + 52),
-				Size = UDim2.fromOffset(COLUMN_WIDTH, 24),
-				TextXAlignment = Enum.TextXAlignment.Left,
-				Parent = parent,
-			})
-			y += 82
-		else
-			y += 56
 		end
-	else
-		Kit.text({
-			Text = "Complete it to unlock its morph and gadget!",
-			TextColor3 = MUTED_COLOR,
-			Position = UDim2.fromOffset(x, y + 4),
-			Size = UDim2.fromOffset(COLUMN_WIDTH, 26),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Parent = parent,
-		})
-		y += 40
 	end
+	Kit.text({
+		Text = if gadget then `{gadget.Icon or "🎁"} {gadget.Name}: {gadget.Description or ""}` else "🦸 Morph into it!",
+		Position = UDim2.fromOffset(12, if unlocked then 96 else 44),
+		Size = UDim2.new(1, -24, 0, if unlocked then 24 else 60),
+		TextWrapped = true,
+		StrokeThickness = 2,
+		Parent = box,
+	})
+	y += 140
 
 	-- Put it on a line: a button per line, named by its room, in a grid that scrolls
 	-- when there are more lines than fit.
