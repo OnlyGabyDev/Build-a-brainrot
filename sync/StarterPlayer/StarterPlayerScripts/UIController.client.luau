@@ -395,6 +395,20 @@ Remotes.Event("InventoryUpdated").OnClientEvent:Connect(function()
 	inventoryLoaded = true
 end)
 
+-- Studio: /dev CreateThumb sets workspace's ThumbCamera to the icon shot; the camera
+-- holds it (Shift+P for the free camera, which also hides the UI).
+workspace:GetAttributeChangedSignal("ThumbCamera"):Connect(function()
+	local shot = workspace:GetAttribute("ThumbCamera")
+	local camera = workspace.CurrentCamera
+	if typeof(shot) == "CFrame" then
+		camera.CameraType = Enum.CameraType.Scriptable
+		camera.FieldOfView = 70
+		camera.CFrame = shot
+	else
+		camera.CameraType = Enum.CameraType.Custom
+	end
+end)
+
 -- Completions ----------------------------------------------------------------
 
 Remotes.Event("Completion").OnClientEvent:Connect(function(_plot, _lineId, brainrotId, editions, gems, firstEver)
