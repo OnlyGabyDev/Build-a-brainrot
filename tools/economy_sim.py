@@ -40,6 +40,12 @@ BASE = dict(
         ("PlushieRoom", "YarnSpinner", [(4000, 1.1), (24000, 1.15), (120000, 1.2)]),
         ("PlushieRoom", "PillowPile", [(1600, 1.1), (12000, 1.1), (60000, 1.15)]),
         ("PlushieRoom", "ButtonJar", [(8000, 1.1), (50000, 1.15)]),
+        ("ClayStudio", "ClayMixer", [(600000, 1.1), (4000000, 1.15), (20000000, 1.2)]),
+        ("ClayStudio", "SpotlightRig", [(320000, 1.1), (2400000, 1.1), (12000000, 1.15)]),
+        ("ClayStudio", "AwardShelf", [(1600000, 1.1), (10000000, 1.15)]),
+        ("VinylCollectibles", "GachaWall", [(800000, 1.1), (4800000, 1.15), (24000000, 1.2)]),
+        ("VinylCollectibles", "HallOfFigures", [(320000, 1.1), (2400000, 1.1), (12000000, 1.15)]),
+        ("VinylCollectibles", "HoloProjector", [(1600000, 1.1), (10000000, 1.15)]),
     ],
     rebirth_cost=100_000_000_000,  # Config/Rebirths
     base_cycle=4.0,  # Config/Production
