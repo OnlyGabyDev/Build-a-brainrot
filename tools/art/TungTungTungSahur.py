@@ -1,73 +1,70 @@
-# Tung Tung Tung Sahur (art v2): a tall, narrow wooden log with a face on its top third
-# (big round eyes under heavy brows, a nose, a smirk), long thin wooden arms, a baseball
-# bat in its right hand resting point-down on the ground, long thin legs and bare feet.
+# Tung Tung Tung Sahur (art v2, blocks): a tall wooden log with a face, built like Steal
+# a Brainrot's model from clean blocks: a tall plank-log (darker grain strips down its
+# sides and back, a bevelled top), a flat face on its top third (big white eyes with dark
+# pupils and glints, arched brows, a block nose, a smirk); long thin wooden arms and legs,
+# bare feet, a baseball bat in its right hand resting point-down on the ground.
 # References: the original image (Wikipedia) and Steal a Brainrot's render.
-from voxel_art import ball, box, both, chain, cylinder, paint
+from voxel_art import block, both, plate, rod
 
-LOG_RX, LOG_RZ = 4.2, 3.4
+W, D = 8.4, 6.8  # the log's width and depth
+FRONT = -D / 2
 
-legs = []
-for x in (-2.3, 2.3):
-    legs += [
-        cylinder(x, 0, 1.05, 1.05, 1, 15, "Wood"),  # long thin legs (up to the log, not into it)
-        ball(x, 8, 0, 1.25, 1.3, 1.25, "Wood"),  # knees
-        ball(x, 1, -1.3, 1.5, 1.05, 2.4, "Wood"),  # bare feet
-        box(x - 1.4, 0, -3.2, x + 1.4, 0.7, 0.9, "Wood"),
-        paint(box(x - 0.5, 0, -4.5, x + 0.5, 1.6, -3, "Grain")),  # between the toes
-    ]
-
-body = [cylinder(0, 0, LOG_RX, LOG_RZ, 15, 25, "Wood")]
-# wood grain down the log, broken up so it reads as grain, not stripes
-for x, y0, y1 in ((-3, 15, 21), (-1, 17, 25), (1, 15, 19), (2, 20, 25), (3, 16, 23)):
-    body.append(paint(box(x, y0, -5, x + 1, y1, 5, "Grain")))
-body.append(paint(box(-5, 15, -5, 5, 16, 5, "Grain")))  # the log's lower rim
-
+body = [block(0, 20, 0, W, 10, D, "Wood")]
 head = [
-    cylinder(0, 0, LOG_RX, LOG_RZ, 25, 34, "Wood"),
-    ball(0, 33.6, 0, LOG_RX, 2.6, LOG_RZ, "Wood"),  # the rounded top
+    block(0, 30.25, 0, W, 10.5, D, "Wood"),
+    block(0, 35.8, 0, W - 1, 0.6, D - 1, "Wood"),  # a bevelled top
 ]
-for x, y0, y1 in ((-3, 25, 32), (-1, 26, 35), (2, 25, 33), (3, 27, 34)):
-    head.append(paint(box(x, y0, 0, x + 1, y1, 5, "Grain")))  # grain on the back and sides only
+# wood grain: darker strips down the sides and the back
+for x, y0, y1 in ((-2.5, 15.5, 24.5), (1.0, 17, 25), (3.0, 15, 22)):
+    body.append(plate(x, (y0 + y1) / 2, D / 2 + 0.1, 0.6, y1 - y0, "Grain", depth=0.2))
+for x, y0, y1 in ((-3, 25.5, 34), (0.5, 27, 35), (2.5, 25, 31)):
+    head.append(plate(x, (y0 + y1) / 2, D / 2 + 0.1, 0.6, y1 - y0, "Grain", depth=0.2))
+body += both(block(W / 2 + 0.1, 20, -1, 0.2, 8, 0.6, "Grain"))
+head += both(block(W / 2 + 0.1, 30, 1, 0.2, 7, 0.6, "Grain"))
+
 head += both(
-    ball(1.9, 30.5, -3.0, 1.6, 1.9, 0.75, "White"),  # big round eyes
-    ball(1.7, 30.7, -3.7, 0.95, 1.1, 0.5, "Pupil"),
-    paint(box(2, 31, -5, 3, 32, -3, "White")),  # a glint in each
-    paint(box(0.9, 32.9, -5, 1.8, 33.7, -2, "Brow")),  # arched brows, on the log's face
-    paint(box(1.8, 33.3, -5, 3.5, 34.1, -1.8, "Brow")),
+    plate(1.9, 30.8, FRONT - 0.1, 2.4, 2.8, "White", depth=0.2),  # big eyes
+    plate(1.6, 30.6, FRONT - 0.25, 1.2, 1.5, "Pupil", depth=0.2),
+    plate(1.35, 31.0, FRONT - 0.35, 0.45, 0.45, "White", depth=0.1),  # glints
+    plate(1.9, 33.2, FRONT - 0.1, 2.8, 0.6, "Brow", depth=0.3, rot=(0, 0, -10)),  # arched brows
 )
 head += [
-    ball(0, 28.6, -3.4, 0.9, 1.4, 1.0, "Wood"),  # the nose
-    paint(box(-1, 27.4, -5, 1, 28, -3.4, "Grain")),
-    paint(box(-2.2, 26.4, -5, 1.6, 27.2, -2.5, "Mouth")),  # a smirk, up at its right end
-    paint(box(1.6, 27, -5, 2.8, 28, -2.4, "Mouth")),
+    block(0, 28.6, FRONT - 0.5, 1.4, 2.2, 1.0, "Wood"),  # the nose
+    plate(0, 27.5, FRONT - 1.0, 1.4, 0.3, "Grain", depth=0.1),
+    plate(-0.4, 26.4, FRONT - 0.1, 3.2, 0.5, "Mouth", depth=0.2),  # a smirk, up at its right end
+    plate(1.6, 26.8, FRONT - 0.1, 1.2, 0.5, "Mouth", depth=0.2, rot=(0, 0, 30)),
 ]
 
 arms = [
-    # the left arm hangs relaxed
-    ball(-5, 23.2, 0, 1, 1, 1, "Wood"),
-    cylinder(-5, 0.2, 0.75, 0.75, 14.8, 23.2, "Wood"),
-    ball(-5, 14.2, -0.1, 0.95, 1.25, 1, "Wood"),
-    # the right arm holds the bat
-    ball(5, 23.2, 0, 1, 1, 1, "Wood"),
-    cylinder(5, -0.3, 0.75, 0.75, 15.2, 23.2, "Wood"),
-    ball(5.1, 14.6, -0.6, 1.1, 1.25, 1.1, "Wood"),
-    ball(5.3, 16.2, -0.4, 0.7, 0.55, 0.7, "Bat"),  # the knob over the hand
+    rod((-4.9, 23.6, 0), (-5.3, 15.2, -0.2), 1.5, "Wood"),  # the left arm hangs relaxed
+    block(-5.3, 14.4, -0.3, 1.8, 2, 1.8, "Wood"),
+    rod((4.9, 23.6, 0), (5.2, 15.6, -0.6), 1.5, "Wood"),  # the right arm holds the bat
+    block(5.3, 14.8, -0.8, 2, 2, 2, "Wood"),
+    rod((5.4, 16.6, -0.4), (5.9, 9.4, -3.0), 1.0, "Bat", shape="Cylinder"),  # the bat's handle...
+    rod((5.9, 9.4, -3.0), (6.5, 1.4, -6.3), 2.0, "Bat", shape="Cylinder"),  # ...and its barrel
+    block(5.4, 16.9, -0.3, 1.4, 0.6, 1.4, "BatDark"),  # the knob
 ]
-arms += chain((5.35, 13.8, -0.9), (6.3, 1.4, -5.6), 0.6, 1.3, "Bat", steps=30)
-arms.append(paint(box(4, 0, -7, 8, 2.4, -4, "BatDark")))  # the barrel's scuffed end
+
+legs = []
+for x in (-2.2, 2.2):
+    legs += [
+        rod((x, 15, 0), (x, 1.6, -0.4), 1.9, "Wood"),  # long thin legs
+        block(x, 0.8, -1.4, 2.6, 1.6, 4.2, "Wood"),  # bare feet
+        plate(x, 0.9, -3.55, 2.2, 1.0, "Grain", depth=0.1),
+    ]
 
 ART = {
-    "Comment": "Tung Tung Tung Sahur: a tall wooden log with a face, thin arms and legs, bare feet, a baseball bat in its right hand.",
+    "Comment": "Tung Tung Tung Sahur: a tall wooden log with a face (blocks), thin arms and legs, bare feet, a baseball bat in its right hand.",
     "VoxelSize": 0.2,
     "Palette": {
         "Wood": (214, 140, 78),
-        "Grain": (186, 112, 58),
+        "Grain": (184, 112, 58),
         "White": (250, 250, 245),
         "Pupil": (30, 22, 18),
         "Brow": (85, 48, 28),
         "Mouth": (120, 52, 40),
         "Bat": (232, 182, 112),
-        "BatDark": (196, 140, 80),
+        "BatDark": (150, 100, 55),
     },
     "Parts": {"Legs": legs, "Body": body, "Arms": arms, "Head": head},
 }

@@ -4,7 +4,7 @@
 # Reference: Steal a Brainrot's render.
 import math
 
-from voxel_art import ball, box, both, carve, chain, cylinder, paint
+from voxel_art import ball, block, box, both, carve, paint, plate, rod
 
 TIRE_Y, TIRE_R, TREAD = 17, 6, 2.5
 
@@ -20,34 +20,32 @@ for k in range(14):  # the tread, across it
 tire_bottom = ball(0, TIRE_Y - TIRE_R, 0, 2.8, TREAD, TREAD, "Tire")
 
 legs = []
-for x in (-1.5, 1.5):
+for x in (-1.6, 1.6):
     legs += [
-        cylinder(x, 0, 0.8, 0.8, 1.2, 10.5, "Skin"),  # skinny legs
-        ball(x, 6, 0, 1, 1, 1, "Skin"),  # knobby knees
-        ball(x, 0.9, -1.2, 1.3, 0.9, 2.2, "Skin"),  # feet
+        rod((x, 10.8, 0), (x, 1.2, -0.3), 1.5, "Skin"),  # skinny legs
+        block(x, 5.6, -0.1, 1.9, 1.6, 1.9, "Skin"),  # knobby knees
+        block(x, 0.6, -1.2, 2.4, 1.2, 3.2, "Skin"),  # feet...
     ]
-    for dx in (-0.8, 0.8):
-        legs += chain((x + dx, 0.6, -2.6), (x + dx * 1.4, 0.5, -4.6), 0.5, 0.45, "Skin")  # long toes
+    for dx in (-0.7, 0.7):
+        legs.append(rod((x + dx, 0.5, -2.6), (x + dx * 1.5, 0.4, -4.8), 0.7, "Skin"))  # ...with long toes
 legs += [carve(tire_bottom)]
 
 arms = []
 for side in (-1, 1):
-    arms += chain((side * 2.6, 15, -1), (side * 5.5, 11, -1.5), 0.85, 0.8, "Skin", steps=16)  # skinny arms
-    arms += [ball(side * 5.8, 10.5, -1.6, 1, 1.1, 1, "Skin")]
+    arms.append(rod((side * 2.9, 15, -1), (side * 5.6, 11, -1.5), 1.1, "Skin"))  # skinny arms
+    arms.append(block(side * 5.8, 10.4, -1.6, 1.6, 1.8, 1.6, "Skin"))
 
 head = [
-    ball(0, 27.8, -0.5, 4.4, 3.6, 4.2, "Frog"),  # the frog's head
-    ball(0, 26, -1.8, 3.8, 1.8, 3.2, "Jaw"),  # its beige jaw...
-    paint(box(-4, 23, -7, 4, 27, 3, "Jaw")),
+    block(0, 28.8, -0.4, 8.6, 5.2, 8.2, "Frog"),  # the frog's head (blocks)
+    block(0, 26.6, -0.6, 8.8, 2.4, 8.4, "Jaw"),  # its beige jaw...
 ]
-for x in (-3.5, -1.5, 1.5, 3.5):
-    head.append(paint(box(x - 0.4, 24, -7, x + 0.4, 26.6, 3, "Stripe")))  # ...with brown stripes
+for x in (-3, -1, 1, 3):
+    head.append(plate(x, 26.6, -4.85, 0.6, 2.2, "Stripe", depth=0.1))  # ...with brown stripes
 head += both(
-    ball(2.2, 30.6, -1.6, 1.6, 1.5, 1.6, "Frog"),  # bulging eyes on top
-    paint(box(2, 30.5, -4, 3.5, 32, -2.6, "Eye")),
-    paint(box(2.5, 30.5, -4, 3.5, 31.5, -2.6, "Pupil")),
+    block(2.4, 32.1, -2.2, 2.6, 1.6, 2.6, "Frog"),  # bulging eyes on top
+    plate(2.4, 32.1, -3.55, 1.8, 1.0, "Eye", depth=0.1),
+    plate(2.6, 32.1, -3.62, 0.7, 0.8, "Pupil", depth=0.1),
 )
-head += [carve(s) for s in body if s.get("Kind") == "Ball"]  # (off the tire)
 
 ART = {
     "Comment": "Boneca Ambalabu: a striped frog head on an upright black tire, on skinny bare legs with long toes.",
@@ -62,6 +60,6 @@ ART = {
         "Eye": (250, 230, 120),
         "Pupil": (25, 25, 25),
     },
-    "Joints": {"Legs": (0, 10.5, 0), "Head": (0, 27.5, -0.5)},
+    "Joints": {"Legs": (0, 10.5, 0), "Head": (0, 28, -0.4)},
     "Parts": {"Legs": legs, "Body": body, "Arms": arms, "Head": head},
 }

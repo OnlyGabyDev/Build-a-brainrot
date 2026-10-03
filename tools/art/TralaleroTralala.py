@@ -1,75 +1,67 @@
-# Tralalero Tralala (art v2): a blue shark on three legs in light blue sneakers (white
-# soles and swooshes, dark laces). A long body with a white belly, gills behind the head,
-# a tall dorsal fin leaning back, a crescent tail; its head is the snout in front of the
-# body (white jaw, a pink smile, black eyes); its "arms" are the pectoral fins.
-# Reference: Steal a Brainrot's render (and the original image: the three sneakers).
-from voxel_art import ball, box, both, carve, cylinder, paint
-
-torso = ball(0, 19, 3, 5.5, 5.2, 10.5, "Shark")
+# Tralalero Tralala (art v2, blocks): a blue shark on three legs in chunky light blue
+# sneakers, built like Steal a Brainrot's model from clean blocks and ramps: a long boxy
+# body with a white belly, black gills, a dorsal fin and a tail fin leaning back; its head
+# is the snout (a white jaw, a pink smile round it, black eyes, a sloping brow); its
+# "arms" are the pectoral fins; thick legs, sneakers with white soles, toe caps and
+# swooshes, dark laces. Reference: Steal a Brainrot's render.
+from voxel_art import block, both, plate, wedge
 
 body = [
-    torso,
-    paint(box(-7, 10, -10, 7, 17.5, 15, "Belly")),  # the white underside
-    ball(0, 19.5, 14, 2.6, 2.6, 3.2, "Shark"),  # the tail stalk
+    block(0, 17.5, 4, 10, 9, 16, "Shark"),  # the long body
+    block(0, 13.9, 4, 10.2, 1.8, 16.2, "Belly"),  # a white belly
+    block(0, 17.6, 13.6, 7, 6.6, 3.2, "Shark"),  # the tail stalk
+    wedge(0, 25, 4.4, 1.6, 6, 6, "Shark"),  # the dorsal fin, leaning back
+    wedge(0, 24.4, 16.4, 1.6, 7, 3.2, "Shark"),  # the tail fin's upper lobe...
+    wedge(0, 12.6, 16.2, 1.6, 4, 2.8, "Shark", rot=(180, 0, 0)),  # ...and its lower one
 ]
-# the dorsal fin: a tall triangle, its front edge leaning back
-for k in range(6):
-    body.append(box(-1, 23.5 + k, -1 + k * 0.9, 1, 24.5 + k, 6 - k * 0.3, "Shark"))
-# the tail: a crescent, its upper lobe longer
-for k in range(7):
-    body.append(ball(0, 21 + k, 16.5 + k * 0.55, 0.8, 0.8, 1.5 - k * 0.1, "Shark"))
-for k in range(5):
-    body.append(ball(0, 18 - k, 16.5 + k * 0.55, 0.8, 0.8, 1.3 - k * 0.1, "Shark"))
-body += both(*[paint(box(4, 16, z, 7, 22, z + 1, "Dark")) for z in (-5, -3, -1)])  # gills
+body += both(*[block(5.1, 17.8, z, 0.2, 4.4, 0.6, "Dark") for z in (-0.6, 0.8, 2.2)])  # gills
 
 head = [
-    ball(0, 18.6, -8.5, 5, 4.7, 5.6, "Shark"),  # the snout
-    carve(torso),  # (only the part in front of the body)
-    paint(box(-7, 10, -16, 7, 17.5, -3, "Belly")),  # the white jaw
-    paint(box(-7, 16, -16, 7, 17, -6, "Mouth")),  # a pink smile round the snout
+    block(0, 17.3, -7.4, 9.4, 8.6, 6.8, "Shark"),  # the snout
+    wedge(0, 22.3, -7.4, 9.4, 1.4, 6.8, "Shark"),  # its brow sloping to the nose
+    block(0, 13.9, -7.4, 9.6, 1.8, 7, "Belly"),  # the white jaw
+    plate(0, 15.3, -10.9, 8.4, 0.7, "Mouth", depth=0.2),  # a pink smile round it
 ]
 head += both(
-    paint(box(2.5, 20, -13, 6, 22, -10, "Dark")),  # black eyes
-    paint(box(2.5, 21, -13, 6, 22, -12, "White")),  # a glint
+    block(4.8, 15.3, -7.6, 0.2, 0.7, 6.4, "Mouth"),
+    block(4.8, 19.4, -9, 0.3, 1.6, 1.6, "Dark"),  # black eyes
+    block(4.95, 19.9, -9.4, 0.1, 0.5, 0.5, "White"),
 )
 
 arms = both(
-    ball(4.6, 17.5, 0, 1.6, 0.9, 2.6, "Shark"),  # pectoral fins, sweeping out and down
-    ball(6.2, 16.6, 0.5, 1.3, 0.7, 2, "Shark"),
+    wedge(5.6, 14.6, 0.4, 1, 3.4, 4.2, "Shark", rot=(0, 0, -35)),  # pectoral fins, sweeping down
 )
-arms += [carve(torso)]
 
 
 def leg(x, z):
-    """A blue leg in a sneaker; it reaches up into the torso, carved off at its curve."""
     return [
-        cylinder(x, z, 1.6, 1.6, 3, 17, "Skin"),
-        box(x - 2.3, 1, z - 2.8, x + 2.3, 3.6, z + 2.6, "Shoe"),
-        ball(x, 2.2, z - 2.8, 2.3, 1.4, 1.6, "Shoe"),  # the rounded toe
-        box(x - 2.4, 0, z - 4.4, x + 2.4, 1.2, z + 2.8, "Sole"),
-        paint(box(x - 1, 3, z - 2, x + 1, 4, z - 1, "Dark")),  # laces
-        paint(box(x - 1, 3, z, x + 1, 4, z + 1, "Dark")),
-        paint(box(x + 1.6, 2, z - 2, x + 3, 3, z + 1, "White")),  # swooshes
-        paint(box(x - 3, 2, z - 2, x - 1.6, 3, z + 1, "White")),
+        block(x, 8, z, 2.8, 10, 2.8, "Skin"),  # a thick leg
+        block(x, 2.1, z - 0.6, 3.8, 2.6, 5.4, "Shoe"),  # a chunky sneaker
+        block(x, 0.4, z - 0.6, 4, 0.8, 5.8, "Sole"),
+        block(x, 1.2, z - 3.2, 3.9, 1.4, 0.8, "Sole"),  # the toe cap
+        plate(x, 3.45, z - 1.4, 2, 0.4, "Dark", depth=0.6, rot=(90, 0, 0)),  # laces
+        plate(x, 3.45, z, 2, 0.4, "Dark", depth=0.6, rot=(90, 0, 0)),
+        block(x + 1.95, 2.2, z - 0.6, 0.2, 0.6, 3, "White", rot=(10, 0, 0)),  # swooshes
+        block(x - 1.95, 2.2, z - 0.6, 0.2, 0.6, 3, "White", rot=(10, 0, 0)),
     ]
 
 
-legs = leg(-2.7, -2) + leg(2.7, -2) + leg(0, 8.5) + [carve(torso)]
+legs = leg(-2.6, -2) + leg(2.6, -2) + leg(0, 9)
 
 ART = {
-    "Comment": "Tralalero Tralala: a blue shark on three legs in light blue sneakers; its head is the snout, its arms the pectoral fins.",
+    "Comment": "Tralalero Tralala: a blue shark (blocks and ramps) on three legs in light blue sneakers; its head is the snout, its arms the pectoral fins.",
     "VoxelSize": 0.2,
     "Palette": {
-        "Shark": (75, 140, 215),
+        "Shark": (80, 145, 215),
         "Skin": (90, 155, 225),
-        "Belly": (240, 243, 250),
+        "Belly": (242, 244, 250),
         "Dark": (30, 35, 55),
         "White": (255, 255, 255),
         "Mouth": (230, 140, 220),
         "Shoe": (95, 200, 245),
         "Sole": (250, 250, 250),
     },
-    # the legs reach up into the torso; bodies sit where the torso's bottom is
-    "Joints": {"Legs": (0, 14, 3)},
+    # bodies sit where its body's bottom is
+    "Joints": {"Legs": (0, 13, 3)},
     "Parts": {"Legs": legs, "Body": body, "Arms": arms, "Head": head},
 }
