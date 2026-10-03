@@ -60,7 +60,11 @@ export type Result = {
 	Amount: number?,
 }
 
-export type Slot = { Key: string, Label: string, Color: Color3, Stars: number? }
+-- A wheel slot: a rarity (Key: its id), or another prize (the Daily Wheel's). With a
+-- PartType, its cards show a part of that type from a brainrot of that rarity.
+export type Slot = { Key: string, Label: string, Color: Color3, Stars: number?, PartType: string? }
+-- The part a reel card shows.
+type Figure = { BrainrotId: string, PartType: string }
 
 local player = Players.LocalPlayer
 local queue: { Result } = {}
@@ -102,7 +106,7 @@ local function buildSlots(result: Result): { Slot }
 
 	local slots: { Slot } = {}
 	local function add(rarity: Rarities.Rarity)
-		table.insert(slots, { Key = rarity.Id, Label = string.upper(rarity.Id), Color = rarity.Color, Stars = rarity.Rank })
+		table.insert(slots, { Key = rarity.Id, Label = string.upper(rarity.Id), Color = rarity.Color, Stars = rarity.Rank, PartType = result.PartType })
 	end
 	for rank = #Rarities.List, 1, -1 do -- rarest first, so each is guaranteed a slot
 		local rarity = Rarities.List[rank]
@@ -153,8 +157,9 @@ local RAINBOW = ColorSequence.new({
 })
 
 -- A glossy card for `slot`: its color top to bottom (Godly in a rainbow), stars for its
--- rarity, its label.
-local function reelCard(parent: Frame, slot: Slot, x: number): Frame
+-- rarity, and its label, or with a `figure`, that part (in a holder the reel fills when
+-- the card comes into view: showFigures) over its brainrot's name.
+local function reelCard(parent: Frame, slot: Slot, x: number, figure: Figure?): Frame
 	local card = Kit.new("Frame", {
 		Position = UDim2.new(0, x, 0.5, -CARD / 2),
 		Size = UDim2.fromOffset(CARD, CARD),
@@ -171,6 +176,24 @@ local function reelCard(parent: Frame, slot: Slot, x: number): Frame
 	end
 	Kit.shine(card, 16)
 	local stars = slot.Stars
+	if figure then
+		card:SetAttribute("BrainrotId", figure.BrainrotId)
+		card:SetAttribute("PartType", figure.PartType)
+		Kit.new("Frame", { Name = "Figure", Position = UDim2.fromOffset(8, 30), Size = UDim2.fromOffset(CARD - 16, CARD - 70), BackgroundTransparency = 1, ZIndex = 34, Parent = card })
+		Kit.text({ Text = string.rep("⭐", stars or 1), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 7), Size = UDim2.new(0.8, 0, 0, 24), StrokeThickness = 0, ZIndex = 34, Parent = card })
+		local brainrot = Brainrots.ById[figure.BrainrotId]
+		Kit.text({
+			Text = if brainrot then brainrot.Name else slot.Label,
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(0.9, 0, 0, 32),
+			StrokeThickness = 2.5,
+			ZIndex = 35,
+			Parent = card,
+		})
+		Kit.new("UIScale", { Name = "PopScale", Parent = card })
+		return card
+	end
 	if stars then
 		Kit.text({
 			Text = string.rep("⭐", stars),
@@ -201,7 +224,8 @@ type Reel = { Root: Frame, Strip: Frame, Cards: { Frame }, Marker: Frame, Bulbs:
 -- cards clipped inside it (faded at the ends), the gold marker in the middle, and its
 -- title in a pill above it. Card TARGET_AT shows `slots[target]`; the rest are random
 -- picks from `slots` (which already holds each prize about as often as it comes up).
-local function buildReel(parent: Frame, slots: { Slot }, target: number, title: string): Reel
+-- Part slots show a random brainrot of their rarity each, and card TARGET_AT `prize`.
+local function buildReel(parent: Frame, slots: { Slot }, target: number, title: string, prize: Figure?): Reel
 	local root = Kit.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -270,7 +294,14 @@ local function buildReel(parent: Frame, slots: { Slot }, target: number, title: 
 	local cards = {}
 	for index = 1, STRIP_CARDS do
 		local slot = if index == TARGET_AT then slots[target] else slots[random:NextInteger(1, #slots)]
-		cards[index] = reelCard(strip, slot, (index - 1) * PITCH)
+		local figure: Figure? = nil
+		local pool = Brainrots.ByRarity[slot.Key]
+		if index == TARGET_AT and prize then
+			figure = prize
+		elseif slot.PartType and pool and #pool > 0 then
+			figure = { BrainrotId = pool[random:NextInteger(1, #pool)].Id, PartType = slot.PartType :: string }
+		end
+		cards[index] = reelCard(strip, slot, (index - 1) * PITCH, figure)
 	end
 	-- the ends fade into the frame
 	for side = 0, 1 do
@@ -314,6 +345,29 @@ local function buildReel(parent: Frame, slots: { Slot }, target: number, title: 
 	return { Root = root, Strip = strip, Cards = cards, Marker = marker, Bulbs = bulbs, Width = width }
 end
 
+-- The parts in view: each card near `center` (a card index) gets its part in a viewport
+-- as it comes into view, and the ones the strip has left behind let theirs go, so only
+-- a few viewports are ever alive.
+local FIGURE_REACH = 4 -- cards either side of the marker that can be in view
+local function showFigures(reel: Reel, center: number)
+	for index, card in reel.Cards do
+		local holder = card:FindFirstChild("Figure")
+		if not holder then
+			continue
+		end
+		local view = holder:FindFirstChildOfClass("ViewportFrame")
+		local near = math.abs(index - center) <= FIGURE_REACH
+		if near and not view then
+			local id, partType = card:GetAttribute("BrainrotId"), card:GetAttribute("PartType")
+			if typeof(id) == "string" and typeof(partType) == "string" then
+				Kit.viewport({ Size = UDim2.fromScale(1, 1), ZIndex = 34, Parent = holder }, (BrainrotModels.CreatePart(id, partType)))
+			end
+		elseif view and not near then
+			view:Destroy()
+		end
+	end
+end
+
 -- Where the strip sits (its X offset) with the middle of card `index` (plus `nudge`)
 -- under the marker.
 local function stripX(reel: Reel, index: number, nudge: number): number
@@ -335,9 +389,11 @@ local function spin(reel: Reel)
 			lastCard = under
 			playTick()
 			Kit.pop(reel.Marker, 0.25)
+			showFigures(reel, under + 1)
 		end
 	end)
 	reel.Strip.Position = UDim2.fromOffset(value.Value, 0)
+	showFigures(reel, 3)
 	local chase = RunService.RenderStepped:Connect(function()
 		local step = math.floor(os.clock() * 12)
 		for index, bulb in reel.Bulbs do
@@ -494,7 +550,8 @@ end
 -- Shows the prize reel on a dim overlay, spins it until slot `target` stops under the
 -- marker, and flashes `color`. Returns the overlay: the caller shows its reveal on it,
 -- then destroys it.
-function Loot.PlayWheel(slots: { Slot }, target: number, hubText: string, color: Color3): Frame
+-- (`prize`: the part won, for a reel of parts: its card shows it)
+function Loot.PlayWheel(slots: { Slot }, target: number, hubText: string, color: Color3, prize: Figure?): Frame
 	local screen = Kit.new("Frame", {
 		Name = "LootOverlay",
 		Size = UDim2.fromScale(1, 1),
@@ -504,7 +561,7 @@ function Loot.PlayWheel(slots: { Slot }, target: number, hubText: string, color:
 		ZIndex = 30,
 		Parent = Kit.getGui(),
 	})
-	local reel = buildReel(screen, slots, target, hubText)
+	local reel = buildReel(screen, slots, target, hubText, prize)
 	Kit.new("UIScale", { Name = "PopScale", Parent = reel.Root })
 	Kit.pop(reel.Root, -0.4)
 	Kit.playSound(Sounds.Whoosh, 0.25, 1.4)
@@ -531,7 +588,7 @@ local function play(result: Result)
 	local target = pickTarget(slots, result)
 	local subtitle = if result.BoxRarity then `{string.upper(result.BoxRarity)} BOX` else "ROLL"
 	local hubText = `{subtitle}\n{string.upper(result.PartType)}`
-	local screen = Loot.PlayWheel(slots, target, hubText, Rarities.ById[result.Rarity].Color)
+	local screen = Loot.PlayWheel(slots, target, hubText, Rarities.ById[result.Rarity].Color, { BrainrotId = result.BrainrotId, PartType = result.PartType })
 	reveal(screen, result)
 	screen:Destroy()
 end

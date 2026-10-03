@@ -65,7 +65,8 @@ local FLOOR_BUTTON = Vector3.new(-30, 0, -78) -- the next floor's button, on the
 -- outside stairs' landing.
 local ROOM_BUTTONS = {
 	PlushieRoom = Vector3.new(18, FactoryBuilder.FloorY(1), 55),
-	ClayStudio = Vector3.new(75.7, FactoryBuilder.FloorY(2), 31),
+	-- (it brings the 2nd floor: its button waits at the elevator, downstairs)
+	ClayStudio = FactoryBuilder.ElevatorButton + Vector3.new(0, FactoryBuilder.FloorY(1), 0),
 	VinylCollectibles = Vector3.new(18, FactoryBuilder.FloorY(2), 55),
 }
 local OLD_BUILDING_DELAY = 2 -- seconds the old building stays (minus its top) while the new one streams in
@@ -196,13 +197,18 @@ local function getPlayerFromHit(hit: BasePart): Player?
 end
 
 -- Whether a zone's room can be opened (or is open): it's built, the player has the
--- rebirths, and its storey is up (floors are bought: TycoonItems.Floors).
+-- rebirths, and its storey is up (TycoonItems.StoreyItems), or it's the room that brings
+-- its storey and the one under it is up (the Clay Studio and the 2nd floor).
 local function isZoneReachable(data: DataManager.PlayerData, zone: Zones.Zone): boolean
 	if not (zone.Available and data.Rebirths >= zone.UnlockRebirths) then
 		return false
 	end
 	local spot = FactoryBuilder.Layout[zone.Index]
-	return spot == nil or spot.Storey <= TycoonItems.StoreysOf(data.Tycoon.Purchased, FactoryBuilder.BaseStoreys)
+	if spot == nil then
+		return true
+	end
+	local storeys = TycoonItems.StoreysOf(data.Tycoon.Purchased, FactoryBuilder.BaseStoreys)
+	return spot.Storey <= storeys or (spot.Storey == storeys + 1 and TycoonItems.StoreyItem(spot.Storey) == `{zone.Id}_Room`)
 end
 
 -- Whether a zone's room is open: reachable, and opened with Coins at its door when it
@@ -1474,6 +1480,9 @@ local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?, a
 		syncBuilding(plot, bought == true or arrival ~= nil)
 		return
 	elseif item.Kind == "Room" then
+		if TycoonItems.BuildsStorey(item.Id) then
+			syncBuilding(plot, bought == true or arrival ~= nil) -- it brings its storey: up it goes
+		end
 		updateZoneLabels(plot) -- its door opens
 		return
 	end
@@ -1607,7 +1616,9 @@ local function createButton(plot: Plot, item: TycoonItems.Item)
 	if item.Kind == "Room" then
 		local spot = ROOM_BUTTONS[item.Zone] or Vector3.new(18, FactoryBuilder.FloorY(1), 55)
 		cframe = plot.CFrame * CFrame.new(spot.X, spot.Y + 0.2, spot.Z)
-		text = `🔓 {item.Name}\n{priceText(item.Price)}`
+		text = if TycoonItems.BuildsStorey(item.Id)
+			then `🏗️ NEW FLOOR: {Zones.ById[item.Zone].Name}\n{priceText(item.Price)}` -- (it brings its storey)
+			else `🔓 {item.Name}\n{priceText(item.Price)}`
 	elseif item.Kind == "Floor" then
 		-- the next floor's button, on the lawn in front of the factory
 		cframe = plot.CFrame * CFrame.new(FLOOR_BUTTON.X, 0.2, FLOOR_BUTTON.Z)
@@ -1730,7 +1741,7 @@ local function rebuildBuilding(plot: Plot, storeys: number, dropFrom: number?)
 	end)
 end
 
--- Makes the plot's factory as tall as its owner's floors (2 storeys, without one). A
+-- Makes the plot's factory as tall as its owner's floors (BaseStoreys without one). A
 -- new floor drops in when `dropIn`.
 syncBuilding = function(plot: Plot, dropIn: boolean)
 	local data = plot.Owner and DataManager.GetData(plot.Owner)

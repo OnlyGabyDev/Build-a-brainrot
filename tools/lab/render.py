@@ -38,8 +38,11 @@ def polygons_of(part):
         return (r00 * v[0] + r01 * v[1] + r02 * v[2], r10 * v[0] + r11 * v[1] + r12 * v[2], r20 * v[0] + r21 * v[1] + r22 * v[2])
 
     out = []
+    # (pieces about a 12th of the part across, at least 0.4: the painter's sort needs
+    # small pieces next to small details, but a wall in 0.4s is tens of thousands)
+    step = max(0.4, max(part["Size"]) / 12)
     for points, normal in solid_polygons(shape):
-        for piece in tessellate([world(p) for p in points], step=0.4):
+        for piece in tessellate([world(p) for p in points], step=step):
             out.append((piece, direction(normal), tuple(part["Color"]), True))
     return out
 

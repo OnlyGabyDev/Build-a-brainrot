@@ -154,6 +154,7 @@ local function neonSign(parent: Instance, face: CFrame, size: Vector2, text: str
 		makeDecor(parent, "NeonTube", Vector3.new(0.35, size.Y + 0.6, 0.35), face * CFrame.new(x * (size.X / 2 + 0.15), 0, -0.55), tube, Enum.Material.Neon)
 	end
 end
+RoomDecor.NeonSign = neonSign -- (FactoryBuilder's elevator wears one too)
 
 -- A sagging string of triangle flags from `from` to `to` (world positions).
 local function bunting(parent: Instance, from: Vector3, to: Vector3, colors: { Color3 }, sag: number)

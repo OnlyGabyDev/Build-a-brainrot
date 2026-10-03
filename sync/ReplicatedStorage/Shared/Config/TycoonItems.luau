@@ -4,7 +4,8 @@
 	"ToyWorkshop_1_Head", "ToyWorkshop_1_Speed1", ...; room upgrades (Config/RoomUpgrades)
 	"ToyWorkshop_Decor_GiftTower_1", one per level; line upgrade tracks (Config/LineUpgrades)
 	"ToyWorkshop_1_UpDroppers_1", one per level, bought from the line's tablet (no button);
-	floors "Floor_3", one per storey above the first two (a button out front); rooms
+	floors "Floor_3", one per storey above the 2nd (a button out front; the 2nd comes with
+	the Clay Studio's room: StoreyItems); rooms
 	"PlushieRoom_Room", opening a zone's room for its UnlockPrice (a button at its door).
 	Buttons appear one after another: each item requires the previous one.
 	Prices are placeholders to tune in playtests.
@@ -203,42 +204,75 @@ for _, upgrade in RoomUpgrades.List do
 	end
 end
 
--- Floors (GDD §10): the factory starts with 2 storeys; each one above is bought from a
--- button out front, in order, and drops in (TycoonManager). Its rooms' zones unlock as
--- usual. Placeholder prices.
-local FLOORS = {
+-- Floors (GDD §10): the factory starts with 1 storey and grows in order, each new one
+-- dropping in (TycoonManager). The 2nd comes with the Clay Studio: opening that room (its
+-- button waits at the elevator, downstairs) builds it. Each one after is a Floor item,
+-- bought from a button out front; its rooms' zones unlock as usual. Placeholder prices.
+type FloorSpec = { Storey: number, Room: string?, Name: string?, Price: number?, Rebirths: number? }
+local FLOORS: { FloorSpec } = {
+	{ Storey = 2, Room = "ClayStudio" },
 	{ Storey = 3, Name = "3rd Floor: Candy Factory", Price = 1000000000, Rebirths = 1 },
 }
+TycoonItems.StoreyItems = {} :: { { Storey: number, ItemId: string } } -- what builds each storey over the first, in order
 do
 	local previous: string? = nil
 	for _, floor in FLOORS do
-		local item: Item = {
-			Id = `Floor_{floor.Storey}`,
-			Key = `Floor{floor.Storey}`,
-			Name = floor.Name,
-			Kind = "Floor",
-			Price = floor.Price,
-			Requires = previous,
-			Zone = Zones.List[1].Id, -- open from the start: only its rebirths lock it
-			Level = floor.Storey,
-			Rebirths = floor.Rebirths,
-		}
-		register(item)
-		table.insert(TycoonItems.Floors, item)
-		previous = item.Id
+		local id: string
+		if floor.Room then
+			id = `{floor.Room}_Room`
+			assert(TycoonItems.ById[id], `the {floor.Storey} storey comes with {id}, which isn't an item`)
+		else
+			local item: Item = {
+				Id = `Floor_{floor.Storey}`,
+				Key = `Floor{floor.Storey}`,
+				Name = floor.Name :: string,
+				Kind = "Floor",
+				Price = floor.Price :: number,
+				Requires = previous,
+				Zone = Zones.List[1].Id, -- open from the start: only its rebirths lock it
+				Level = floor.Storey,
+				Rebirths = floor.Rebirths,
+			}
+			register(item)
+			table.insert(TycoonItems.Floors, item)
+			id = item.Id
+		end
+		table.insert(TycoonItems.StoreyItems, { Storey = floor.Storey, ItemId = id })
+		previous = id
 	end
 end
 
--- How many storeys a factory has with `purchased`'s floors, starting from `base`.
+-- How many storeys a factory has with `purchased`'s floors (and storey-bringing rooms),
+-- starting from `base` (always built).
 function TycoonItems.StoreysOf(purchased: { [string]: boolean }, base: number): number
 	local storeys = base
-	for _, floor in TycoonItems.Floors do
-		if not purchased[floor.Id] then
+	for _, entry in TycoonItems.StoreyItems do
+		if entry.Storey > base and not purchased[entry.ItemId] then
 			break
 		end
-		storeys = floor.Level :: number
+		storeys = math.max(storeys, entry.Storey)
 	end
 	return storeys
+end
+
+-- Whether buying `itemId` builds a storey (a Floor, or a room that brings its storey).
+function TycoonItems.BuildsStorey(itemId: string): boolean
+	for _, entry in TycoonItems.StoreyItems do
+		if entry.ItemId == itemId then
+			return true
+		end
+	end
+	return false
+end
+
+-- The item that builds `storey` (a Floor, or a room that brings its storey), if any.
+function TycoonItems.StoreyItem(storey: number): string?
+	for _, entry in TycoonItems.StoreyItems do
+		if entry.Storey == storey then
+			return entry.ItemId
+		end
+	end
+	return nil
 end
 
 -- How many levels of a line's upgrade `track` are bought (they're bought in order).

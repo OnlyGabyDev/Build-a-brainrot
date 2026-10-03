@@ -10,6 +10,7 @@
 	         owns everything (every room, line, upgrade and floor; Rebirth 99)
 	  world  plots, then the hub (MapBuilder; the ground is flat, there's no terrain)
 	  mixes  every brainrot's build, and every body with each other one's legs, arms, head
+	  fresh  plots, the lab player with nothing bought (its buttons, a 1-storey factory)
 	  previews  plots with each line's tracks at level 3, 6 or 9, and the Line menu's
 	         previews of their next levels (TycoonManager.BuildTrackPreview) in
 	         workspace.Previews
@@ -383,6 +384,9 @@ local services = game:GetService("ServerScriptService"):FindFirstChild("Services
 local TycoonItems = labRequire(game:GetService("ReplicatedStorage").Shared.Config.TycoonItems)
 for _, item in TycoonItems.List do
 	everything[item.Id] = true
+end
+if scenario == "fresh" then
+	table.clear(everything) -- a new player: nothing bought
 end
 if scenario == "previews" then
 	-- each line's upgrade tracks stop at level 3, 6 or 9 (by line), so the previews

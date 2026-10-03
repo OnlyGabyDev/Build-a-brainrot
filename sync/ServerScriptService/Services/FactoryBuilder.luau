@@ -50,6 +50,12 @@ FactoryBuilder.Layout = {
 	{ Storey = 3, Z = 0 }, -- Candy Factory, on top of the front half
 }
 
+-- The elevator: a glass lift in the front room's lobby, one on every storey, stacked
+-- (its middle on the floor, in plot space; its door faces -X, toward the room's middle).
+-- The room that brings the 2nd floor (the Clay Studio) has its button in front of it.
+FactoryBuilder.Elevator = Vector3.new(32, 0, -46)
+FactoryBuilder.ElevatorButton = FactoryBuilder.Elevator - Vector3.new(9.5, 0, 0)
+
 -- The building with its stairs and overhangs, in plot space ("in the plot").
 FactoryBuilder.Lot = { HalfWidth = 84, Front = -68, Back = 186 }
 
@@ -86,10 +92,10 @@ local STOREYS = 0
 for _, spot in FactoryBuilder.Layout do
 	STOREYS = math.max(STOREYS, spot.Storey)
 end
--- The factory starts with BaseStoreys and grows a storey at a time as floors are bought
--- (TycoonManager); Build puts the roof on whichever storey is its top. These two follow
--- the building being built.
-FactoryBuilder.BaseStoreys = 2
+-- The factory starts with BaseStoreys and grows a storey at a time (the 2nd comes with the
+-- Clay Studio, the ones above are bought: TycoonItems.StoreyItems, TycoonManager); Build
+-- puts the roof on whichever storey is its top. These two follow the building being built.
+FactoryBuilder.BaseStoreys = 1
 FactoryBuilder.MaxStoreys = STOREYS
 local topStorey = STOREYS
 local roofBase = floorY(topStorey + 1) + 0.5 -- where the roof meets the walls
@@ -1238,6 +1244,103 @@ local function buildTerrace(layer: Instance, cframe: CFrame, storey: number, roo
 	end
 end
 
+-- The elevator ------------------------------------------------------------------------
+
+-- One storey's lift (FactoryBuilder.Elevator): a glass booth on a plinth, corner posts in
+-- the plot's accent, a gold-trimmed roof with neon edges and a light inside, a neon sign
+-- on top naming where it goes, and two glass doors that fold aside. Its call panel
+-- (tagged "ElevatorCall": the client's Elevator script gives it its prompts) carries Up
+-- and Down: where it arrives on the storey above and below (world, facing out of that
+-- lift's door). With neither (a 1-storey factory) it waits shut under "🔒 2F".
+local LIFT = Vector3.new(10.4, 12, 10.4) -- the booth over its plinth: width, posts' height, depth
+local LIFT_DOOR_HEIGHT = 11.4
+
+local function buildElevator(parent: Instance, cframe: CFrame, storey: number, palette: Palette)
+	local spot = FactoryBuilder.Elevator
+	local function at(level: number): CFrame
+		-- (turned so its -Z, the door side, faces -X in the plot)
+		return cframe * CFrame.new(spot.X, floorY(level), spot.Z) * CFrame.Angles(0, math.pi / 2, 0)
+	end
+	local base = at(storey)
+	local up, down = storey < topStorey, storey > 1
+	local half, post = LIFT.X / 2, 0.8
+	local inner = half - post / 2 -- the posts' centers
+	local top = 0.5 + LIFT.Y -- the roof's underside
+
+	makePart(parent, "LiftPlinth", Vector3.new(LIFT.X, 0.5, LIFT.Z), base * CFrame.new(0, 0.25, 0), palette.Dark)
+	makeDecor(parent, "LiftFloor", Vector3.new(LIFT.X - 1.6, 0.1, LIFT.Z - 1.6), base * CFrame.new(0, 0.55, 0), GOLD_COLOR, Enum.Material.Metal)
+	for _, x in { -inner, inner } do
+		for _, z in { -inner, inner } do
+			makePart(parent, "LiftPost", Vector3.new(post, LIFT.Y, post), base * CFrame.new(x, 0.5 + LIFT.Y / 2, z), palette.Accent)
+		end
+	end
+	-- glass on three sides (the back and both sides), see-through
+	local span = LIFT.X - post * 2
+	for _, wall in { CFrame.new(0, 0, inner), CFrame.new(-inner, 0, 0) * CFrame.Angles(0, math.pi / 2, 0), CFrame.new(inner, 0, 0) * CFrame.Angles(0, math.pi / 2, 0) } do
+		local glass = makePart(parent, "LiftGlass", Vector3.new(span, LIFT.Y, 0.3), base * wall * CFrame.new(0, 0.5 + LIFT.Y / 2, 0), GLASS_COLOR)
+		glass.Transparency = 0.6
+		glass.CastShadow = false
+	end
+	makeDecor(parent, "LiftRail", Vector3.new(span, 0.35, 0.35), base * CFrame.new(0, 4.2, inner - 0.4), GOLD_COLOR, Enum.Material.Metal)
+	makeDecor(parent, "LiftHeader", Vector3.new(span, top - 0.5 - LIFT_DOOR_HEIGHT, 0.6), base * CFrame.new(0, (0.5 + LIFT_DOOR_HEIGHT + top) / 2, -inner), palette.Accent)
+	-- the roof: a gold trim under it, neon along its edges, a light panel inside
+	makePart(parent, "LiftRoof", Vector3.new(LIFT.X, 1, LIFT.Z), base * CFrame.new(0, top + 0.5, 0), palette.Dark)
+	local glow = palette.Accent:Lerp(WHITE, 0.3)
+	-- (each edge, its +Z out: the gold trim under the roof round the posts, and the neon)
+	for turn = 0, 3 do
+		local edge = CFrame.Angles(0, turn * math.pi / 2, 0) * CFrame.new(0, 0, half)
+		-- (in past the posts' inner faces, 0.1, or it shares them)
+		makeDecor(parent, "LiftTrim", Vector3.new(LIFT.X + 0.4, 0.3, 1.1), base * edge * CFrame.new(0, top - 0.15, -0.35), GOLD_COLOR, Enum.Material.Metal)
+		makeDecor(parent, "LiftNeon", Vector3.new(LIFT.X + 0.7, 0.35, 0.35), base * edge * CFrame.new(0, top + 0.5, 0.175), glow, Enum.Material.Neon).CastShadow = false
+	end
+	local lamp = makeDecor(parent, "LiftLamp", Vector3.new(span - 1, 0.2, span - 1), base * CFrame.new(0, top - 0.15, 0), LAMP_COLOR, Enum.Material.Neon)
+	lamp.CastShadow = false
+	local light = Instance.new("PointLight")
+	light.Color = LAMP_COLOR
+	light.Range = 12
+	light.Brightness = 1.2
+	light.Parent = lamp
+
+	-- on top, a neon sign naming where it goes
+	local crown = makeDecor(parent, "LiftCrown", Vector3.new(8, 3.2, 1), base * CFrame.new(0, top + 1 + 1.6, -half + 0.5), palette.Dark)
+	local where = if up and down then "⬆️⬇️ LIFT" elseif up then `⬆️ {storey + 1}F` elseif down then `⬇️ {storey - 1}F` else "🔒 2F"
+	RoomDecor.NeonSign(parent, crown.CFrame * CFrame.new(0, 0, -0.5), Vector2.new(6.6, 2.2), where, palette.Accent)
+	for k = -2, 2 do -- chasing bulbs along its top
+		makeBulb(parent, crown.CFrame * CFrame.new(k * 1.85, 1.6 + 0.5, 0), k + 3)
+	end
+
+	-- the doors: two glass leaves that fold against the posts (open) or meet in the
+	-- middle (shut); the client animates them between the two (attributes)
+	local leaf = span / 2
+	for _, side in { -1, 1 } do
+		local closedSize = Vector3.new(leaf, LIFT_DOOR_HEIGHT, 0.25)
+		local closed = base * CFrame.new(side * leaf / 2, 0.5 + LIFT_DOOR_HEIGHT / 2, -inner)
+		local openSize = Vector3.new(0.5, LIFT_DOOR_HEIGHT, 0.25)
+		local open = base * CFrame.new(side * (span / 2 - 0.25), 0.5 + LIFT_DOOR_HEIGHT / 2, -inner)
+		local working = up or down
+		local door = makePart(parent, "LiftDoor", if working then openSize else closedSize, if working then open else closed, palette.Accent:Lerp(WHITE, 0.6))
+		door.Transparency = 0.3
+		door.CastShadow = false
+		door:SetAttribute("OpenSize", openSize)
+		door:SetAttribute("OpenCFrame", open)
+		door:SetAttribute("ClosedSize", closedSize)
+		door:SetAttribute("ClosedCFrame", closed)
+	end
+
+	-- the call panel on the right front post, with a glowing button
+	local panel = makeDecor(parent, "LiftCall", Vector3.new(0.7, 1.8, 0.3), base * CFrame.new(inner, 5.5, -half - 0.15), GOLD_COLOR, Enum.Material.Metal)
+	makeBall(parent, "LiftButton", 0.5, panel.CFrame * CFrame.new(0, 0.3, -0.2), glow).Material = Enum.Material.Neon
+	if up then
+		panel:SetAttribute("Up", at(storey + 1) * CFrame.new(0, 3.5, 0))
+	end
+	if down then
+		panel:SetAttribute("Down", at(storey - 1) * CFrame.new(0, 3.5, 0))
+	end
+	if up or down then
+		CollectionService:AddTag(panel, "ElevatorCall")
+	end
+end
+
 -- Storeys ---------------------------------------------------------------------------
 
 -- A storey's rooms (front first), its walls in `layers[storey]` and its ceiling in the
@@ -1497,7 +1600,14 @@ function FactoryBuilder.Build(model: Model, cframe: CFrame, color: Color3, heigh
 		buildStorey(layers, cframe, storey, rooms, palette, factory)
 	end
 
-	local stairsFrom, stairsTo = buildStairs(model, layers[2], cframe, palette, topStorey >= 3)
+	-- the outside stairs go up to the 2nd floor's side door (none on a 1-storey factory)
+	local stairsFrom, stairsTo = 0, 0
+	if topStorey >= 2 then
+		stairsFrom, stairsTo = buildStairs(model, layers[2], cframe, palette, topStorey >= 3)
+	end
+	for storey = 1, topStorey do
+		buildElevator(layers[storey], cframe, storey, palette)
+	end
 	-- a terrace on every room with nothing above it (below the top storey)
 	for storey = 1, topStorey - 1 do
 		for _, room in storeys[storey] do
@@ -1514,7 +1624,8 @@ function FactoryBuilder.Build(model: Model, cframe: CFrame, color: Color3, heigh
 	buildTurret(layers[topStorey + 1], cframe * CFrame.new(-HALF_X - 2, 0, FRONT_Z - 2), (cframe:VectorToWorldSpace(Vector3.new(-1, 0, -1))).Unit, palette)
 	for index, z in { FRONT_Z + ROOM_SIZE.Z + 10, BACK_Z - 10 } do
 		local pipeColor = if index == 1 then palette.Accent else Color3.fromRGB(210, 222, 240)
-		buildPipe(layers, cframe * CFrame.new(-HALF_X - 3, 0, z) * CFrame.Angles(0, math.pi, 0), floorY(3) - 4, pipeColor, palette.Dark)
+		-- (up to the 2nd floor's ceiling, or the 1st's on a 1-storey factory)
+		buildPipe(layers, cframe * CFrame.new(-HALF_X - 3, 0, z) * CFrame.Angles(0, math.pi, 0), floorY(math.min(topStorey, 2) + 1) - 4, pipeColor, palette.Dark)
 	end
 
 	-- Nothing upstairs casts shadows: the rooms below stay sunny.
