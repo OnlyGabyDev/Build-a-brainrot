@@ -9,7 +9,7 @@ LOW = -4  # it sits low, the plane just over its webbed feet
 
 body = [
     block(0, 12.5, 5, 8, 7, 17, "Grey"),  # the fuselage
-    block(0, 9.3, 5, 8.2, 0.6, 17.2, "GreyDark"),  # its belly
+    block(0, 9.2, 5, 8.2, 0.6, 17.2, "GreyDark"),  # its belly (a hair under the fuselage)
     wedge(0, 19, 11.4, 1.4, 6, 5, "Grey"),  # the tail fin
     plate(0.75, 18.4, 12.4, 2.4, 2.4, "Red", depth=0.1, rot=(0, 90, 0)),
     plate(-0.75, 18.4, 12.4, 2.4, 2.4, "Red", depth=0.1, rot=(0, 90, 0)),

@@ -32,6 +32,7 @@ local BAD_COLOR = Color3.fromRGB(255, 90, 90)
 local MUTED_COLOR = Color3.fromRGB(175, 175, 190)
 local FILTERS = { "ALL", "COMPLETED", "MISSING" }
 local CARD = Vector2.new(176, 228)
+local COLUMN_WIDTH = SIZE.X - 450 - 24 -- the details' right column (it starts at x 450)
 local EDITION_ICONS = { ToyWorkshop = "🧸", PlushieRoom = "🧵", ClayStudio = "🎨", VinylCollectibles = "💎", CandyFactory = "🍭" }
 local EDITION_COLORS = {
 	Locked = { Color3.fromRGB(190, 190, 200), Color3.fromRGB(130, 130, 145) },
@@ -56,7 +57,7 @@ local panel: Frame? = nil
 local content: Frame? = nil
 local body: Frame? = nil
 local inventory: Inventory = { Parts = {}, Completed = {} }
-local lineIds: { { Id: string, Index: number } } = {}
+local lineIds: { { Id: string, Index: number, Zone: string } } = {} -- the player's lines, by room
 local filter = "ALL"
 local rarestFirst = false
 local selected: string? = nil -- the brainrot shown in details
@@ -235,8 +236,13 @@ local function refresh()
 	if linesOk and typeof(view) == "table" then
 		lineIds = {}
 		for _, line in view do
-			table.insert(lineIds, { Id = line.Id, Index = line.Index })
+			table.insert(lineIds, { Id = line.Id, Index = line.Index, Zone = line.Zone })
 		end
+		table.sort(lineIds, function(a, b)
+			local roomA, roomB = Zones.ById[a.Zone], Zones.ById[b.Zone]
+			local orderA, orderB = if roomA then roomA.Index else 0, if roomB then roomB.Index else 0
+			return if orderA ~= orderB then orderA < orderB else a.Index < b.Index
+		end)
 	end
 	if panel and panel.Visible then
 		render()
@@ -420,11 +426,16 @@ end
 
 -- Details --------------------------------------------------------------------
 
-local function equipOnLine(lineId: string, index: number, brainrot: Brainrots.Brainrot)
+-- A line's button label: its room and number ("TOY 1", "PLUSHIE 2").
+local function lineLabel(line: { Index: number, Zone: string }): string
+	return `{Zones.Tag(line.Zone)} {line.Index}`
+end
+
+local function equipOnLine(line: { Id: string, Index: number, Zone: string }, brainrot: Brainrots.Brainrot)
 	local remote = Remotes.Function("EquipBrainrot")
-	local ok, success, reason = pcall(remote.InvokeServer, remote, lineId, brainrot.Id)
+	local ok, success, reason = pcall(remote.InvokeServer, remote, line.Id, brainrot.Id)
 	if ok and success then
-		Kit.toast(`Line {index} now builds {brainrot.Name}!`, GOOD_COLOR)
+		Kit.toast(`{lineLabel(line)} now builds {brainrot.Name}!`, GOOD_COLOR)
 	elseif reason == "TooFar" then
 		Kit.toast("Walk up to that line to change it (or get Auto-Collect)!", BAD_COLOR)
 	else
@@ -505,7 +516,7 @@ local function renderDetails(parent: Frame, brainrot: Brainrots.Brainrot)
 	Kit.text({
 		Text = if discovered then brainrot.Name else "???",
 		Position = UDim2.fromOffset(x, 66),
-		Size = UDim2.fromOffset(520, 52),
+		Size = UDim2.fromOffset(COLUMN_WIDTH, 52),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		StrokeThickness = 3.5,
 		Parent = parent,
@@ -514,7 +525,7 @@ local function renderDetails(parent: Frame, brainrot: Brainrots.Brainrot)
 		Text = `{string.upper(rarity.Id)}  ·  💰 {Format.Number(rarity.PartValue)} per part  ·  full match x2`,
 		TextColor3 = rarity.Color,
 		Position = UDim2.fromOffset(x, 120),
-		Size = UDim2.fromOffset(520, 28),
+		Size = UDim2.fromOffset(COLUMN_WIDTH, 28),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = parent,
 	})
@@ -541,91 +552,117 @@ local function renderDetails(parent: Frame, brainrot: Brainrots.Brainrot)
 		})
 	end
 
-	-- Editions and their rewards.
+	-- Editions and their rewards: a pill each, two to a row (the round buttons under the
+	-- figure say more when tapped).
 	Kit.text({
 		Text = "EDITIONS",
-		Position = UDim2.fromOffset(x, 222),
-		Size = UDim2.fromOffset(300, 30),
+		Position = UDim2.fromOffset(x, 218),
+		Size = UDim2.fromOffset(300, 28),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = parent,
 	})
-	local rebirths = player:GetAttribute("Rebirths") or 0
+	local pill = Vector2.new((COLUMN_WIDTH - 10) / 2, 32)
+	local y = 252
 	for index, zone in editions() do
+		local state = editionState(brainrot.Id, zone)
 		local gems = math.floor(rarity.CompletionGems * zone.GemMultiplier)
-		local status = if isCompleted(brainrot.Id, zone.Id)
-			then "✓ claimed"
-			elseif rebirths < zone.UnlockRebirths then `🔒 Rebirth {zone.UnlockRebirths}`
-			else `ship a full one from the {zone.Name}`
-		Kit.text({
-			Text = `{zone.Edition}: {gems} 💎  ·  {status}`,
-			TextColor3 = if isCompleted(brainrot.Id, zone.Id) then GOOD_COLOR else Kit.White,
-			Position = UDim2.fromOffset(x + 12, 256 + (index - 1) * 32),
-			Size = UDim2.fromOffset(510, 28),
-			TextXAlignment = Enum.TextXAlignment.Left,
+		local status = if state == "Done" then "✓" elseif state == "Locked" then `🔒 R{zone.UnlockRebirths}` else "ship one!"
+		local chip = Kit.new("Frame", {
+			Position = UDim2.fromOffset(x + ((index - 1) % 2) * (pill.X + 10), y + (index - 1) // 2 * (pill.Y + 6)),
+			Size = UDim2.fromOffset(pill.X, pill.Y),
+			BackgroundColor3 = Kit.White,
 			Parent = parent,
 		})
+		Kit.corner(chip, 12)
+		Kit.stroke(chip, 2.5)
+		Kit.gradient(chip, EDITION_COLORS[state])
+		Kit.text({
+			Text = `{EDITION_ICONS[zone.Id] or ""} {zone.Edition}  {gems} 💎  {status}`,
+			Position = UDim2.fromOffset(8, 4),
+			Size = UDim2.new(1, -16, 1, -8),
+			StrokeThickness = 2,
+			Parent = chip,
+		})
 	end
+	y += math.ceil(#editions() / 2) * (pill.Y + 6) + 8
 
 	-- Morph and gadget, unlocked by the first completion.
 	if isCompleted(brainrot.Id) then
 		local morphed = player:GetAttribute("Morph") == brainrot.Id
-		Kit.button({ Position = UDim2.fromOffset(x, 340), Size = UDim2.fromOffset(180, 48), Parent = parent }, Kit.Colors.Purple, if morphed then "UNMORPH" else "MORPH", function()
+		Kit.button({ Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(180, 46), Parent = parent }, Kit.Colors.Purple, if morphed then "UNMORPH" else "MORPH", function()
 			setChoice("SetMorph", if morphed then nil else brainrot.Id)
 		end)
 		local gadget = Gadgets[brainrot.Id]
 		if gadget then
 			local equipped = player:GetAttribute("Gadget") == brainrot.Id
 			Kit.button({
-				Position = UDim2.fromOffset(x + 196, 340),
-				Size = UDim2.fromOffset(250, 48),
+				Position = UDim2.fromOffset(x + 192, y),
+				Size = UDim2.fromOffset(COLUMN_WIDTH - 192, 46),
 				Parent = parent,
 			}, Kit.Colors.Gems, if equipped then "UNEQUIP GADGET" else "EQUIP GADGET", function()
 				setChoice("EquipGadget", if equipped then nil else brainrot.Id)
 			end)
 			Kit.text({
 				Text = `🎁 {gadget.Name}`,
-				Position = UDim2.fromOffset(x, 394),
-				Size = UDim2.fromOffset(500, 26),
+				Position = UDim2.fromOffset(x, y + 52),
+				Size = UDim2.fromOffset(COLUMN_WIDTH, 24),
 				TextXAlignment = Enum.TextXAlignment.Left,
 				Parent = parent,
 			})
+			y += 82
+		else
+			y += 56
 		end
 	else
 		Kit.text({
 			Text = "Complete it to unlock its morph and gadget!",
 			TextColor3 = MUTED_COLOR,
-			Position = UDim2.fromOffset(x, 350),
-			Size = UDim2.fromOffset(520, 28),
+			Position = UDim2.fromOffset(x, y + 4),
+			Size = UDim2.fromOffset(COLUMN_WIDTH, 26),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = parent,
 		})
+		y += 40
 	end
 
-	-- Put it on a line.
-	local y = 430
+	-- Put it on a line: a button per line, named by its room, in a grid that scrolls
+	-- when there are more lines than fit.
 	if complete and #lineIds > 0 then
 		Kit.text({
 			Text = "PUT IT ON A LINE",
 			Position = UDim2.fromOffset(x, y),
-			Size = UDim2.fromOffset(300, 30),
+			Size = UDim2.fromOffset(300, 28),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = parent,
 		})
-		for index, line in lineIds do
-			Kit.button({
-				Position = UDim2.fromOffset(x + (index - 1) * 150, y + 36),
-				Size = UDim2.fromOffset(140, 48),
-				Parent = parent,
-			}, Kit.Colors.Green, `LINE {line.Index}`, function()
-				equipOnLine(line.Id, line.Index, brainrot)
+		local grid = Kit.new("ScrollingFrame", {
+			Position = UDim2.fromOffset(x - 4, y + 30),
+			Size = UDim2.new(0, COLUMN_WIDTH + 8, 1, -(y + 30) - 10),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ScrollBarThickness = 6,
+			AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			CanvasSize = UDim2.new(),
+			Parent = parent,
+		})
+		Kit.new("UIPadding", { PaddingLeft = UDim.new(0, 4), PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), Parent = grid })
+		Kit.new("UIGridLayout", {
+			CellSize = UDim2.fromOffset((COLUMN_WIDTH - 3 * 8 - 6) / 4, 42),
+			CellPadding = UDim2.fromOffset(8, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Parent = grid,
+		})
+		for order, line in lineIds do
+			Kit.button({ LayoutOrder = order, Parent = grid }, Kit.Colors.Green, lineLabel(line), function()
+				equipOnLine(line, brainrot)
 			end)
 		end
 	else
 		Kit.text({
 			Text = if complete then "Buy an assembly line to build it!" else "Find all 4 parts to build a full one!",
 			TextColor3 = MUTED_COLOR,
-			Position = UDim2.fromOffset(x, y + 20),
-			Size = UDim2.fromOffset(520, 30),
+			Position = UDim2.fromOffset(x, y + 10),
+			Size = UDim2.fromOffset(COLUMN_WIDTH, 28),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = parent,
 		})

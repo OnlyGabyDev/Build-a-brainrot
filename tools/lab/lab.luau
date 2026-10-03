@@ -382,14 +382,54 @@ for _, item in TycoonItems.List do
 end
 
 local clock = os.clock()
-local TycoonManager = labRequire(services.TycoonManager)
-TycoonManager.Init()
-print(`[lab] 6 plots built in {math.floor((os.clock() - clock) * 1000)} ms`)
-clock = os.clock()
-for _, callback in loadedCallbacks do
-	callback(player)
+if scenario == "mixes" then
+	-- every brainrot's own build, then each body with every other brainrot's legs, arms
+	-- and head (BrainrotModels.Layout), one model each under workspace.Mixes, named
+	-- "<Body>|<PartType>|<Other>" ("<Body>|Own|<Body>" for its own build), 40 studs apart
+	local Shared = game:GetService("ReplicatedStorage").Shared
+	local BrainrotModels = labRequire(Shared.BrainrotModels)
+	local Brainrots = labRequire(Shared.Config.Brainrots)
+	local folder = Dom.new("Folder", workspace)
+	folder.Name = "Mixes"
+	local count = 0
+	local function build(name: string, parts: { [string]: string })
+		local offsets, spread = BrainrotModels.Layout(parts)
+		local model = Dom.new("Model", folder)
+		model.Name = name
+		for partType, id in parts do
+			local piece = BrainrotModels.CreatePart(id, partType, nil, spread)
+			piece:PivotTo(Types.CFrame.new(Vector3.new(count * 40, 0, 0) + offsets[partType]))
+			piece.Parent = model
+		end
+		count += 1
+	end
+	for _, body in Brainrots.List do
+		local own = {}
+		for _, partType in Brainrots.PartTypes do
+			own[partType] = body.Id
+		end
+		build(`{body.Id}|Own|{body.Id}`, own)
+		for _, other in Brainrots.List do
+			if other.Id ~= body.Id then
+				for _, swapped in { "Legs", "Arms", "Head" } do
+					local parts = table.clone(own)
+					parts[swapped] = other.Id
+					build(`{body.Id}|{swapped}|{other.Id}`, parts)
+				end
+			end
+		end
+	end
+	print(`[lab] {count} brainrot builds in {math.floor((os.clock() - clock) * 1000)} ms`)
+else
+	local TycoonManager = labRequire(services.TycoonManager)
+	TycoonManager.Init()
+	print(`[lab] 6 plots built in {math.floor((os.clock() - clock) * 1000)} ms`)
+	clock = os.clock()
+	for _, callback in loadedCallbacks do
+		callback(player)
+	end
+	print(`[lab] plot 1 furnished (everything bought) in {math.floor((os.clock() - clock) * 1000)} ms`)
 end
-print(`[lab] plot 1 furnished (everything bought) in {math.floor((os.clock() - clock) * 1000)} ms`)
 if scenario == "world" then
 	clock = os.clock()
 	labRequire(services.MapBuilder).Init()

@@ -8,7 +8,7 @@ from voxel_art import block, both, plate, wedge
 
 body = [
     block(0, 17.5, 4, 10, 9, 16, "Shark"),  # the long body
-    block(0, 13.9, 4, 10.2, 1.8, 16.2, "Belly"),  # a white belly
+    block(0, 13.8, 4, 10.2, 1.8, 16.2, "Belly"),  # a white belly (a hair under the body: their bottoms z-fought)
     block(0, 17.6, 13.6, 7, 6.6, 3.2, "Shark"),  # the tail stalk
     wedge(0, 25, 4.4, 1.6, 6, 6, "Shark"),  # the dorsal fin, leaning back
     wedge(0, 24.4, 16.4, 1.6, 7, 3.2, "Shark"),  # the tail fin's upper lobe...
@@ -19,7 +19,7 @@ body += both(*[block(5.1, 17.8, z, 0.2, 4.4, 0.6, "Dark") for z in (-0.6, 0.8, 2
 head = [
     block(0, 17.3, -7.4, 9.4, 8.6, 6.8, "Shark"),  # the snout
     wedge(0, 22.3, -7.4, 9.4, 1.4, 6.8, "Shark"),  # its brow sloping to the nose
-    block(0, 13.9, -7.4, 9.6, 1.8, 7, "Belly"),  # the white jaw
+    block(0, 13.8, -7.4, 9.6, 1.8, 7, "Belly"),  # the white jaw (a hair under the snout)
     plate(0, 15.3, -10.9, 8.4, 0.7, "Mouth", depth=0.2),  # a pink smile round it
 ]
 head += both(

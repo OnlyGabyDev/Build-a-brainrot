@@ -1,7 +1,7 @@
 --[[
 	LowGraphics
-	Applies the Low Performance setting (Client/Performance) to this client's world, and
-	puts its button on the HUD, under the music's (🐢 while it's on, ⚡ while it's off).
+	Applies the Lower Graphics setting (Client/Performance) to this client's world (its
+	switch is in the ⚙️ Settings menu: Client/UI/SettingsMenu).
 	On: no shadows, bloom or sun rays; the factories' and the hub's particles and lights
 	off; the hub's small decor (tagged "Detail" by MapBuilder) hidden, including what
 	streams in later. Everything it changes is remembered, so switching it off puts it
@@ -14,7 +14,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Client = ReplicatedStorage:WaitForChild("Client")
 local Performance = require(Client:WaitForChild("Performance"))
-local Kit = require(Client:WaitForChild("UI"):WaitForChild("Kit"))
 
 local WORLD_ROOTS = { Tycoons = true, Hub = true } -- (not Effects or the loot boxes: gameplay)
 local POST_EFFECTS = { "BloomEffect", "SunRaysEffect", "DepthOfFieldEffect", "BlurEffect" }
@@ -138,29 +137,3 @@ Performance.Changed:Connect(apply)
 if Performance.Low then
 	task.defer(apply, true) -- (after Atmosphere has set the lighting up)
 end
-
--- The button, under the music's (top right).
-local icon: TextLabel
-local function showIcon()
-	icon.Text = if Performance.Low then "🐢" else "⚡"
-end
-local button = Kit.button({
-	Name = "LowGraphicsToggle",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -24, 0, 156),
-	Size = UDim2.fromOffset(64, 64),
-	Parent = Kit.getGui(),
-}, Kit.Colors.Purple, nil, function()
-	Performance.Set(not Performance.Low)
-	Kit.toast(if Performance.Low then "🐢 Low Performance ON: fewer effects, more FPS" else "⚡ Low Performance OFF: full effects", Color3.fromRGB(190, 230, 255))
-end)
-icon = Kit.text({
-	Text = "⚡",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromScale(0.7, 0.7),
-	StrokeThickness = 0,
-	Parent = button,
-})
-showIcon()
-Performance.Changed:Connect(showIcon)

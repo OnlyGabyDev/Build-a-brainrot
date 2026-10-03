@@ -193,4 +193,11 @@ for index, zone in Zones.List do
 	Zones.ById[zone.Id] = zone
 end
 
+-- A room's short name for buttons and tabs, its name's first word: "TOY", "PLUSHIE".
+function Zones.Tag(zoneId: string): string
+	local zone = Zones.ById[zoneId]
+	local name = if zone then zone.Name else zoneId
+	return string.upper(string.match(name, "^%S+") or name)
+end
+
 return Zones

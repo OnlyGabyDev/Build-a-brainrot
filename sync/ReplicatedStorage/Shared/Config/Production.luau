@@ -20,7 +20,8 @@ local Production = {
 	SlideTime = 1.2, -- belt ride from the farthest dropper to the Assembler
 	ShowTime = 1.2, -- ta-da: the finished brainrot steps off the pad and shows itself off
 	ShipTime = 2.4, -- from there to the end of the belt, past the stations (a layout can take longer: RideTime)
-	SpecialTime = 1.3, -- the zone's special upgrade at the end of the belt (Toy Packer, Bow Tier)
+	SpecialTime = 2.6, -- the zone's special upgrade at the end of the belt (Toy Packer, Bow Tier):
+	-- it does its thing in the first half, then the result is shown off (ProductionVisuals)
 	FinishTime = 2.0, -- the zone's finishing stage (packed in a toy box, fluffed up...)
 }
 
@@ -61,9 +62,12 @@ function Production.FinishDuration(cycleTime: number): number
 	return math.min(Production.FinishTime, cycleTime * 0.8)
 end
 
--- How long the zone's special upgrade takes on a line that has it (hurried likewise).
+-- How long the zone's special upgrade takes on a line that has it (hurried likewise:
+-- the Clay Studio's camera and the hop into its kiln share the kiln's step, and with
+-- 0.75 of a cycle for the special and 0.3 of the finish for the hop, the step is free
+-- before the next brainrot gets there).
 function Production.SpecialDuration(cycleTime: number): number
-	return math.min(Production.SpecialTime, cycleTime * 0.8)
+	return math.min(Production.SpecialTime, cycleTime * 0.75)
 end
 
 -- How long the ta-da takes (hurried likewise: the next brainrot steps off the pad one

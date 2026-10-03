@@ -220,6 +220,68 @@ function Kit.button(props: { [string]: any }, colors: { Color3 }, text: string?,
 	return button
 end
 
+-- An ON/OFF switch: a pill (green ON, grey OFF) with a knob that slides across.
+-- Clicking it calls `onChange(newValue)`; returns a function that shows a value
+-- without calling it (for changes made elsewhere).
+function Kit.toggle(props: { [string]: any }, value: boolean, onChange: (on: boolean) -> ()): (on: boolean) -> ()
+	local on = value
+	local track = Kit.new("TextButton", {
+		AutoButtonColor = false,
+		Text = "",
+		BackgroundColor3 = WHITE,
+		Size = UDim2.fromOffset(132, 50),
+	})
+	for key, prop in props do
+		if key ~= "Parent" then
+			(track :: any)[key] = prop
+		end
+	end
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = track })
+	Kit.stroke(track, 3.5)
+	local gradient = Kit.gradient(track, Kit.Colors.Grey)
+	Kit.shine(track, 20)
+	local label = Kit.text({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = UDim2.new(0.5, 0, 0.6, 0),
+		Parent = track,
+	})
+	local knob = Kit.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = UDim2.new(0, 40, 0, 40),
+		BackgroundColor3 = WHITE,
+		Parent = track,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = knob })
+	Kit.stroke(knob, 3)
+
+	local function show(state: boolean, animate: boolean)
+		on = state
+		local colors = if state then Kit.Colors.Green else Kit.Colors.Grey
+		gradient.Color = ColorSequence.new(colors[1], colors[2])
+		label.Text = if state then "ON" else "OFF"
+		label.Position = UDim2.fromScale(if state then 0.32 else 0.68, 0.5)
+		local target = UDim2.new(if state then 1 else 0, if state then -27 else 27, 0.5, 0)
+		if animate then
+			TweenService:Create(knob, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = target }):Play()
+		else
+			knob.Position = target
+		end
+	end
+	show(on, false)
+	track.Activated:Connect(function()
+		Kit.click()
+		show(not on, true)
+		Kit.pop(track, 0.08)
+		onChange(on)
+	end)
+	track.Parent = props.Parent
+	return function(state: boolean)
+		if state ~= on then
+			show(state, true)
+		end
+	end
+end
+
 -- A ViewportFrame showing `model` from the front (models face -Z).
 function Kit.viewport(props: { [string]: any }, model: Model): ViewportFrame
 	local frame = Kit.new("ViewportFrame", {
@@ -481,6 +543,133 @@ function Kit.rays(parent: GuiObject, color: Color3, size: number, zIndex: number
 		connection:Disconnect()
 		holder:Destroy()
 	end
+end
+
+-- Big news banners (a rare box spawned): they drop in at the top of the screen, stack
+-- under each other, pulse while they're up and fly back out.
+local BANNER_SIZE = Vector2.new(740, 112)
+local BANNER_TOP = 118
+local banners: { Frame } = {}
+
+local function stackBanners()
+	for index, banner in banners do
+		local target = UDim2.new(0.5, 0, 0, BANNER_TOP + (index - 1) * (BANNER_SIZE.Y + 18))
+		TweenService:Create(banner, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = target }):Play()
+	end
+end
+
+-- `hype` 0-3 grows the show: 1+ a sunburst behind it, 2+ a screen flash and confetti,
+-- 3 a turning rainbow.
+function Kit.banner(icon: string, title: string, subtitle: string, color: Color3, hype: number)
+	local screen = Kit.getGui()
+	local banner = Kit.new("Frame", {
+		Name = "Banner",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, -BANNER_SIZE.Y - 40),
+		Size = UDim2.fromOffset(BANNER_SIZE.X, BANNER_SIZE.Y),
+		BackgroundTransparency = 1,
+		ZIndex = 47,
+		Parent = screen,
+	})
+	local stopRays = if hype >= 1 then Kit.rays(banner, color, 460 + hype * 60, 47) else nil
+	local card = Kit.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = WHITE,
+		ZIndex = 48,
+		Parent = banner,
+	})
+	Kit.corner(card, 24)
+	Kit.stroke(card, 5)
+	local gradient = Kit.gradient(card, { color:Lerp(WHITE, 0.35), color:Lerp(Color3.new(0, 0, 0), 0.25) })
+	if hype >= 3 then
+		gradient.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 110, 110)),
+			ColorSequenceKeypoint.new(0.25, Color3.fromRGB(255, 220, 80)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(110, 240, 130)),
+			ColorSequenceKeypoint.new(0.75, Color3.fromRGB(100, 180, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 120, 255)),
+		})
+	end
+	Kit.shine(card, 18).ZIndex = 48
+	local badge = Kit.text({
+		Text = icon,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(66, BANNER_SIZE.Y / 2),
+		Size = UDim2.fromOffset(84, 84),
+		StrokeThickness = 0,
+		ZIndex = 49,
+		Parent = card,
+	})
+	Kit.text({
+		Text = title,
+		Position = UDim2.fromOffset(122, 10),
+		Size = UDim2.new(1, -140, 0, 56),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		StrokeThickness = 4,
+		ZIndex = 49,
+		Parent = card,
+	})
+	Kit.text({
+		Text = subtitle,
+		Position = UDim2.fromOffset(124, 68),
+		Size = UDim2.new(1, -144, 0, 32),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(255, 250, 225),
+		ZIndex = 49,
+		Parent = card,
+	})
+	-- sparkles twinkling along its edges
+	local sparks = {}
+	for index = 1, 4 + hype * 2 do
+		table.insert(sparks, Kit.text({
+			Text = "✦",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(index / (5 + hype * 2), if index % 2 == 0 then 0.02 else 0.98),
+			Size = UDim2.fromOffset(26, 26),
+			TextColor3 = Color3.fromRGB(255, 252, 220),
+			StrokeThickness = 1.5,
+			ZIndex = 50,
+			Parent = card,
+		}))
+	end
+
+	table.insert(banners, banner)
+	stackBanners()
+	if hype >= 2 then
+		Kit.flash(screen, color, 46)
+		Kit.confetti(screen, { color, color:Lerp(WHITE, 0.5), Color3.fromRGB(255, 220, 80) }, 20 + hype * 10, 46)
+	end
+	Kit.playSound(if hype >= 1 then Sounds.RevealBig else Sounds.Reveal, 0.5)
+
+	local scale = Kit.new("UIScale", { Parent = banner })
+	local born = os.clock()
+	local pulse = RunService.RenderStepped:Connect(function(dt)
+		local t = os.clock() - born
+		scale.Scale = 1 + math.sin(t * 6) * 0.025
+		badge.Rotation = math.sin(t * 4) * 12
+		for index, spark in sparks do
+			spark.TextTransparency = 1 - (math.sin(t * 5 + index * 1.3) + 1) / 2
+			spark.Rotation = t * 90 + index * 40
+		end
+		if hype >= 3 then
+			gradient.Rotation = (gradient.Rotation + dt * 90) % 360
+		end
+	end)
+	task.delay(4 + hype, function()
+		local out = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		TweenService:Create(scale, out, { Scale = 0.2 }):Play()
+		task.wait(0.35)
+		pulse:Disconnect()
+		if stopRays then
+			stopRays()
+		end
+		local index = table.find(banners, banner)
+		if index then
+			table.remove(banners, index)
+		end
+		banner:Destroy()
+		stackBanners()
+	end)
 end
 
 -- Slowly orbits a viewport's camera around its model. Returns a stop function.

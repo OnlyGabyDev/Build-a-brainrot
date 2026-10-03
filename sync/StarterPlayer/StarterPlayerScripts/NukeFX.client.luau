@@ -200,6 +200,7 @@ local function makeNuke(folder: Folder): Model
 	end
 	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
 		local gui = Instance.new("SurfaceGui")
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 		gui.Face = face
 		gui.LightInfluence = 0
 		gui.Parent = body

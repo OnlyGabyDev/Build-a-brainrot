@@ -961,6 +961,17 @@ local function tryOpen(entry: Entry)
 	end)
 end
 
+-- A rare box spawned on the map: a banner for everyone, bigger the rarer it is, with
+-- how far away it landed.
+local function announce(box: any)
+	local rarity = Rarities.ById[box.Rarity]
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local where = if root then `📍 {math.floor((box.Position - root.Position).Magnitude)} studs away` else "📍 somewhere on the map"
+	local note = if isLocked(rarity) then `🔒 opens at Rebirth {rarity.UnlockRebirths}` else "go grab it!"
+	Kit.banner("🎁", `{string.upper(rarity.Id)} BOX!`, `A {string.upper(box.PartType)} box spawned · {where} · {note}`, rarity.Color, rarity.Rank - LootConfig.AnnounceRank)
+end
+
 Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payload: any, opener: Player?)
 	if action == "Add" then
 		addBox(payload)
@@ -969,8 +980,7 @@ Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payloa
 	elseif action == "Update" then
 		updateBox(payload)
 	elseif action == "Announce" then
-		local rarity = Rarities.ById[payload.Rarity]
-		Kit.toast(`✨ A {string.upper(rarity.Id)} {string.upper(payload.PartType)} box spawned! ✨`, rarity.Color)
+		announce(payload)
 	elseif action == "Drop" then
 		local count = payload.Count :: number
 		local text = if count >= 100

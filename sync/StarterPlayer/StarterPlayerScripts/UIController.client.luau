@@ -25,6 +25,7 @@ local Kit = require(UI:WaitForChild("Kit"))
 local LineMenu = require(UI:WaitForChild("LineMenu"))
 local Loot = require(UI:WaitForChild("Loot"))
 local RebirthMenu = require(UI:WaitForChild("RebirthMenu"))
+local SettingsMenu = require(UI:WaitForChild("SettingsMenu"))
 local Shop = require(UI:WaitForChild("Shop"))
 
 local COUNTERS = {
@@ -233,6 +234,7 @@ local wheelButton = menuButton(4, "🎡", "WHEEL", Kit.Colors.Rolls, DailyWheelM
 menuButton(5, "🛒", "SHOP", Kit.Colors.Green, function()
 	Shop.Open()
 end)
+SettingsMenu.Init() -- the ⚙️ button, top right
 
 -- A red "!" on the wheel button while a spin is waiting.
 local wheelBadge = Kit.text({

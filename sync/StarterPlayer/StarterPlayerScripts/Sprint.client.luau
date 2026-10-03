@@ -47,8 +47,10 @@ local function setRunning(on: boolean)
 	end
 end
 
-UserInputService.InputBegan:Connect(function(input, processed)
-	if not processed and owns() and (input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift) then
+-- (not `processed`: Roblox's shift lock binds Shift too, which marks it processed and
+-- would block the sprint; only typing in a text box should)
+UserInputService.InputBegan:Connect(function(input)
+	if owns() and not UserInputService:GetFocusedTextBox() and (input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift) then
 		setRunning(true)
 	end
 end)

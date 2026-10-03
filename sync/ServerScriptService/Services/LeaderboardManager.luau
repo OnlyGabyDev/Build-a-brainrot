@@ -172,8 +172,10 @@ local standing: { number } = {} -- who's on it (user ids), in place order
 local function buildPodium(parent: Instance, spot: CFrame)
 	for place = 1, 3 do
 		local step = makePart(parent, "PodiumStep", Vector3.new(8, STEP_HEIGHTS[place], 8), spot * CFrame.new(STEP_X[place], STEP_HEIGHTS[place] / 2, 0), STEP_COLORS[place], if place == 1 then Enum.Material.Metal else nil)
-		makePart(parent, "PodiumTrim", Vector3.new(8.3, 0.4, 8.3), step.CFrame * CFrame.new(0, STEP_HEIGHTS[place] / 2 - 0.2, 0), WHITE)
+		-- a hair (0.05) under the step's top: level with it, the two tops z-fought
+		makePart(parent, "PodiumTrim", Vector3.new(8.3, 0.4, 8.3), step.CFrame * CFrame.new(0, STEP_HEIGHTS[place] / 2 - 0.25, 0), WHITE)
 		local gui = Instance.new("SurfaceGui")
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 		gui.Face = Enum.NormalId.Front
 		gui.LightInfluence = 0
 		gui.Parent = step
@@ -184,6 +186,8 @@ local function buildPodium(parent: Instance, spot: CFrame)
 		makePart(parent, "PodiumSignPost", Vector3.new(0.8, 21, 0.8), spot * CFrame.new(x, 10.5, 6.4), GOLD, Enum.Material.Metal)
 	end
 	local gui = Instance.new("SurfaceGui")
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 30 -- scaled text tops out at 100 px: this lets it fill the face
 	gui.Face = Enum.NormalId.Front
 	gui.LightInfluence = 0
 	gui.Brightness = 2

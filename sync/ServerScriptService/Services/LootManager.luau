@@ -368,20 +368,33 @@ end
 
 -- Studio only (DevTools' SpawnBox): `count` boxes of one rarity land round `player`
 -- (to watch each rarity's arrival). They're anyone's, like a bought box whose buyer left.
-function LootManager.DevSpawnBoxes(player: Player, rarityId: string, count: number?): boolean
+function LootManager.DevSpawnBoxes(player: Player, rarityName: string, count: number?): boolean
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if not (RunService:IsStudio() and Rarities.ById[rarityId] and root and root:IsA("BasePart")) then
+	local rarity = nil
+	for _, candidate in Rarities.List do
+		if string.lower(candidate.Id) == string.lower(tostring(rarityName)) then
+			rarity = candidate
+		end
+	end
+	if not (RunService:IsStudio() and rarity and root and root:IsA("BasePart")) then
 		return false
 	end
+	local first = nil
 	for _ = 1, math.clamp(count or 1, 1, 50) do
 		nextBoxId += 1
-		addBox({
+		local box: Box = {
 			Id = nextBoxId,
 			Position = randomBoxPosition(root.Position),
-			Rarity = rarityId,
+			Rarity = rarity.Id,
 			PartType = rollPartType(),
 			Bought = true,
-		})
+		}
+		addBox(box)
+		first = first or box
+	end
+	-- announced like a map spawn (once), to see the banner too
+	if first and rarity.Rank >= Loot.AnnounceRank then
+		boxesRemote:FireAllClients("Announce", first)
 	end
 	return true
 end

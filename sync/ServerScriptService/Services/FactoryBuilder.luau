@@ -431,6 +431,7 @@ local function makeSign(parent: Instance, name: string, size: Vector3, cframe: C
 	makeDecor(parent, name .. "Border", size + Vector3.new(2, 2, -0.44), cframe * CFrame.new(0, 0, 0.2), border)
 	local sign = makePart(parent, name, size - Vector3.new(0, 0, 0.04), cframe * CFrame.new(0, 0, -0.02), WHITE)
 	local gui = Instance.new("SurfaceGui")
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.Face = Enum.NormalId.Front
 	gui.LightInfluence = 0
 	gui.PixelsPerStud = 14 -- scaled text tops out at 100 px: this lets it fill the sign
@@ -453,6 +454,7 @@ local function makeGlassDoor(parent: Instance, name: string, size: Vector2, base
 	local door = makePart(parent, name, Vector3.new(size.X, size.Y, 0.6), base * CFrame.new(0, size.Y / 2, 0), color:Lerp(WHITE, 0.35), Enum.Material.Glass)
 	door.Transparency = LOCKED_GLASS
 	local gui = Instance.new("SurfaceGui")
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.Name = "Lock"
 	gui.Face = Enum.NormalId.Front
 	gui.LightInfluence = 0

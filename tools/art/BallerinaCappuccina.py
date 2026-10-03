@@ -35,7 +35,7 @@ body = [
     block(0, 17.4, 0, 4.2, 5.6, 3.4, "Leotard"),
     solid("Cylinder", 0, 14.4, 0, 1.4, 12.4, 12.4, "Tutu", rot=(0, 0, 90)),  # the tutu
     solid("Cylinder", 0, 15.4, 0, 1.0, 9.6, 9.6, "TutuLight", rot=(0, 0, 90)),
-    block(0, 15.2, 0, 4.4, 0.6, 3.6, "Ribbon"),  # its waistband
+    block(0, 15.3, 0, 4.4, 0.6, 3.6, "Ribbon"),  # its waistband (off the light tutu's bottom)
 ]
 
 arms = both(

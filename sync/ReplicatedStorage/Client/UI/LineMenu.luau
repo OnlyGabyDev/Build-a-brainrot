@@ -67,13 +67,6 @@ local function rarityOf(brainrotId: string): Rarities.Rarity?
 	return brainrot and Rarities.ById[brainrot.Rarity]
 end
 
--- A room's short name, its name's first word: "TOY", "PLUSHIE".
-local function roomTag(zoneId: string): string
-	local zone = Zones.ById[zoneId]
-	local name = if zone then zone.Name else zoneId
-	return string.upper(string.match(name, "^%S+") or name)
-end
-
 -- How the menu calls a line: "LINE 2" in the room on show, "PLUSHIE 1" in another.
 local function lineLabel(lineId: string): string
 	local here: string? = nil
@@ -84,7 +77,7 @@ local function lineLabel(lineId: string): string
 	end
 	for _, line in view do
 		if line.Id == lineId then
-			return if line.Zone == here then `LINE {line.Index}` else `{roomTag(line.Zone)} {line.Index}`
+			return if line.Zone == here then `LINE {line.Index}` else `{Zones.Tag(line.Zone)} {line.Index}`
 		end
 	end
 	return "ANOTHER LINE"
@@ -138,7 +131,7 @@ local function renderTabs(parent: Frame, current: LineView)
 			Position = UDim2.fromOffset(x, 14),
 			Size = UDim2.fromOffset(ROOM_PILL, 44),
 			Parent = parent,
-		}, Kit.Colors.Rolls, `{roomTag(current.Zone)} »`, function()
+		}, Kit.Colors.Rolls, `{Zones.Tag(current.Zone)} »`, function()
 			for _, line in view do
 				if line.Zone == nextRoom then
 					selectedLine = line.Id

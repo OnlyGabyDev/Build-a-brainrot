@@ -132,6 +132,7 @@ local function playBuild(line: Model, parts: { BasePart })
 	for index, part in parts do
 		local size = fullSizes[part] or part.Size
 		fullSizes[part] = nil
+		part:SetAttribute("PopSize", nil)
 		low = low:Min(part.Position - size / 2)
 		high = high:Max(part.Position + size / 2)
 		task.delay((index - 1) * BUILD_STAGGER, function()
@@ -223,6 +224,7 @@ local function queueBuild(part: BasePart)
 		DropIn.hide(part)
 	else
 		fullSizes[part] = part.Size
+		part:SetAttribute("PopSize", part.Size) -- (its real size, for RenderBudget meanwhile)
 		part.Size = part.Size * 0.02 -- hidden until its turn
 	end
 	table.insert(batch, part)

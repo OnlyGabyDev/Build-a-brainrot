@@ -891,6 +891,8 @@ local function buildToyBlocks(parent: Instance, base: Vector3, turn: number)
 		local block = makePart(parent, "ToyBlock", Vector3.one * 4, CFrame.new(base + offset) * CFrame.Angles(0, turn + index * 0.3, 0), BLOCK_COLORS[random:NextInteger(1, #BLOCK_COLORS)])
 		for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
 			local gui = Instance.new("SurfaceGui")
+			gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+			gui.PixelsPerStud = 30 -- scaled text tops out at 100 px: this lets it fill the face
 			gui.Face = face
 			gui.LightInfluence = 0
 			gui.Parent = block

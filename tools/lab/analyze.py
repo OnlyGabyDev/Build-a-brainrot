@@ -13,6 +13,9 @@ and reports on it:
       part still counts for hiding faces).
   python3 tools/lab/analyze.py above parts.json
       parts in a room that reach above its ceiling (through the floor above)
+  python3 tools/lab/analyze.py gaps mixes.json [studs]
+      (the "mixes" scenario) swapped-in legs, arms and heads that float more than
+      [studs] (0.05) from the rest of their build
 
 Pure Python, no packages. Positions are in studs, world space.
 """
@@ -276,6 +279,42 @@ def zfight(data, needle, box=None):
         print(f"{shared:8.2f} sq studs  facing {n}\n    {a['Path']}  [{a['Shape']} {a['Material']} {a['Color']} at {a['CFrame'][:3]}]\n    {b['Path']}  [{b['Shape']} {b['Material']} {b['Color']} at {b['CFrame'][:3]}]")
 
 
+def world_box(part):
+    """The part's world-space bounding box (min, max): exact for unturned parts."""
+    center, right, up, back = axes_of(part["CFrame"])
+    half = [abs(right[i]) * part["Size"][0] / 2 + abs(up[i]) * part["Size"][1] / 2 + abs(back[i]) * part["Size"][2] / 2 for i in range(3)]
+    return [center[i] - half[i] for i in range(3)], [center[i] + half[i] for i in range(3)]
+
+
+def box_gap(a, b):
+    return math.sqrt(sum(max(0.0, a[0][i] - b[1][i], b[0][i] - a[1][i]) ** 2 for i in range(3)))
+
+
+def gaps(data, limit):
+    """Mixed brainrot builds (the lab's "mixes" scenario): how far each swapped-in part
+    floats from the rest of its build (0 = touching)."""
+    builds = defaultdict(lambda: defaultdict(list))
+    for part in data["Parts"]:
+        steps = part["Path"].split(".")
+        if len(steps) > 3 and steps[1] == "Mixes":
+            builds[steps[2]][steps[3]].append(world_box(part))
+    rows = []
+    for name, pieces in builds.items():
+        body, swapped, other = name.split("|")
+        checks = [swapped] if swapped != "Own" else ["Legs", "Arms", "Head"]
+        for part_type in checks:
+            mine = pieces.get(part_type, [])
+            rest = [b for key, boxes in pieces.items() if key != part_type for b in boxes]
+            if mine and rest:
+                gap = min(box_gap(a, b) for a in mine for b in rest)
+                rows.append((gap, body, part_type, other))
+    rows.sort(reverse=True)
+    floating = [r for r in rows if r[0] > limit]
+    print(f"{len(floating)} of {len(rows)} parts float more than {limit} studs from their build")
+    for gap, body, part_type, other in floating:
+        print(f"  {gap:6.2f}  {body}'s body with {other}'s {part_type}" if body != other else f"  {gap:6.2f}  {body}'s own {part_type}")
+
+
 def main():
     if len(sys.argv) < 3:
         print(__doc__)
@@ -287,6 +326,8 @@ def main():
     elif command == "zfight":
         box = [float(v) for v in sys.argv[4].split(",")] if len(sys.argv) > 4 else None
         zfight(data, sys.argv[3] if len(sys.argv) > 3 else "", box)
+    elif command == "gaps":
+        gaps(data, float(sys.argv[3]) if len(sys.argv) > 3 else 0.05)
     else:
         print(__doc__)
 

@@ -1013,6 +1013,7 @@ local function makeToyBox(base: CFrame): ToyBox
 	newPart(model, "Inside", Vector3.new(TOY_BOX.X - 1, 0.06, TOY_BOX.Z - 1), base * CFrame.new(0, height + 0.03, 0), Color3.fromRGB(70, 40, 80))
 	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
 		local gui = Instance.new("SurfaceGui")
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 		gui.Face = face
 		gui.LightInfluence = 0
 		gui.PixelsPerStud = 20
@@ -1665,6 +1666,43 @@ local function stickerSpecial(build: Build, brainrot: Model, machine: BasePart, 
 	Effects.popup(front.Position + Vector3.new(0, 3, 0), "LIMITED!", HOLO_COLORS[1], 1.2, 0.6)
 	specialPopup(build, front.Position + Vector3.new(0, 1.5, 0), HOLO_COLORS[1])
 	task.wait(duration * 0.45)
+end
+
+-- A special upgrade does its thing in the first part of its time; for the rest the
+-- brainrot shows the result off (the package, the bow, the sticker): a slow turn on the
+-- spot with a little lift, unless it hangs from a hook (the rail), then a glint.
+local SPECIAL_ACTION_SHARE = 0.5
+
+local function admire(build: Build, brainrot: Model, duration: number, turn: boolean)
+	local box = brainrot:GetBoundingBox()
+	sparkle(build, box.Position, Color3.new(1, 1, 1), 6)
+	if not turn or isBuilding(build.Line) then
+		task.wait(duration)
+		return
+	end
+	local pivot = brainrot:GetPivot()
+	local center = CFrame.new(box.Position)
+	local offset = center:Inverse() * pivot -- (it turns round its middle, not its root)
+	run(duration, function(a)
+		local spin = ease(a, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut) * math.pi * 2
+		brainrot:PivotTo((center + Vector3.new(0, math.sin(a * math.pi) * 0.6, 0)) * CFrame.Angles(0, spin, 0) * offset)
+	end)
+	brainrot:PivotTo(pivot)
+end
+
+-- Runs a line's special upgrade on the brainrot (keeping in step with the payout if it
+-- fails), then shows the result off.
+local function playSpecial(build: Build, special: SpecialAnimation, brainrot: Model, machine: BasePart, duration: number, turn: boolean)
+	local action = duration * SPECIAL_ACTION_SHARE
+	local started = os.clock()
+	local ok, err = pcall(special, build, brainrot, machine, action)
+	if not ok then
+		warn(`[ProductionVisuals] {build.Zone} special failed: {err}`)
+	end
+	local left = duration - (os.clock() - started)
+	if left > 0 and brainrot.Parent then
+		admire(build, brainrot, left, turn)
+	end
 end
 
 -- Assembly styles ------------------------------------------------------------
@@ -2807,10 +2845,7 @@ local function railRide(build: Build, brainrot: Model, hook: Hook, layout: LineL
 		local specialTime = Production.SpecialDuration(cycleTime)
 		hook.Frozen = true
 		if machine then
-			local ok, err = pcall(bowSpecial, build, brainrot, machine, specialTime)
-			if not ok then
-				warn(`[ProductionVisuals] {build.Zone} special failed: {err}`)
-			end
+			playSpecial(build, bowSpecial, brainrot, machine, specialTime, false)
 		else
 			task.wait(specialTime) -- keep in step with the payout anyway
 		end
@@ -3181,7 +3216,7 @@ local function animateCycle(
 	end
 
 	local steps = Production.Schedule(parts, cycleTime)
-	local homes = BrainrotModels.Layout(parts, zoneId)
+	local homes, spread = BrainrotModels.Layout(parts, zoneId)
 	local pieces: { [string]: Piece } = {}
 	local maxTravel = 0
 	for _, step in steps do
@@ -3190,7 +3225,7 @@ local function animateCycle(
 		if not dropper then
 			continue
 		end
-		local model, center, size = BrainrotModels.CreatePart(parts[partType], partType, zoneId)
+		local model, center, size = BrainrotModels.CreatePart(parts[partType], partType, zoneId, spread)
 		local landing = beltPoint(dropper.Position)
 		local flat = Vector3.new(landing.X - root.X, 0, landing.Z - root.Z)
 		local travel = if beltless then 0 else math.max(flat.Magnitude - INTAKE_GAP, 0)
@@ -3460,10 +3495,7 @@ local function animateCycle(
 			local machine = findPart(line, "Station3")
 			local specialTime = Production.SpecialDuration(cycleTime)
 			if machine and style.Special then
-				local specialOk, err = pcall(style.Special, build, brainrot, machine, specialTime)
-				if not specialOk then
-					warn(`[ProductionVisuals] {zoneId} special failed: {err}`)
-				end
+				playSpecial(build, style.Special, brainrot, machine, specialTime, true)
 			else
 				task.wait(specialTime) -- keep in step with the payout anyway
 			end

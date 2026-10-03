@@ -43,7 +43,7 @@ return {
 			solid("Block", 0, 17.4, 0, 4.2, 5.6, 3.4, 0, 0, 0, "Leotard"),
 			solid("Cylinder", 0, 14.4, 0, 1.4, 12.4, 12.4, 0, 0, 90, "Tutu"),
 			solid("Cylinder", 0, 15.4, 0, 1, 9.6, 9.6, 0, 0, 90, "TutuLight"),
-			solid("Block", 0, 15.2, 0, 4.4, 0.6, 3.6, 0, 0, 0, "Ribbon"),
+			solid("Block", 0, 15.3, 0, 4.4, 0.6, 3.6, 0, 0, 0, "Ribbon"),
 		},
 		Arms = {
 			solid("Cylinder", 5.6, 19, 0, 7.8, 1.3, 1.3, 0, 0, 0, "Skin"),

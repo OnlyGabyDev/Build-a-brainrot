@@ -25,6 +25,12 @@
 
 	  workspace:SetAttribute("DevRequest", '["AddCoins", 50000]')
 
+	In a playtest, any of them also runs from the chat for whoever types it (words after
+	the name are its arguments; numbers and true/false are read as such):
+
+	  /dev SpawnBox Legendary 3
+	  /dev GrantPass Sprint
+
 	Never created in live servers.
 ]]
 
@@ -33,6 +39,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
+local TextChatService = game:GetService("TextChatService")
 
 local Brainrots = require(ReplicatedStorage.Shared.Config.Brainrots)
 local DataManager = require(script.Parent.DataManager)
@@ -124,6 +131,28 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 
 local DevTools = {}
 
+-- Runs a command from a "/dev Name arg arg..." chat line, for the player who typed it.
+local function fromChat(player: Player, message: string)
+	local words = string.split(message, " ")
+	if words[1] ~= "/dev" or not words[2] then
+		return
+	end
+	local handler = COMMANDS[words[2]]
+	if not handler then
+		warn(`[DevTools] Unknown dev command {words[2]}`)
+		return
+	end
+	local args = {}
+	for index = 3, #words do
+		local word = words[index]
+		if word ~= "" then
+			table.insert(args, if tonumber(word) then tonumber(word) elseif word == "true" then true elseif word == "false" then false else word)
+		end
+	end
+	local ok, result = pcall(handler, player, table.unpack(args))
+	print(`[DevTools] {words[2]}:`, ok, result)
+end
+
 function DevTools.Init()
 	if not RunService:IsStudio() then
 		return
@@ -153,6 +182,31 @@ function DevTools.Init()
 		end)
 		workspace:SetAttribute("DevResult", HttpService:JSONEncode({ ok = ok, result = if ok then result else tostring(result) }))
 	end)
+
+	-- "/dev ..." in the chat: a chat command (it isn't sent as a message), or with the
+	-- legacy chat, any message that starts with it
+	if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+		local chatCommand = Instance.new("TextChatCommand")
+		chatCommand.Name = "DevCommand"
+		chatCommand.PrimaryAlias = "/dev"
+		chatCommand.Triggered:Connect(function(source: TextSource, text: string)
+			local player = Players:GetPlayerByUserId(source.UserId)
+			if player then
+				fromChat(player, text)
+			end
+		end)
+		chatCommand.Parent = TextChatService
+	else
+		local function listen(player: Player)
+			player.Chatted:Connect(function(message)
+				fromChat(player, message)
+			end)
+		end
+		Players.PlayerAdded:Connect(listen)
+		for _, player in Players:GetPlayers() do
+			listen(player)
+		end
+	end
 end
 
 return DevTools
