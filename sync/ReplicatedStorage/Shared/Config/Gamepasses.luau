@@ -63,7 +63,7 @@ local Gamepasses: { [string]: Pass } = {
 		Ribbon = "LIMITED!", -- the shop shows the offer's countdown on it
 	},
 	VIP = {
-		Id = 0,
+		Id = 2005406894,
 		Order = 1,
 		Name = "VIP",
 		Icon = "👑",
@@ -75,7 +75,7 @@ local Gamepasses: { [string]: Pass } = {
 		Ribbon = "BEST VALUE",
 	},
 	DoubleCoins = {
-		Id = 0,
+		Id = 2004518950,
 		Order = 2,
 		Name = "2x Coins",
 		Icon = "💰",
@@ -86,7 +86,7 @@ local Gamepasses: { [string]: Pass } = {
 		Ribbon = "POPULAR",
 	},
 	AutoCollect = {
-		Id = 0,
+		Id = 2006336907,
 		Order = 3,
 		Name = "Auto-Collect",
 		Icon = "🧲",
@@ -97,7 +97,7 @@ local Gamepasses: { [string]: Pass } = {
 		Colors = { Color3.fromRGB(120, 220, 255), Color3.fromRGB(40, 110, 240) },
 	},
 	Lucky = {
-		Id = 0,
+		Id = 2005994907,
 		Order = 4,
 		Name = "Lucky",
 		Icon = "🍀",
@@ -107,7 +107,7 @@ local Gamepasses: { [string]: Pass } = {
 		Colors = { Color3.fromRGB(150, 245, 150), Color3.fromRGB(40, 150, 90) },
 	},
 	FastOpen = {
-		Id = 0,
+		Id = 2005940893,
 		Order = 5,
 		Name = "Fast Open",
 		Icon = "⚡",
@@ -116,7 +116,7 @@ local Gamepasses: { [string]: Pass } = {
 		Colors = { Color3.fromRGB(255, 140, 230), Color3.fromRGB(160, 60, 255) },
 	},
 	Sprint = {
-		Id = 0,
+		Id = 2006780929,
 		Order = 6,
 		Name = "Sprint",
 		Icon = "👟",

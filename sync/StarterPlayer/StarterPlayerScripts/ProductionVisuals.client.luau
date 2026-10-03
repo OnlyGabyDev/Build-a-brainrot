@@ -41,12 +41,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
 local Brainrots = require(Config:WaitForChild("Brainrots"))
-local Format = require(Shared:WaitForChild("Format"))
 local LineLayouts = require(Shared:WaitForChild("LineLayouts"))
 local Production = require(Config:WaitForChild("Production"))
-local Rarities = require(Config:WaitForChild("Rarities"))
-local Remotes = require(Shared:WaitForChild("Remotes"))
-local RibbonBow = require(Shared:WaitForChild("RibbonBow"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local TycoonItems = require(Config:WaitForChild("TycoonItems"))
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
@@ -1554,7 +1550,7 @@ local function bowSpecial(build: Build, brainrot: Model, machine: BasePart, dura
 	local head = if spool
 		then rotation + (frame.Position + Vector3.new(0, size.Y / 2 - 1.2, 0) + rotation.LookVector * (size.Z / 2))
 		else rotation + (frame.Position + Vector3.new(0, size.Y / 2 + 0.5, 0))
-	local bow = RibbonBow.Build(brainrot, head, 3.6, BOW_COLOR)
+	local bow = require(Shared:WaitForChild("RibbonBow")).Build(brainrot, head, 3.6, BOW_COLOR)
 
 	stampMachine(build, machine)
 	Effects.sound(head.Position, Sounds.Sewing, 0.2, vary(1.5))
@@ -2319,7 +2315,7 @@ local function makeTag(build: Build, brainrot: Model): BillboardGui
 	nameStroke.Color = TAG_STROKE
 	nameStroke.Parent = name
 
-	local rarity = Rarities.ById[build.Rarity]
+	local rarity = require(Config:WaitForChild("Rarities")).ById[build.Rarity] -- (modules used once are required where they're used: this chunk is near Luau's 200-locals limit)
 	local tier = Instance.new("TextLabel")
 	tier.Size = UDim2.fromScale(1, 0.38)
 	tier.Position = UDim2.fromScale(0, 0.62)
@@ -3518,7 +3514,7 @@ local function animateCycle(
 		end
 	end
 	local top = if ok then result :: Vector3 else ship.Position + Vector3.new(0, 3, 0)
-	local text = `+{Format.Number(value)} 💰` .. (if fullMatch then " x2!" else "")
+	local text = `+{require(Shared:WaitForChild("Format")).Number(value)} 💰` .. (if fullMatch then " x2!" else "")
 	Effects.popup(top + Vector3.new(0, 1, 0), text, if fullMatch then MATCH_COLOR else COIN_COLOR, 2.2, 1.4)
 	Effects.sound(top, Sounds.Whoosh, 0.2, vary(1.2))
 	Effects.sound(top, Sounds.Cash, 0.3, vary(1))
@@ -3545,7 +3541,7 @@ end
 -- factory you're in (most of a player's lines are on the other storeys of their own
 -- factory, and each cycle moves hundreds of parts every frame for ~15 s). The coins
 -- come in either way (the server pays them).
-Remotes.Event("Production").OnClientEvent:Connect(function(plot, lineId, parts, zoneId, value, fullMatch, cycleTime, special)
+require(Shared:WaitForChild("Remotes")).Event("Production").OnClientEvent:Connect(function(plot, lineId, parts, zoneId, value, fullMatch, cycleTime, special)
 	local line = findLine(plot, lineId)
 	local camera = workspace.CurrentCamera
 	if not (line and camera) or (camera.CFrame.Position - line:GetPivot().Position).Magnitude > RENDER_DISTANCE then
