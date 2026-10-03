@@ -11,9 +11,9 @@ export type Badge = {
 }
 
 local Badges: { [string]: Badge } = {
-	Welcome = { Id = 0, Name = "Welcome to the Factory!", Description = "Joined Build a Brainrot." },
+	Welcome = { Id = 1138160550406212, Name = "Welcome to the Factory!", Description = "Joined Build a Brainrot." },
 	-- only boxes picked up on the map count (not Rolls, not the wheel)
-	FirstBox = { Id = 0, Name = "Finders Keepers", Description = "Opened your first loot box on the map." },
+	FirstBox = { Id = 2554911339732604, Name = "Finders Keepers", Description = "Opened your first loot box on the map." },
 }
 
 return Badges

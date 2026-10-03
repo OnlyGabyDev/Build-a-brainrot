@@ -3541,15 +3541,40 @@ end
 -- factory you're in (most of a player's lines are on the other storeys of their own
 -- factory, and each cycle moves hundreds of parts every frame for ~15 s). The coins
 -- come in either way (the server pays them).
+-- And only so many at once (the user measured ProductionVisuals at 50% of a frame with
+-- fast lines: a 2 s line has ~7 cycles in flight, each moving its parts every frame):
+-- at most PerLine on a line (Far ones past FarDistance), Total in all; a cycle over
+-- the limit just isn't shown (its brainrot is skipped, the next one comes along).
+-- (one table: this chunk is near Luau's 200-locals limit)
+local Budget = { PerLine = 3, Far = 1, FarDistance = 90, Total = 12, Running = 0, ByLine = {} :: { [Model]: number } }
+
 require(Shared:WaitForChild("Remotes")).Event("Production").OnClientEvent:Connect(function(plot, lineId, parts, zoneId, value, fullMatch, cycleTime, special)
 	local line = findLine(plot, lineId)
 	local camera = workspace.CurrentCamera
-	if not (line and camera) or (camera.CFrame.Position - line:GetPivot().Position).Magnitude > RENDER_DISTANCE then
+	if not (line and camera) then
+		return
+	end
+	local distance = (camera.CFrame.Position - line:GetPivot().Position).Magnitude
+	if distance > RENDER_DISTANCE then
 		return
 	end
 	local origin = line:GetAttribute("Origin")
 	if typeof(origin) == "CFrame" and not FactoryView.Sees(origin.Position + Vector3.new(0, 2, 0)) then
 		return
 	end
-	task.spawn(animateCycle, line, parts, zoneId, value, fullMatch, cycleTime or Production.BaseCycleTime, special == true)
+	local running = Budget.ByLine[line] or 0
+	if Budget.Running >= Budget.Total or running >= (if distance > Budget.FarDistance then Budget.Far else Budget.PerLine) then
+		return
+	end
+	Budget.Running += 1
+	Budget.ByLine[line] = running + 1
+	task.spawn(function()
+		local ok, err = pcall(animateCycle, line, parts, zoneId, value, fullMatch, cycleTime or Production.BaseCycleTime, special == true)
+		if not ok then
+			warn(`[ProductionVisuals] {zoneId} cycle failed: {err}`)
+		end
+		Budget.Running -= 1
+		local left = (Budget.ByLine[line] or 1) - 1
+		Budget.ByLine[line] = if left > 0 then left else nil
+	end)
 end)

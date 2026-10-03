@@ -17,6 +17,7 @@
 	  dev:Invoke("GrantProduct", player, "Drop100") -- a developer product, free (it saves)
 	  dev:Invoke("SpawnBox", player, "Legendary", 3) -- loot boxes of a rarity land round you
 	  dev:Invoke("Nuke", player)          -- drops a nuke on the server (everyone dies)
+	  dev:Invoke("CreateThumb", player)   -- a stage for the game's icon (/dev CreateThumb)
 
 	The Studio MCP's own code can't invoke it any more (since 2026-10-02 its thread lacks
 	the modules' capabilities), but it can set attributes: set workspace's DevRequest to
@@ -41,7 +42,9 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 local TextChatService = game:GetService("TextChatService")
 
+local BrainrotModels = require(ReplicatedStorage.Shared.BrainrotModels)
 local Brainrots = require(ReplicatedStorage.Shared.Config.Brainrots)
+local RoomDecor = require(script.Parent.RoomDecor)
 local DataManager = require(script.Parent.DataManager)
 local LootManager = require(script.Parent.LootManager)
 local MonetizationManager = require(script.Parent.MonetizationManager)
@@ -49,6 +52,100 @@ local NukeManager = require(script.Parent.NukeManager)
 local TycoonManager = require(script.Parent.TycoonManager)
 
 local snapshots: { [Player]: DataManager.PlayerData } = {}
+
+-- The game icon's scene (CreateThumb): far off over the valley, facing -Z (the way
+-- brainrots face). Brainrots: { id, x, scale, turn (degrees) }.
+local THUMB_ORIGIN = CFrame.new(0, 320, -1600)
+local THUMB_BRAINROTS = {
+	{ "TralaleroTralala", 0, 2.4, 0 },
+	{ "TungTungTungSahur", -11, 2.0, 18 },
+	{ "BombardiroCrocodilo", 11.5, 1.8, -18 },
+	{ "CappuccinoAssassino", -20, 1.5, 28 },
+	{ "LaVacaSaturnoSaturnita", 20.5, 1.5, -28 },
+}
+local THUMB_PINK, THUMB_PURPLE, THUMB_GOLD = Color3.fromRGB(255, 90, 190), Color3.fromRGB(120, 60, 230), Color3.fromRGB(255, 195, 40)
+
+local function thumbPart(parent: Instance, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part
+	local part = Instance.new("Part")
+	part.Anchored = true
+	part.Size = size
+	part.CFrame = cframe
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.Shape = shape or Enum.PartType.Block
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
+local function wholeBrainrot(id: string, scale: number, root: CFrame): Model
+	local brainrot = Instance.new("Model")
+	brainrot.Name = id
+	for _, partType in Brainrots.PartTypes do
+		local part = BrainrotModels.CreatePart(id, partType)
+		for _, child in part:GetChildren() do
+			child.Parent = brainrot
+		end
+		part:Destroy()
+	end
+	brainrot.WorldPivot = CFrame.identity
+	brainrot:ScaleTo(scale)
+	brainrot:PivotTo(root)
+	return brainrot
+end
+
+-- Builds a stage for the game's icon: brainrots in a row on a round stage, a neon
+-- BUILD A BRAINROT sign over them, a pink/purple sunburst behind, gold coins round
+-- their feet; puts `player` in front of it (anchored) to frame the shot (Shift+P frees
+-- the camera in a Studio playtest). Run it again to rebuild; nothing is saved.
+local function createThumb(player: Player): boolean
+	local old = workspace:FindFirstChild("Thumbnail")
+	if old then
+		old:Destroy()
+	end
+	local scene = Instance.new("Model")
+	scene.Name = "Thumbnail"
+	local o = THUMB_ORIGIN
+	-- the stage and the floor round it
+	thumbPart(scene, Vector3.new(160, 1, 120), o * CFrame.new(0, -1, -20), THUMB_PURPLE:Lerp(Color3.new(0, 0, 0), 0.4))
+	thumbPart(scene, Vector3.new(2, 56, 56), o * CFrame.new(0, 0, 4) * CFrame.Angles(0, 0, math.pi / 2), THUMB_PINK, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+	thumbPart(scene, Vector3.new(1.6, 58, 58), o * CFrame.new(0, -0.3, 4) * CFrame.Angles(0, 0, math.pi / 2), THUMB_GOLD, Enum.Material.Metal, Enum.PartType.Cylinder)
+	-- the sunburst behind
+	local center = o * CFrame.new(0, 14, 30)
+	for index = 0, 23 do
+		local color = if index % 2 == 0 then THUMB_PINK else THUMB_PURPLE
+		thumbPart(scene, Vector3.new(7, 120, 0.5), center * CFrame.Angles(0, 0, index * math.pi / 12) * CFrame.new(0, 60, 0), color, Enum.Material.Neon)
+	end
+	thumbPart(scene, Vector3.new(0.6, 30, 30), center * CFrame.new(0, 0, -0.4) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 240, 160), Enum.Material.Neon, Enum.PartType.Cylinder)
+	-- the brainrots
+	for _, spec in THUMB_BRAINROTS do
+		local id, x, scale, turn = spec[1] :: string, spec[2] :: number, spec[3] :: number, spec[4] :: number
+		if Brainrots.ById[id] then
+			wholeBrainrot(id, scale, o * CFrame.new(x, 0.5, 4 + math.abs(x) * 0.25) * CFrame.Angles(0, math.rad(turn), 0)).Parent = scene
+		end
+	end
+	-- the sign
+	RoomDecor.NeonSign(scene, o * CFrame.new(0, 27, 12), Vector2.new(34, 7), "BUILD A BRAINROT", Color3.fromRGB(255, 220, 60))
+	-- coins round their feet
+	local random = Random.new(7)
+	for _ = 1, 40 do
+		local angle = random:NextNumber(0, math.pi * 2)
+		local radius = random:NextNumber(16, 27)
+		local spot = o * CFrame.new(math.cos(angle) * radius, 1.2, 4 + math.sin(angle) * radius * 0.6)
+		thumbPart(scene, Vector3.new(0.4, 2.2, 2.2), spot * CFrame.Angles(random:NextNumber(-0.6, 0.6), random:NextNumber(0, 6), math.pi / 2 + random:NextNumber(-0.5, 0.5)), THUMB_GOLD, Enum.Material.Metal, Enum.PartType.Cylinder)
+	end
+	scene.Parent = workspace
+	-- the player, in front, looking at it
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		root.Anchored = true
+		local eye = o * CFrame.new(0, 3.5, -42)
+		root.CFrame = CFrame.lookAt(eye.Position, (o * CFrame.new(0, 3.5, 0)).Position)
+	end
+	return true
+end
 
 local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	GrantPass = function(player, key)
@@ -67,6 +164,9 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	Nuke = function(player)
 		NukeManager.Launch(player)
 		return true
+	end,
+	CreateThumb = function(player)
+		return createThumb(player)
 	end,
 	AddCoins = function(player, amount)
 		return DataManager.AddCurrency(player, "Coins", amount)
