@@ -356,6 +356,22 @@ local function renderCard(parent: Instance, order: number, brainrot: Brainrots.B
 	Kit.gradient(bubble, if done then Kit.Colors.Coins elseif count == #PART_TYPES then Kit.Colors.Green else Kit.Colors.Grey)
 	Kit.text({ Text = if done then "⭐" else `{count}/4`, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.78, 0.6), StrokeThickness = if done then 0 else 2, ZIndex = 4, Parent = bubble })
 
+	-- a completed one shows off its rewards right on the sticker (tap it to use them)
+	if done then
+		local pill = Kit.new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 0, 154),
+			Size = UDim2.new(1, -18, 0, 26),
+			BackgroundColor3 = Kit.White,
+			ZIndex = 5,
+			Parent = face,
+		})
+		Kit.corner(pill, 12)
+		Kit.stroke(pill, 2.5)
+		Kit.gradient(pill, Kit.Colors.Green)
+		Kit.text({ Text = if Gadgets[brainrot.Id] then "🦸 MORPH + 🎁 GADGET" else "🦸 MORPH", Position = UDim2.fromOffset(6, 3), Size = UDim2.new(1, -12, 1, -6), StrokeThickness = 2, ZIndex = 6, Parent = pill })
+	end
+
 	-- its name on a ribbon, the edition dots under it
 	local ribbon = Kit.new("Frame", {
 		Position = UDim2.new(0, 4, 0, 156),
