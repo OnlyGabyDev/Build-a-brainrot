@@ -25,7 +25,7 @@ local Kit = require(script.Parent:WaitForChild("Kit"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Passes = require(script.Parent:WaitForChild("Passes"))
 
-local SIZE = Vector2.new(980, 620)
+local SIZE = Vector2.new(1040, 690)
 local TABS = { "PASSES", "GEMS", "COINS", "BOXES", "SPINS" }
 local TAB_KINDS = { GEMS = "Gems", COINS = "Coins", BOXES = "BoxDrop", SPINS = "WheelSpins" }
 local KIND_COLORS = {
@@ -135,7 +135,7 @@ local function renderCard(parent: Instance, item: Item)
 	local bubble = Kit.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 6),
-		Size = UDim2.fromOffset(66, 66),
+		Size = UDim2.fromOffset(76, 76),
 		BackgroundColor3 = Kit.White,
 		ZIndex = 2,
 		Parent = card,
@@ -148,12 +148,12 @@ local function renderCard(parent: Instance, item: Item)
 	if owned then
 		Kit.text({ Text = "✓", TextColor3 = Color3.fromRGB(120, 245, 110), AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(1, -18, 1, 6), Size = UDim2.fromOffset(34, 34), StrokeThickness = 3, ZIndex = 4, Parent = bubble })
 	end
-	Kit.text({ Text = item.Name, Position = UDim2.fromOffset(10, 74), Size = UDim2.new(1, -20, 0, 28), StrokeThickness = 3, Parent = card })
+	Kit.text({ Text = item.Name, Position = UDim2.fromOffset(10, 86), Size = UDim2.new(1, -20, 0, 32), StrokeThickness = 3, Parent = card })
 	for index, perk in item.Perks do
 		Kit.text({
 			Text = `✔ {perk}`,
-			Position = UDim2.fromOffset(14, 104 + (index - 1) * 20),
-			Size = UDim2.new(1, -28, 0, 18),
+			Position = UDim2.fromOffset(12, 122 + (index - 1) * 24),
+			Size = UDim2.new(1, -24, 0, 21),
 			TextXAlignment = if #item.Perks > 1 then Enum.TextXAlignment.Left else Enum.TextXAlignment.Center,
 			StrokeThickness = 1.5,
 			Parent = card,
@@ -180,7 +180,7 @@ local function renderCard(parent: Instance, item: Item)
 	local button = Kit.button({
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -10),
-		Size = UDim2.new(1, -28, 0, 44),
+		Size = UDim2.new(1, -24, 0, 52),
 		Parent = card,
 	}, if owned then Kit.Colors.Grey elseif item.GemPrice then Kit.Colors.Gems else Kit.Colors.Green, if owned then "OWNED ✓" elseif item.GemPrice then `💎 {item.GemPrice}` elseif item.Id <= 0 then "SOON" else "...", function()
 		buy(item)
@@ -213,8 +213,8 @@ end)
 -- The odds of a random purchase, shown before buying.
 local function renderOdds(parent: Frame, title: string, lines: { { Text: string, Color: Color3 } })
 	local box = Kit.new("Frame", {
-		Position = UDim2.fromOffset(600, 70),
-		Size = UDim2.fromOffset(356, 460),
+		Position = UDim2.fromOffset(648, 74),
+		Size = UDim2.new(0, 368, 1, -84),
 		BackgroundColor3 = Color3.fromRGB(55, 45, 85),
 		Parent = parent,
 	})
@@ -225,8 +225,8 @@ local function renderOdds(parent: Frame, title: string, lines: { { Text: string,
 		Kit.text({
 			Text = line.Text,
 			TextColor3 = line.Color,
-			Position = UDim2.fromOffset(20, 52 + (index - 1) * 36),
-			Size = UDim2.new(1, -40, 0, 30),
+			Position = UDim2.fromOffset(20, 54 + (index - 1) * 40),
+			Size = UDim2.new(1, -40, 0, 32),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = box,
 		})
@@ -279,8 +279,8 @@ render = function()
 
 	for index, name in TABS do
 		Kit.button({
-			Position = UDim2.fromOffset(24 + (index - 1) * 155, 14),
-			Size = UDim2.fromOffset(145, 44),
+			Position = UDim2.fromOffset(24 + (index - 1) * 166, 14),
+			Size = UDim2.fromOffset(156, 48),
 			Parent = frame,
 		}, if tab == name then Kit.Colors.Coins else Kit.Colors.Grey, name, function()
 			tab = name
@@ -290,15 +290,15 @@ render = function()
 
 	local hasOdds = tab == "SPINS" or tab == "BOXES"
 	local grid = Kit.new("Frame", {
-		Position = UDim2.fromOffset(24, 70),
-		Size = UDim2.fromOffset(if hasOdds then 560 else 932, 460),
+		Position = UDim2.fromOffset(20, 74),
+		Size = UDim2.new(0, if hasOdds then 616 else 1000, 1, -84),
 		BackgroundTransparency = 1,
 		Parent = frame,
 	})
 	Kit.new("UIGridLayout", {
 		-- three a row beside the odds (the five box drops take two rows), four without
-		CellSize = if hasOdds then UDim2.fromOffset(172, 222) else UDim2.fromOffset(220, 222),
-		CellPadding = UDim2.fromOffset(14, 14),
+		CellSize = if hasOdds then UDim2.fromOffset(194, 256) else UDim2.fromOffset(236, 256),
+		CellPadding = UDim2.fromOffset(12, 12),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Parent = grid,
 	})
