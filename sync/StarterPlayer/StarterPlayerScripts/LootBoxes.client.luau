@@ -36,6 +36,7 @@ local RunService = game:GetService("RunService")
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
+local Gamepasses = require(Config:WaitForChild("Gamepasses"))
 local LootConfig = require(Config:WaitForChild("Loot"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
@@ -1083,3 +1084,94 @@ if ok and typeof(boxes) == "table" then
 	end
 end
 loaded = true
+
+-- Box Radar (the gamepass) ----------------------------------------------------------
+-- An arrow floats over your head pointing at the nearest box of RadarRank or rarer that
+-- you could open (your rebirths allow its rarity, and it isn't held for someone else),
+-- in the box's color, with its rarity and distance under it.
+local Radar = { Rank = Gamepasses.BoxRadar.RadarRank or 3, Plate = nil :: Part?, Glyph = nil :: TextLabel?, Tag = nil :: TextLabel? }
+
+function Radar.build(): Part
+	local plate = Instance.new("Part")
+	plate.Name = "BoxRadar"
+	plate.Size = Vector3.new(4, 0.05, 4)
+	plate.Transparency = 1
+	plate.Anchored, plate.CanCollide, plate.CanQuery, plate.CanTouch, plate.CastShadow = true, false, false, false, false
+	local surface = Instance.new("SurfaceGui")
+	surface.Face = Enum.NormalId.Top
+	surface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	surface.PixelsPerStud = 50
+	surface.LightInfluence = 0
+	surface.AlwaysOnTop = true
+	surface.Parent = plate
+	local glyph = Instance.new("TextLabel")
+	glyph.Size = UDim2.fromScale(1, 1)
+	glyph.BackgroundTransparency = 1
+	glyph.Font = Enum.Font.FredokaOne
+	glyph.TextScaled = true
+	glyph.Text = "➤"
+	glyph.Parent = surface
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 4
+	stroke.Parent = glyph
+	local board = Instance.new("BillboardGui")
+	board.Size = UDim2.fromOffset(220, 34)
+	board.StudsOffset = Vector3.new(0, 1.4, 0)
+	board.AlwaysOnTop = true
+	board.LightInfluence = 0
+	board.Parent = plate
+	local tag = Instance.new("TextLabel")
+	tag.Size = UDim2.fromScale(1, 1)
+	tag.BackgroundTransparency = 1
+	tag.Font = Enum.Font.FredokaOne
+	tag.TextScaled = true
+	tag.Parent = board
+	local tagStroke = Instance.new("UIStroke")
+	tagStroke.Thickness = 2.5
+	tagStroke.Parent = tag
+	Radar.Plate, Radar.Glyph, Radar.Tag = plate, glyph, tag
+	return plate
+end
+
+RunService.RenderStepped:Connect(function()
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local target: Entry? = nil
+	local best = math.huge
+	if player:GetAttribute("Pass_BoxRadar") and root and root:IsA("BasePart") then
+		local rebirths = player:GetAttribute("Rebirths") or 0
+		local now = workspace:GetServerTimeNow()
+		for _, entry in entries do
+			local box = entry.Box
+			local rarity = Rarities.ById[box.Rarity]
+			local heldForOther = box.Owner ~= nil and box.Owner ~= player.UserId and (box.ReservedUntil or 0) > now
+			if rarity and rarity.Rank >= Radar.Rank and rebirths >= rarity.UnlockRebirths and not entry.Opening and not heldForOther then
+				local distance = (box.Position - root.Position).Magnitude
+				if distance < best then
+					best, target = distance, entry
+				end
+			end
+		end
+	end
+	if not (target and root and root:IsA("BasePart")) then
+		if Radar.Plate then
+			Radar.Plate.Parent = nil
+		end
+		return
+	end
+	local plate = Radar.Plate or Radar.build()
+	local rarity = Rarities.ById[target.Box.Rarity]
+	local flat = Vector3.new(target.Box.Position.X - root.Position.X, 0, target.Box.Position.Z - root.Position.Z)
+	local at = root.Position + Vector3.new(0, 5 + math.sin(os.clock() * 3) * 0.25, 0)
+	-- the glyph points along the plate's +X: turn the plate so +X faces the box
+	if flat.Magnitude > 0.1 then
+		plate.CFrame = CFrame.lookAt(at, at + flat.Unit) * CFrame.Angles(0, math.pi / 2, 0)
+	else
+		plate.CFrame = CFrame.new(at)
+	end
+	;(Radar.Glyph :: TextLabel).TextColor3 = rarity.Color
+	local tag = Radar.Tag :: TextLabel
+	tag.TextColor3 = rarity.Color:Lerp(Color3.new(1, 1, 1), 0.3)
+	tag.Text = `📡 {string.upper(rarity.Id)} · {math.floor(best)}m`
+	plate.Parent = workspace.CurrentCamera
+end)

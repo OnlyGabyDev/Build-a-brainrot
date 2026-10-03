@@ -18,6 +18,7 @@ export type Pass = {
 	RemoteLines: boolean?, -- configure lines from anywhere (ProductionManager)
 	AutoCollect: boolean?, -- collector Coins bank themselves (TycoonManager)
 	Sprint: number?, -- × walk speed while holding Shift (client: Sprint)
+	RadarRank: number?, -- an arrow points at the nearest box of this rarity rank or up (client: LootBoxes)
 	Starter: StarterReward?, -- a newcomer's bundle, granted once (Services/StarterPack)
 	OfferHours: number?, -- sold only this long after the player's first join (the shop and the ads)
 	-- the shop card (Client/UI/Shop)
@@ -124,6 +125,16 @@ local Gamepasses: { [string]: Pass } = {
 		Sprint = 1.6,
 		Perks = { "Run 60% faster!", "Hold Shift (a button on mobile)" },
 		Colors = { Color3.fromRGB(255, 160, 110), Color3.fromRGB(235, 70, 80) },
+	},
+	BoxRadar = {
+		Id = 0,
+		Order = 7,
+		Name = "Box Radar",
+		Icon = "📡",
+		Description = "An arrow over your head points to the nearest Rare (or rarer) loot box on the map.",
+		RadarRank = 3, -- Rare
+		Perks = { "Arrow to Rare+ boxes", "See how far away they are" },
+		Colors = { Color3.fromRGB(110, 255, 200), Color3.fromRGB(20, 160, 150) },
 	},
 }
 
