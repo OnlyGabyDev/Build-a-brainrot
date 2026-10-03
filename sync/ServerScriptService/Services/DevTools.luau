@@ -54,20 +54,21 @@ local TycoonManager = require(script.Parent.TycoonManager)
 local snapshots: { [Player]: DataManager.PlayerData } = {}
 
 -- The game icon's scene (CreateThumb): far off over the valley, facing -Z (the way
--- brainrots face). Brainrots: { id, x, scale, turn (degrees) }.
+-- brainrots face). The star is a custom brainrot, a mix of four (change THUMB_HERO to
+-- try others), huge, crowned and glowing on a gold stage; two smaller brainrots flank
+-- it; behind, a turning-looking sunburst; light beams, sparkles, floating loot boxes,
+-- coins and a big neon sign.
 local THUMB_ORIGIN = CFrame.new(0, 320, -1600)
-local THUMB_BRAINROTS = {
-	{ "TralaleroTralala", 0, 2.4, 0 },
-	{ "TungTungTungSahur", -11, 2.0, 18 },
-	{ "BombardiroCrocodilo", 11.5, 1.8, -18 },
-	{ "CappuccinoAssassino", -20, 1.5, 28 },
-	{ "LaVacaSaturnoSaturnita", 20.5, 1.5, -28 },
-}
-local THUMB_PINK, THUMB_PURPLE, THUMB_GOLD = Color3.fromRGB(255, 90, 190), Color3.fromRGB(120, 60, 230), Color3.fromRGB(255, 195, 40)
+local THUMB_HERO = { Head = "TralaleroTralala", Body = "TungTungTungSahur", Arms = "BombardiroCrocodilo", Legs = "TralaleroTralala" }
+local THUMB_HERO_SCALE = 3.2
+local THUMB_SIDES = { { "CappuccinoAssassino", -17, 1.7, 25 }, { "LaVacaSaturnoSaturnita", 17, 1.6, -25 } }
+local THUMB_PINK, THUMB_PURPLE, THUMB_GOLD = Color3.fromRGB(255, 70, 190), Color3.fromRGB(110, 40, 240), Color3.fromRGB(255, 195, 40)
+local THUMB_RAINBOW = { Color3.fromRGB(255, 90, 90), Color3.fromRGB(255, 200, 60), Color3.fromRGB(90, 230, 120), Color3.fromRGB(80, 180, 255), Color3.fromRGB(200, 110, 255) }
 
 local function thumbPart(parent: Instance, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part
 	local part = Instance.new("Part")
 	part.Anchored = true
+	part.CanCollide = false
 	part.Size = size
 	part.CFrame = cframe
 	part.Color = color
@@ -79,11 +80,15 @@ local function thumbPart(parent: Instance, size: Vector3, cframe: CFrame, color:
 	return part
 end
 
-local function wholeBrainrot(id: string, scale: number, root: CFrame): Model
+-- A brainrot from `parts` ([partType] = brainrotId; mixes fit like on a line), `scale`
+-- times its size, standing on `root`.
+local function thumbBrainrot(parts: { [string]: string }, scale: number, root: CFrame): Model
 	local brainrot = Instance.new("Model")
-	brainrot.Name = id
+	brainrot.Name = "Brainrot"
+	local homes, spread = BrainrotModels.Layout(parts)
 	for _, partType in Brainrots.PartTypes do
-		local part = BrainrotModels.CreatePart(id, partType)
+		local part = BrainrotModels.CreatePart(parts[partType], partType, nil, spread)
+		part:PivotTo(CFrame.new(homes[partType] or Vector3.zero))
 		for _, child in part:GetChildren() do
 			child.Parent = brainrot
 		end
@@ -95,10 +100,31 @@ local function wholeBrainrot(id: string, scale: number, root: CFrame): Model
 	return brainrot
 end
 
--- Builds a stage for the game's icon: brainrots in a row on a round stage, a neon
--- BUILD A BRAINROT sign over them, a pink/purple sunburst behind, gold coins round
--- their feet; puts `player` in front of it (anchored) to frame the shot (Shift+P frees
--- the camera in a Studio playtest). Run it again to rebuild; nothing is saved.
+local function sparkles(part: BasePart, color: Color3, rate: number)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	emitter.Color = ColorSequence.new(color)
+	emitter.LightEmission = 1
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 0) })
+	emitter.Lifetime = NumberRange.new(1, 2)
+	emitter.Speed = NumberRange.new(2, 5)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Rate = rate
+	emitter.Parent = part
+end
+
+local function giftBox(parent: Instance, cframe: CFrame, size: number, color: Color3)
+	thumbPart(parent, Vector3.one * size, cframe, color)
+	thumbPart(parent, Vector3.new(size * 0.22, size + 0.05, size + 0.05), cframe, THUMB_GOLD, Enum.Material.Metal)
+	thumbPart(parent, Vector3.new(size + 0.05, size + 0.05, size * 0.22), cframe, THUMB_GOLD, Enum.Material.Metal)
+	thumbPart(parent, Vector3.new(size * 1.08, size * 0.25, size * 1.08), cframe * CFrame.new(0, size * 0.5, 0), color:Lerp(Color3.new(1, 1, 1), 0.2))
+	local glow = thumbPart(parent, Vector3.one * size * 0.3, cframe * CFrame.new(0, size * 0.75, 0), THUMB_GOLD, Enum.Material.Neon, Enum.PartType.Ball)
+	sparkles(glow, THUMB_GOLD, 8)
+end
+
+-- Builds the icon stage and puts `player` in front of it (anchored) to frame the shot
+-- (Shift+P frees the camera in a Studio playtest). Run it again to rebuild; nothing is
+-- saved.
 local function createThumb(player: Player): boolean
 	local old = workspace:FindFirstChild("Thumbnail")
 	if old then
@@ -107,42 +133,104 @@ local function createThumb(player: Player): boolean
 	local scene = Instance.new("Model")
 	scene.Name = "Thumbnail"
 	local o = THUMB_ORIGIN
-	-- the stage and the floor round it
-	thumbPart(scene, Vector3.new(160, 1, 120), o * CFrame.new(0, -1, -20), THUMB_PURPLE:Lerp(Color3.new(0, 0, 0), 0.4))
-	thumbPart(scene, Vector3.new(2, 56, 56), o * CFrame.new(0, 0, 4) * CFrame.Angles(0, 0, math.pi / 2), THUMB_PINK, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
-	thumbPart(scene, Vector3.new(1.6, 58, 58), o * CFrame.new(0, -0.3, 4) * CFrame.Angles(0, 0, math.pi / 2), THUMB_GOLD, Enum.Material.Metal, Enum.PartType.Cylinder)
-	-- the sunburst behind
-	local center = o * CFrame.new(0, 14, 30)
-	for index = 0, 23 do
-		local color = if index % 2 == 0 then THUMB_PINK else THUMB_PURPLE
-		thumbPart(scene, Vector3.new(7, 120, 0.5), center * CFrame.Angles(0, 0, index * math.pi / 12) * CFrame.new(0, 60, 0), color, Enum.Material.Neon)
+	local random = Random.new(7)
+
+	-- floor and the gold stage, a neon rainbow ring round it
+	thumbPart(scene, Vector3.new(200, 1, 140), o * CFrame.new(0, -1, -10), Color3.fromRGB(40, 15, 80))
+	local disc = function(radius: number, y: number, color: Color3, material: Enum.Material)
+		return thumbPart(scene, Vector3.new(1, radius * 2, radius * 2), o * CFrame.new(0, y, 6) * CFrame.Angles(0, 0, math.pi / 2), color, material, Enum.PartType.Cylinder)
 	end
-	thumbPart(scene, Vector3.new(0.6, 30, 30), center * CFrame.new(0, 0, -0.4) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 240, 160), Enum.Material.Neon, Enum.PartType.Cylinder)
-	-- the brainrots
-	for _, spec in THUMB_BRAINROTS do
+	disc(26, -0.4, THUMB_GOLD, Enum.Material.Metal)
+	disc(24.5, -0.2, THUMB_PINK, Enum.Material.Neon)
+	disc(23, 0, Color3.fromRGB(255, 120, 210), Enum.Material.SmoothPlastic)
+	disc(12, 0.2, THUMB_GOLD, Enum.Material.Neon)
+	for index = 0, 35 do
+		local angle = index / 36 * math.pi * 2
+		local bulb = thumbPart(scene, Vector3.one * 1.3, o * CFrame.new(math.cos(angle) * 25.3, 0.6, 6 + math.sin(angle) * 25.3), THUMB_RAINBOW[index % #THUMB_RAINBOW + 1], Enum.Material.Neon, Enum.PartType.Ball)
+		bulb.Name = "Bulb"
+	end
+
+	-- the sunburst: two layers of rays, a glowing core
+	local center = o * CFrame.new(0, 18, 40)
+	for index = 0, 31 do
+		local color = if index % 2 == 0 then THUMB_PINK else THUMB_PURPLE
+		thumbPart(scene, Vector3.new(9, 150, 0.5), center * CFrame.Angles(0, 0, index * math.pi / 16) * CFrame.new(0, 75, 0), color, Enum.Material.Neon)
+	end
+	for index = 0, 15 do
+		thumbPart(scene, Vector3.new(3, 60, 0.5), center * CFrame.new(0, 0, -0.6) * CFrame.Angles(0, 0, (index + 0.5) * math.pi / 8) * CFrame.new(0, 30, 0), Color3.fromRGB(255, 230, 120), Enum.Material.Neon)
+	end
+	thumbPart(scene, Vector3.new(0.6, 34, 34), center * CFrame.new(0, 0, -1.2) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 250, 200), Enum.Material.Neon, Enum.PartType.Cylinder)
+
+	-- light beams from above onto the star
+	for _, x in { -14, 14 } do
+		local top = o * CFrame.new(x * 2.2, 60, 20)
+		local foot = o * CFrame.new(x * 0.3, 0, 6)
+		local beam = thumbPart(scene, Vector3.new((top.Position - foot.Position).Magnitude, 12, 12), CFrame.lookAt(top.Position:Lerp(foot.Position, 0.5), foot.Position) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 250, 210), Enum.Material.Neon, Enum.PartType.Cylinder)
+		beam.Transparency = 0.82
+	end
+
+	-- the star: the custom brainrot, crowned, glowing, sparkling
+	local hero = thumbBrainrot(THUMB_HERO, THUMB_HERO_SCALE, o * CFrame.new(0, 0.7, 6))
+	hero.Parent = scene
+	local box, size = hero:GetBoundingBox()
+	local crownBase = CFrame.new(box.Position + Vector3.new(0, size.Y / 2 + 0.3, 0))
+	local crownSize = math.clamp(size.X * 0.35, 3, 6)
+	thumbPart(scene, Vector3.new(crownSize * 0.35, crownSize, crownSize), crownBase * CFrame.Angles(0, 0, math.pi / 2), THUMB_GOLD, Enum.Material.Metal, Enum.PartType.Cylinder)
+	for index = 0, 4 do
+		local angle = index / 5 * math.pi * 2
+		local spike = crownBase * CFrame.new(math.cos(angle) * crownSize * 0.42, crownSize * 0.35, math.sin(angle) * crownSize * 0.42)
+		thumbPart(scene, Vector3.new(crownSize * 0.2, crownSize * 0.5, crownSize * 0.2), spike, THUMB_GOLD, Enum.Material.Metal)
+		thumbPart(scene, Vector3.one * crownSize * 0.22, spike * CFrame.new(0, crownSize * 0.3, 0), THUMB_RAINBOW[index + 1], Enum.Material.Neon, Enum.PartType.Ball)
+	end
+	local highlight = Instance.new("Highlight")
+	highlight.FillTransparency = 1
+	highlight.OutlineColor = Color3.fromRGB(255, 240, 120)
+	highlight.Parent = hero
+	local core = thumbPart(scene, Vector3.one, box, THUMB_GOLD, Enum.Material.Neon)
+	core.Transparency = 1
+	sparkles(core, Color3.fromRGB(255, 240, 150), 30)
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 220, 160)
+	light.Brightness = 3
+	light.Range = 30
+	light.Parent = core
+
+	-- its two friends, smaller, turned in toward it
+	for _, spec in THUMB_SIDES do
 		local id, x, scale, turn = spec[1] :: string, spec[2] :: number, spec[3] :: number, spec[4] :: number
 		if Brainrots.ById[id] then
-			wholeBrainrot(id, scale, o * CFrame.new(x, 0.5, 4 + math.abs(x) * 0.25) * CFrame.Angles(0, math.rad(turn), 0)).Parent = scene
+			local parts = {}
+			for _, partType in Brainrots.PartTypes do
+				parts[partType] = id
+			end
+			thumbBrainrot(parts, scale, o * CFrame.new(x, 0.5, 14) * CFrame.Angles(0, math.rad(turn), 0)).Parent = scene
 		end
 	end
-	-- the sign
-	RoomDecor.NeonSign(scene, o * CFrame.new(0, 27, 12), Vector2.new(34, 7), "BUILD A BRAINROT", Color3.fromRGB(255, 220, 60))
-	-- coins round their feet
-	local random = Random.new(7)
-	for _ = 1, 40 do
-		local angle = random:NextNumber(0, math.pi * 2)
-		local radius = random:NextNumber(16, 27)
-		local spot = o * CFrame.new(math.cos(angle) * radius, 1.2, 4 + math.sin(angle) * radius * 0.6)
-		thumbPart(scene, Vector3.new(0.4, 2.2, 2.2), spot * CFrame.Angles(random:NextNumber(-0.6, 0.6), random:NextNumber(0, 6), math.pi / 2 + random:NextNumber(-0.5, 0.5)), THUMB_GOLD, Enum.Material.Metal, Enum.PartType.Cylinder)
+
+	-- loot boxes floating round it, coins piled at its feet
+	local boxes = { { -24, 16, THUMB_PURPLE }, { 24, 18, Color3.fromRGB(60, 200, 255) }, { -19, 30, THUMB_PINK }, { 20, 31, Color3.fromRGB(80, 230, 120) } }
+	for _, spec in boxes do
+		local x, y, color = spec[1] :: number, spec[2] :: number, spec[3] :: Color3
+		giftBox(scene, o * CFrame.new(x, y, 6) * CFrame.Angles(random:NextNumber(-0.4, 0.4), random:NextNumber(0, 6), random:NextNumber(-0.4, 0.4)), 4.5, color)
 	end
+	for _ = 1, 70 do
+		local angle = random:NextNumber(0, math.pi * 2)
+		local radius = random:NextNumber(9, 24)
+		local spot = o * CFrame.new(math.cos(angle) * radius, random:NextNumber(0.8, 2.5), 2 + math.sin(angle) * radius * 0.5)
+		thumbPart(scene, Vector3.new(0.45, 2.4, 2.4), spot * CFrame.Angles(random:NextNumber(-0.8, 0.8), random:NextNumber(0, 6), math.pi / 2 + random:NextNumber(-0.7, 0.7)), THUMB_GOLD, Enum.Material.Metal, Enum.PartType.Cylinder)
+	end
+
+	-- the sign
+	RoomDecor.NeonSign(scene, o * CFrame.new(0, 40, 16), Vector2.new(46, 9), "BUILD A BRAINROT!", Color3.fromRGB(255, 220, 60))
 	scene.Parent = workspace
+
 	-- the player, in front, looking at it
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if root and root:IsA("BasePart") then
 		root.Anchored = true
-		local eye = o * CFrame.new(0, 3.5, -42)
-		root.CFrame = CFrame.lookAt(eye.Position, (o * CFrame.new(0, 3.5, 0)).Position)
+		local eye = o * CFrame.new(0, 8, -48)
+		root.CFrame = CFrame.lookAt(eye.Position, (o * CFrame.new(0, 12, 0)).Position)
 	end
 	return true
 end

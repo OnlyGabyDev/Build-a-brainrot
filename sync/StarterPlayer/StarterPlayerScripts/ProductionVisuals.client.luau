@@ -3543,10 +3543,21 @@ end
 -- come in either way (the server pays them).
 -- And only so many at once (the user measured ProductionVisuals at 50% of a frame with
 -- fast lines: a 2 s line has ~7 cycles in flight, each moving its parts every frame):
--- at most PerLine on a line (Far ones past FarDistance), Total in all; a cycle over
--- the limit just isn't shown (its brainrot is skipped, the next one comes along).
+-- at most PerLine on a line (Far ones past FarDistance), Total in all, and with Lower
+-- Graphics on (Client/Performance) Low* instead; a cycle over the limit just isn't
+-- shown (its brainrot is skipped, the next one comes along).
 -- (one table: this chunk is near Luau's 200-locals limit)
-local Budget = { PerLine = 3, Far = 1, FarDistance = 90, Total = 12, Running = 0, ByLine = {} :: { [Model]: number } }
+local Budget = {
+	PerLine = 2,
+	Far = 1,
+	FarDistance = 80,
+	Total = 8,
+	LowPerLine = 1,
+	LowTotal = 4,
+	Performance = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Performance")),
+	Running = 0,
+	ByLine = {} :: { [Model]: number },
+}
 
 require(Shared:WaitForChild("Remotes")).Event("Production").OnClientEvent:Connect(function(plot, lineId, parts, zoneId, value, fullMatch, cycleTime, special)
 	local line = findLine(plot, lineId)
@@ -3563,7 +3574,10 @@ require(Shared:WaitForChild("Remotes")).Event("Production").OnClientEvent:Connec
 		return
 	end
 	local running = Budget.ByLine[line] or 0
-	if Budget.Running >= Budget.Total or running >= (if distance > Budget.FarDistance then Budget.Far else Budget.PerLine) then
+	local low = Budget.Performance.Low
+	local total = if low then Budget.LowTotal else Budget.Total
+	local perLine = if distance > Budget.FarDistance then Budget.Far elseif low then Budget.LowPerLine else Budget.PerLine
+	if Budget.Running >= total or running >= perLine then
 		return
 	end
 	Budget.Running += 1
