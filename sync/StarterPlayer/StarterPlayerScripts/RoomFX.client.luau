@@ -27,6 +27,7 @@ local LoopPath = require(Shared:WaitForChild("LoopPath"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
 local FactoryView = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("FactoryView"))
+local Mover = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Mover"))
 
 local NEAR = 180 -- studs from the camera
 local WHITE = Color3.new(1, 1, 1)
@@ -353,8 +354,20 @@ end)
 
 -- The loop ----------------------------------------------------------------------------
 
+-- Far from the camera (but still seen), the conveyor and the train move every other
+-- frame: at that distance 30 steps a second look the same, for half the work.
+local HALF_RATE_DISTANCE = 70
+local frame = 0
+local function due(position: Vector3): boolean
+	if not near(position) then
+		return false
+	end
+	return frame % 2 == 0 or (workspace.CurrentCamera.CFrame.Position - position).Magnitude < HALF_RATE_DISTANCE
+end
+
 RunService.Heartbeat:Connect(function(dt)
 	local now = os.clock()
+	frame += 1
 	for _, wrap in wraps do
 		local bubble = wrap.Bubbles[1]
 		if now >= wrap.Next and bubble and near(bubble.Position) then
@@ -375,21 +388,21 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 	end
 	for _, conveyor in conveyors do
-		if near(conveyor.Origin.Position + Vector3.new(0, ConveyorPath.Height, 0)) then
+		if due(conveyor.Origin.Position + Vector3.new(0, ConveyorPath.Height, 0)) then
 			for _, box in conveyor.Boxes do
 				local point, heading = ConveyorPath.Point(box.Phase * ConveyorPath.Perimeter + now * conveyor.Speed)
 				-- each package sways a little on its hook
 				local sway = math.sin(now * 2.2 + box.Phase * 40) * 0.07
-				box.Model:PivotTo(conveyor.Origin * CFrame.lookAt(point, point + heading) * CFrame.Angles(0, 0, sway))
+				Mover.PivotTo(box.Model, conveyor.Origin * CFrame.lookAt(point, point + heading) * CFrame.Angles(0, 0, sway))
 			end
 		end
 	end
 	for _, train in trains do
-		if near(train.Center.Position) then
+		if due(train.Center.Position) then
 			local along = now * train.Speed
 			for _, car in train.Cars do
 				local point, heading = train.Path:Point(along - car.Offset)
-				car.Model:PivotTo(train.Center * CFrame.lookAt(point, point + heading))
+				Mover.PivotTo(car.Model, train.Center * CFrame.lookAt(point, point + heading))
 			end
 			local chimney = train.Chimney
 			if chimney and now >= train.NextPuff then

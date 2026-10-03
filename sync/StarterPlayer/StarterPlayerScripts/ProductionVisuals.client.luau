@@ -51,6 +51,7 @@ local Sounds = require(Config:WaitForChild("Sounds"))
 local TycoonItems = require(Config:WaitForChild("TycoonItems"))
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
 local FactoryView = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("FactoryView"))
+local Mover = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Mover"))
 
 local RENDER_DISTANCE = 250
 local FX_RANGE = 140 -- particles and flying coins only for lines this close to the camera
@@ -1686,7 +1687,7 @@ local function admire(build: Build, brainrot: Model, duration: number, turn: boo
 	local offset = center:Inverse() * pivot -- (it turns round its middle, not its root)
 	run(duration, function(a)
 		local spin = ease(a, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut) * math.pi * 2
-		brainrot:PivotTo((center + Vector3.new(0, math.sin(a * math.pi) * 0.6, 0)) * CFrame.Angles(0, spin, 0) * offset)
+		Mover.PivotTo(brainrot, (center + Vector3.new(0, math.sin(a * math.pi) * 0.6, 0)) * CFrame.Angles(0, spin, 0) * offset)
 	end)
 	brainrot:PivotTo(pivot)
 end
@@ -2397,7 +2398,7 @@ end
 local function showOff(build: Build, brainrot: Model, from: CFrame, spot: CFrame, duration: number)
 	local d = duration
 	run(d * 0.2, function(a)
-		brainrot:PivotTo(from:Lerp(spot, ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)))
+		Mover.PivotTo(brainrot, from:Lerp(spot, ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)))
 	end)
 
 	local beam: BasePart? = nil
@@ -2423,7 +2424,7 @@ local function showOff(build: Build, brainrot: Model, from: CFrame, spot: CFrame
 		local e = ease(a, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 		local lift = SHOW_HEIGHT * math.sin(a * math.pi)
 		brainrot:ScaleTo(base * (1 + 0.12 * math.sin(a * math.pi)))
-		brainrot:PivotTo(spot * CFrame.new(0, lift, 0) * CFrame.Angles(0, e * math.pi * 2, 0))
+		brainrot:PivotTo(spot * CFrame.new(0, lift, 0) * CFrame.Angles(0, e * math.pi * 2, 0)) -- (it scales too: Mover would rebuild every frame)
 	end)
 	brainrot:ScaleTo(base)
 	brainrot:PivotTo(spot)
@@ -2533,7 +2534,7 @@ local function poseHook(hook: Hook)
 	local load = hook.Load
 	if load and not hook.Frozen and load.Parent then
 		local factor = load:GetScale() / hook.GripScale
-		load:PivotTo(CFrame.new(grip) * tilt * hook.Rotation * CFrame.new(-hook.Grip * factor))
+		Mover.PivotTo(load, CFrame.new(grip) * tilt * hook.Rotation * CFrame.new(-hook.Grip * factor))
 	end
 end
 
@@ -3013,7 +3014,7 @@ function Turntable.ride(build: Build, brainrot: Model, layout: LineLayouts.Layou
 	while line.Parent do
 		local now = os.clock()
 		local angle = angleAt(math.min(now, exitAt))
-		brainrot:PivotTo(Turntable.pose(origin, angle))
+		Mover.PivotTo(brainrot, Turntable.pose(origin, angle))
 		local pass = passes[nextPass]
 		if pass and angle >= pass.Alpha then
 			nextPass += 1
@@ -3112,7 +3113,7 @@ function Tower.ride(build: Build, brainrot: Model, layout: LineLayouts.Layout, o
 			end
 		end
 		local at = world + Vector3.new(0, Tower.Stand * math.min(t / 0.15, 1), 0)
-		brainrot:PivotTo(CFrame.lookAt(at, at + facing))
+		Mover.PivotTo(brainrot, CFrame.lookAt(at, at + facing))
 		local pass = passes[nextPass]
 		if pass and distance >= pass.Alpha then
 			nextPass += 1
@@ -3477,7 +3478,7 @@ local function animateCycle(
 			local ahead = (beltEnd.Position - showSpot.Position).Unit * STATION_LEAD
 			local nextPass = 1
 			run(Production.RideTime(zoneId), function(alpha)
-				brainrot:PivotTo(showSpot:Lerp(beltEnd, alpha))
+				Mover.PivotTo(brainrot, showSpot:Lerp(beltEnd, alpha))
 				local pass = passes[nextPass]
 				if pass and alpha >= pass.Alpha and line.Parent then
 					nextPass += 1

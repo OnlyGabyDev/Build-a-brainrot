@@ -17,6 +17,7 @@ local RunService = game:GetService("RunService")
 
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Sounds"))
 local Client = ReplicatedStorage:WaitForChild("Client")
+local BulkMover = require(Client:WaitForChild("Mover"))
 local Effects = require(Client:WaitForChild("Effects"))
 local Kit = require(Client:WaitForChild("UI"):WaitForChild("Kit"))
 local Performance = require(Client:WaitForChild("Performance")) -- (Low: the decor holds still)
@@ -157,7 +158,7 @@ RunService.RenderStepped:Connect(function()
 	local turn = CFrame.Angles(0, os.clock() * STATUE_SPIN, 0)
 	for statue, rest in spinning do
 		if (rest.Position - camera).Magnitude < SPIN_DISTANCE then
-			statue:PivotTo(rest * turn)
+			BulkMover.PivotTo(statue, rest * turn)
 		end
 	end
 end)
@@ -250,12 +251,30 @@ local MARQUEE_COLORS = {
 local BULB_OFF = Color3.fromRGB(255, 215, 130)
 
 -- (Center and Radius: a ball round the whole thing as it turns, for the on-screen test)
-type Mover = { Rest: CFrame, Speed: number, Phase: number, Center: Vector3, Radius: number, Salt: number }
+-- (Rigid: nothing inside moves on its own, so BulkMover can move it: a mover holding
+-- another spinner or bobber keeps PivotTo, or it would undo its child's motion)
+type Mover = { Rest: CFrame, Speed: number, Phase: number, Center: Vector3, Radius: number, Salt: number, Rigid: boolean }
 local spinners: { [Model]: Mover } = {}
 local bobbers: { [Model]: Mover } = {}
-type Bulb = { Index: number, Lit: number? } -- its index along its string; its lit color's slot (0: off)
+-- Marquee bulbs are sorted into cells MARQUEE_CELL studs wide (by where they were when
+-- they appeared), so a chase step tests each cell against the view once, not each of
+-- the thousands of bulbs.
+local MARQUEE_CELL = 48
+local CELL_RADIUS = MARQUEE_CELL * 0.87 + 4 -- the cell's half-diagonal, plus a spinning donut's slack
+type Bulb = { Index: number, Lit: number?, Cell: Vector3 } -- its index along its string; its lit color's slot (0: off)
+type Cell = { Center: Vector3, Bulbs: { [BasePart]: Bulb } }
+local cells: { [Vector3]: Cell } = {}
 local bulbs: { [BasePart]: Bulb } = {}
 local movers = 0
+
+local function holdsMovers(model: Model): boolean
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("Model") and (CollectionService:HasTag(descendant, "Spinner") or CollectionService:HasTag(descendant, "Bobbing")) then
+			return true
+		end
+	end
+	return false
+end
 
 local function mover(model: Model, speed: number, phase: number): Mover
 	local rest = model:GetPivot()
@@ -263,7 +282,15 @@ local function mover(model: Model, speed: number, phase: number): Mover
 	movers += 1
 	-- it turns about its pivot: the ball round it must reach its far corner from there
 	local reach = (box.Position - rest.Position).Magnitude + size.Magnitude / 2
-	return { Rest = rest, Speed = speed, Phase = phase, Center = rest.Position, Radius = reach, Salt = movers }
+	return { Rest = rest, Speed = speed, Phase = phase, Center = rest.Position, Radius = reach, Salt = movers, Rigid = not holdsMovers(model) }
+end
+
+local function moveTo(model: Model, item: Mover, cframe: CFrame)
+	if item.Rigid then
+		BulkMover.PivotTo(model, cframe)
+	else
+		model:PivotTo(cframe)
+	end
 end
 
 local function watchTag(tag: string, added: (Instance) -> (), removed: (Instance) -> ())
@@ -293,10 +320,29 @@ end)
 watchTag("Marquee", function(bulb)
 	if bulb:IsA("BasePart") then
 		local index = bulb:GetAttribute("Index")
-		bulbs[bulb] = { Index = if typeof(index) == "number" then index else 0, Lit = nil }
+		local p = bulb.Position
+		local key = Vector3.new(p.X // MARQUEE_CELL, p.Y // MARQUEE_CELL, p.Z // MARQUEE_CELL)
+		local cell = cells[key]
+		if not cell then
+			cell = { Center = (key + Vector3.new(0.5, 0.5, 0.5)) * MARQUEE_CELL, Bulbs = {} }
+			cells[key] = cell
+		end
+		local entry = { Index = if typeof(index) == "number" then index else 0, Lit = nil, Cell = key }
+		bulbs[bulb] = entry
+		cell.Bulbs[bulb] = entry
 	end
 end, function(bulb)
-	bulbs[bulb :: BasePart] = nil
+	local entry = bulbs[bulb :: BasePart]
+	if entry then
+		bulbs[bulb :: BasePart] = nil
+		local cell = cells[entry.Cell]
+		if cell then
+			cell.Bulbs[bulb :: BasePart] = nil
+			if next(cell.Bulbs) == nil then
+				cells[entry.Cell] = nil
+			end
+		end
+	end
 end)
 
 -- Whether a mover should move this frame (near enough, on screen, and its turn).
@@ -313,33 +359,34 @@ RunService.RenderStepped:Connect(function()
 	local now = os.clock()
 	for model, item in spinners do
 		if moves(item) then
-			model:PivotTo(item.Rest * CFrame.Angles(0, 0, now * item.Speed))
+			moveTo(model, item, item.Rest * CFrame.Angles(0, 0, now * item.Speed))
 		end
 	end
 	for model, item in bobbers do
 		if moves(item) then
-			model:PivotTo(item.Rest + Vector3.new(0, math.sin(now * item.Speed + item.Phase) * 0.8, 0))
+			moveTo(model, item, item.Rest + Vector3.new(0, math.sin(now * item.Speed + item.Phase) * 0.8, 0))
 		end
 	end
 	-- every third bulb lit, each light keeping its color as it runs along the string; a
-	-- bulb is only written when its light changes (and only if it's on screen: one
-	-- that comes back into view catches up on the next step)
+	-- bulb is only written when its light changes (and only if its cell is on screen:
+	-- one that comes back into view catches up on the next step)
 	local step = math.floor(now / MARQUEE_STEP)
 	if step ~= marqueeStep then
 		marqueeStep = step
-		for bulb, entry in bulbs do
-			local position = bulb.Position
-			if (position - view.Position).Magnitude < DECOR_DISTANCE and onScreen(position, 1) then
-				local offset = entry.Index - step
-				local lit = if offset % 3 == 0 then (offset // 3) % #MARQUEE_COLORS + 1 else 0
-				if lit ~= entry.Lit then
-					entry.Lit = lit
-					if lit > 0 then
-						bulb.Material = Enum.Material.Neon
-						bulb.Color = MARQUEE_COLORS[lit]
-					else
-						bulb.Material = Enum.Material.SmoothPlastic
-						bulb.Color = BULB_OFF
+		for _, cell in cells do
+			if (cell.Center - view.Position).Magnitude - CELL_RADIUS < DECOR_DISTANCE and onScreen(cell.Center, CELL_RADIUS) then
+				for bulb, entry in cell.Bulbs do
+					local offset = entry.Index - step
+					local lit = if offset % 3 == 0 then (offset // 3) % #MARQUEE_COLORS + 1 else 0
+					if lit ~= entry.Lit then
+						entry.Lit = lit
+						if lit > 0 then
+							bulb.Material = Enum.Material.Neon
+							bulb.Color = MARQUEE_COLORS[lit]
+						else
+							bulb.Material = Enum.Material.SmoothPlastic
+							bulb.Color = BULB_OFF
+						end
 					end
 				end
 			end
