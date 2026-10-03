@@ -58,6 +58,13 @@ local function items(): { Item }
 		for key, pass in Gamepasses do
 			table.insert(list, { Kind = "Pass", Key = key, Id = pass.Id, Order = pass.Order, Name = pass.Name, Icon = pass.Icon, Text = pass.Description, Perks = pass.Perks, Colors = pass.Colors, Ribbon = pass.Ribbon })
 		end
+		-- the NUKE leads the page (a product: it can be bought again and again)
+		for key, product in Products do
+			if product.Kind == "Nuke" then
+				local perks = { "A giant Bombardiro drops it", "EVERYONE in the server dies!" }
+				table.insert(list, { Kind = "Product", Key = key, Id = product.Id, Order = product.Order, Name = product.Name, Icon = product.Icon, Text = perks[2], Perks = perks, Colors = { Color3.fromRGB(255, 110, 80), Color3.fromRGB(170, 20, 40) }, Ribbon = "NUKE" })
+			end
+		end
 	else
 		for key, product in Products do
 			if product.Kind == TAB_KINDS[tab] then

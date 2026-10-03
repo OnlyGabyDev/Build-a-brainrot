@@ -23,11 +23,13 @@ local Products = require(Shared.Config.Products)
 local Remotes = require(Shared.Remotes)
 
 local DataManager = require(script.Parent.DataManager)
+local NukeManager = require(script.Parent.NukeManager)
 
 -- Flip on to test pass perks in Studio before the passes exist.
 local STUDIO_OWNS_ALL = false
 local PERK_FLAGS = { "RemoteLines", "AutoCollect" }
-local CURRENCY_ICONS = { Gems = "💎", Rolls = "🎲", WheelSpins = "🎡" }
+local CURRENCY_ICONS = { Gems = "💎", Rolls = "🎲", WheelSpins = "🎡", Nuke = "☢️" }
+local passPrices: { [number]: number } = {} -- Robux, fetched once (for the Robux-spent leaderboard)
 
 local owned: { [Player]: { [string]: boolean } } = {}
 local grantedCallbacks: { (player: Player, key: string) -> () } = {}
@@ -99,12 +101,15 @@ local function processReceipt(receipt: { [string]: any }): Enum.ProductPurchaseD
 			DataManager.AddRolls(player, product.Amount)
 		elseif product.Kind == "WheelSpins" then
 			DataManager.AddWheelSpins(player, product.Amount)
+		elseif product.Kind == "Nuke" then
+			NukeManager.Launch(player)
 		end
+		DataManager.AddStat(player, "RobuxSpent", tonumber(receipt.CurrencySpent) or 0)
 	end)
 	if not granted then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
-	purchasedRemote:FireClient(player, `Thanks! +{product.Amount} {CURRENCY_ICONS[product.Kind] or ""}`)
+	purchasedRemote:FireClient(player, if product.Kind == "Nuke" then "☢️ NUKE INCOMING! ☢️" else `Thanks! +{product.Amount} {CURRENCY_ICONS[product.Kind] or ""}`)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
@@ -112,6 +117,7 @@ end
 
 function MonetizationManager.Init()
 	purchasedRemote = Remotes.Event("Purchased")
+	NukeManager.Init()
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	for _, player in Players:GetPlayers() do
 		task.spawn(onPlayerAdded, player)
@@ -129,6 +135,14 @@ function MonetizationManager.Init()
 				grant(player, key)
 			end
 		end
+		-- what it cost, for the Robux-spent leaderboard
+		local price = passPrices[passId]
+		if not price then
+			local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, passId, Enum.InfoType.GamePass)
+			price = if ok and info and info.PriceInRobux then info.PriceInRobux else 0
+			passPrices[passId] = price
+		end
+		DataManager.AddStat(player, "RobuxSpent", price)
 	end)
 	MarketplaceService.ProcessReceipt = processReceipt
 end

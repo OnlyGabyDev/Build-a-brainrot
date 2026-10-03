@@ -112,6 +112,11 @@ local BALLOON_COLORS = {
 
 local MapBuilder = {}
 
+-- Where the plaza leaves room for the leaderboards and the podium (on the paving, facing
+-- the fountain: -Z toward it), filled in as the plaza is built.
+MapBuilder.BoardSpots = {} :: { CFrame }
+MapBuilder.PodiumSpot = nil :: CFrame?
+
 local random = Random.new(SEED)
 local hub: Folder
 local ground: Folder -- what loot boxes may stand on (besides terrain): paving, bridges
@@ -1333,7 +1338,16 @@ local function buildPlaza(parent: Instance, plots: { TycoonManager.Plot }, plotA
 		buildBush(parent, onGround(between, FOUNTAIN_RADIUS + 4.5) + Vector3.new(0, PATH_TOP, 0), 0.8)
 		local seat = onGround(between, CENTER_RADIUS + 7) + Vector3.new(0, PATH_TOP, 0)
 		buildBench(parent, CFrame.lookAt(seat, Vector3.new(0, PATH_TOP, 0))) -- facing the fountain
-		buildPlanter(parent, onGround(between, 66) + Vector3.new(0, PATH_TOP, 0))
+		-- the leaderboards and the podium stand in five of the gaps, facing the fountain
+		-- (LeaderboardManager builds them there); the last gap keeps its planter
+		local spot = CFrame.lookAt(onGround(between, 62) + Vector3.new(0, PATH_TOP, 0), Vector3.new(0, PATH_TOP, 0))
+		if index == 3 then
+			MapBuilder.PodiumSpot = spot
+		elseif index <= 5 then
+			table.insert(MapBuilder.BoardSpots, spot)
+		else
+			buildPlanter(parent, onGround(between, 66) + Vector3.new(0, PATH_TOP, 0))
+		end
 		buildFlowers(parent, onGround(between + 0.12, PLAZA_RADIUS - 12) + Vector3.new(0, PATH_TOP, 0), false)
 		buildFlowers(parent, onGround(between - 0.12, PLAZA_RADIUS - 12) + Vector3.new(0, PATH_TOP, 0), false)
 	end

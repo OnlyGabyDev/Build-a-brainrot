@@ -27,6 +27,12 @@ return {
 	Whistle = "rbxassetid://9119628055", -- the toy train's steam whistle
 	Shutter = "rbxassetid://17208312548", -- a camera shutter: the Clay Studio's stop-motion frames and snaps
 
+	-- The NUKE (Config/Nuke)
+	Siren = "rbxassetid://9125718896", -- an old air-raid siren wailing up and down
+	Bomber = "rbxassetid://86789153907970", -- a propeller plane flying by
+	BombFall = "rbxassetid://92146752553247", -- an artillery shell falling (3.5 s: the nuke's fall)
+	Boom = "rbxassetid://9113169432", -- deep distant artillery booms
+
 	-- Background music, shuffled
 	Music = {
 		"rbxassetid://1837478883", -- Cutie Pie

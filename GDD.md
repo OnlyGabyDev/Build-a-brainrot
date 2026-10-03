@@ -320,6 +320,10 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 - **Daily wheel spins** (x1, x5)
 - **Server Luck Boost** 💡: everyone in the server gets 2x Luck for 15 min, with a server-wide announcement of who bought it.
 
+- ✅ **NUKE** (v2.7, a developer product, 2000 R$; the user's request): the whole server is warned (a flashing banner and a chat message: "⚠️ NAME BOUGHT A NUKE! ⚠️", an air-raid siren), a giant Bombardiro Crocodilo slowly fades in over the valley and drops a nuke on the hub; when it hits the ground every screen goes white and everyone dies (every Humanoid: players and, later, bosses), then a mushroom cloud rises. Bought again and again (a product, not a pass).
+
+**Leaderboards** ✅ (v2.7, the user's request): four boards round the hub's fountain with the all-time top 10 for the most Robux spent, the most playtime, the most rebirths and the most money earned, and a podium with the top 3 by money earned standing on it as their own avatars, their names over their heads.
+
 **Daily Wheel**
 - 1 free spin every 24 h (rolling timer). Paid spins with Robux (and maybe Gems).
 - Prizes: Coins, Gems, Rolls, temporary Luck boosts, and a small chance at a Mythic box.
@@ -512,6 +516,7 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v2.7 (2026-10-03):** The NUKE (§12), the hub's leaderboards and podium (§12), and the brainrot art v2's first batch (Tung Tung Tung Sahur and Tralalero Tralala, finer voxels, matched to references).
 - **v2.6 (2026-10-02):** Gamepasses (§12): checked end to end in Studio (a test grant), the Sprint pass added, the shop's pass cards redone.
 - **v2.5 (2026-10-02):** The UI pass (§5, §8, §13): the loot wheel is a prize reel (case-opening style), the Index is a sticker book, and the HUD and every menu got juice (gloss, sounds, bounces, floating "+N", a sunburst).
 - **v2.4 (2026-10-02):** Vinyl Collectibles' spiral tower line (§6) and its quality pass: a designer-toy gallery (§10). Every room of the first run now has its own layout. Next (the user): the HUD, the gamepasses, then the brainrot art rework.

@@ -80,7 +80,7 @@ export type PlayerData = {
 	Boosts: { [string]: number }, -- [boostId] = os.time() it expires
 	DailyWheel: { FreeSpins: { number }, Spins: number }, -- free spins used (times), bought spins
 	Receipts: { string }, -- recent Robux purchase ids, so none is granted twice
-	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number },
+	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number },
 }
 
 export type AddPartResult = "New" | "Duplicate" | "NotLoaded"
@@ -117,6 +117,8 @@ local TEMPLATE: PlayerData = {
 		TotalCoinsEarned = 0,
 		FirstJoin = 0,
 		LastJoin = 0,
+		RobuxSpent = 0, -- every Robux purchase, for the leaderboards
+		Playtime = 0, -- seconds in game
 	},
 }
 
@@ -656,6 +658,18 @@ function DataManager.DevRestore(player: Player, snapshot: PlayerData): boolean
 end
 
 -- Rebirths -------------------------------------------------------------------
+
+-- Adds to one of the player's lifetime stats (Stats.RobuxSpent, Stats.Playtime), which
+-- the leaderboards read. Never reset.
+function DataManager.AddStat(player: Player, stat: string, amount: number): boolean
+	local profile = profiles[player]
+	local stats = profile and (profile.Data.Stats :: any)
+	if not (stats and type(stats[stat]) == "number" and type(amount) == "number" and amount > 0) then
+		return false
+	end
+	stats[stat] += amount
+	return true
+end
 
 -- Spends `cost` Coins to rebirth: Coins and tycoon purchases reset, the rebirth count
 -- goes up and `points` Rebirth Points are added. Everything else is kept (GDD §10).

@@ -12,7 +12,7 @@ export type Product = {
 	Order: number,
 	Name: string,
 	Icon: string,
-	Kind: string, -- "Gems" | "Rolls" | "WheelSpins"
+	Kind: string, -- "Gems" | "Rolls" | "WheelSpins" | "Nuke"
 	Amount: number,
 }
 
@@ -25,6 +25,8 @@ local Products: { [string]: Product } = {
 	Rolls10 = { Id = 0, Order = 6, Name = "10 Rolls", Icon = "🎲", Kind = "Rolls", Amount = 10 },
 	Spin1 = { Id = 0, Order = 7, Name = "1 Wheel Spin", Icon = "🎡", Kind = "WheelSpins", Amount = 1 },
 	Spin5 = { Id = 0, Order = 8, Name = "5 Wheel Spins", Icon = "🎡", Kind = "WheelSpins", Amount = 5 },
+	-- a giant Bombardiro drops a nuke on the server: everyone dies (Config/Nuke). 2000 R$.
+	Nuke = { Id = 0, Order = 0, Name = "NUKE", Icon = "☢️", Kind = "Nuke", Amount = 1 },
 }
 
 return Products
