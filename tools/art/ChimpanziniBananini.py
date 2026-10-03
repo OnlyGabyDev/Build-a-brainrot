@@ -1,61 +1,66 @@
-# Chimpanzini Bananini (art v2): a grumpy chimp in a peeled banana: a green-topped head
-# with a pink face, pink ears, small dark eyes under a heavy brow and a frown; the banana's
-# yellow body curves down into a curl it stands on (its "legs"), a brown tip at the end;
-# two peel flaps hang down its sides (its "arms"). Reference: Steal a Brainrot's render.
-from voxel_art import ball, box, both, carve, chain, paint
-
-# the banana, top to bottom: the body is the upper half, the curl it stands on the legs
-upper = [
-    ball(0, 16, 0, 3.8, 2.4, 3.4, "Banana"),
-    ball(0.2, 13.6, 0, 3.7, 2.4, 3.3, "Banana"),
-    ball(0.6, 11.2, 0, 3.5, 2.4, 3.1, "Banana"),
-]
-lower = [
-    ball(1.3, 8.6, 0, 3.2, 2.3, 2.9, "Banana"),
-    ball(2.4, 6.2, 0, 2.9, 2.2, 2.6, "Banana"),
-    ball(3.8, 4.0, 0, 2.5, 2.1, 2.2, "Banana"),
-    ball(5.3, 2.3, 0, 2.0, 1.9, 1.8, "Banana"),
-    ball(6.6, 1.4, 0, 1.2, 1.2, 1.2, "Tip"),
-]
-
-body = list(upper)
-body += [paint(box(-1, 9, -5, 1, 19, 5, "BananaLight"))]  # the ridge down its middle
-legs = list(lower) + [carve(s) for s in upper]
-legs += [paint(box(-1, 0, -5, 1, 9.8, 5, "BananaLight"))]
-
-# the peel flaps, folded down its sides
-arms = []
-for side in (-1, 1):
-    arms += chain((side * 3.4, 17.6, -0.6), (side * 5.4, 13.5, -1.4), 1.2, 1.05, "Banana")
-    arms += chain((side * 5.4, 13.5, -1.4), (side * 5.8, 9.4, -1.6), 1.05, 0.85, "Banana")
-    arms += [paint(ball(side * 5.4, 13.5, -2.6, 1.2, 4.5, 0.6, "BananaLight"))]  # the peel's pale inside
-arms += [carve(s) for s in upper]
+# Chimpanzini Bananini (art v2, blocks): a grumpy chimp in a peeled banana, built like
+# Steal a Brainrot's model from clean blocks and ramps: a green cube head with a flat pink
+# face (a heavy brow, small dark eyes, a broad nose, a frown) and pink ears; the peeled
+# banana's pale fruit standing in its yellow peel, the peel's flaps falling open round it
+# (the two side flaps are its "arms"), its bottom curling into the hook it stands on, a
+# brown tip at the end. Reference: Steal a Brainrot's render.
+from voxel_art import block, both, plate, wedge
 
 head = [
-    ball(0, 21.6, -0.4, 3.8, 3.8, 3.4, "Green"),  # its head, green on top like the banana's stem end
-    carve(upper[0]),
-    ball(0, 20.8, -2.4, 2.9, 2.8, 1.6, "Face"),  # the pink face
-    paint(box(-3, 22.6, -6, 3, 23.6, -1.5, "Brow")),  # a heavy brow
-    paint(box(-2, 21.6, -6, -1, 22.6, -1.5, "Dark")),  # small dark eyes
-    paint(box(1, 21.6, -6, 2, 22.6, -1.5, "Dark")),
-    paint(box(-1, 19, -6, 1, 19.8, -3, "Dark")),  # a little frown
-    paint(box(-2, 18.6, -6, -1, 19.4, -3, "Brow")),
-    paint(box(1, 18.6, -6, 2, 19.4, -3, "Brow")),
+    block(0, 25, 0.2, 8, 8, 7.6, "Green"),  # the head, green all round
+    block(0, 23.4, -3.75, 6.6, 5.6, 0.5, "Face"),  # the flat pink face
+    block(0, 25.9, -4.15, 6.8, 1.3, 0.5, "Brow"),  # a heavy brow
+    plate(-1.6, 24.5, -4.25, 1.1, 1.2, "Dark"),  # small dark eyes
+    plate(1.6, 24.5, -4.25, 1.1, 1.2, "Dark"),
+    block(0, 23.1, -4.3, 2, 1.2, 0.8, "Brow"),  # a broad nose
+    plate(-0.5, 22.9, -4.75, 0.5, 0.5, "Dark", depth=0.2),
+    plate(0.5, 22.9, -4.75, 0.5, 0.5, "Dark", depth=0.2),
+    plate(0, 21.4, -4.05, 2.4, 0.5, "Dark"),  # a frown, its corners down
+    plate(-1.5, 21.0, -4.05, 0.8, 0.5, "Dark", rot=(0, 0, 35)),
+    plate(1.5, 21.0, -4.05, 0.8, 0.5, "Dark", rot=(0, 0, -35)),
+    wedge(0, 29.4, -2, 8, 0.8, 1.6, "Green"),  # a tuft over the brow
 ]
-head += both(ball(3.9, 21.2, -0.6, 1, 1.2, 0.8, "Face"))  # ears
+head += both(
+    block(4.4, 24.4, -0.2, 1, 2.4, 2.2, "Face"),  # pink ears
+    block(4.75, 24.4, -0.2, 0.3, 1.4, 1.2, "Brow"),
+)
+
+body = [
+    block(0, 15, 0, 5.4, 10, 5, "Fruit"),  # the peeled fruit
+    block(0, 20.2, 0, 4.6, 0.6, 4.2, "Fruit"),
+    # the front and back flaps of peel, falling open
+    block(0, 13.4, -3.6, 5.4, 8.4, 0.8, "Banana", rot=(18, 0, 0)),
+    block(0, 13.4, 3.6, 5.4, 8.4, 0.8, "Banana", rot=(-18, 0, 0)),
+    plate(0, 13.4, -4.05, 3.4, 7, "Fruit", depth=0.2, rot=(18, 0, 0)),  # the peel's pale inside
+]
+
+arms = both(
+    # the side flaps: out at the top, hanging down
+    block(3.9, 15.8, 0, 0.9, 5, 5, "Banana", rot=(0, 0, 32)),
+    block(5.3, 10.6, 0, 0.9, 6, 4.6, "Banana", rot=(0, 0, 8)),
+    wedge(5.7, 7.0, 0, 0.9, 1.6, 4.2, "Banana", rot=(90, 0, 0)),
+)
+
+legs = [
+    block(0.4, 8.2, 0, 5, 4.4, 4.6, "Banana"),  # the bottom, curling into a hook
+    block(2.2, 5.0, 0, 4.4, 3.8, 4.2, "Banana", rot=(0, 0, 32)),
+    block(4.4, 2.6, 0, 3.8, 3.2, 3.8, "Banana", rot=(0, 0, 58)),
+    block(6.6, 1.5, 0, 2.6, 2.4, 3.2, "Banana", rot=(0, 0, 80)),
+    block(7.9, 1.6, 0, 1.4, 1.8, 1.8, "Tip", rot=(0, 0, 80)),
+]
 
 ART = {
-    "Comment": "Chimpanzini Bananini: a grumpy chimp in a peeled banana, standing on its curl, the peel flaps for arms.",
+    "Comment": "Chimpanzini Bananini: a grumpy chimp in a peeled banana (blocks and ramps), standing on its curl, the side flaps for arms.",
     "VoxelSize": 0.2,
     "Palette": {
-        "Banana": (255, 222, 75),
-        "BananaLight": (255, 240, 165),
-        "Tip": (110, 75, 40),
-        "Green": (95, 170, 65),
-        "Face": (240, 140, 130),
-        "Brow": (200, 105, 100),
+        "Banana": (255, 222, 70),
+        "Fruit": (255, 244, 180),
+        "Tip": (105, 70, 40),
+        "Green": (90, 175, 70),
+        "Face": (240, 150, 140),
+        "Brow": (215, 115, 110),
         "Dark": (35, 25, 25),
     },
-    "Joints": {"Legs": (1, 10, 0), "Head": (0, 21.6, -0.4)},
+    "Joints": {"Legs": (0, 10, 0), "Head": (0, 25, 0)},
     "Parts": {"Legs": legs, "Body": body, "Arms": arms, "Head": head},
 }

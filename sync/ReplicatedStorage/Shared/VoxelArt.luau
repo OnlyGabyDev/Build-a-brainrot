@@ -11,6 +11,10 @@
 	holes, and paint shapes only recolor voxels that are already filled. Each part is voxelized on its own, so parts look whole when shown alone
 	(keep different parts from overlapping, or the shared faces flicker).
 
+	Solid shapes (V.solid) aren't voxelized: each is one smooth part (a block turned any
+	way, a wedge ramp, a ball, a cylinder), for clean slopes and big flat faces like Steal a
+	Brainrot's models; details on them are thin solid plates.
+
 	Art modules live in Shared/Art/<BrainrotId> and use the constructors below:
 	  local V = require(ReplicatedStorage.Shared.VoxelArt)
 	  return {
@@ -23,8 +27,14 @@
 	  }
 ]]
 
+export type Solid = {
+	Shape: string, -- "Block" | "Wedge" | "CornerWedge" | "Ball" | "Cylinder" (a cylinder's axis is its X)
+	Size: Vector3, -- voxels
+	Rotation: Vector3, -- degrees, CFrame.Angles order (X, then Y, then Z)
+}
+
 export type Shape = {
-	Kind: string, -- "Box" | "Ball" | "Cylinder"
+	Kind: string, -- "Box" | "Ball" | "Cylinder" | "Solid"
 	Color: string, -- a Palette key, or "" for a carve
 	Carve: boolean,
 	Paint: boolean?, -- recolors filled voxels only (stripes and spots on curved surfaces)
@@ -32,6 +42,7 @@ export type Shape = {
 	Max: Vector3,
 	Center: Vector3?, -- Ball/Cylinder (Cylinder ignores Y)
 	Radius: Vector3?, -- Ball: radii; Cylinder: X/Z radii
+	Solid: Solid?, -- Solid: the part (Center is its middle)
 }
 
 export type Art = {
@@ -80,6 +91,22 @@ function VoxelArt.cylinder(cx: number, cz: number, rx: number, rz: number, y0: n
 	}
 end
 
+-- One smooth part, not voxelized: `shape` ("Block", "Wedge", "CornerWedge", "Ball",
+-- "Cylinder") centered at (cx, cy, cz), (sx, sy, sz) voxels big, turned (rx, ry, rz)
+-- degrees. A WedgePart's slope faces its -Z and up (its tall end is at +Z).
+function VoxelArt.solid(shape: string, cx: number, cy: number, cz: number, sx: number, sy: number, sz: number, rx: number, ry: number, rz: number, color: string): Shape
+	local center = Vector3.new(cx, cy, cz)
+	return {
+		Kind = "Solid",
+		Color = color,
+		Carve = false,
+		Min = center,
+		Max = center,
+		Center = center,
+		Solid = { Shape = shape, Size = Vector3.new(sx, sy, sz), Rotation = Vector3.new(rx, ry, rz) },
+	}
+end
+
 -- The same shape cutting a hole instead of painting.
 function VoxelArt.carve(shape: Shape): Shape
 	local copy = table.clone(shape)
@@ -103,10 +130,18 @@ function VoxelArt.mirror(shape: Shape): Shape
 	if shape.Center then
 		copy.Center = Vector3.new(-shape.Center.X, shape.Center.Y, shape.Center.Z)
 	end
+	local solid = shape.Solid
+	if solid then
+		-- mirrored across X: turns about Y and Z flip (X's stays)
+		copy.Solid = { Shape = solid.Shape, Size = solid.Size, Rotation = Vector3.new(solid.Rotation.X, -solid.Rotation.Y, -solid.Rotation.Z) }
+	end
 	return copy
 end
 
 local function contains(shape: Shape, p: Vector3): boolean
+	if shape.Kind == "Solid" then
+		return false
+	end
 	if p.X < shape.Min.X or p.X > shape.Max.X or p.Y < shape.Min.Y or p.Y > shape.Max.Y or p.Z < shape.Min.Z or p.Z > shape.Max.Z then
 		return false
 	end
@@ -129,10 +164,13 @@ local function voxelize(shapes: { Shape }): (Vector3, Vector3, { [number]: strin
 	local low = Vector3.new(math.huge, math.huge, math.huge)
 	local high = -low
 	for _, shape in shapes do
-		if not shape.Carve and not shape.Paint then
+		if not shape.Carve and not shape.Paint and shape.Kind ~= "Solid" then
 			low = low:Min(shape.Min)
 			high = high:Max(shape.Max)
 		end
+	end
+	if low.X > high.X then
+		return Vector3.zero, Vector3.zero, {} -- (only solids)
 	end
 	local origin = Vector3.new(math.floor(low.X), math.floor(low.Y), math.floor(low.Z))
 	local size = Vector3.new(math.ceil(high.X), math.ceil(high.Y), math.ceil(high.Z)) - origin
@@ -254,6 +292,36 @@ function VoxelArt.Build(art: Art, partType: string): Model?
 	model.Name = partType
 	local origin, size, cells = voxelize(shapes)
 	mesh(model, art, origin, size, cells)
+	local voxel = art.VoxelSize
+	for _, shape in shapes do
+		local solid = shape.Solid
+		if not solid then
+			continue
+		end
+		local part: BasePart
+		if solid.Shape == "Wedge" then
+			part = Instance.new("WedgePart")
+		elseif solid.Shape == "CornerWedge" then
+			part = Instance.new("CornerWedgePart")
+		else
+			local block = Instance.new("Part")
+			if solid.Shape == "Ball" then
+				block.Shape = Enum.PartType.Ball
+			elseif solid.Shape == "Cylinder" then
+				block.Shape = Enum.PartType.Cylinder
+			end
+			part = block
+		end
+		local turn = solid.Rotation
+		part.Anchored = true
+		part.Size = solid.Size * voxel
+		part.CFrame = CFrame.new((shape.Center :: Vector3) * voxel) * CFrame.Angles(math.rad(turn.X), math.rad(turn.Y), math.rad(turn.Z))
+		part.Color = art.Palette[shape.Color] or Color3.new(1, 0, 1)
+		part.Material = if art.Materials and art.Materials[shape.Color] then art.Materials[shape.Color] else (art.Material or Enum.Material.SmoothPlastic)
+		part.TopSurface = Enum.SurfaceType.Smooth
+		part.BottomSurface = Enum.SurfaceType.Smooth
+		part.Parent = model
+	end
 	model.WorldPivot = CFrame.identity
 	local joint = art.Joints and art.Joints[partType]
 	local anchor = model:FindFirstChildWhichIsA("BasePart")
