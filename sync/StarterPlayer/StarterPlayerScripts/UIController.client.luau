@@ -440,6 +440,8 @@ end)
 local STARTER_FIRST, STARTER_EVERY = 12, 300
 task.spawn(function()
 	task.wait(STARTER_FIRST)
+	Upsell.Featured("StarterPack") -- the big popup, once a session
+	task.wait(STARTER_EVERY)
 	while true do
 		Upsell.Offer("StarterPack", "A Mythic Bombardiro, 250K Coins, 3 Rolls + 10 boxes!")
 		task.wait(STARTER_EVERY)

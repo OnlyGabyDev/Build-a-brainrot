@@ -158,6 +158,67 @@ local function show(key: string, pitch: string?)
 	end)
 end
 
+-- The big one: a limited offer (the Starter Pack) in the middle of the screen, its
+-- countdown ticking in red, what you get in big lines over a sunburst, and a huge BUY
+-- button. Shown by UIController once a little after joining, while the offer's on.
+function Upsell.Featured(key: string)
+	local pass = Gamepasses[key]
+	if not (pass and Passes.OnSale(key)) or (pass.Id <= 0 and not RunService:IsStudio()) then
+		return
+	end
+	local panel, content = Kit.modal("FeaturedOffer", `{pass.Icon} {string.upper(pass.Name)}`, pass.Colors, Vector2.new(640, 520))
+	panel.ZIndex = Z
+	local stopRays = Kit.rays(content, pass.Colors[1], 520, 1)
+	local clock = Kit.text({
+		Text = "",
+		TextColor3 = Color3.fromRGB(255, 80, 90),
+		Position = UDim2.fromOffset(20, 12),
+		Size = UDim2.new(1, -40, 0, 48),
+		StrokeThickness = 4,
+		ZIndex = 3,
+		Parent = content,
+	})
+	Kit.text({ Text = "⚡ ONE-TIME OFFER: ONLY FOR NEW PLAYERS! ⚡", TextColor3 = Color3.fromRGB(255, 225, 90), Position = UDim2.fromOffset(20, 62), Size = UDim2.new(1, -40, 0, 28), StrokeThickness = 3, ZIndex = 3, Parent = content })
+	for index, perk in pass.Perks do
+		Kit.text({ Text = `✔ {perk}`, Position = UDim2.fromOffset(60, 100 + (index - 1) * 50), Size = UDim2.new(1, -120, 0, 42), StrokeThickness = 3, ZIndex = 3, Parent = content })
+	end
+	local buy = Kit.button({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -18),
+		Size = UDim2.fromOffset(420, 78),
+		ZIndex = 4,
+		Parent = content,
+	}, Kit.Colors.Green, "GET IT NOW!", function()
+		if not Passes.Prompt(key) then
+			Kit.toast("Coming soon!", Color3.fromRGB(255, 215, 60))
+		end
+	end)
+	task.spawn(function()
+		local price = Passes.PriceOf("Pass", pass.Id)
+		local label = buy:FindFirstChildOfClass("TextLabel")
+		if price and label and buy.Parent then
+			label.Text = `GET IT NOW!  R$ {price}`
+		end
+	end)
+	Kit.open(panel)
+	Kit.playSound(Sounds.RevealBig, 0.5)
+	task.spawn(function()
+		while panel.Parent and panel.Visible do
+			local left = Passes.OfferLeft(key) or 0
+			if left <= 0 or Passes.Owns(key) then
+				break
+			end
+			clock.Text = `⏰ ENDS IN {Passes.Clock(left)} ⏰`
+			Kit.pop(clock, 0.04)
+			task.wait(1)
+		end
+		stopRays()
+		if panel.Parent and panel.Visible then
+			Kit.close(panel)
+		end
+	end)
+end
+
 -- Offers a pass (or the first of several that can be offered, in order), with an
 -- optional pitch line (else the pass's first perk). Does nothing if an ad is up or one
 -- was shown lately. Doesn't yield.
