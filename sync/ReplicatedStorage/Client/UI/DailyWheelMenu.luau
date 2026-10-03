@@ -1,7 +1,7 @@
 --[[
 	Daily Wheel menu (GDD §12): when the next free spin is ready, how many bought spins
 	you have, and every prize with its odds. SPIN asks the server for a prize, then
-	plays the wheel landing on it.
+	opens straight onto it (no spinning reel).
 ]]
 
 local Players = game:GetService("Players")
@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local DailyWheel = require(Shared:WaitForChild("Config"):WaitForChild("DailyWheel"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local Sounds = require(Shared:WaitForChild("Config"):WaitForChild("Sounds"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
 local Loot = require(script.Parent:WaitForChild("Loot"))
 local Shop = require(script.Parent:WaitForChild("Shop"))
@@ -53,15 +54,6 @@ local function statusText(): string
 	return `{free}   ·   🎡 {spins} bought`
 end
 
-local function slots(): { Loot.Slot }
-	local list = {}
-	for _, prize in DailyWheel.Prizes do
-		local color = if prize.Id == "Jackpot" then JACKPOT_COLOR else KIND_COLORS[prize.Kind] or Kit.White
-		table.insert(list, { Key = prize.Id, Label = `{prize.Icon}\n{prize.Label}`, Color = color })
-	end
-	return list
-end
-
 local function spin()
 	if spinning then
 		return
@@ -83,20 +75,34 @@ local function spin()
 	end
 
 	local prize = DailyWheel.Prizes[index]
-	local screen = Loot.PlayWheel(slots(), index, "DAILY\nWHEEL", GOLD_COLOR)
+	local color = if prize.Id == "Jackpot" then JACKPOT_COLOR else KIND_COLORS[prize.Kind] or GOLD_COLOR
+	local screen = Loot.Overlay(color)
+	local stopRays = Kit.rays(screen, color, 560, 31)
+	local icon = Kit.text({
+		Text = prize.Icon,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.4),
+		Size = UDim2.fromOffset(200, 200),
+		StrokeThickness = 0,
+		ZIndex = 50,
+		Parent = screen,
+	})
 	local label = Kit.text({
 		Text = text or prize.Label,
 		TextColor3 = GOLD_COLOR,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.45),
+		Position = UDim2.fromScale(0.5, 0.62),
 		Size = UDim2.fromOffset(800, 110),
 		StrokeThickness = 5,
 		ZIndex = 50,
 		Parent = screen,
 	})
+	Kit.pop(icon, 0.6)
 	Kit.pop(label, 0.6)
+	Kit.playSound(if prize.Id == "Jackpot" then Sounds.RevealBig else Sounds.Reveal, 0.5)
 	Kit.confetti(screen, { GOLD_COLOR, GOOD_COLOR, Color3.fromRGB(120, 220, 255), Color3.fromRGB(255, 120, 220) }, if prize.Id == "Jackpot" then 140 else 60, 49)
 	task.wait(2.5)
+	stopRays()
 	screen:Destroy()
 	spinning = false
 end

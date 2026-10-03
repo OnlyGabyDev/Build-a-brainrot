@@ -34,7 +34,7 @@ Kit.Colors = {
 	Panel = { Color3.fromRGB(255, 252, 245), Color3.fromRGB(238, 228, 212) },
 }
 
-local gui: ScreenGui? = nil
+local gui: Frame? = nil
 local clickSound: Sound? = nil
 local openModal: Frame? = nil
 
@@ -305,9 +305,13 @@ function Kit.viewport(props: { [string]: any }, model: Model): ViewportFrame
 	return frame
 end
 
--- The one ScreenGui every menu lives in, scaled to the screen.
-function Kit.getGui(): ScreenGui
-	if gui and gui.Parent then
+-- The canvas every menu lives in: a frame in the BrainrotUI ScreenGui, sized in design
+-- units (screen / scale) with the UIScale inside it, so it always covers the screen
+-- exactly. (A UIScale straight on a ScreenGui scales its children from the screen's
+-- top-left corner: full-screen frames ran off the right and bottom edges and centered
+-- ones drifted, on any screen bigger than the 1600x900 design.)
+function Kit.getGui(): Frame
+	if gui and gui.Parent and gui.Parent.Parent then
 		return gui
 	end
 	local screen = Kit.new("ScreenGui", {
@@ -317,18 +321,25 @@ function Kit.getGui(): ScreenGui
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 		Parent = Players.LocalPlayer:WaitForChild("PlayerGui"),
 	})
-	local scale = Kit.new("UIScale", { Parent = screen })
+	local canvas = Kit.new("Frame", {
+		Name = "Canvas",
+		BackgroundTransparency = 1,
+		Parent = screen,
+	})
+	local scale = Kit.new("UIScale", { Parent = canvas })
 	local function rescale()
 		local camera = workspace.CurrentCamera
 		local size = if camera then camera.ViewportSize else DESIGN_SIZE
-		scale.Scale = math.clamp(math.min(size.X / DESIGN_SIZE.X, size.Y / DESIGN_SIZE.Y), 0.45, 1.4)
+		local factor = math.clamp(math.min(size.X / DESIGN_SIZE.X, size.Y / DESIGN_SIZE.Y), 0.45, 1.4)
+		scale.Scale = factor
+		canvas.Size = UDim2.fromOffset(size.X / factor, size.Y / factor)
 	end
 	rescale()
 	if workspace.CurrentCamera then
 		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 	end
-	gui = screen
-	return screen
+	gui = canvas
+	return canvas
 end
 
 -- A centered menu panel with a colored title bar and a close button. Returns the

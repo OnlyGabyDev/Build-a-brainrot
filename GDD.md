@@ -312,7 +312,7 @@ Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10
 - **2x Coins**
 - **Auto-Collect:** collector coins bank automatically, **and you can configure your lines from anywhere** (the HUD LINES button) ✅. Without it, you configure a line by walking up to its robot (free; the server checks reach). Set the pass id in `Config/Gamepasses` once it exists.
 - **Lucky:** +Luck on loot box and Roll rarity.
-- **Fast Open:** skips or speeds up the wheel animation (Pet Sim–style QoL).
+- **Fast Open:** skips the reveal: loot goes straight to the quick feed (a new Rare+ part still gets its card). (v3.1: the spinning reel is gone; every result opens straight onto its card.)
 - ✅ **Sprint** (v2.6): hold Shift to run 60% faster (a SPRINT button on touch screens).
 - ✅ (v2.6) The shop shows each pass as a glossy card in its own colors with a list of what you get, its icon bobbing, and a BEST VALUE / POPULAR ribbon on VIP and 2x Coins. The VIP lounge isn't built yet.
 - **Custom Paint** 🟡 (requested): paint each limb a different color at the Paint Booth (§6).

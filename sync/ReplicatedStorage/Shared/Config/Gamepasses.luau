@@ -15,7 +15,6 @@ export type Pass = {
 	IncomeMultiplier: number?, -- × Coins on every ship (ProductionManager)
 	Luck: number?, -- + luck on boxes and Rolls (LootManager)
 	FreeSpins: number?, -- + free daily wheel spins per day (DailyWheelManager)
-	WheelSpeed: number?, -- × loot wheel speed (client)
 	RemoteLines: boolean?, -- configure lines from anywhere (ProductionManager)
 	AutoCollect: boolean?, -- collector Coins bank themselves (TycoonManager)
 	Sprint: number?, -- × walk speed while holding Shift (client: Sprint)
@@ -75,9 +74,8 @@ local Gamepasses: { [string]: Pass } = {
 		Order = 5,
 		Name = "Fast Open",
 		Icon = "⚡",
-		Description = "Loot wheels spin 3x faster.",
-		WheelSpeed = 3,
-		Perks = { "Loot reels spin x3 faster", "Open boxes back to back" },
+		Description = "Skip the reveal: loot pops straight into a quick feed, so you open box after box.",
+		Perks = { "Loot skips the reveal", "Open boxes back to back" },
 		Colors = { Color3.fromRGB(255, 140, 230), Color3.fromRGB(160, 60, 255) },
 	},
 	Sprint = {

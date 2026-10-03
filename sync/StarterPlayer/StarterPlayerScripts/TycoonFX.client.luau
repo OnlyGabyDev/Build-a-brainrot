@@ -268,7 +268,7 @@ local flyGui: ScreenGui? = nil
 local function flyToCounter(from: Vector3, count: number)
 	local camera = workspace.CurrentCamera
 	local hud = player.PlayerGui:FindFirstChild("BrainrotUI")
-	local counters = hud and hud:FindFirstChild("Counters")
+	local counters = hud and hud:FindFirstChild("Counters", true)
 	local counter = counters and counters:FindFirstChild("Coins") :: GuiObject?
 	if not (camera and counter) then
 		return
