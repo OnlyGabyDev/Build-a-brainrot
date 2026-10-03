@@ -8,6 +8,7 @@
 	mushroom cloud rise over the hub; the bomber flies on and fades out.
 ]]
 
+local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -238,6 +239,63 @@ local function blast(folder: Folder)
 		TweenService:Create(stem, fade, { Transparency = 1 }):Play()
 		TweenService:Create(cap, fade, { Transparency = 1 }):Play()
 	end)
+
+	-- a second, slower orange shockwave and a pillar of light
+	local wave2 = newPart(folder, "Shockwave2", Vector3.new(4, 30, 30), CFrame.new(HUB + Vector3.new(0, 3, 0)) * CFrame.Angles(0, 0, math.pi / 2), FIRE_COLORS[2], Enum.PartType.Cylinder, Enum.Material.Neon)
+	wave2.Transparency = 0.3
+	TweenService:Create(wave2, TweenInfo.new(4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(4, 900, 900), Transparency = 1 }):Play()
+	local pillar = newPart(folder, "Pillar", Vector3.new(600, 30, 30), CFrame.new(HUB + Vector3.new(0, 300, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(255, 250, 220), Enum.PartType.Cylinder, Enum.Material.Neon)
+	pillar.Transparency = 0.1
+	TweenService:Create(pillar, TweenInfo.new(2.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(600, 2, 2), Transparency = 1 }):Play()
+	-- a scorched crater that fades away slowly
+	local scorch = newPart(folder, "Scorch", Vector3.new(0.4, 160, 160), CFrame.new(HUB + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(35, 25, 20), Enum.PartType.Cylinder)
+	scorch.Transparency = 0.15
+	task.delay(8, function()
+		TweenService:Create(scorch, TweenInfo.new(6), { Transparency = 1 }):Play()
+	end)
+	-- fire and smoke bursting out of the fireball, embers raining down
+	local function burst(color: ColorSequence, count: number, speed: NumberRange, size: number, life: NumberRange, texture: string)
+		local emitter = Instance.new("ParticleEmitter")
+		emitter.Texture = texture
+		emitter.Color = color
+		emitter.Speed = speed
+		emitter.Lifetime = life
+		emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, size), NumberSequenceKeypoint.new(1, size * 2.5) })
+		emitter.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+		emitter.SpreadAngle = Vector2.new(180, 180)
+		emitter.LightEmission = 0.6
+		emitter.Rate = 0
+		emitter.Parent = fireball
+		emitter:Emit(count)
+	end
+	local fire = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 240, 150)), ColorSequenceKeypoint.new(0.4, Color3.fromRGB(255, 120, 30)), ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 30, 20)) })
+	burst(fire, 160, NumberRange.new(60, 160), 18, NumberRange.new(1.5, 3), "rbxasset://textures/particles/fire_main.dds")
+	burst(ColorSequence.new(SMOKE_COLOR), 120, NumberRange.new(30, 90), 30, NumberRange.new(4, 7), "rbxasset://textures/particles/smoke_main.dds")
+	burst(ColorSequence.new(Color3.fromRGB(255, 180, 60)), 220, NumberRange.new(80, 220), 3, NumberRange.new(2, 4), "rbxasset://textures/particles/sparkles_main.dds")
+	-- burning debris flung out of the crater
+	for _ = 1, 36 do
+		local size = math.random(3, 9)
+		local chunk = newPart(folder, "Debris", Vector3.new(size, size * 0.7, size), CFrame.new(HUB + Vector3.new(0, 6, 0)) * CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6), if math.random() < 0.5 then Color3.fromRGB(70, 55, 45) else FIRE_COLORS[2], nil, if math.random() < 0.4 then Enum.Material.Neon else Enum.Material.Slate)
+		chunk.Anchored = false
+		chunk.CanCollide = false
+		local angle = math.random() * math.pi * 2
+		chunk.AssemblyLinearVelocity = Vector3.new(math.cos(angle), 0, math.sin(angle)) * math.random(60, 160) + Vector3.new(0, math.random(80, 180), 0)
+		chunk.AssemblyAngularVelocity = Vector3.new(math.random(-8, 8), math.random(-8, 8), math.random(-8, 8))
+		task.delay(5, function()
+			chunk:Destroy()
+		end)
+	end
+	-- the sky glows orange, then settles
+	local tint = Instance.new("ColorCorrectionEffect")
+	tint.Name = "NukeTint"
+	tint.Parent = Lighting
+	TweenService:Create(tint, TweenInfo.new(0.4), { TintColor = Color3.fromRGB(255, 190, 140), Brightness = 0.15, Saturation = 0.3 }):Play()
+	task.delay(5, function()
+		local settle = TweenService:Create(tint, TweenInfo.new(5), { TintColor = Color3.new(1, 1, 1), Brightness = 0, Saturation = 0 })
+		settle:Play()
+		settle.Completed:Wait()
+		tint:Destroy()
+	end)
 end
 
 -- The show -----------------------------------------------------------------------------
@@ -319,6 +377,11 @@ local function play(buyer: string, start: number)
 	playFor(Sounds.Boom, 0.8, 6, 0.5)
 	Effects.shake(2, 2.5)
 	blast(folder)
+	-- the rumble rolls on: a second boom and shake as the shockwave passes
+	task.delay(0.7, function()
+		playFor(Sounds.Boom, 0.9, 6, 0.4)
+		Effects.shake(1.4, 2)
+	end)
 	task.wait(0.12 + Nuke.WhiteHold)
 	TweenService:Create(white, TweenInfo.new(Nuke.WhiteFade, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
 	task.wait(Nuke.WhiteFade)
