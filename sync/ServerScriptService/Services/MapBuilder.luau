@@ -1047,7 +1047,8 @@ local function buildWindmill(parent: Instance, base: Vector3, facing: number, co
 	local tiers = { { 11, 0, 8 }, { 9.4, 8, 7 }, { 8, 15, 6 } } -- { across, bottom, height }
 	for _, tier in tiers do
 		makeCylinder(mill, "WindmillTower", tier[1] / 2, tier[3], base + Vector3.new(0, tier[2], 0), WINDMILL_WALL)
-		makeCylinder(mill, "WindmillBand", tier[1] / 2 + 0.2, 0.8, base + Vector3.new(0, tier[2] + tier[3] - 0.8, 0), color)
+		-- (the band's top a hair under the tier's, or the ledge flickers)
+		makeCylinder(mill, "WindmillBand", tier[1] / 2 + 0.2, 0.8, base + Vector3.new(0, tier[2] + tier[3] - 0.85, 0), color)
 	end
 	makeDecor(mill, "WindmillDoor", Vector3.new(3, 5, 0.8), origin * CFrame.new(0, 2.5, -5.2), WOOD_DARK, Enum.Material.Wood)
 	for _, y in { 11.5, 17.8 } do

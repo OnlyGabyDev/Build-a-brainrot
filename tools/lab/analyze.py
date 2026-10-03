@@ -231,7 +231,9 @@ def zfight(data, needle, box=None):
         key = plane_key(opposite, -offset)
         covered = 0.0
         total = None
-        for other_index, other_normal, other_offset, other_polygon in buckets.get(key, []):
+        # (faces sit in their bucket and the next one up: look in this one and the one below)
+        candidates = {id(entry): entry for k in (key, key[:3] + (key[3] - 1,)) for entry in buckets.get(k, [])}
+        for other_index, other_normal, other_offset, other_polygon in candidates.values():
             if other_index == index or abs(other_offset + offset) > EPS_PLANE or dot(other_normal, normal) > -0.999:
                 continue
             if parts[other_index]["Transparency"] > 0.05:

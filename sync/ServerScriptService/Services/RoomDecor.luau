@@ -711,10 +711,12 @@ local function fabricRack(parent: Instance, face: CFrame, columns: number, rows:
 	local cell, depth, bottom = 3.4, 4.6, 1
 	local width, height = columns * cell, rows * cell
 	for column = 0, columns do
-		makeDecor(parent, "RackPost", Vector3.new(0.4, height + 0.4, depth), face * CFrame.new(-width / 2 + column * cell, bottom + height / 2, -depth / 2), CHROME, Enum.Material.Metal)
+		-- (the posts end inside the top and bottom shelves, and the shelves stand a little
+		-- proud of them: shared faces flicker)
+		makeDecor(parent, "RackPost", Vector3.new(0.4, height + 0.3, depth), face * CFrame.new(-width / 2 + column * cell, bottom + height / 2, -depth / 2), CHROME, Enum.Material.Metal)
 	end
 	for row = 0, rows do
-		makeDecor(parent, "RackShelf", Vector3.new(width + 0.4, 0.4, depth), face * CFrame.new(0, bottom + row * cell, -depth / 2), if row == 0 or row == rows then PLUSH_GOLD else CHROME, Enum.Material.Metal)
+		makeDecor(parent, "RackShelf", Vector3.new(width + 0.4, 0.4, depth + 0.06), face * CFrame.new(0, bottom + row * cell, -(depth + 0.06) / 2), if row == 0 or row == rows then PLUSH_GOLD else CHROME, Enum.Material.Metal)
 	end
 	for column = 1, columns do
 		for row = 1, rows do

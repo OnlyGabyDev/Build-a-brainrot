@@ -387,7 +387,7 @@ local function buildBowTier(model: Model, spot: CFrame, item: TycoonItems.Item)
 	makePart(model, key .. "Cabinet", Vector3.new(4.6, 6.4, 4.6), base * CFrame.new(0, 3.8, 0), SEWING_COLOR)
 	makeDecor(model, key .. "CabinetStripe", Vector3.new(4.7, 0.5, 4.7), base * CFrame.new(0, 2.6, 0), WHITE)
 	makeDecor(model, key .. "CabinetBand", Vector3.new(4.72, 0.25, 4.72), base * CFrame.new(0, 6.25, 0), GLOW_COLOR, Enum.Material.Neon)
-	makeDecor(model, key .. "CabinetTrim", Vector3.new(4.9, 0.5, 4.9), base * CFrame.new(0, 6.75, 0), PLUSH_GOLD, Enum.Material.Metal)
+	makeDecor(model, key .. "CabinetTrim", Vector3.new(4.9, 0.5, 4.9), base * CFrame.new(0, 6.7, 0), PLUSH_GOLD, Enum.Material.Metal) -- (its top under the cabinet's)
 	RibbonBow.Build(model, base * CFrame.new(2.75, 4.2, 0) * CFrame.Angles(0, -math.pi / 2, 0), 4, BOW_PINK)
 	-- the sign on posts at the back
 	local back = base * CFrame.new(-1.8, 0, 0)

@@ -363,7 +363,8 @@ local function buildGantry(model: Model, origin: CFrame, colors: { Color3 }, ope
 	end
 	-- the glass roof
 	if not open then
-		local roof = makeDecor(model, "CapsuleRoof", Vector3.new(0.3, CAPSULE_RADIUS * 2 + 0.6, CAPSULE_RADIUS * 2 + 0.6), origin * CFrame.new(0, top + 1.65, 0) * CFrame.Angles(0, 0, math.pi / 2), GLASS_COLOR, Enum.Material.Glass)
+		-- (its top a hair under the ring's, which hides its edge: a shared top flickers)
+		local roof = makeDecor(model, "CapsuleRoof", Vector3.new(0.3, CAPSULE_RADIUS * 2 + 0.6, CAPSULE_RADIUS * 2 + 0.6), origin * CFrame.new(0, top + 1.6, 0) * CFrame.Angles(0, 0, math.pi / 2), GLASS_COLOR, Enum.Material.Glass)
 		roof.Shape = Enum.PartType.Cylinder
 		roof.Transparency = 0.8
 		roof.CastShadow = false
@@ -533,9 +534,12 @@ local function buildBadge(model: Model, partType: string, middle: CFrame, color:
 	local reach = size.X / 2 - 0.2
 	for turn = 0, 3 do
 		local side = middle * CFrame.Angles(0, turn * math.pi / 2, 0)
-		badgeSide(model, partType, side * CFrame.new(0, 0, -reach), size, color)
+		-- every other side a hair narrower: at the corners its ends sink into its
+		-- neighbours instead of sharing their outer faces' planes (they'd flicker)
+		local trim = if turn % 2 == 1 then 0.06 else 0
+		badgeSide(model, partType, side * CFrame.new(0, 0, -reach), size - Vector2.new(trim, 0), color)
 		for _, y in { -1, 1 } do
-			makeDecor(model, partType .. "ChuteBadgeRim", Vector3.new(size.X + 0.4, 0.3, 0.3), side * CFrame.new(0, y * (size.Y / 2 + 0.15), -reach - 0.1), light, Enum.Material.Neon)
+			makeDecor(model, partType .. "ChuteBadgeRim", Vector3.new(size.X + 0.4 - trim, 0.3, 0.3), side * CFrame.new(0, y * (size.Y / 2 + 0.15), -reach - 0.1), light, Enum.Material.Neon)
 		end
 	end
 end
