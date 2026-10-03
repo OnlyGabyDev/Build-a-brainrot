@@ -9,6 +9,10 @@
 	  plots  (default) the 6 factories, and the first one claimed by a lab player who
 	         owns everything (every room, line, upgrade and floor; Rebirth 99)
 	  world  plots, then the hub (MapBuilder; the ground is flat, there's no terrain)
+	  mixes  every brainrot's build, and every body with each other one's legs, arms, head
+	  previews  plots with each line's tracks at level 3, 6 or 9, and the Line menu's
+	         previews of their next levels (TycoonManager.BuildTrackPreview) in
+	         workspace.Previews
 
 	Lune (https://lune-org.github.io) runs Luau; tools/lab/dom.luau stands in for the
 	Instance tree. Services the builders don't draw with (data, money, remotes) are
@@ -380,8 +384,19 @@ local TycoonItems = labRequire(game:GetService("ReplicatedStorage").Shared.Confi
 for _, item in TycoonItems.List do
 	everything[item.Id] = true
 end
+if scenario == "previews" then
+	-- each line's upgrade tracks stop at level 3, 6 or 9 (by line), so the previews
+	-- show the levels that start a look tier (4, 7, 10)
+	local Lines = TycoonItems.LinesById
+	for _, item in TycoonItems.List do
+		if item.Kind == "Track" and item.LineId and item.Level > ({ 3, 6, 9 })[Lines[item.LineId].Index] then
+			everything[item.Id] = nil
+		end
+	end
+end
 
 local clock = os.clock()
+local TycoonManager
 if scenario == "mixes" then
 	-- every brainrot's own build, then each body with every other brainrot's legs, arms
 	-- and head (BrainrotModels.Layout), one model each under workspace.Mixes, named
@@ -421,7 +436,7 @@ if scenario == "mixes" then
 	end
 	print(`[lab] {count} brainrot builds in {math.floor((os.clock() - clock) * 1000)} ms`)
 else
-	local TycoonManager = labRequire(services.TycoonManager)
+	TycoonManager = labRequire(services.TycoonManager)
 	TycoonManager.Init()
 	print(`[lab] 6 plots built in {math.floor((os.clock() - clock) * 1000)} ms`)
 	clock = os.clock()
@@ -429,6 +444,30 @@ else
 		callback(player)
 	end
 	print(`[lab] plot 1 furnished (everything bought) in {math.floor((os.clock() - clock) * 1000)} ms`)
+end
+if scenario == "previews" then
+	-- every line's next track levels as the Line menu's 👀 gets them, moved from the
+	-- lab player's PlayerGui into workspace.Previews
+	local gui = Dom.new("PlayerGui", player)
+	gui.Name = "PlayerGui"
+	local folder = Dom.new("Folder", workspace)
+	folder.Name = "Previews"
+	local count = 0
+	for lineId in TycoonItems.TracksByLine do
+		for track in TycoonItems.TracksByLine[lineId] do
+			task.wait(0.55) -- (the server's button cooldown)
+			local name = TycoonManager.BuildTrackPreview(player, lineId, track)
+			local previews = gui:FindFirstChild("LinePreviews")
+			local preview = name and previews and previews:FindFirstChild(name)
+			if preview then
+				local copy = preview:Clone() -- (the server destroys its own after 15 s)
+				copy.Name = `{lineId}_{track}`
+				copy.Parent = folder
+				count += 1
+			end
+		end
+	end
+	print(`[lab] {count} track previews built`)
 end
 if scenario == "world" then
 	clock = os.clock()

@@ -84,14 +84,31 @@ for _, track in LineUpgrades.Tracks do
 	LineUpgrades.ByKey[track.Key] = track
 end
 
+-- How much `level` of `track` gives in all, as a big number: "+24%", "+18".
+function LineUpgrades.Amount(track: Track, level: number): string
+	if track.Effect == "Flat" then
+		return `+{track.Step * level}`
+	end
+	return `+{math.floor(track.Step * level * 100 + 0.5)}%`
+end
+
+-- What a track's amount is of: "speed", "base 💰 per brainrot", "sale value".
+function LineUpgrades.Unit(track: Track): string
+	return if track.Effect == "Flat" then "base 💰 per brainrot" elseif track.Effect == "Speed" then "speed" else "sale value"
+end
+
 -- What `level` of `track` gives in all: "+24% speed", "+18 base 💰 per brainrot",
 -- "+30% sale value".
 function LineUpgrades.Describe(track: Track, level: number): string
-	if track.Effect == "Flat" then
-		return `+{track.Step * level} base 💰 per brainrot`
-	end
-	local percent = math.floor(track.Step * level * 100 + 0.5)
-	return if track.Effect == "Speed" then `+{percent}% speed` else `+{percent}% sale value`
+	return `{LineUpgrades.Amount(track, level)} {LineUpgrades.Unit(track)}`
+end
+
+-- The look tiers every track climbs on the line (TycoonManager's track looks): the
+-- tier of `level` (1-4) and, for the level each tier starts at, what it brings.
+LineUpgrades.TierStarts = { [4] = "HOT PINK + GOLD", [7] = "GOLD + SPARKLES", [10] = "CHASING LIGHTS" } :: { [number]: string }
+
+function LineUpgrades.Tier(level: number): number
+	return if level >= 10 then 4 elseif level >= 7 then 3 elseif level >= 4 then 2 else 1
 end
 
 -- A level's price before the line and zone scales, rounded to two significant digits.

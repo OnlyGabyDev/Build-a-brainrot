@@ -3,10 +3,12 @@ Renders parts from a lab dump (tools/lab/lab.luau) to a PNG, four views (front 3
 front, side, back 3/4) like tools/voxel_art.py's previews, so builds can be looked at
 without Studio:
 
-  python3 tools/lab/render.py parts.json "<path filter>" out.png [more filters...]
+  python3 tools/lab/render.py parts.json out.png "<path filter>" [more filters...]
 
 Every filter renders as its own row (e.g. two mixed brainrots from the "mixes"
-scenario: "Mixes.FrigoCamelo|Head|ChimpanziniBananini." and "Mixes.FrigoCamelo|Own|").
+scenario: "Mixes.FrigoCamelo|Head|ChimpanziniBananini." and "Mixes.FrigoCamelo|Own|");
+"a;b" draws what matches a or b in one row (a line and its upgrade preview:
+"Lines.ToyWorkshop_1.;Previews.ToyWorkshop_1_Belt.").
 Blocks, wedges, balls and cylinders; no textures, decals or GUIs. Needs PIL.
 """
 
@@ -60,7 +62,8 @@ def main():
         data = json.load(handle)
     rows = []
     for needle in sys.argv[3:]:
-        parts = [part for part in data["Parts"] if needle in part["Path"]]
+        needles = needle.split(";")
+        parts = [part for part in data["Parts"] if any(n in part["Path"] for n in needles)]
         if not parts:
             print(f"nothing matches {needle!r}")
             continue

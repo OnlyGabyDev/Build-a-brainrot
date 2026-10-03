@@ -19,6 +19,7 @@ local Rarities = require(Config:WaitForChild("Rarities"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Zones = require(Config:WaitForChild("Zones"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
+local UpgradePreview = require(script.Parent.Parent:WaitForChild("UpgradePreview"))
 
 local PART_TYPES = Brainrots.PartTypes
 -- Same colors as the droppers in the tycoon (TycoonManager).
@@ -32,6 +33,7 @@ local SIZE = Vector2.new(820, 620)
 local SELECTED_COLOR = Color3.fromRGB(255, 200, 40)
 local BAD_COLOR = Color3.fromRGB(255, 90, 90)
 local GOOD_COLOR = Color3.fromRGB(110, 240, 110)
+local MUTED_COLOR = Color3.fromRGB(150, 145, 170)
 
 type Option = { Id: string, Usable: boolean, UsedOn: string? }
 type UpgradeView = { Key: string, Level: number, Max: number, Price: number?, Needs: string? }
@@ -58,6 +60,7 @@ local selectedLine: string? = nil
 local selectedSlot = "Head"
 local mode = "Parts" -- or "Upgrades"
 local busy = false
+local previewing = false -- an upgrade preview is playing (the menu steps aside meanwhile)
 -- an upgrade track's pips by tier, like its look on the line (TycoonManager)
 local TIER_COLORS = { Color3.fromRGB(110, 230, 255), Color3.fromRGB(255, 110, 220), Color3.fromRGB(255, 200, 50) }
 local EMPTY_PIP = Color3.fromRGB(215, 215, 225)
@@ -402,6 +405,30 @@ local function buyUpgrade(lineId: string, track: string)
 end
 
 local CARD = Vector2.new(372, 200)
+local PREVIEW_WIDTH = 64
+
+-- Shows the track's next level on the line itself (UpgradePreview), the menu out of
+-- the way meanwhile.
+local function previewUpgrade(line: LineView, track: LineUpgrades.Track, level: number)
+	local menu = panel
+	if not menu then
+		return
+	end
+	previewing = true -- (the menu still counts as open: the tablet keeps its camera)
+	menu.Visible = false
+	local title = `👀 {string.upper(track.Name)} LV {level}`
+	local subtitle = `{LineUpgrades.Describe(track, level)}` .. (if LineUpgrades.TierStarts[level] then `  ·  ✨ {LineUpgrades.TierStarts[level]}` else "")
+	local started = UpgradePreview.Play(line.Id, track.Key, title, subtitle, function()
+		previewing = false
+		Kit.open(menu)
+		refresh()
+	end)
+	if not started then
+		previewing = false
+		menu.Visible = true
+		Kit.toast("Can't preview that right now!", BAD_COLOR)
+	end
+end
 
 -- A card per track: its level in pips, what it gives now and next, and a buy button.
 local function renderUpgrades(parent: Frame, line: LineView)
@@ -450,40 +477,71 @@ local function renderUpgrades(parent: Frame, line: LineView)
 			})
 			Kit.corner(pip, 6)
 		end
-		Kit.text({
-			Text = if upgrade.Level > 0 then `Now: {LineUpgrades.Describe(track, upgrade.Level)}` else "Not bought yet",
-			Position = UDim2.fromOffset(14, 76),
-			Size = UDim2.new(1, -28, 0, 26),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Parent = card,
-		})
+		-- what it gives now » next, in big numbers, and what they're of (or the new look
+		-- the next level brings, when it starts a tier)
 		local maxed = upgrade.Level >= upgrade.Max
+		local nextLevel = math.min(upgrade.Level + 1, upgrade.Max)
+		local half = (CARD.X - 28) / 2
+		for side, spec in { { "NOW", upgrade.Level, Kit.White }, { if maxed then "MAXED" else "NEXT", nextLevel, GOOD_COLOR } } do
+			local x = 14 + (side - 1) * (half + 26) -- (the arrow goes between them)
+			Kit.text({
+				Text = spec[1] :: string,
+				Position = UDim2.fromOffset(x, 72),
+				Size = UDim2.fromOffset(half - 26, 16),
+				TextColor3 = MUTED_COLOR,
+				StrokeThickness = 1.5,
+				Parent = card,
+			})
+			Kit.text({
+				Text = LineUpgrades.Amount(track, spec[2] :: number),
+				Position = UDim2.fromOffset(x, 88),
+				Size = UDim2.fromOffset(half - 26, 34),
+				TextColor3 = spec[3] :: Color3,
+				StrokeThickness = 3,
+				Parent = card,
+			})
+		end
+		if not maxed then
+			Kit.text({ Text = "»", Position = UDim2.fromOffset(14 + half - 20, 90), Size = UDim2.fromOffset(40, 30), TextColor3 = GOOD_COLOR, Parent = card })
+		end
+		local newLook = not maxed and LineUpgrades.TierStarts[nextLevel]
 		Kit.text({
-			Text = if maxed then "⭐ MAXED OUT ⭐" else `Next: {LineUpgrades.Describe(track, upgrade.Level + 1)}`,
-			TextColor3 = GOOD_COLOR,
-			Position = UDim2.fromOffset(14, 104),
-			Size = UDim2.new(1, -28, 0, 26),
-			TextXAlignment = Enum.TextXAlignment.Left,
+			Text = if newLook then `✨ NEW LOOK: {newLook}!` elseif maxed then "⭐ MAXED OUT ⭐" else LineUpgrades.Unit(track),
+			Position = UDim2.fromOffset(14, 122),
+			Size = UDim2.new(1, -28, 0, 16),
+			TextColor3 = if newLook or maxed then SELECTED_COLOR else MUTED_COLOR,
+			StrokeThickness = 1.5,
 			Parent = card,
 		})
+
 		local price = upgrade.Price
 		if upgrade.Needs then
 			Kit.text({
 				Text = `🔒 Buy the {upgrade.Needs} first`,
 				TextColor3 = BAD_COLOR,
-				Position = UDim2.fromOffset(14, 142),
+				Position = UDim2.fromOffset(14, 144),
 				Size = UDim2.new(1, -28, 0, 40),
 				Parent = card,
 			})
 		elseif price and not maxed then
 			local affordable = typeof(coins) == "number" and coins >= price
 			Kit.button({
-				Position = UDim2.fromOffset(14, 138),
-				Size = UDim2.new(1, -28, 0, 50),
+				Position = UDim2.fromOffset(14, 142),
+				Size = UDim2.new(1, -28 - PREVIEW_WIDTH - 10, 0, 48),
 				Parent = card,
 			}, if affordable then Kit.Colors.Green else Kit.Colors.Red, `BUY  💰 {Format.Number(price)}`, function()
 				buyUpgrade(line.Id, track.Key)
 			end)
+			-- 👀: fly over to the line and see the next level there
+			local preview = Kit.button({
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -14, 0, 142),
+				Size = UDim2.fromOffset(PREVIEW_WIDTH, 48),
+				Parent = card,
+			}, Kit.Colors.Gems, nil, function()
+				previewUpgrade(line, track, nextLevel)
+			end)
+			Kit.text({ Text = "👀", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.7, 0.75), StrokeThickness = 0, Parent = preview })
 		end
 	end
 end
@@ -550,8 +608,9 @@ function LineMenu.Open(lineId: string?, partType: string?)
 	refresh()
 end
 
+-- (also while it's stepped aside for an upgrade preview: it comes back after)
 function LineMenu.IsOpen(): boolean
-	return panel ~= nil and panel.Visible
+	return panel ~= nil and (panel.Visible or previewing)
 end
 
 -- Re-fetches the view if the menu is open (e.g. after unlocking a part).

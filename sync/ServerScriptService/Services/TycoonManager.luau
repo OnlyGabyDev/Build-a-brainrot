@@ -1259,9 +1259,7 @@ local TRACK_TIER_COLORS = {
 }
 local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
 
-local function trackTier(level: number): number
-	return if level >= 10 then 4 elseif level >= 7 then 3 elseif level >= 4 then 2 else 1
-end
+local trackTier = require(Shared.Config.LineUpgrades).Tier -- (one rule with the Line menu's)
 
 -- A glowing bulb; at the top tier its light chases along its string (Marquee, by index).
 local function trackBulb(parent: Instance, at: CFrame, size: number, tier: number, index: number): Part
@@ -1411,10 +1409,11 @@ local function getTrackModel(plot: Plot, item: TycoonItems.Item): Model
 	return fresh
 end
 
-local function buildTrackLook(model: Model, plot: Plot, item: TycoonItems.Item)
+-- (`lineOverride`: a copy of the line for a preview, so the real one isn't recolored)
+local function buildTrackLook(model: Model, plot: Plot, item: TycoonItems.Item, lineOverride: Model?)
 	local lineId = item.LineId :: string
 	local origin = lineOrigin(plot, lineId)
-	local line = getLineModel(plot, lineId)
+	local line = lineOverride or getLineModel(plot, lineId)
 	local level = item.Level :: number
 	local layout = LineLayouts.For(item.Zone)
 	if item.Key == "Droppers" then
@@ -1955,6 +1954,64 @@ local function onBuyLineUpgrade(player: Player, lineId: unknown, track: unknown)
 	return true, nil
 end
 
+-- A preview of a line upgrade track's next level, for the Line menu's 👀 button: the
+-- look that level builds (the same builders, on a copy of the line so the real one
+-- isn't recolored), plus copies of the line's parts it recolors (attribute Recolored).
+-- It goes in a "LinePreviews" folder in the player's PlayerGui, so only they get it,
+-- and is gone after 15 s (the client has cloned it by then). Returns its name and
+-- level, or nil (maxed out, not their line, too soon after the last).
+function TycoonManager.BuildTrackPreview(player: Player, lineId: unknown, track: unknown): (string?, number?)
+	if typeof(lineId) ~= "string" or typeof(track) ~= "string" then
+		return nil, nil
+	end
+	local plot = plotByPlayer[player]
+	local data = DataManager.GetData(player)
+	local tracks = TycoonItems.TracksByLine[lineId]
+	local levels = tracks and tracks[track]
+	local line = plot and plot.LinesFolder:FindFirstChild(lineId)
+	local gui = player:FindFirstChildOfClass("PlayerGui")
+	if not (plot and data and levels and line and line:IsA("Model") and gui) then
+		return nil, nil
+	end
+	local now = os.clock()
+	if (buttonCooldowns[player] or 0) > now then
+		return nil, nil
+	end
+	buttonCooldowns[player] = now + BUTTON_COOLDOWN
+	local item = levels[TycoonItems.TrackLevel(data.Tycoon.Purchased, lineId, track) + 1]
+	if not item then
+		return nil, nil
+	end
+
+	local preview = Instance.new("Model")
+	preview.Name = `{lineId}_{track}_{item.Level}_{math.floor(now * 1000)}`
+	local copy = line:Clone()
+	local colors: { [BasePart]: Color3 } = {}
+	for _, part in copy:GetDescendants() do
+		if part:IsA("BasePart") then
+			colors[part] = part.Color
+		end
+	end
+	buildTrackLook(preview, plot, item, copy)
+	for part, color in colors do
+		if part.Color ~= color then
+			part:SetAttribute("Recolored", true)
+			part.Parent = preview
+		end
+	end
+	copy:Destroy()
+
+	local folder = gui:FindFirstChild("LinePreviews")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "LinePreviews"
+		folder.Parent = gui
+	end
+	preview.Parent = folder
+	task.delay(15, preview.Destroy, preview)
+	return preview.Name, item.Level
+end
+
 function TycoonManager.Init()
 	local folder = Instance.new("Folder")
 	folder.Name = "Tycoons"
@@ -1964,6 +2021,7 @@ function TycoonManager.Init()
 		WorkBudget.Step()
 	end
 	Remotes.Function("BuyLineUpgrade").OnServerInvoke = onBuyLineUpgrade
+	Remotes.Function("PreviewLineUpgrade").OnServerInvoke = TycoonManager.BuildTrackPreview
 
 	DataManager.OnPlayerLoaded(claimPlot)
 	Players.PlayerRemoving:Connect(releasePlot)
