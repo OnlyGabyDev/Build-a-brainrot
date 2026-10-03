@@ -40,7 +40,7 @@ local Gamepasses: { [string]: Pass } = {
 	-- count down 24 h from the first join, then it's gone from the game. (A pass can still
 	-- be bought from its page on the website afterwards; it grants the same way.)
 	StarterPack = {
-		Id = 0,
+		Id = 2006294951,
 		Order = 0,
 		Name = "Starter Pack",
 		Icon = "🎉",

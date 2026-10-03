@@ -1678,8 +1678,12 @@ end
 -- Plots ----------------------------------------------------------------------
 
 -- The Cash Pad's label, plus a Collected attribute clients use to pile coins on it.
-local function updateCashLabel(plot: Plot)
-	plot.CashLabel.Text = `💰 {Format.Number(plot.Collected)}\nStep here to collect!`
+-- (`banked`: Coins that just went straight to an Auto-Collect owner's balance: the pad
+-- shows them instead, or it would sit at 0 forever)
+local function updateCashLabel(plot: Plot, banked: number?)
+	plot.CashLabel.Text = if banked
+		then `🧲 AUTO-COLLECT\n+{Format.Number(banked)} 💰`
+		else `💰 {Format.Number(plot.Collected)}\nStep here to collect!`
 	plot.CashPad:SetAttribute("Collected", plot.Collected)
 end
 
@@ -2096,6 +2100,7 @@ function TycoonManager.AddToCollector(player: Player, amount: number)
 	local plot = plotByPlayer[player]
 	if plot and MonetizationManager.HasPerk(player, "AutoCollect") then
 		DataManager.AddCurrency(player, "Coins", amount)
+		updateCashLabel(plot, amount)
 	elseif plot then
 		plot.Collected += amount
 		updateCashLabel(plot)
