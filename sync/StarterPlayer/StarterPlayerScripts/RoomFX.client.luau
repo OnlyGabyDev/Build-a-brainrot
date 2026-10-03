@@ -26,13 +26,15 @@ local ConveyorPath = require(Shared:WaitForChild("ConveyorPath"))
 local LoopPath = require(Shared:WaitForChild("LoopPath"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
+local FactoryView = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("FactoryView"))
 
 local NEAR = 180 -- studs from the camera
 local WHITE = Color3.new(1, 1, 1)
 local BONUS_COLOR = Color3.fromRGB(255, 220, 70)
 
+-- (and in view: not on another storey of the factory you're in)
 local function near(position: Vector3): boolean
-	return Effects.near(position, NEAR)
+	return Effects.near(position, NEAR) and FactoryView.Sees(position)
 end
 
 -- Calls `added` for every Model with `tag`, now and later; `removed` when it goes.

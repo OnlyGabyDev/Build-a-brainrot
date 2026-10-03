@@ -50,6 +50,7 @@ local RibbonBow = require(Shared:WaitForChild("RibbonBow"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local TycoonItems = require(Config:WaitForChild("TycoonItems"))
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
+local FactoryView = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("FactoryView"))
 
 local RENDER_DISTANCE = 250
 local FX_RANGE = 140 -- particles and flying coins only for lines this close to the camera
@@ -3539,10 +3540,18 @@ local function findLine(plot: Instance?, lineId: string): Model?
 	return if line and line:IsA("Model") then line else nil
 end
 
+-- A cycle is only animated near the camera and in view: not on another storey of the
+-- factory you're in (most of a player's lines are on the other storeys of their own
+-- factory, and each cycle moves hundreds of parts every frame for ~15 s). The coins
+-- come in either way (the server pays them).
 Remotes.Event("Production").OnClientEvent:Connect(function(plot, lineId, parts, zoneId, value, fullMatch, cycleTime, special)
 	local line = findLine(plot, lineId)
 	local camera = workspace.CurrentCamera
 	if not (line and camera) or (camera.CFrame.Position - line:GetPivot().Position).Magnitude > RENDER_DISTANCE then
+		return
+	end
+	local origin = line:GetAttribute("Origin")
+	if typeof(origin) == "CFrame" and not FactoryView.Sees(origin.Position + Vector3.new(0, 2, 0)) then
 		return
 	end
 	task.spawn(animateCycle, line, parts, zoneId, value, fullMatch, cycleTime or Production.BaseCycleTime, special == true)

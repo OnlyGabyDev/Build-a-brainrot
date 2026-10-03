@@ -58,6 +58,8 @@ export type Art = {
 
 local VoxelArt = {}
 
+local DETAIL = 0.8 -- studs: a part this small in every direction casts no shadow
+
 -- Shapes -----------------------------------------------------------------------
 
 -- A box between two corners.
@@ -323,6 +325,14 @@ function VoxelArt.Build(art: Art, partType: string): Model?
 		part.Parent = model
 	end
 	model.WorldPivot = CFrame.identity
+	-- the tiny details (eyes, plates, laces...) cast no shadow: the brainrots on the lines
+	-- move every frame, and a moving shadow caster is the dearest kind; their bodies keep
+	-- theirs. (Set once here: every copy of this template inherits it.)
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") and math.max(part.Size.X, part.Size.Y, part.Size.Z) <= DETAIL then
+			part.CastShadow = false
+		end
+	end
 	local joint = art.Joints and art.Joints[partType]
 	local anchor = model:FindFirstChildWhichIsA("BasePart")
 	if joint and anchor then

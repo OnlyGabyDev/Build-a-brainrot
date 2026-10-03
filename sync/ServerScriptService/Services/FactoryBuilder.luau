@@ -1251,7 +1251,8 @@ end
 -- on top naming where it goes, and two glass doors that fold aside. Its call panel
 -- (tagged "ElevatorCall": the client's Elevator script gives it its prompts) carries Up
 -- and Down: where it arrives on the storey above and below (world, facing out of that
--- lift's door). With neither (a 1-storey factory) it waits shut under "🔒 2F".
+-- lift's door), and Cabin / CabinHalf: the booth (its floor's middle, half its inside
+-- width), since you only ride it from inside. With neither (a 1-storey factory) it waits shut under "🔒 2F".
 local LIFT = Vector3.new(10.4, 12, 10.4) -- the booth over its plinth: width, posts' height, depth
 local LIFT_DOOR_HEIGHT = 11.4
 
@@ -1337,6 +1338,8 @@ local function buildElevator(parent: Instance, cframe: CFrame, storey: number, p
 		panel:SetAttribute("Down", at(storey - 1) * CFrame.new(0, 3.5, 0))
 	end
 	if up or down then
+		panel:SetAttribute("Cabin", base) -- its floor's middle: you ride it from inside
+		panel:SetAttribute("CabinHalf", span / 2)
 		CollectionService:AddTag(panel, "ElevatorCall")
 	end
 end

@@ -16,8 +16,15 @@ local Loot = {
 	AnnounceRank = 3, -- boxes of this rarity rank and up (Rare+) are announced to everyone
 
 	-- A box mostly gives parts of its own rarity; each tier above it is this much as
-	-- likely as the one below (Common box: ~87% Common, ~13% Uncommon, ~2% Rare...).
-	BoxUpgradeChance = 0.15,
+	-- likely as the one below (Common box: ~93% Common, ~7% Uncommon, ~0.6% Rare...).
+	-- Luck raises it by BoxLuck per point (luck 1: x1.5).
+	BoxUpgradeChance = 0.08,
+	BoxLuck = 0.5,
+	-- Luck (Rebirth Shop, the Lucky pass, the Daily Wheel's boost, bought drops) gives each
+	-- rarity above Common this much more weight per point of luck per rank (luck 1: Rare
+	-- x1.5, Legendary x1.75, Godly x2.25). Was 1 per rank: full luck made Legendary 3x as
+	-- likely and a Godly map box 1 in 48 (2026-10-03, nerfed with the LootWeights).
+	LuckPerRank = 0.25,
 
 	-- Coin duplicates also pay this many seconds of the player's current income, so
 	-- they stay worth something as the factory grows.
@@ -51,7 +58,7 @@ function Loot.RollOdds(rebirths: number, luck: number?): Odds
 	local odds = {}
 	for _, rarity in Rarities.List do
 		if droppable(rarity, rebirths) then
-			odds[rarity.Id] = rarity.LootWeight * (1 + (luck or 0) * (rarity.Rank - 1))
+			odds[rarity.Id] = rarity.LootWeight * (1 + (luck or 0) * Loot.LuckPerRank * (rarity.Rank - 1))
 		end
 	end
 	return odds
@@ -62,7 +69,7 @@ end
 function Loot.BoxOdds(boxRarity: string, rebirths: number, luck: number?): Odds
 	local odds = {}
 	local weight = 1
-	local upgrade = Loot.BoxUpgradeChance * (1 + (luck or 0))
+	local upgrade = Loot.BoxUpgradeChance * (1 + (luck or 0) * Loot.BoxLuck)
 	for rank = Rarities.ById[boxRarity].Rank, #Rarities.List do
 		local rarity = Rarities.List[rank]
 		if droppable(rarity, rebirths) then

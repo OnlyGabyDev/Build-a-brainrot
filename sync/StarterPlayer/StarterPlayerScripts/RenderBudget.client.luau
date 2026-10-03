@@ -21,6 +21,8 @@ local READABLE = 40 -- a face this many times its size away is too small to read
 local GUI_DISTANCE = NumberRange.new(100, 600) -- studs
 local TINY = 0.8 -- studs: a part this small in every direction casts no shadow
 local SEE_THROUGH = 0.5
+-- (not Effects: its parts often arrive shrunk or see-through and grow or fade in; the
+-- brainrots' tiny details are dealt with in their art templates, VoxelArt)
 local WORLD_ROOTS = { Tycoons = true, Hub = true }
 local BATCH = 3000 -- instances per frame in the first pass (no hitch while it runs)
 

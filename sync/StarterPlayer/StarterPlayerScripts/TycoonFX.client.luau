@@ -26,6 +26,7 @@ local Sounds = require(Shared:WaitForChild("Config"):WaitForChild("Sounds"))
 local TycoonItems = require(Shared:WaitForChild("Config"):WaitForChild("TycoonItems"))
 local DropIn = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("DropIn"))
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
+local FactoryView = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("FactoryView"))
 
 local BELT_RIBS = "rbxassetid://17320090479"
 local BELT_ARROWS = "rbxassetid://7140341425"
@@ -468,20 +469,8 @@ local function numberAttribute(model: Model, name: string): number
 	return if typeof(value) == "number" then value else 0
 end
 
--- Which storey of the cutaway's building `position` is on (1 = the ground floor), or
--- nil when it's outside the building.
-local function storeyAt(model: Model, position: Vector3): number?
-	local area = model:GetAttribute("Area")
-	local height = numberAttribute(model, "StoreyHeight")
-	if typeof(area) ~= "Vector3" or height <= 0 then
-		return nil
-	end
-	local offset = model:GetPivot():PointToObjectSpace(position)
-	if math.abs(offset.X) > area.X / 2 or math.abs(offset.Z) > area.Z / 2 or offset.Y < -2 or offset.Y > area.Y then
-		return nil
-	end
-	return math.floor(offset.Y / height) + 1
-end
+-- Which storey of the cutaway's building `position` is on (nil: outside it).
+local storeyAt = FactoryView.StoreyAt
 
 local function setBelow(model: Model, cutaway: Cutaway, below: boolean)
 	if cutaway.Below == below then

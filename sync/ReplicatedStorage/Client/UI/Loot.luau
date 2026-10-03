@@ -29,12 +29,24 @@ local Kit = require(script.Parent:WaitForChild("Kit"))
 local LineMenu = require(script.Parent:WaitForChild("LineMenu"))
 
 local SLOT_COUNT = 12
-local CARD = 156 -- a reel card, square
-local PITCH = 174 -- card to card
-local REEL = Vector2.new(980, 236)
-local STRIP_CARDS = 44
-local TARGET_AT = 36 -- the strip's card that stops under the marker
-local SPIN_TIME = 3.8
+local CARD = 260 -- a reel card, square (big: you see the parts on it)
+local PITCH = 286 -- card to card
+local REEL = Vector2.new(1480, 380) -- (of the 1600 x 900 design screen)
+local MIN_TARGET = 64 -- the winning card is the slot's first time round the strip from here
+-- The spin, in cards: it starts very fast and its speed falls off quickly (FALLOFF per
+-- second) toward CRAWL cards a second, for FAST seconds; then for the last SLOW seconds it
+-- crawls to a stop. The speed never jumps between the two.
+local FAST, SLOW = 2.4, 2.0
+local FALLOFF = 3
+local CRAWL = 1.2
+local FIGURE_SPEED = 25 -- cards a second: faster than this, the cards are a blur (no parts drawn)
+local TICK_GAP = 0.035 -- seconds between ticks at full speed
+local RARE_RIM = 5 -- rarity rank (Mythic) from which a card has a gold rim
+-- A near miss (the user's call): this often, when there's a rarer prize than the one
+-- won, the card right after the winner is one of the rarer ones and the strip stops on
+-- the winner's far edge, as close to it as it gets, before settling back. Only how the
+-- reel looks: the prize is the server's roll, and the shop's odds stay true.
+local NEAR_MISS_CHANCE = 0.65
 local REEL_BACK = { Color3.fromRGB(60, 36, 110), Color3.fromRGB(26, 16, 58) }
 local REEL_GOLD = Color3.fromRGB(255, 205, 70)
 local BULB_COLORS = { Color3.fromRGB(255, 235, 120), Color3.fromRGB(255, 110, 220), Color3.fromRGB(110, 230, 255) }
@@ -168,7 +180,12 @@ local function reelCard(parent: Frame, slot: Slot, x: number, figure: Figure?): 
 		Parent = parent,
 	})
 	Kit.corner(card, 22)
-	Kit.stroke(card, 4)
+	local rim = Kit.stroke(card, 4)
+	if (slot.Stars or 0) >= RARE_RIM then
+		-- the rarest ones shine gold as they fly by
+		rim.Color = REEL_GOLD
+		rim.Thickness = 7
+	end
 	if slot.Key == "Godly" then
 		Kit.new("UIGradient", { Color = RAINBOW, Rotation = 45, Parent = card })
 	else
@@ -179,15 +196,15 @@ local function reelCard(parent: Frame, slot: Slot, x: number, figure: Figure?): 
 	if figure then
 		card:SetAttribute("BrainrotId", figure.BrainrotId)
 		card:SetAttribute("PartType", figure.PartType)
-		Kit.new("Frame", { Name = "Figure", Position = UDim2.fromOffset(8, 30), Size = UDim2.fromOffset(CARD - 16, CARD - 70), BackgroundTransparency = 1, ZIndex = 34, Parent = card })
-		Kit.text({ Text = string.rep("⭐", stars or 1), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 7), Size = UDim2.new(0.8, 0, 0, 24), StrokeThickness = 0, ZIndex = 34, Parent = card })
+		Kit.new("Frame", { Name = "Figure", Position = UDim2.fromOffset(12, 46), Size = UDim2.fromOffset(CARD - 24, CARD - 104), BackgroundTransparency = 1, ZIndex = 34, Parent = card })
+		Kit.text({ Text = string.rep("⭐", stars or 1), AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10), Size = UDim2.new(0.8, 0, 0, 34), StrokeThickness = 0, ZIndex = 34, Parent = card })
 		local brainrot = Brainrots.ById[figure.BrainrotId]
 		Kit.text({
 			Text = if brainrot then brainrot.Name else slot.Label,
 			AnchorPoint = Vector2.new(0.5, 1),
-			Position = UDim2.new(0.5, 0, 1, -8),
-			Size = UDim2.new(0.9, 0, 0, 32),
-			StrokeThickness = 2.5,
+			Position = UDim2.new(0.5, 0, 1, -12),
+			Size = UDim2.new(0.9, 0, 0, 46),
+			StrokeThickness = 3,
 			ZIndex = 35,
 			Parent = card,
 		})
@@ -198,8 +215,8 @@ local function reelCard(parent: Frame, slot: Slot, x: number, figure: Figure?): 
 		Kit.text({
 			Text = string.rep("⭐", stars),
 			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.new(0.5, 0, 0, 16),
-			Size = UDim2.new(0.86, 0, 0, 40),
+			Position = UDim2.new(0.5, 0, 0, 24),
+			Size = UDim2.new(0.86, 0, 0, 60),
 			StrokeThickness = 0,
 			ZIndex = 34,
 			Parent = card,
@@ -208,8 +225,8 @@ local function reelCard(parent: Frame, slot: Slot, x: number, figure: Figure?): 
 	Kit.text({
 		Text = slot.Label,
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -14),
-		Size = UDim2.new(0.9, 0, 0, if stars then 52 else CARD - 32),
+		Position = UDim2.new(0.5, 0, 1, -22),
+		Size = UDim2.new(0.9, 0, 0, if stars then 84 else CARD - 60),
 		StrokeThickness = 3,
 		ZIndex = 34,
 		Parent = card,
@@ -218,13 +235,14 @@ local function reelCard(parent: Frame, slot: Slot, x: number, figure: Figure?): 
 	return card
 end
 
-type Reel = { Root: Frame, Strip: Frame, Cards: { Frame }, Marker: Frame, Bulbs: { Frame }, Width: number }
+type Reel = { Root: Frame, Strip: Frame, Cards: { Frame }, Marker: Frame, Bulbs: { Frame }, Width: number, Target: number, NearMiss: boolean }
 
 -- The reel on the overlay: a dark frame with a gold rim and chasing bulbs, the strip of
 -- cards clipped inside it (faded at the ends), the gold marker in the middle, and its
--- title in a pill above it. Card TARGET_AT shows `slots[target]`; the rest are random
--- picks from `slots` (which already holds each prize about as often as it comes up).
--- Part slots show a random brainrot of their rarity each, and card TARGET_AT `prize`.
+-- title in a pill above it. The strip cycles through `slots` in order, round and round
+-- (each prize about as often as it comes up, so a rare one keeps flying by), and stops
+-- on `slots[target]` its first time round from MIN_TARGET (the reel's Target card).
+-- Part slots show a random brainrot of their rarity on each card, the Target `prize`.
 local function buildReel(parent: Frame, slots: { Slot }, target: number, title: string, prize: Figure?): Reel
 	local root = Kit.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -292,16 +310,36 @@ local function buildReel(parent: Frame, slots: { Slot }, target: number, title: 
 	local strip = Kit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 32, Parent = clip })
 	local random = Random.new()
 	local cards = {}
-	for index = 1, STRIP_CARDS do
-		local slot = if index == TARGET_AT then slots[target] else slots[random:NextInteger(1, #slots)]
+	local count = #slots
+	local targetAt = MIN_TARGET + (target - 1 - (MIN_TARGET - 1) % count) % count
+	-- (and enough cards after it to fill the reel's right half)
+	for index = 1, targetAt + math.ceil(width / 2 / PITCH) + 1 do
+		local slot = slots[(index - 1) % count + 1]
 		local figure: Figure? = nil
 		local pool = Brainrots.ByRarity[slot.Key]
-		if index == TARGET_AT and prize then
+		if index == targetAt and prize then
 			figure = prize
 		elseif slot.PartType and pool and #pool > 0 then
 			figure = { BrainrotId = pool[random:NextInteger(1, #pool)].Id, PartType = slot.PartType :: string }
 		end
 		cards[index] = reelCard(strip, slot, (index - 1) * PITCH, figure)
+	end
+	-- the near miss: a rarer prize right after the winner
+	local rarer = {}
+	for _, slot in slots do
+		if (slot.Stars or 0) > (slots[target].Stars or 0) then
+			table.insert(rarer, slot)
+		end
+	end
+	local nearMiss = #rarer > 0 and random:NextNumber() < NEAR_MISS_CHANCE
+	if nearMiss then
+		local slot = rarer[random:NextInteger(1, #rarer)]
+		local pool = Brainrots.ByRarity[slot.Key]
+		local figure: Figure? = if slot.PartType and pool and #pool > 0
+			then { BrainrotId = pool[random:NextInteger(1, #pool)].Id, PartType = slot.PartType :: string }
+			else nil
+		cards[targetAt + 1]:Destroy()
+		cards[targetAt + 1] = reelCard(strip, slot, targetAt * PITCH, figure)
 	end
 	-- the ends fade into the frame
 	for side = 0, 1 do
@@ -342,7 +380,7 @@ local function buildReel(parent: Frame, slots: { Slot }, target: number, title: 
 		Kit.stroke(pointer, 3)
 	end
 	Kit.new("UIScale", { Name = "PopScale", Parent = marker })
-	return { Root = root, Strip = strip, Cards = cards, Marker = marker, Bulbs = bulbs, Width = width }
+	return { Root = root, Strip = strip, Cards = cards, Marker = marker, Bulbs = bulbs, Width = width, Target = targetAt, NearMiss = nearMiss }
 end
 
 -- The parts in view: each card near `center` (a card index) gets its part in a viewport
@@ -374,38 +412,76 @@ local function stripX(reel: Reel, index: number, nudge: number): number
 	return reel.Width / 2 - ((index - 1) * PITCH + CARD / 2 + nudge)
 end
 
--- Spins the strip from a few cards in to TARGET_AT, slowing down, ticking as each card
--- passes the marker (the marker bounces), the bulbs chasing; it stops a little off the
--- card's middle, then settles onto it.
+-- How far the strip has run (in cards) `t` seconds into a spin of `distance` cards, and
+-- how fast it's going: very fast at first, the speed falling off quickly (toward CRAWL)
+-- for `fast` seconds, then easing from where it got to down to a stop over the last
+-- `slow` seconds. The starting speed is solved so the two meet without a jump and the
+-- strip ends exactly `distance` cards on.
+local function spinAt(t: number, distance: number, fast: number, slow: number): (number, number)
+	local tail = math.exp(-FALLOFF * fast) -- what's left of the extra speed when the crawl starts
+	local extra = math.max(distance - CRAWL * (fast + slow / 2), 0) / ((1 - tail) / FALLOFF + tail * slow / 2)
+	if t <= fast then
+		local falling = math.exp(-FALLOFF * t)
+		return CRAWL * t + extra * (1 - falling) / FALLOFF, CRAWL + extra * falling
+	end
+	local quick = CRAWL * fast + extra * (1 - tail) / FALLOFF
+	local crawl = CRAWL + extra * tail
+	local u = math.min(t - fast, slow)
+	return quick + crawl * u - crawl * u * u / (2 * slow), crawl * (1 - u / slow)
+end
+
+-- Spins the strip from a few cards in to its Target card (see spinAt), ticking as cards
+-- pass the marker (the marker bounces), the bulbs chasing; it stops a little off the
+-- card's middle, then settles onto it. The parts show on the cards once it's slow enough
+-- to see them.
 local function spin(reel: Reel)
-	local nudge = (math.random() - 0.5) * CARD * 0.7 -- stop anywhere on the card, for suspense
-	local value = Instance.new("NumberValue")
-	value.Value = stripX(reel, 3, 0)
-	local lastCard = 0
-	value.Changed:Connect(function(x)
+	-- stop anywhere on the card, for suspense (a near miss: on its far edge, by the rare one)
+	local nudge = if reel.NearMiss then CARD * (0.4 + math.random() * 0.06) else (math.random() - 0.5) * CARD * 0.7
+	local from, to = stripX(reel, 3, 0), stripX(reel, reel.Target, nudge)
+	local distance = (from - to) / PITCH
+	local speedUp = if player:GetAttribute("Pass_FastOpen") then Gamepasses.FastOpen.WheelSpeed or 1 else 1
+	local fast, slow = FAST / speedUp, SLOW / speedUp
+	local lastCard, lastTick = -1, 0
+	local function place(x: number, speed: number)
 		reel.Strip.Position = UDim2.fromOffset(x, 0)
 		local under = math.floor((reel.Width / 2 - x) / PITCH)
 		if under ~= lastCard then
 			lastCard = under
-			playTick()
-			Kit.pop(reel.Marker, 0.25)
+			if os.clock() - lastTick >= TICK_GAP then
+				lastTick = os.clock()
+				playTick()
+				Kit.pop(reel.Marker, 0.25)
+			end
+		end
+		if speed < FIGURE_SPEED then
 			showFigures(reel, under + 1)
 		end
-	end)
-	reel.Strip.Position = UDim2.fromOffset(value.Value, 0)
-	showFigures(reel, 3)
+	end
 	local chase = RunService.RenderStepped:Connect(function()
 		local step = math.floor(os.clock() * 12)
 		for index, bulb in reel.Bulbs do
 			bulb.BackgroundTransparency = if (index + step) % 3 == 0 then 0 else 0.55
 		end
 	end)
-	local speed = if player:GetAttribute("Pass_FastOpen") then Gamepasses.FastOpen.WheelSpeed or 1 else 1
-	local info = TweenInfo.new(SPIN_TIME / speed, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-	local tween = TweenService:Create(value, info, { Value = stripX(reel, TARGET_AT, nudge) })
-	tween:Play()
-	tween.Completed:Wait()
-	local settle = TweenService:Create(value, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Value = stripX(reel, TARGET_AT, 0) })
+	local started = os.clock()
+	while true do
+		local t = os.clock() - started
+		local run, speed = spinAt(t, distance, fast, slow)
+		place(from - run * PITCH, speed)
+		if t >= fast + slow then
+			break
+		end
+		RunService.RenderStepped:Wait()
+	end
+	if reel.NearMiss then
+		task.wait(0.35) -- (a beat right by the rare one)
+	end
+	local value = Instance.new("NumberValue")
+	value.Value = to
+	value.Changed:Connect(function(x)
+		place(x, 0)
+	end)
+	local settle = TweenService:Create(value, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Value = stripX(reel, reel.Target, 0) })
 	settle:Play()
 	settle.Completed:Wait()
 	chase:Disconnect()
@@ -568,7 +644,7 @@ function Loot.PlayWheel(slots: { Slot }, target: number, hubText: string, color:
 	task.wait(0.25)
 	spin(reel)
 	-- the winner pops out of the strip
-	local winner = reel.Cards[TARGET_AT]
+	local winner = reel.Cards[reel.Target]
 	local scale = winner:FindFirstChild("PopScale") :: UIScale
 	TweenService:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1.18 }):Play()
 	local rim = winner:FindFirstChildOfClass("UIStroke")

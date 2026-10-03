@@ -95,15 +95,15 @@ All numbers are **placeholders**. Tune them in playtests.
 
 | Rarity | Color | Base loot weight | Duplicate reward | Part value (Coins) | Completion Gems (Zone 1) | Unlocked at |
 |---|---|---|---|---|---|---|
-| Common | Light grey `#C8CDD2` | 60% | Coins | 5 | 10 | Start |
-| Uncommon | Green `#5BE35B` | 25% | Coins | 12 | 25 | Start |
-| Rare | Blue `#3DA5FF` | 10% | Coins | 30 | 60 | Rebirth 1 |
-| Legendary | Gold `#FFC53D` | 4% | **Gems** | 100 | 150 | Rebirth 4 |
-| Mythic | Pink `#FF4FD8` | 0.9% | **Gems** | 350 | 400 | Rebirth 10 |
-| Godly | Animated rainbow | 0.1% | **Gems** | 1,500 | 1,000 | Rebirth 20 |
+| Common | Light grey `#C8CDD2` | 65% | Coins | 5 | 10 | Start |
+| Uncommon | Green `#5BE35B` | 26% | Coins | 12 | 25 | Start |
+| Rare | Blue `#3DA5FF` | 6.5% | Coins | 30 | 60 | Rebirth 1 |
+| Legendary | Gold `#FFC53D` | 2% | **Gems** | 100 | 150 | Rebirth 4 |
+| Mythic | Pink `#FF4FD8` | 0.4% | **Gems** | 350 | 400 | Rebirth 10 |
+| Godly | Animated rainbow | 0.06% | **Gems** | 1,500 | 1,000 | Rebirth 20 |
 
 - Weights for rarities the player hasn't unlocked are removed and the rest are renormalized.
-- A **Luck** stat (from rebirth upgrades, gamepass, boosts) shifts weight toward rarer tiers.
+- A **Luck** stat (from rebirth upgrades, gamepass, boosts) shifts weight toward rarer tiers: each tier above Common gets +25% weight per point of luck per rank (luck 1: Rare ×1.5, Legendary ×1.75, Godly ×2.25), and a box upgrades a tier 8% of the time (+50% per point of luck). v3.2 (the user, 2026-10-03: the high rarities came too easily): the weights above were 60/25/10/4/0.9/0.1, luck was +100% per rank and the upgrade 15% (+100% per luck): at full luck a Legendary Roll was 12.6% (now 3.9%) and a Godly map box at Rebirth 20 1 in 48 (now 1 in 550).
 
 ---
 
@@ -530,6 +530,7 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v3.2 (2026-10-03, the user):** Rarer loot is rarer (§4): new weights 65/26/6.5/2/0.4/0.06, luck a quarter as strong per rank, boxes upgrade 8% of the time. The prize reel is bigger (cards 260 px), cycles through its prizes so the rare ones keep flying by, starts very fast and crawls through its last 2 seconds, and (the user's call) often stops right before a rarer prize, a near miss (presentation only: the server rolls the prize and the shop's odds are true) (§5). The elevator works from inside its cabin only, and you hold still for the ride.
 - **v3.1 (2026-10-03, the user):** The factory starts with 1 storey; the 2nd comes with the Clay Studio (its button at the elevator) and drops in (§10). An **elevator** in the front room's lobby on every storey (a glass lift with neon edges, a light, chasing bulbs and a neon sign; it waits shut under "🔒 2F" until there's a 2nd floor): the way up from inside (the outside stairs stay, from the 2nd floor up). The prize reel shows the parts on its cards (a random part of each card's rarity, the won one on the winning card), not just the rarity (§5). Empty plots are 1 storey too: ~14K fewer parts in the world.
 - **v3.0 (2026-10-03):** The line upgrade cards preview the next level: the gain in big numbers (now » next), a "new look" note at each look tier, and a 👀 button that flies the camera to the line to show the next level's look there for a few seconds (§6). From the user's list: a ⚙️ Settings menu (Lower Graphics ON/OFF) (§13); rare map boxes are announced with a big banner (sunburst, flash and confetti by rarity, how far away it landed) (§5); the special upgrades last twice as long and show their result off (§6); mixed brainrots fit together (measured sockets, §3); the Index's details page fits its panel (editions as pills, a line button per room: "TOY 1", "PLUSHIE 2"); signs no longer stretched (their SurfaceGuis sized per stud); the podium's z-fighting and the statue's fixed; always-on render savings that change nothing visible (far signs stop drawing, glowing/tiny/see-through parts cast no shadow).
 - **v2.9 (2026-10-03):** From the user's list: Coin packs and bought box drops (1–100 boxes rain round the buyer, a BOX STORM at 100; prices from *Steal a Brainrot* / *Pet Sim 99*) (§12, §5); badges for joining and for the first map box (§12); an arrival of its own per rarity (parachute, out of the ground, meteor, lightning...) (§5); a quick feed for piled-up loot results. The Giant Plushie fits under the ceiling with its crown (its size is measured). Z-fighting fixed across the rooms (found with the new geometry lab, `tools/lab`). Performance: the world builds over several frames (no startup freeze), the client only animates what's on screen, and a Low Performance setting (§13).
