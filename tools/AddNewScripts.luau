@@ -35,711 +35,558 @@ local function upsert(path, name, class, source)
 	print(`{if created then "created" else "updated"} {script:GetFullName()}`)
 end
 ChangeHistoryService:SetWaypoint("Before AddNewScripts")
-upsert({ "ReplicatedStorage", "Client" }, "FactoryView", "ModuleScript", [======[
+upsert({ "ReplicatedFirst" }, "LoadingScreen", "LocalScript", [======[
 --[[
-	FactoryView
-	Where the local player is in the factories, for code that only animates what they can
-	see. A factory building's storeys are measured from its Cutaway models
-	(FactoryBuilder: pivoted on the ground floor's middle, with Area and StoreyHeight).
-	From inside a building you only see your own storey of it: walls and floors hide the
-	others, and the ones above are faded out anyway (TycoonFX's cutaway). From outside,
-	everything counts as in view. Client only.
+	LoadingScreen
+	Our own loading screen (the user, 2026-10-03): it replaces Roblox's default as soon
+	as the client starts and stays until the game has loaded and your character is in
+	the world (the server holds characters until the map is built: Main.server), then
+	fades away. A pink-to-purple backdrop with brainrot emoji drifting up, the title, a
+	bouncing 🧠, a progress bar and rotating tips.
+
+	It runs from ReplicatedFirst, before anything else has replicated, so it can't use
+	Kit or any shared module: everything here is self-contained.
 ]]
 
 local Players = game:GetService("Players")
+local ReplicatedFirst = game:GetService("ReplicatedFirst")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local FONT = Enum.Font.FredokaOne
+local INK = Color3.fromRGB(30, 25, 45)
+local GOLD = Color3.fromRGB(255, 215, 60)
+local TIMEOUT = 60 -- seconds: whatever happens, the screen goes by then
+local MIN_TIME = 2.5 -- seconds: long enough to read the title
+local DRIFTERS = { "🧠", "🦈", "🥁", "🐊", "🍌", "☕", "🐸", "🦒", "💣", "🍉", "🐄", "👟" }
+local TIPS = {
+	"💡 Equip your rarest parts on a line to earn more Coins!",
+	"💡 A full match (4 parts of one brainrot) ships for much more!",
+	"💡 Loot boxes appear all over the map: grab them!",
+	"💡 Every room has its own machines and its own edition to collect.",
+	"💡 Rebirth to earn +25% income and unlock rarer parts!",
+	"💡 Spin the Daily Wheel every day for free prizes!",
+	"💡 Line upgrades: tap a line's tablet to make it faster and richer.",
+}
+local STATUS = {
+	{ At = 0, Text = "Waking up the brainrots..." },
+	{ At = 0.3, Text = "Building the factories..." },
+	{ At = 0.6, Text = "Oiling the machines..." },
+	{ At = 0.85, Text = "Almost there!" },
+}
 
 local player = Players.LocalPlayer
+ReplicatedFirst:RemoveDefaultLoadingScreen()
 
-local FactoryView = {}
-
-local function numberAttribute(model: Instance, name: string): number
-	local value = model:GetAttribute(name)
-	return if typeof(value) == "number" then value else 0
-end
-
--- Which storey of a cutaway model's building `position` is on (1 = the ground floor),
--- or nil when it's outside the building.
-function FactoryView.StoreyAt(cutaway: Model, position: Vector3): number?
-	local area = cutaway:GetAttribute("Area")
-	local height = numberAttribute(cutaway, "StoreyHeight")
-	if typeof(area) ~= "Vector3" or height <= 0 then
-		return nil
-	end
-	local offset = cutaway:GetPivot():PointToObjectSpace(position)
-	if math.abs(offset.X) > area.X / 2 or math.abs(offset.Z) > area.Z / 2 or offset.Y < -2 or offset.Y > area.Y then
-		return nil
-	end
-	return math.floor(offset.Y / height) + 1
-end
-
--- The storey of `building` (a plot's Building model) `position` is on, or nil.
-local function storeyIn(building: Instance, position: Vector3): number?
-	for _, child in building:GetChildren() do
-		if child:IsA("Model") and typeof(child:GetAttribute("Area")) == "Vector3" then
-			return FactoryView.StoreyAt(child, position)
+local function new(className: string, props: { [string]: any }): any
+	local instance = Instance.new(className)
+	for key, value in props do
+		if key ~= "Parent" then
+			(instance :: any)[key] = value
 		end
 	end
-	return nil
+	instance.Parent = props.Parent
+	return instance
 end
 
--- Where the player is looking from: their character, or the camera without one.
-local function viewer(): Vector3
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if root and root:IsA("BasePart") then
-		return root.Position
+local function label(props: { [string]: any }, stroke: number?): TextLabel
+	props.BackgroundTransparency = 1
+	props.Font = FONT
+	props.TextScaled = true
+	props.TextColor3 = props.TextColor3 or Color3.new(1, 1, 1)
+	local text = new("TextLabel", props)
+	if stroke and stroke > 0 then
+		new("UIStroke", { Thickness = stroke, Color = INK, Parent = text })
 	end
-	return workspace.CurrentCamera.CFrame.Position
+	return text
 end
 
--- Whether something at `position` can be in the player's view: it's in no factory, or
--- they're outside its factory, or on its storey.
-function FactoryView.Sees(position: Vector3): boolean
-	local tycoons = workspace:FindFirstChild("Tycoons")
-	if not tycoons then
-		return true
-	end
-	for _, plot in tycoons:GetChildren() do
-		local building = plot:FindFirstChild("Building")
-		local storey = building and storeyIn(building, position)
-		if building and storey then
-			local mine = storeyIn(building, viewer())
-			return mine == nil or mine == storey
-		end
-	end
-	return true
-end
+local screen = new("ScreenGui", {
+	Name = "LoadingScreen",
+	IgnoreGuiInset = true,
+	ResetOnSpawn = false,
+	DisplayOrder = 100,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	Parent = player:WaitForChild("PlayerGui"),
+})
+local back = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, Parent = screen })
+new("UIGradient", {
+	Rotation = 90,
+	Color = ColorSequence.new(Color3.fromRGB(255, 110, 200), Color3.fromRGB(110, 50, 220)),
+	Parent = back,
+})
 
-return FactoryView
-]======])
-upsert({ "ReplicatedStorage", "Client", "UI" }, "SettingsMenu", "ModuleScript", [======[
---[[
-	Settings Menu
-	The ⚙️ panel: a row per setting, each with an ON/OFF switch (Kit.toggle). Today:
-	Lower Graphics (Client/Performance: saved with the player's data, applied by
-	StarterPlayerScripts/LowGraphics). New settings are one more entry in SETTINGS.
-	Client only.
-]]
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local Performance = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Performance"))
-local Kit = require(script.Parent:WaitForChild("Kit"))
-
-local SIZE = Vector2.new(620, 300)
-local MUTED_COLOR = Color3.fromRGB(110, 105, 130)
-
-type Setting = {
-	Icon: string,
-	Name: string,
-	About: string,
-	Get: () -> boolean,
-	Set: (on: boolean) -> (),
-	Changed: RBXScriptSignal?, -- fires when it changes elsewhere
-}
-
-local SETTINGS: { Setting } = {
-	{
-		Icon = "🐢",
-		Name = "Lower Graphics",
-		About = "Fewer effects, shadows and decor for more FPS",
-		Get = function()
-			return Performance.Low
-		end,
-		Set = Performance.Set,
-		Changed = Performance.Changed,
-	},
-}
-
-local panel: Frame? = nil
-
-local SettingsMenu = {}
-
-local function build(content: Frame)
-	for index, setting in SETTINGS do
-		local row = Kit.new("Frame", {
-			Position = UDim2.fromOffset(24, 20 + (index - 1) * 96),
-			Size = UDim2.new(1, -48, 0, 84),
-			BackgroundColor3 = Kit.White,
-			Parent = content,
-		})
-		Kit.corner(row, 18)
-		Kit.stroke(row, 3)
-		Kit.gradient(row, { Color3.fromRGB(255, 255, 255), Color3.fromRGB(235, 230, 250) })
-		Kit.text({ Text = setting.Icon, Position = UDim2.fromOffset(12, 14), Size = UDim2.fromOffset(56, 56), StrokeThickness = 0, Parent = row })
-		Kit.text({
-			Text = setting.Name,
-			Position = UDim2.fromOffset(80, 10),
-			Size = UDim2.new(1, -240, 0, 36),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Parent = row,
-		})
-		Kit.text({
-			Text = setting.About,
-			Position = UDim2.fromOffset(82, 48),
-			Size = UDim2.new(1, -244, 0, 24),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = MUTED_COLOR,
-			StrokeThickness = 0,
-			Parent = row,
-		})
-		local show = Kit.toggle({
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -16, 0.5, 0),
-			Parent = row,
-		}, setting.Get(), setting.Set)
-		if setting.Changed then
-			setting.Changed:Connect(function()
-				show(setting.Get())
-			end)
-		end
-	end
-end
-
-function SettingsMenu.Open()
-	if not panel then
-		local newPanel, content = Kit.modal("Settings", "⚙️ SETTINGS", Kit.Colors.Purple, SIZE)
-		build(content)
-		panel = newPanel
-	end
-	Kit.open(panel :: Frame)
-end
-
--- The ⚙️ button on the HUD (top right, under the music's).
-function SettingsMenu.Init()
-	local button = Kit.button({
-		Name = "SettingsButton",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -24, 0, 156),
-		Size = UDim2.fromOffset(64, 64),
-		Parent = Kit.getGui(),
-	}, Kit.Colors.Purple, nil, SettingsMenu.Open)
-	Kit.text({
-		Text = "⚙️",
+-- emoji drifting up the screen, each its own size, speed and sway
+local drifters = {}
+local random = Random.new()
+for index = 1, 22 do
+	local size = random:NextNumber(0.05, 0.1)
+	local drifter = label({
+		Text = DRIFTERS[(index - 1) % #DRIFTERS + 1],
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(0.7, 0.7),
-		StrokeThickness = 0,
-		Parent = button,
+		Size = UDim2.fromScale(size, size),
+		TextTransparency = 0.35,
+		Parent = back,
+	})
+	new("UIAspectRatioConstraint", { Parent = drifter })
+	table.insert(drifters, {
+		Label = drifter,
+		X = random:NextNumber(0.03, 0.97),
+		Phase = random:NextNumber(),
+		Speed = random:NextNumber(0.03, 0.07),
+		Sway = random:NextNumber(0.01, 0.03),
+		Spin = random:NextNumber(-20, 20),
 	})
 end
 
-return SettingsMenu
+local middle = new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromScale(0.8, 0.7),
+	BackgroundTransparency = 1,
+	Parent = back,
+})
+new("UISizeConstraint", { MaxSize = Vector2.new(1100, 640), Parent = middle })
+local brain = label({ Text = "🧠", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromScale(0.22, 0.26), Parent = middle })
+new("UIAspectRatioConstraint", { Parent = brain })
+local title = label({
+	Text = "BUILD A BRAINROT",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.fromScale(0.5, 0.27),
+	Size = UDim2.fromScale(1, 0.22),
+	Parent = middle,
+}, 6)
+new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.new(1, 1, 1), GOLD), Parent = title })
+label({ Text = "🏭 Brainrot Factory Tycoon 🏭", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.49), Size = UDim2.fromScale(0.7, 0.08), Parent = middle }, 3)
+
+local bar = new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.fromScale(0.5, 0.66),
+	Size = UDim2.fromScale(0.7, 0.07),
+	BackgroundColor3 = Color3.fromRGB(50, 30, 90),
+	Parent = middle,
+})
+new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = bar })
+new("UIStroke", { Thickness = 4, Color = INK, Parent = bar })
+local fill = new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Color3.new(1, 1, 1), Parent = bar })
+new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = fill })
+new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255, 240, 140), Color3.fromRGB(255, 160, 30)), Parent = fill })
+local status = label({ Text = STATUS[1].Text, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.75), Size = UDim2.fromScale(0.6, 0.07), Parent = middle }, 3)
+local tip = label({ Text = TIPS[random:NextInteger(1, #TIPS)], AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.88), Size = UDim2.fromScale(0.9, 0.06), Parent = middle }, 2)
+
+-- Progress is an estimate: it creeps toward each stage's cap (the game loaded, then the
+-- character in the world) and never reaches 1 before both are done.
+local started = os.clock()
+local progress = 0
+local function target(): number
+	if not game:IsLoaded() then
+		return 0.6
+	elseif not player.Character then
+		return 0.95
+	end
+	return 1
+end
+
+local nextTip = os.clock() + 3.5
+local connection = RunService.RenderStepped:Connect(function(dt)
+	local t = os.clock() - started
+	for _, drifter in drifters do
+		local y = 1.1 - ((drifter.Phase + t * drifter.Speed) % 1.2)
+		drifter.Label.Position = UDim2.fromScale(drifter.X + math.sin(t * 1.3 + drifter.Phase * 9) * drifter.Sway, y)
+		drifter.Label.Rotation = math.sin(t + drifter.Phase * 5) * drifter.Spin
+	end
+	brain.Position = UDim2.new(0.5, 0, 0, -math.abs(math.sin(t * 3)) * 18)
+	brain.Rotation = math.sin(t * 3) * 6
+	progress += (target() - progress) * math.min(1, dt * 1.6)
+	fill.Size = UDim2.fromScale(math.max(progress, 0.06), 1)
+	for _, stage in STATUS do
+		if progress >= stage.At then
+			status.Text = stage.Text
+		end
+	end
+	if os.clock() >= nextTip then
+		nextTip = os.clock() + 3.5
+		tip.Text = TIPS[random:NextInteger(1, #TIPS)]
+	end
+end)
+
+-- Wait for the game and the character (or the timeout), then fade out.
+local deadline = os.clock() + TIMEOUT
+while os.clock() < deadline and not (game:IsLoaded() and player.Character and os.clock() - started >= MIN_TIME) do
+	task.wait(0.1)
+end
+progress = 1
+status.Text = "Let's go! 🚀"
+task.wait(0.4)
+
+local fade = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+TweenService:Create(back, fade, { BackgroundTransparency = 1 }):Play()
+for _, child in back:GetDescendants() do
+	if child:IsA("TextLabel") then
+		TweenService:Create(child, fade, { TextTransparency = 1 }):Play()
+	elseif child:IsA("UIStroke") then
+		TweenService:Create(child, fade, { Transparency = 1 }):Play()
+	elseif child:IsA("Frame") then
+		TweenService:Create(child, fade, { BackgroundTransparency = 1 }):Play()
+	end
+end
+task.wait(0.7)
+connection:Disconnect()
+screen:Destroy()
 ]======])
-upsert({ "ReplicatedStorage", "Client" }, "UpgradePreview", "ModuleScript", [======[
+upsert({ "ReplicatedStorage", "Client", "UI" }, "Passes", "ModuleScript", [======[
 --[[
-	UpgradePreview
-	Shows a line upgrade track's next level in place, for the Line menu's 👀 button.
-	The server builds that level's look with the line's own builders
-	(TycoonManager.BuildTrackPreview) into the player's PlayerGui; this clones it into
-	the world on this client only, outlined in gold, hides what it replaces (the
-	current level's look, and the line parts the new level recolors), flies the camera
-	to it with a caption for a few seconds, then puts everything back, the camera too
-	(its type and field of view: from the line tablet it goes back onto the tablet).
-	Client only.
+	Passes
+	What the shop and the corner ads (Upsell) share about gamepasses: prices, whether the
+	player owns one, whether a limited offer (a pass with OfferHours, e.g. the Starter Pack) is
+	still on and for how long, and the purchase prompt. Ownership comes from the server's
+	"Pass_<Key>" attributes; the offer's end from "StarterOfferEnds".
 ]]
 
+local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Gamepasses = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Gamepasses"))
+
+local player = Players.LocalPlayer
+local prices: { [string]: number | false } = {}
+
+local Passes = {}
+
+-- Robux price of a pass ("Pass") or a developer product ("Product"), fetched once (it
+-- yields the first time). Nil if unknown or not on the dashboard yet.
+function Passes.PriceOf(kind: string, id: number): number?
+	if id <= 0 then
+		return nil
+	end
+	local key = kind .. id
+	if prices[key] == nil then
+		local infoType = if kind == "Pass" then Enum.InfoType.GamePass else Enum.InfoType.Product
+		local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, id, infoType)
+		prices[key] = if ok and info and info.PriceInRobux then info.PriceInRobux else false
+	end
+	return prices[key] or nil
+end
+
+function Passes.Owns(key: string): boolean
+	return player:GetAttribute(`Pass_{key}`) == true
+end
+
+-- Seconds left on a limited pass's offer (0 once it's over), or nil for a pass that's
+-- always on sale.
+function Passes.OfferLeft(key: string): number?
+	local pass = Gamepasses[key]
+	if not (pass and pass.OfferHours) then
+		return nil
+	end
+	local ends = player:GetAttribute("StarterOfferEnds")
+	if typeof(ends) ~= "number" then
+		return 0 -- not loaded yet: don't show it
+	end
+	return math.max(0, ends - workspace:GetServerTimeNow())
+end
+
+-- Whether the pass can be offered to this player right now: not owned, and its offer
+-- (if it has one) still on.
+function Passes.OnSale(key: string): boolean
+	local left = Passes.OfferLeft(key)
+	return Gamepasses[key] ~= nil and not Passes.Owns(key) and (left == nil or left > 0)
+end
+
+-- "23:59:07"
+function Passes.Clock(seconds: number): string
+	seconds = math.max(0, math.floor(seconds))
+	return string.format("%02d:%02d:%02d", seconds // 3600, seconds % 3600 // 60, seconds % 60)
+end
+
+-- Prompts the purchase. False if the pass isn't on the dashboard yet (Id 0).
+function Passes.Prompt(key: string): boolean
+	local pass = Gamepasses[key]
+	if not pass or pass.Id <= 0 or Passes.Owns(key) then
+		return false
+	end
+	MarketplaceService:PromptGamePassPurchase(player, pass.Id)
+	return true
+end
+
+return Passes
+]======])
+upsert({ "ReplicatedStorage", "Client", "UI" }, "Upsell", "ModuleScript", [======[
+--[[
+	Upsell
+	A small ad in the top-right corner that offers a gamepass at the moment it would help
+	(the user, 2026-10-03): Sprint when you press Shift without it, Lucky / Fast Open
+	when loot opens, 2x Coins / Auto-Collect / VIP when you collect the Cash Pad, the
+	Starter Pack (with its countdown) after joining. It slides in beside the music and
+	settings buttons, says what the pass does, and BUY prompts the purchase; it slides
+	away by itself.
+
+	Never pushy: one ad at a time, at most one every GAP seconds, and the same pass at
+	most once every SAME_GAP seconds. Owned passes, offers that ended and passes not on
+	the dashboard yet (Id 0, outside Studio) are never shown.
+]]
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Remotes = require(Shared:WaitForChild("Remotes"))
+local Gamepasses = require(Shared:WaitForChild("Config"):WaitForChild("Gamepasses"))
 local Sounds = require(Shared:WaitForChild("Config"):WaitForChild("Sounds"))
-local Effects = require(script.Parent:WaitForChild("Effects"))
-local Kit = require(script.Parent:WaitForChild("UI"):WaitForChild("Kit"))
+local Kit = require(script.Parent:WaitForChild("Kit"))
+local Passes = require(script.Parent:WaitForChild("Passes"))
 
-local FLY = 0.8 -- seconds to fly the camera there (and back)
-local HOLD = 3.6 -- seconds it shows the new look, the camera drifting round it
-local DRIFT = math.rad(14) -- how far the camera drifts round it meanwhile
-local PITCH = math.rad(28) -- the camera looks down at it this steeply
-local DISTANCE = NumberRange.new(14, 42) -- studs (it stays in the room)
-local CEILING = 25 -- studs over the line's floor the camera stays under (rooms are 28 high)
-local GOLD = Color3.fromRGB(255, 205, 60)
-local FOV = 70 -- (the line tablet narrows it: the shot is framed for this one)
+local SIZE = Vector2.new(340, 132)
+local SHOWN_AT = UDim2.new(1, -104, 0, 84) -- left of the 🎵 / ⚙️ buttons
+local HIDDEN_AT = UDim2.new(1, SIZE.X + 20, 0, 84)
+local HOLD = 9 -- seconds an ad stays up
+local GAP = 45 -- seconds between any two ads
+local SAME_GAP = 240 -- seconds before the same pass is offered again
+local Z = 55 -- over the loot overlay (30), under the completion celebration (60)
 
-local player = Players.LocalPlayer
-local playing = false
+local current: Frame? = nil
+local lastShown = -math.huge
+local lastByKey: { [string]: number } = {}
 
-local UpgradePreview = {}
+local Upsell = {}
 
-local function ease(alpha: number): number
-	return TweenService:GetValue(alpha, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+local function canShow(key: string): boolean
+	local pass = Gamepasses[key]
+	if not (pass and Passes.OnSale(key)) then
+		return false
+	end
+	if pass.Id <= 0 and not RunService:IsStudio() then
+		return false
+	end
+	return os.clock() - (lastByKey[key] or -math.huge) >= SAME_GAP
 end
 
--- Runs `update(alpha)` every frame for `duration` seconds.
-local function run(duration: number, update: (alpha: number) -> ())
-	local start = os.clock()
-	while true do
-		local alpha = math.min((os.clock() - start) / duration, 1)
-		update(alpha)
-		if alpha >= 1 then
+local function hide(card: Frame)
+	if current == card then
+		current = nil
+	end
+	local tween = TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Position = HIDDEN_AT })
+	tween:Play()
+	tween.Completed:Connect(function()
+		card:Destroy()
+	end)
+end
+
+local function show(key: string, pitch: string?)
+	local pass = Gamepasses[key]
+	lastShown = os.clock()
+	lastByKey[key] = os.clock()
+
+	local card = Kit.new("Frame", {
+		Name = "Upsell",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = HIDDEN_AT,
+		Size = UDim2.fromOffset(SIZE.X, SIZE.Y),
+		BackgroundColor3 = Kit.White,
+		ZIndex = Z,
+		Parent = Kit.getGui(),
+	})
+	current = card
+	Kit.corner(card, 20)
+	Kit.stroke(card, 4)
+	Kit.gradient(card, pass.Colors)
+	Kit.shine(card, 16).ZIndex = Z
+
+	local bubble = Kit.new("Frame", {
+		Position = UDim2.fromOffset(12, 12),
+		Size = UDim2.fromOffset(64, 64),
+		BackgroundColor3 = Kit.White,
+		ZIndex = Z + 1,
+		Parent = card,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = bubble })
+	Kit.stroke(bubble, 4)
+	Kit.gradient(bubble, { Kit.White, pass.Colors[1] })
+	Kit.text({ Text = pass.Icon, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.72, 0.72), StrokeThickness = 0, ZIndex = Z + 2, Parent = bubble })
+
+	local left = Passes.OfferLeft(key)
+	Kit.text({
+		Text = if left then `{pass.Name} · LIMITED!` else pass.Name,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Position = UDim2.fromOffset(86, 10),
+		Size = UDim2.new(1, -124, 0, 28),
+		StrokeThickness = 3,
+		ZIndex = Z + 1,
+		Parent = card,
+	})
+	local line = Kit.text({
+		Text = pitch or pass.Perks[1],
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Position = UDim2.fromOffset(86, 40),
+		Size = UDim2.new(1, -98, 0, 34),
+		TextWrapped = true,
+		StrokeThickness = 1.5,
+		ZIndex = Z + 1,
+		Parent = card,
+	})
+
+	Kit.button({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -8, 0, 8),
+		Size = UDim2.fromOffset(30, 30),
+		ZIndex = Z + 2,
+		Parent = card,
+	}, Kit.Colors.Grey, "✕", function()
+		hide(card)
+	end)
+	local buy = Kit.button({
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -10),
+		Size = UDim2.new(1, -24, 0, 42),
+		ZIndex = Z + 2,
+		Parent = card,
+	}, Kit.Colors.Green, "GET IT!", function()
+		if not Passes.Prompt(key) then
+			Kit.toast("Coming soon!", Color3.fromRGB(255, 215, 60))
+		end
+		hide(card)
+	end)
+	task.spawn(function()
+		local price = Passes.PriceOf("Pass", pass.Id)
+		local label = buy:FindFirstChildOfClass("TextLabel")
+		if price and label and card.Parent then
+			label.Text = `GET IT!  R$ {price}`
+		end
+	end)
+
+	Kit.playSound(Sounds.Whoosh, 0.25, 1.3)
+	TweenService:Create(card, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = SHOWN_AT }):Play()
+
+	-- a limited offer counts down on its pitch line
+	local deadline = os.clock() + HOLD
+	task.spawn(function()
+		while card.Parent and current == card and os.clock() < deadline do
+			if left then
+				line.Text = `⏰ Ends in {Passes.Clock(Passes.OfferLeft(key) or 0)}! {pitch or pass.Perks[1]}`
+			end
+			task.wait(0.5)
+		end
+		if card.Parent and current == card then
+			hide(card)
+		end
+	end)
+end
+
+-- Offers a pass (or the first of several that can be offered, in order), with an
+-- optional pitch line (else the pass's first perk). Does nothing if an ad is up or one
+-- was shown lately. Doesn't yield.
+function Upsell.Offer(keys: string | { string }, pitch: string?)
+	if current or os.clock() - lastShown < GAP then
+		return
+	end
+	local list = if type(keys) == "string" then { keys } else keys
+	for _, key in list do
+		if canShow(key) then
+			show(key, pitch)
 			return
 		end
-		RunService.RenderStepped:Wait()
 	end
 end
 
--- The player's own plot's Lines folder.
-local function ownLines(): Instance?
-	local tycoons = workspace:FindFirstChild("Tycoons")
-	local plot = tycoons and tycoons:FindFirstChild(`Plot{player:GetAttribute("PlotIndex")}`)
-	return plot and plot:FindFirstChild("Lines")
-end
-
--- Hides parts and stops effects for the preview, remembering how to put them back.
-type Hidden = { Parts: { [BasePart]: number }, Effects: { [Instance]: boolean } }
-
-local function hide(hidden: Hidden, instance: Instance)
-	if instance:IsA("BasePart") then
-		if hidden.Parts[instance] == nil then
-			hidden.Parts[instance] = instance.LocalTransparencyModifier
-			instance.LocalTransparencyModifier = 1
-		end
-	elseif instance:IsA("ParticleEmitter") or instance:IsA("Light") then
-		local effect = instance :: any
-		if hidden.Effects[instance] == nil then
-			hidden.Effects[instance] = effect.Enabled
-			effect.Enabled = false
-		end
-	end
-end
-
-local function restore(hidden: Hidden)
-	for part, modifier in hidden.Parts do
-		part.LocalTransparencyModifier = modifier
-	end
-	for effect, enabled in hidden.Effects do
-		(effect :: any).Enabled = enabled
-	end
-end
-
--- The new look in the world: a copy of the server's preview, outlined in gold, with
--- what it replaces hidden.
-local function placeGhost(source: Model, lineId: string, trackKey: string, hidden: Hidden): Model
-	local ghost = source:Clone()
-	ghost.Name = "UpgradePreview"
-	local lines = ownLines()
-	local current = lines and lines:FindFirstChild(`{lineId}_Up{trackKey}`)
-	if current then
-		hide(hidden, current)
-		for _, descendant in current:GetDescendants() do
-			hide(hidden, descendant)
-		end
-	end
-	local line = lines and lines:FindFirstChild(lineId)
-	for _, part in ghost:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.Anchored = true
-			part.CanCollide = false
-			part.CanQuery = false
-			part.CanTouch = false
-			-- a recolored copy of a line part: hide the original (same name and place)
-			if part:GetAttribute("Recolored") and line then
-				for _, original in line:GetDescendants() do
-					if original:IsA("BasePart") and original.Name == part.Name and (original.Position - part.Position).Magnitude < 0.01 then
-						hide(hidden, original)
-					end
-				end
-			end
-		end
-	end
-	local outline = Instance.new("Highlight")
-	outline.FillTransparency = 1
-	outline.OutlineColor = GOLD
-	outline.DepthMode = Enum.HighlightDepthMode.Occluded
-	outline.Parent = ghost
-	ghost.Parent = workspace
-	return ghost
-end
-
--- A caption at the bottom of the screen while it plays.
-local function showCaption(title: string, subtitle: string): Frame
-	local pill = Kit.new("Frame", {
-		Name = "UpgradePreviewCaption",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -60),
-		Size = UDim2.fromOffset(620, 96),
-		BackgroundColor3 = Kit.White,
-		ZIndex = 40,
-		Parent = Kit.getGui(),
-	})
-	Kit.corner(pill, 22)
-	Kit.stroke(pill, 4)
-	Kit.gradient(pill, Kit.Colors.Purple)
-	Kit.shine(pill, 18)
-	Kit.text({ Text = title, Position = UDim2.fromOffset(20, 8), Size = UDim2.new(1, -40, 0, 46), StrokeThickness = 3.5, ZIndex = 41, Parent = pill })
-	Kit.text({ Text = subtitle, Position = UDim2.fromOffset(20, 56), Size = UDim2.new(1, -40, 0, 30), TextColor3 = Color3.fromRGB(255, 240, 160), ZIndex = 41, Parent = pill })
-	Kit.pop(pill, 0.2)
-	return pill
-end
-
--- Where the camera looks at `center` from: back toward where it was, `turn` round.
-local function shotAt(center: Vector3, size: Vector3, toward: Vector3, floorY: number, turn: number): CFrame
-	local away = Vector3.new(toward.X - center.X, 0, toward.Z - center.Z)
-	away = if away.Magnitude > 0.1 then away.Unit else Vector3.zAxis
-	away = CFrame.Angles(0, turn, 0):VectorToWorldSpace(away)
-	local distance = math.clamp(math.max(size.X, size.Z) * 0.9 + size.Y + 8, DISTANCE.Min, DISTANCE.Max)
-	local eye = center + away * distance * math.cos(PITCH) + Vector3.new(0, distance * math.sin(PITCH), 0)
-	eye = Vector3.new(eye.X, math.min(eye.Y, floorY + CEILING), eye.Z)
-	return CFrame.lookAt(eye, center)
-end
-
--- Plays the preview of `trackKey`'s next level on line `lineId`, with a caption. Calls
--- `onDone` when it's over. False (at once) if it can't: maxed out, already playing.
-function UpgradePreview.Play(lineId: string, trackKey: string, title: string, subtitle: string, onDone: () -> ()): boolean
-	if playing then
-		return false
-	end
-	playing = true
-	local remote = Remotes.Function("PreviewLineUpgrade")
-	local ok, name = pcall(remote.InvokeServer, remote, lineId, trackKey)
-	local gui = player:FindFirstChildOfClass("PlayerGui")
-	local folder = ok and typeof(name) == "string" and gui and gui:WaitForChild("LinePreviews", 5)
-	local source = folder and folder:WaitForChild(name :: string, 5)
-	if not (source and source:IsA("Model")) then
-		playing = false
-		return false
-	end
-
-	task.spawn(function()
-		local hidden: Hidden = { Parts = {}, Effects = {} }
-		local ghost = placeGhost(source, lineId, trackKey, hidden)
-		local camera = workspace.CurrentCamera
-		local home, homeType, homeFov = camera.CFrame, camera.CameraType, camera.FieldOfView
-		local box, size = ghost:GetBoundingBox()
-		local lines = ownLines()
-		local line = lines and lines:FindFirstChild(lineId)
-		local origin = line and line:GetAttribute("Origin")
-		local floorY = if typeof(origin) == "CFrame" then origin.Y else box.Position.Y - size.Y / 2
-		local function shot(turn: number): CFrame
-			return shotAt(box.Position, size, home.Position, floorY, turn)
-		end
-
-		camera.CameraType = Enum.CameraType.Scriptable
-		Effects.sound2D(Sounds.Whoosh, 0.25, 1.3)
-		run(FLY, function(a)
-			camera.CFrame = home:Lerp(shot(-DRIFT / 2), ease(a))
-			camera.FieldOfView = homeFov + (FOV - homeFov) * ease(a)
-		end)
-		local caption = showCaption(title, subtitle)
-		Effects.sound2D(Sounds.RevealBig, 0.35)
-		Effects.sparkle(box.Position, GOLD, 20)
-		Effects.flash(box.Position, GOLD, 4, math.max(size.X, size.Z) + 12, 0.6)
-		run(HOLD, function(a)
-			camera.CFrame = shot(-DRIFT / 2 + DRIFT * a)
-		end)
-		caption:Destroy()
-		ghost:Destroy()
-		restore(hidden)
-		Effects.sound2D(Sounds.Whoosh, 0.2, 1.1)
-		local from = camera.CFrame
-		run(FLY, function(a)
-			camera.CFrame = from:Lerp(home, ease(a))
-			camera.FieldOfView = FOV + (homeFov - FOV) * ease(a)
-		end)
-		camera.CameraType = homeType
-		playing = false
-		onDone()
-	end)
-	return true
-end
-
-return UpgradePreview
+return Upsell
 ]======])
-upsert({ "StarterPlayer", "StarterPlayerScripts" }, "Elevator", "LocalScript", [======[
+upsert({ "ServerScriptService", "Services" }, "StarterPack", "ModuleScript", [======[
 --[[
-	Elevator
-	Rides the factories' lifts (FactoryBuilder's elevator: one per storey, stacked in the
-	front room's lobby). Each lift's call panel (tagged "ElevatorCall") gets a prompt per
-	way it goes (its Up / Down attributes: where it arrives, facing out of that lift's
-	door), shown in the middle of the cabin and only while you stand inside it (its Cabin
-	attribute). A ride: you stop where you are (anchored, controls off), the doors fold
-	shut, the screen fades, you're taken to the other lift, and its doors fold open as
-	the screen clears. Doors move on this client only. A
-	1-storey factory's lift has no panel tag: it waits shut until the Clay Studio brings
-	the 2nd floor. Client only.
+	StarterPack
+	The newcomer's bundle (Config/Gamepasses, any pass with a `Starter` reward; GDD §12):
+	once, its parts, Coins and a rain of loot boxes; then its Rolls once a day for as
+	long as the player owns it. Both are DataManager claims, so nothing is given twice,
+	whether the pass is noticed on join, bought mid-game, or the data loads after the
+	ownership check (both paths try; the claim decides).
+
+	The offer itself (the shop card, the corner ad) is sold only for the pass's
+	OfferHours after the player's first join: the "StarterOfferEnds" attribute (server
+	epoch seconds) tells the client when it ends.
 ]]
 
-local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
-local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Sounds = require(Shared:WaitForChild("Config"):WaitForChild("Sounds"))
-local Client = ReplicatedStorage:WaitForChild("Client")
-local Effects = require(Client:WaitForChild("Effects"))
-local Kit = require(Client:WaitForChild("UI"):WaitForChild("Kit"))
+local Shared = ReplicatedStorage.Shared
+local Format = require(Shared.Format)
+local Gamepasses = require(Shared.Config.Gamepasses)
+local Remotes = require(Shared.Remotes)
 
-local DOOR_TIME = 0.35
-local FADE_TIME = 0.25
-local LIFT_REACH = 12 -- studs from a call panel to its own doors
-local FADE_COLOR = Color3.fromRGB(255, 245, 225)
-local INSIDE_CHECK = 0.15 -- seconds between checks of who's inside which cabin
-local CABIN_HEIGHT = 9 -- studs over its floor that count as inside
+local DataManager = require(script.Parent.DataManager)
+local LootManager = require(script.Parent.LootManager)
+local MonetizationManager = require(script.Parent.MonetizationManager)
 
-local player = Players.LocalPlayer
-local riding = false
+local DAY = 24 * 60 * 60
+local DAILY_CHECK = 10 * 60 -- seconds between checks for the daily Rolls while playing
 
--- The doors in `building` of the lift whose call panel (or arrival spot) is at `near`.
-local function doorsNear(building: Instance, near: Vector3): { BasePart }
-	local doors = {}
-	for _, part in building:GetDescendants() do
-		if part.Name == "LiftDoor" and part:IsA("BasePart") and (part.Position - near).Magnitude < LIFT_REACH then
-			table.insert(doors, part)
-		end
+local StarterPack = {}
+
+local purchasedRemote: RemoteEvent
+
+local function giveOnce(player: Player, key: string, reward: Gamepasses.StarterReward)
+	if not DataManager.Claim(player, `Pass_{key}`) then
+		return
 	end
-	return doors
+	for _, entry in reward.Parts do
+		DataManager.AddPart(player, entry[1], entry[2])
+	end
+	DataManager.AddCurrency(player, "Coins", reward.Coins)
+	LootManager.Drop(player, reward.Boxes)
+	purchasedRemote:FireClient(player, `🎉 Starter Pack! New parts, +{Format.Number(reward.Coins)} 💰 and {reward.Boxes} boxes raining down!`)
 end
 
--- Folds the doors shut (or open), over `time` seconds (at once with 0).
-local function setDoors(doors: { BasePart }, shut: boolean, time: number)
-	for _, door in doors do
-		local size = door:GetAttribute(if shut then "ClosedSize" else "OpenSize")
-		local cframe = door:GetAttribute(if shut then "ClosedCFrame" else "OpenCFrame")
-		if typeof(size) == "Vector3" and typeof(cframe) == "CFrame" then
-			if time > 0 then
-				TweenService:Create(door, TweenInfo.new(time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { Size = size, CFrame = cframe }):Play()
-			else
-				door.Size, door.CFrame = size, cframe
-			end
-		end
+local function giveDaily(player: Player, key: string, reward: Gamepasses.StarterReward)
+	if reward.DailyRolls > 0 and DataManager.Claim(player, `Pass_{key}_Daily`, DAY) then
+		DataManager.AddRolls(player, reward.DailyRolls)
+		purchasedRemote:FireClient(player, `🎲 Your daily {reward.DailyRolls} free Rolls are here!`)
 	end
 end
 
--- A full-screen fade, in (to opaque) or out.
-local function fade(cover: Frame, opaque: boolean)
-	TweenService:Create(cover, TweenInfo.new(FADE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { BackgroundTransparency = if opaque then 0 else 1 }):Play()
-	task.wait(FADE_TIME)
+-- Gives whatever's due for every Starter pass the player owns.
+local function update(player: Player)
+	if not DataManager.IsLoaded(player) then
+		return
+	end
+	for key, pass in Gamepasses do
+		local reward = pass.Starter
+		if reward and MonetizationManager.OwnsPass(player, key) then
+			giveOnce(player, key, reward)
+			giveDaily(player, key, reward)
+		end
+	end
 end
 
--- The player's movement controls (the default PlayerModule's), to switch off for a ride.
-local function setControls(on: boolean)
-	pcall(function()
-		local module = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule") :: any)
-		local controls = module:GetControls()
-		if on then
-			controls:Enable()
-		else
-			controls:Disable()
+local function onLoaded(player: Player)
+	local data = DataManager.GetData(player)
+	local hours = 0
+	for _, pass in Gamepasses do
+		hours = math.max(hours, pass.OfferHours or 0)
+	end
+	if data and hours > 0 then
+		player:SetAttribute("StarterOfferEnds", data.Stats.FirstJoin + hours * 60 * 60)
+	end
+	update(player)
+end
+
+function StarterPack.Init()
+	purchasedRemote = Remotes.Event("Purchased")
+	DataManager.OnPlayerLoaded(onLoaded)
+	MonetizationManager.OnPassGranted(function(player, key)
+		if Gamepasses[key].Starter then
+			update(player)
 		end
 	end)
-end
-
-local function ride(panel: BasePart, to: CFrame)
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if riding or not (character and root) then
-		return
-	end
-	riding = true
-	-- you stop right where you are for the whole ride
-	setControls(false)
-	root.AssemblyLinearVelocity = Vector3.zero
-	root.Anchored = true
-	local building = panel:FindFirstAncestor("Building") or workspace
-	local here = doorsNear(building, panel.Position)
-	Effects.sound(panel.Position, Sounds.Servo, 0.3, 1.2)
-	setDoors(here, true, DOOR_TIME)
-	task.wait(DOOR_TIME)
-
-	local cover = Kit.new("Frame", {
-		Name = "ElevatorFade",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = FADE_COLOR,
-		BackgroundTransparency = 1,
-		ZIndex = 60,
-		Parent = Kit.getGui(),
-	})
-	Effects.sound2D(Sounds.Whoosh, 0.25, 0.9)
-	fade(cover, true)
-	-- (still held while the floor there streams in)
-	pcall(player.RequestStreamAroundAsync, player, to.Position, 2)
-	character:PivotTo(to)
-	local there = doorsNear(building, to.Position)
-	setDoors(there, true, 0)
-	setDoors(here, false, 0)
-	task.wait(0.1)
-	Effects.sound2D(Sounds.Coin, 0.4, 1.6) -- ding!
-	task.spawn(fade, cover, false)
-	setDoors(there, false, DOOR_TIME)
-	task.wait(math.max(FADE_TIME, DOOR_TIME))
-	cover:Destroy()
-	if root.Parent then
-		root.Anchored = false
-	end
-	setControls(true)
-	riding = false
-end
-
--- Each lift's prompts, with its cabin, for the inside check.
-type Lift = { Cabin: CFrame, Half: number, Prompts: { ProximityPrompt } }
-local lifts: { [BasePart]: Lift } = {}
-
--- A prompt for one way a lift goes (on `spot`: an attachment in the cabin's middle).
-local function addPrompt(panel: BasePart, spot: Attachment, attribute: string, text: string, key: Enum.KeyCode): ProximityPrompt?
-	local to = panel:GetAttribute(attribute)
-	if typeof(to) ~= "CFrame" then
-		return nil
-	end
-	local prompt = Kit.new("ProximityPrompt", {
-		Name = `Lift{attribute}`,
-		ActionText = text,
-		ObjectText = "Elevator",
-		KeyboardKeyCode = key,
-		HoldDuration = 0,
-		MaxActivationDistance = 8,
-		RequiresLineOfSight = false,
-		Enabled = false, -- (on while you're inside: see below)
-		Parent = spot,
-	})
-	prompt.Triggered:Connect(function()
-		ride(panel, to)
-	end)
-	return prompt
-end
-
-local function watch(panel: Instance)
-	local cabin, half = panel:GetAttribute("Cabin"), panel:GetAttribute("CabinHalf")
-	if not panel:IsA("BasePart") or lifts[panel] or typeof(cabin) ~= "CFrame" or typeof(half) ~= "number" then
-		return
-	end
-	local spot = Instance.new("Attachment")
-	spot.Name = "LiftPromptSpot"
-	spot.Parent = panel
-	spot.WorldPosition = (cabin * CFrame.new(0, 3, 0)).Position
-	local both = panel:GetAttribute("Up") ~= nil and panel:GetAttribute("Down") ~= nil
-	local prompts = {}
-	for _, prompt in {
-		addPrompt(panel, spot, "Up", "Go up ⬆️", Enum.KeyCode.E),
-		addPrompt(panel, spot, "Down", "Go down ⬇️", if both then Enum.KeyCode.F else Enum.KeyCode.E),
-	} do
-		table.insert(prompts, prompt)
-	end
-	lifts[panel] = { Cabin = cabin, Half = half, Prompts = prompts }
-end
-
-for _, panel in CollectionService:GetTagged("ElevatorCall") do
-	watch(panel)
-end
-CollectionService:GetInstanceAddedSignal("ElevatorCall"):Connect(watch)
-CollectionService:GetInstanceRemovedSignal("ElevatorCall"):Connect(function(panel)
-	lifts[panel :: BasePart] = nil
-end)
-
--- A lift's prompts are on only while you stand inside its cabin.
-local elapsed = 0
-RunService.Heartbeat:Connect(function(dt)
-	elapsed += dt
-	if elapsed < INSIDE_CHECK then
-		return
-	end
-	elapsed = 0
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	for _, lift in lifts do
-		local inside = false
-		if root and not riding then
-			local at = lift.Cabin:PointToObjectSpace(root.Position)
-			inside = math.abs(at.X) <= lift.Half and math.abs(at.Z) <= lift.Half and at.Y > 0 and at.Y < CABIN_HEIGHT
-		end
-		for _, prompt in lift.Prompts do
-			prompt.Enabled = inside
-		end
-	end
-end)
-]======])
-upsert({ "StarterPlayer", "StarterPlayerScripts" }, "RenderBudget", "LocalScript", [======[
---[[
-	RenderBudget
-	Always-on render savings that change nothing you can see (the Lower Graphics setting
-	is the one that trades looks for FPS: LowGraphics). On the world (Tycoons, Hub),
-	including what's built or streamed in later:
-	  * SurfaceGuis (signs, posters, labels: each one is a texture of its own to draw)
-	    stop drawing once they're too far to read: READABLE times the size of their face
-	    (a big sign over a door is still drawn from across the map, a sticker on a chute
-	    only from its room); and
-	  * parts whose shadow nobody would notice stop casting one: glowing Neon, mostly
-	    see-through parts and tiny details (bulbs, flowers, rivets). Every caster is drawn
-	    again for the shadows, and the factories have tens of thousands of parts.
-	Builders can opt a part back in with the attribute KeepShadow = true. A part TycoonFX
-	has shrunk to pop it in carries its real size in its PopSize attribute.
-	Client only.
-]]
-
-local RunService = game:GetService("RunService")
-
-local READABLE = 40 -- a face this many times its size away is too small to read
-local GUI_DISTANCE = NumberRange.new(100, 600) -- studs
-local TINY = 0.8 -- studs: a part this small in every direction casts no shadow
-local SEE_THROUGH = 0.5
--- (not Effects: its parts often arrive shrunk or see-through and grow or fade in; the
--- brainrots' tiny details are dealt with in their art templates, VoxelArt)
-local WORLD_ROOTS = { Tycoons = true, Hub = true }
-local BATCH = 3000 -- instances per frame in the first pass (no hitch while it runs)
-
-local function sizeOf(part: BasePart): Vector3
-	local popping = part:GetAttribute("PopSize")
-	return if typeof(popping) == "Vector3" then popping else part.Size
-end
-
--- How far a SurfaceGui can be read from, by the size of the face it's on.
-local function readableFrom(gui: SurfaceGui): number?
-	local part = gui.Adornee or gui.Parent
-	if not (part and part:IsA("BasePart")) then
-		return nil
-	end
-	local size = sizeOf(part)
-	local face = gui.Face
-	local width, height
-	if face == Enum.NormalId.Front or face == Enum.NormalId.Back then
-		width, height = size.X, size.Y
-	elseif face == Enum.NormalId.Left or face == Enum.NormalId.Right then
-		width, height = size.Z, size.Y
-	else
-		width, height = size.X, size.Z
-	end
-	return math.clamp(math.max(width, height) * READABLE, GUI_DISTANCE.Min, GUI_DISTANCE.Max)
-end
-
-local function trim(instance: Instance)
-	if instance:IsA("BasePart") then
-		if instance.CastShadow and not instance:GetAttribute("KeepShadow") then
-			local size = sizeOf(instance)
-			if instance.Material == Enum.Material.Neon or instance.Transparency >= SEE_THROUGH or math.max(size.X, size.Y, size.Z) <= TINY then
-				instance.CastShadow = false
-			end
-		end
-	elseif instance:IsA("SurfaceGui") then
-		local distance = readableFrom(instance)
-		-- (0 means no limit; a builder's own, shorter one stays)
-		if distance and (instance.MaxDistance == 0 or instance.MaxDistance > distance) then
-			instance.MaxDistance = distance
-		end
-	end
-end
-
-local function watch(root: Instance)
-	if not WORLD_ROOTS[root.Name] then
-		return
-	end
-	root.DescendantAdded:Connect(trim)
 	task.spawn(function()
-		for index, instance in root:GetDescendants() do
-			trim(instance)
-			if index % BATCH == 0 then
-				RunService.Heartbeat:Wait()
+		while true do
+			task.wait(DAILY_CHECK)
+			for _, player in Players:GetPlayers() do
+				update(player)
 			end
 		end
 	end)
 end
 
-for _, root in workspace:GetChildren() do
-	watch(root)
-end
-workspace.ChildAdded:Connect(watch)
+return StarterPack
 ]======])
 ChangeHistoryService:SetWaypoint("AddNewScripts")
