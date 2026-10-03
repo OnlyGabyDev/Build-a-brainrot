@@ -935,7 +935,7 @@ local function snap(build: Build, loud: boolean?)
 	local machines = build.Machines :: ClayMachines?
 	local bulb = machines and machines.Flash
 	local at = if bulb then bulb.Position else build.Root.Position + Vector3.new(0, 6, 0)
-	Effects.sound(at, Sounds.Click, if loud then 0.4 else 0.25, vary(if loud then 1 else 1.3))
+	Effects.sound(at, Sounds.Shutter, if loud then 0.45 else 0.3, vary(if loud then 1 else 1.2))
 	if build.Near then
 		Effects.flash(at, CLAY_FLASH, if loud then 4 else 2.5, if loud then 22 else 14, 0.2)
 	end
@@ -1570,7 +1570,7 @@ local function cameraSpecial(build: Build, brainrot: Model, machine: BasePart, d
 		run(duration * 0.12, function(a)
 			brainrot:PivotTo(from:Lerp(to, ease(a, Enum.EasingStyle.Back, Enum.EasingDirection.Out)))
 		end)
-		Effects.sound(lens, Sounds.Click, 0.4, vary(1.1))
+		Effects.sound(lens, Sounds.Shutter, 0.5, vary(1))
 		if build.Near then
 			Effects.flash(if flash then flash.Position else lens, Color3.new(1, 1, 1), 5, 24, 0.25)
 		end
@@ -2882,7 +2882,7 @@ RunService.RenderStepped:Connect(function()
 			end
 			if frame and spin.Riders > 0 and Effects.near(center, FX_RANGE) then
 				local above = center + Vector3.new(0, 8, 0)
-				Effects.sound(above, Sounds.Click, 0.12, vary(1.5))
+				Effects.sound(above, Sounds.Shutter, 0.14, vary(1.25))
 				if click % 2 == 0 then
 					Effects.flash(above, Turntable.Flash, 1.3, 16, 0.12)
 				end

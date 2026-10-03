@@ -25,6 +25,7 @@ return {
 
 	-- Room upgrades
 	Whistle = "rbxassetid://9119628055", -- the toy train's steam whistle
+	Shutter = "rbxassetid://17208312548", -- a camera shutter: the Clay Studio's stop-motion frames and snaps
 
 	-- Background music, shuffled
 	Music = {

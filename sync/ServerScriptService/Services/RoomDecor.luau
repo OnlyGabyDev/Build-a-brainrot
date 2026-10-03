@@ -947,9 +947,31 @@ local function buildPlushie(parent: Instance, floor: CFrame)
 end
 
 -- Clay Studio -------------------------------------------------------------------------
+-- A stop-motion film studio (GDD §10): a deep terracotta floor and orange walls, teal
+-- neon and gold. Lighting trusses hang over the walkways with spotlights aimed at the
+-- turntables, film-strip runners down the walkways, giant film reels turning on the
+-- back wall with a strip of film between them, an ON AIR sign, movie posters of brainrot
+-- claymations, a storyboard, a shelf of miniature sets and clay maquettes, a pegboard of
+-- sculpting tools, tubs of clay, a film camera on a dolly by the director's chair, a
+-- sculpting desk, and a giant sculpture turning on its plinth. The turntables are wide:
+-- props keep to the walls, the front of the room and the back corners.
 
 local CLAY = Color3.fromRGB(215, 120, 80)
 local CLAY_LIGHT = Color3.fromRGB(235, 160, 115)
+local CLAY_DARK = Color3.fromRGB(140, 70, 50)
+local CLAY_TEAL = Color3.fromRGB(60, 205, 195)
+local CLAY_GOLD = Color3.fromRGB(255, 190, 40)
+local FILM = Color3.fromRGB(35, 30, 45)
+local STEEL = Color3.fromRGB(70, 65, 80)
+local CLAY_COLORS = { -- play-dough
+	Color3.fromRGB(255, 95, 120),
+	Color3.fromRGB(255, 200, 60),
+	Color3.fromRGB(90, 200, 255),
+	Color3.fromRGB(120, 215, 110),
+	Color3.fromRGB(185, 120, 255),
+	Color3.fromRGB(255, 140, 60),
+}
+local PAINT_COLORS = CLAY_COLORS
 
 local function pot(parent: Instance, at: CFrame, height: number, color: Color3)
 	cylinder(parent, "PotBase", height * 0.5, height * 0.2, at, color)
@@ -958,40 +980,30 @@ local function pot(parent: Instance, at: CFrame, height: number, color: Color3)
 	cylinder(parent, "PotLip", height * 0.45, height * 0.1, at * CFrame.new(0, height * 0.95, 0), color:Lerp(WHITE, 0.15))
 end
 
-local function potteryWheel(parent: Instance, at: CFrame, scale: number)
-	cylinder(parent, "WheelBase", 6 * scale, 3 * scale, at, Color3.fromRGB(120, 140, 170))
-	-- the plate and its lump of clay turn (a Spinner about the upright)
-	local wheel = Instance.new("Model")
-	wheel.Name = "PotteryWheel"
-	cylinder(wheel, "WheelPlate", 5 * scale, 0.5 * scale, at * CFrame.new(0, 3 * scale, 0), Color3.fromRGB(200, 205, 215), Enum.Material.Metal)
-	ball(wheel, "ClayLump", 3.2 * scale, at * CFrame.new(0, 4.6 * scale, 0), CLAY, Enum.Material.Sand)
-	ball(wheel, "ClayLumpTop", 1.4 * scale, at * CFrame.new(0.6 * scale, 5.9 * scale, 0), CLAY_LIGHT, Enum.Material.Sand)
-	spinner(wheel, parent, at * CFrame.new(0, 3 * scale, 0) * CFrame.Angles(math.pi / 2, 0, 0), 2.5)
-	cylinder(parent, "Stool", 3 * scale, 2.5 * scale, at * CFrame.new(5 * scale, 0, 0), Color3.fromRGB(225, 180, 125), Enum.Material.Wood)
-end
-
--- A big lumpy clay sculpture of a brainrot in the making (`at`: facing +X).
+-- A big lumpy clay sculpture of a brainrot in the making on a plinth that slowly turns
+-- (`at`: on the floor under it).
 local function sculpture(parent: Instance, at: CFrame)
-	cylinder(parent, "Plinth", 12, 4, at, WHITE)
-	cylinder(parent, "PlinthTop", 13, 0.8, at * CFrame.new(0, 4, 0), CLAY_LIGHT)
-	ball(parent, "ClayBlob", 10, at * CFrame.new(0, 9, 0), CLAY, Enum.Material.Sand)
-	ball(parent, "ClayBlob", 7.5, at * CFrame.new(0.6, 15.5, 0), CLAY_LIGHT, Enum.Material.Sand)
+	cylinder(parent, "Plinth", 12, 3.2, at, WHITE)
+	cylinder(parent, "PlinthBand", 12.3, 0.6, at * CFrame.new(0, 1.2, 0), CLAY_TEAL, Enum.Material.Neon).CastShadow = false
+	cylinder(parent, "PlinthRim", 12.6, 0.5, at * CFrame.new(0, 3.1, 0), CLAY_GOLD, Enum.Material.Metal)
+	local turning = Instance.new("Model")
+	turning.Name = "Sculpture"
+	local top = at * CFrame.new(0, 3.6, 0)
+	cylinder(turning, "PlinthTop", 11, 0.6, top, CLAY_LIGHT)
+	ball(turning, "ClayBlob", 9, top * CFrame.new(0, 4.6, 0), CLAY, Enum.Material.Sand)
+	ball(turning, "ClayBlob", 7, top * CFrame.new(0.5, 10.6, 0), CLAY_LIGHT, Enum.Material.Sand)
 	for _, side in { -1, 1 } do
-		ball(parent, "ClayBlob", 3.2, at * CFrame.new(0, 10, side * 5.4), CLAY, Enum.Material.Sand) -- arms
-		ball(parent, "ClayEye", 2.2, at * CFrame.new(3.6, 16.3, side * 1.6), WHITE)
-		ball(parent, "ClayPupil", 1.1, at * CFrame.new(4.5, 16.3, side * 1.6), Color3.fromRGB(60, 40, 50))
+		ball(turning, "ClayBlob", 3, top * CFrame.new(0, 5.6, side * 5), CLAY, Enum.Material.Sand) -- arms
+		ball(turning, "ClayEye", 2.1, top * CFrame.new(3.3, 11.4, side * 1.5), WHITE)
+		ball(turning, "ClayPupil", 1.05, top * CFrame.new(4.15, 11.4, side * 1.5), Color3.fromRGB(60, 40, 50))
 	end
-	-- a sculpting tool stuck in it
-	makeDecor(parent, "SculptingTool", Vector3.new(0.4, 5, 0.4), at * CFrame.new(-2, 18, 2) * CFrame.Angles(math.rad(30), 0, math.rad(20)), Color3.fromRGB(225, 180, 125), Enum.Material.Wood)
+	-- a sculpting tool stuck in it, and a few dabs of colored clay
+	makeDecor(turning, "SculptingTool", Vector3.new(0.4, 5, 0.4), top * CFrame.new(-2, 13.4, 2) * CFrame.Angles(math.rad(30), 0, math.rad(20)), Color3.fromRGB(225, 180, 125), Enum.Material.Wood)
+	for index, offset in { Vector3.new(3.4, 6, -2.4), Vector3.new(-2, 8.6, 3), Vector3.new(2.6, 13.6, 1.6), Vector3.new(-3.2, 4.6, -2) } do
+		ball(turning, "ClayDab", 1.4, top * CFrame.new(offset), CLAY_COLORS[index], Enum.Material.Sand)
+	end
+	spinner(turning, parent, top * CFrame.Angles(math.pi / 2, 0, 0), 0.35)
 end
-
-local PAINT_COLORS = {
-	Color3.fromRGB(255, 95, 120),
-	Color3.fromRGB(255, 200, 60),
-	Color3.fromRGB(90, 200, 255),
-	Color3.fromRGB(120, 215, 110),
-	Color3.fromRGB(185, 120, 255),
-}
 
 -- A splat of paint on a wall (`face`: its middle, on the wall, -Z into the room), with
 -- a drip running down.
@@ -1008,22 +1020,271 @@ local function splat(parent: Instance, face: CFrame, size: number, color: Color3
 	blob(size * 0.22, -size * 0.15, -size)
 end
 
--- A painter's drop cloth down a walkway (centered on `x`, from `fromZ` to `toZ`): canvas
--- spattered with paint, its edges hemmed.
-local function dropCloth(parent: Instance, floor: CFrame, x: number, fromZ: number, toZ: number)
-	local length, width = toZ - fromZ, 10
+-- A film strip laid down a walkway (centered on `x`, from `fromZ` to `toZ`): dark film
+-- with sprocket holes along both edges and a frame of color every few studs.
+local function filmRunner(parent: Instance, floor: CFrame, x: number, fromZ: number, toZ: number)
+	local length, width = toZ - fromZ, 7
 	local middle = floor * CFrame.new(x, 0, (fromZ + toZ) / 2)
-	makeDecor(parent, "DropCloth", Vector3.new(width, 0.1, length), middle * CFrame.new(0, 0.05, 0), Color3.fromRGB(245, 235, 215), Enum.Material.Fabric)
+	makeDecor(parent, "FilmRunner", Vector3.new(width, 0.08, length), middle * CFrame.new(0, 0.04, 0), FILM)
+	local holes = math.floor(length / 2.2)
 	for _, side in { -1, 1 } do
-		makeDecor(parent, "DropClothHem", Vector3.new(0.5, 0.14, length), middle * CFrame.new(side * (width / 2 - 0.25), 0.07, 0), Color3.fromRGB(215, 200, 175), Enum.Material.Fabric)
+		for k = 0, holes - 1 do
+			makeDecor(parent, "FilmHole", Vector3.new(0.8, 0.1, 0.9), middle * CFrame.new(side * (width / 2 - 0.75), 0.05, -length / 2 + (k + 0.5) * length / holes), Color3.fromRGB(250, 240, 220))
+		end
 	end
-	local random = Random.new(math.floor(x * 7 + fromZ))
-	for index = 1, math.floor(length / 5) do
-		local size = random:NextNumber(1, 3)
-		local spot = middle * CFrame.new(random:NextNumber(-width / 2 + 1.5, width / 2 - 1.5), 0.12, random:NextNumber(-length / 2 + 1, length / 2 - 1))
-		local drop = makeDecor(parent, "PaintSpatter", Vector3.new(0.06, size, size), spot * CFrame.Angles(0, 0, math.pi / 2), PAINT_COLORS[index % #PAINT_COLORS + 1])
-		drop.Shape = Enum.PartType.Cylinder
+	local frames = math.floor(length / 5)
+	for k = 0, frames - 1 do
+		local color = CLAY_COLORS[k % #CLAY_COLORS + 1]
+		makeDecor(parent, "FilmFrame", Vector3.new(width - 3.2, 0.1, 3.8), middle * CFrame.new(0, 0.05, -length / 2 + (k + 0.5) * length / frames), color:Lerp(WHITE, 0.15))
 	end
+end
+
+-- A lighting truss hung under the ceiling along Z (centered on `x`, from `fromZ` to
+-- `toZ`): two black beams braced together on chrome hangers, spotlights hanging off it
+-- aimed at `targets` (room space), every other one a real light.
+local function truss(parent: Instance, floor: CFrame, x: number, fromZ: number, toZ: number, targets: { Vector3 })
+	local y = 25.2
+	local length = toZ - fromZ
+	local middle = floor * CFrame.new(x, y, (fromZ + toZ) / 2)
+	for _, side in { -1, 1 } do
+		makeDecor(parent, "TrussBeam", Vector3.new(0.5, 0.5, length), middle * CFrame.new(side * 1.1, 0, 0), STEEL)
+	end
+	for k = 0, math.floor(length / 4) do
+		makeDecor(parent, "TrussBrace", Vector3.new(2.2, 0.3, 0.3), middle * CFrame.new(0, 0, -length / 2 + k * 4), STEEL)
+	end
+	for _, z in { fromZ + 3, (fromZ + toZ) / 2, toZ - 3 } do
+		rod(parent, "TrussHanger", 0.25, (floor * CFrame.new(x, y, z)).Position, (floor * CFrame.new(x, 28, z)).Position, Color3.fromRGB(200, 205, 215), Enum.Material.Metal)
+	end
+	for index, target in targets do
+		local z = fromZ + (index - 0.5) / #targets * length
+		local yoke = floor * CFrame.new(x, y - 0.5, z)
+		makeDecor(parent, "SpotYoke", Vector3.new(0.3, 1.4, 0.3), yoke * CFrame.new(0, -0.5, 0), STEEL)
+		local aim = CFrame.lookAt((yoke * CFrame.new(0, -1.6, 0)).Position, (floor * CFrame.new(target)).Position)
+		local can = makeDecor(parent, "SpotCan", Vector3.new(2.2, 1.7, 1.7), aim * CFrame.Angles(0, math.pi / 2, 0), FILM)
+		can.Shape = Enum.PartType.Cylinder
+		makeDecor(parent, "SpotRing", Vector3.new(0.3, 1.9, 1.9), aim * CFrame.new(0, 0, -1.1) * CFrame.Angles(0, math.pi / 2, 0), CLAY_GOLD, Enum.Material.Metal).Shape = Enum.PartType.Cylinder
+		local lens = makeDecor(parent, "SpotLens", Vector3.new(0.12, 1.4, 1.4), aim * CFrame.new(0, 0, -1.2) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 240, 205), Enum.Material.Neon)
+		lens.Shape = Enum.PartType.Cylinder
+		lens.CastShadow = false
+		if index % 2 == 1 then
+			local light = Instance.new("SpotLight")
+			light.Face = Enum.NormalId.Right -- (the lens is a cylinder turned to face the target: its X)
+			light.Angle = 45
+			light.Range = 34
+			light.Brightness = 1.1
+			light.Color = Color3.fromRGB(255, 235, 200)
+			light.Parent = lens
+		end
+	end
+end
+
+-- A giant film reel on a wall (`face`: its middle, -Z into the room), turning.
+local function wallReel(parent: Instance, face: CFrame, diameter: number, speed: number)
+	local reel = Instance.new("Model")
+	reel.Name = "FilmReel"
+	local hub = face * CFrame.new(0, 0, -0.6)
+	roller(reel, "ReelDisc", diameter, 0.5, hub * CFrame.Angles(0, math.pi / 2, 0), FILM)
+	roller(reel, "ReelRim", diameter + 0.4, 0.3, hub * CFrame.new(0, 0, -0.1) * CFrame.Angles(0, math.pi / 2, 0), CLAY_GOLD).Material = Enum.Material.Metal
+	roller(reel, "ReelFilm", diameter * 0.72, 0.6, hub * CFrame.new(0, 0, -0.05) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(90, 70, 60))
+	for k = 0, 4 do
+		local angle = k / 5 * math.pi * 2
+		local hole = roller(reel, "ReelHole", diameter * 0.2, 0.7, hub * CFrame.new(math.cos(angle) * diameter * 0.24, math.sin(angle) * diameter * 0.24, -0.1) * CFrame.Angles(0, math.pi / 2, 0), CLAY_TEAL)
+		hole.Material = Enum.Material.Neon
+		hole.CastShadow = false
+	end
+	roller(reel, "ReelHub", diameter * 0.16, 0.9, hub * CFrame.new(0, 0, -0.2) * CFrame.Angles(0, math.pi / 2, 0), CLAY_GOLD).Material = Enum.Material.Metal
+	spinner(reel, parent, hub, speed)
+end
+
+-- A strip of film along a wall from `from` to `to` (wall spots at the same height): dark
+-- film with sprocket holes and frames of color, running between the reels.
+local function wallFilm(parent: Instance, floor: CFrame, from: WallSpot, to: WallSpot)
+	local a, b = wallFace(floor, from), wallFace(floor, to)
+	local length = (b.Position - a.Position).Magnitude
+	local middle = a:Lerp(b, 0.5) * CFrame.new(0, 0, -0.3)
+	makeDecor(parent, "WallFilm", Vector3.new(length, 2.8, 0.15), middle, FILM)
+	local frames = math.floor(length / 3.6)
+	for k = 0, frames - 1 do
+		local x = -length / 2 + (k + 0.5) * length / frames
+		makeDecor(parent, "WallFilmFrame", Vector3.new(2.6, 1.6, 0.05), middle * CFrame.new(x, 0, -0.1), CLAY_COLORS[k % #CLAY_COLORS + 1]:Lerp(WHITE, 0.2))
+		for _, y in { -1.15, 1.15 } do
+			makeDecor(parent, "WallFilmHole", Vector3.new(0.6, 0.35, 0.05), middle * CFrame.new(x - 0.9, y, -0.1), Color3.fromRGB(250, 240, 220))
+			makeDecor(parent, "WallFilmHole", Vector3.new(0.6, 0.35, 0.05), middle * CFrame.new(x + 0.9, y, -0.1), Color3.fromRGB(250, 240, 220))
+		end
+	end
+end
+
+-- The storyboard on a wall (`face`: its middle, -Z into the room): a cork board in a
+-- terracotta frame, six sketch cards of a brainrot's big scene pinned to it.
+local STORYBOARD = { "🦈", "💥", "🥁", "😱", "🍝", "🏆" }
+local function storyboard(parent: Instance, face: CFrame)
+	local size = Vector2.new(16, 9.4)
+	makeDecor(parent, "BoardFrame", Vector3.new(size.X + 1, size.Y + 1, 0.4), face * CFrame.new(0, 0, -0.2), CLAY_DARK)
+	makeDecor(parent, "Cork", Vector3.new(size.X, size.Y, 0.3), face * CFrame.new(0, 0, -0.4), Color3.fromRGB(205, 160, 105), Enum.Material.Sand)
+	for index, emoji in STORYBOARD do
+		local column, row = (index - 1) % 3, math.floor((index - 1) / 3)
+		local card = face * CFrame.new(-5.2 + column * 5.2, 2.2 - row * 4.4, -0.6) * CFrame.Angles(0, 0, math.rad((index % 3 - 1) * 4))
+		local sheet = makeDecor(parent, "SketchCard", Vector3.new(4.4, 3.4, 0.08), card, WHITE)
+		emojiOn(sheet, Enum.NormalId.Front, emoji)
+		ball(parent, "Pin", 0.45, card * CFrame.new(0, 1.5, -0.1), CLAY_COLORS[index], Enum.Material.Neon).CastShadow = false
+	end
+	neonSign(parent, face * CFrame.new(0, size.Y / 2 + 2.4, 0), Vector2.new(11, 2.2), "✏ STORYBOARD", CLAY_TEAL)
+end
+
+-- Little things for the shelf of sets (`at`: on the shelf, -Z toward the room): tiny
+-- stop-motion sets and clay maquettes of brainrots, in turn.
+local function setPiece(parent: Instance, at: CFrame, index: number)
+	local kind = index % 4
+	local color = CLAY_COLORS[index % #CLAY_COLORS + 1]
+	if kind == 0 then
+		-- a little house: a block with a roof wedge and a lit window
+		makeDecor(parent, "SetHouse", Vector3.new(2.2, 2, 2), at * CFrame.new(0, 1, 0), color:Lerp(WHITE, 0.3))
+		wedge(parent, "SetRoof", Vector3.new(2.4, 1.2, 1.2), at * CFrame.new(0, 2.6, -0.6), CLAY_DARK)
+		wedge(parent, "SetRoof", Vector3.new(2.4, 1.2, 1.2), at * CFrame.new(0, 2.6, 0.6) * CFrame.Angles(0, math.pi, 0), CLAY_DARK)
+		makeDecor(parent, "SetWindow", Vector3.new(0.7, 0.7, 0.1), at * CFrame.new(0, 1.1, -1.02), Color3.fromRGB(255, 225, 120), Enum.Material.Neon)
+	elseif kind == 1 then
+		-- a clay maquette: a lumpy brainrot with googly eyes
+		ball(parent, "Maquette", 2, at * CFrame.new(0, 1, 0), color, Enum.Material.Sand)
+		ball(parent, "Maquette", 1.4, at * CFrame.new(0, 2.4, 0), color:Lerp(WHITE, 0.2), Enum.Material.Sand)
+		for _, x in { -0.32, 0.32 } do
+			ball(parent, "MaquetteEye", 0.5, at * CFrame.new(x, 2.55, -0.6), WHITE)
+			ball(parent, "MaquettePupil", 0.25, at * CFrame.new(x, 2.55, -0.82), INK)
+		end
+	elseif kind == 2 then
+		-- a little tree
+		cylinder(parent, "SetTrunk", 0.4, 1.2, at, Color3.fromRGB(140, 90, 60))
+		ball(parent, "SetTree", 1.9, at * CFrame.new(0, 2, 0), Color3.fromRGB(90, 200, 110), Enum.Material.Sand)
+		ball(parent, "SetTree", 1.2, at * CFrame.new(0.5, 2.8, 0), Color3.fromRGB(120, 220, 120), Enum.Material.Sand)
+	else
+		-- a crescent moon on a stick, and a star
+		cylinder(parent, "SetStick", 0.15, 2.6, at, STEEL)
+		ball(parent, "SetMoon", 1.4, at * CFrame.new(0, 2.9, 0), Color3.fromRGB(255, 230, 140), Enum.Material.Neon).CastShadow = false
+		ball(parent, "SetMoonBite", 1.1, at * CFrame.new(0.45, 3.1, -0.2), FILM)
+	end
+end
+
+-- A sculpting tool on the pegboard (`at`: its middle on the board, -Z into the room).
+local function sculptingTool(parent: Instance, at: CFrame, index: number)
+	local handle = Color3.fromRGB(225, 175, 120)
+	local kind = index % 4
+	makeDecor(parent, "ToolPeg", Vector3.new(0.3, 0.3, 0.6), at * CFrame.new(0, 2.4, -0.3), STEEL)
+	if kind == 0 then -- a loop tool
+		makeDecor(parent, "ToolHandle", Vector3.new(0.5, 3.4, 0.5), at * CFrame.new(0, 0.3, -0.4), handle, Enum.Material.Wood)
+		local loop = makeDecor(parent, "ToolLoop", Vector3.new(0.15, 1.3, 1.3), at * CFrame.new(0, 2.4, -0.4) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(205, 210, 225), Enum.Material.Metal)
+		loop.Shape = Enum.PartType.Cylinder
+	elseif kind == 1 then -- a rolling pin
+		roller(parent, "RollingPin", 1.1, 4, at * CFrame.new(0, 0, -0.6) * CFrame.Angles(0, 0, math.pi / 2), handle)
+		roller(parent, "RollingPinHandle", 0.5, 5.4, at * CFrame.new(0, 0, -0.6) * CFrame.Angles(0, 0, math.pi / 2), CLAY_DARK)
+	elseif kind == 2 then -- a brush, its tip in clay
+		makeDecor(parent, "BrushHandle", Vector3.new(0.4, 3.6, 0.4), at * CFrame.new(0, 0.4, -0.4), CLAY_TEAL)
+		makeDecor(parent, "BrushTip", Vector3.new(0.7, 1, 0.5), at * CFrame.new(0, -1.9, -0.4), CLAY_COLORS[index % #CLAY_COLORS + 1])
+	else -- a knife tool
+		makeDecor(parent, "ToolHandle", Vector3.new(0.5, 2.6, 0.5), at * CFrame.new(0, 0.8, -0.4), handle, Enum.Material.Wood)
+		wedge(parent, "ToolBlade", Vector3.new(0.12, 2, 0.6), at * CFrame.new(0, -1.5, -0.4) * CFrame.Angles(math.pi, 0, 0), Color3.fromRGB(205, 210, 225), Enum.Material.Metal)
+	end
+end
+
+local function pegboard(parent: Instance, face: CFrame, width: number)
+	local height = 9
+	makeDecor(parent, "Pegboard", Vector3.new(width, height, 0.3), face * CFrame.new(0, 13.5, -0.2), Color3.fromRGB(245, 225, 195))
+	makeDecor(parent, "PegboardFrame", Vector3.new(width + 0.8, height + 0.8, 0.25), face * CFrame.new(0, 13.5, -0.05), CLAY_TEAL)
+	local count = math.floor(width / 2.4)
+	for k = 0, count - 1 do
+		sculptingTool(parent, face * CFrame.new(-width / 2 + (k + 0.5) * width / count, 13.5 + (k % 2) * 0.8 - 0.4, -0.35), k)
+	end
+	neonSign(parent, face * CFrame.new(0, 13.5 + height / 2 + 2, 0), Vector2.new(9, 2), "🛠 TOOLS", CLAY_TEAL)
+end
+
+-- Tubs of clay on a wall shelf's things (`at`: on the shelf): a tub of each color, its
+-- lid off, the clay heaped in it.
+local function clayTub(parent: Instance, at: CFrame, index: number)
+	local color = CLAY_COLORS[index % #CLAY_COLORS + 1]
+	cylinder(parent, "Tub", 2.6, 2, at, WHITE)
+	cylinder(parent, "TubBand", 2.7, 0.5, at * CFrame.new(0, 0.9, 0), color)
+	ball(parent, "TubClay", 2.2, at * CFrame.new(0, 1.9, 0), color, Enum.Material.Sand)
+end
+
+-- A movie camera on a dolly (`at`: on the floor under it, -Z where it looks): a track
+-- of two rails, a wheeled cart, a column, the camera with two reels on top.
+local function movieCamera(parent: Instance, at: CFrame)
+	for _, x in { -1.6, 1.6 } do
+		makeDecor(parent, "DollyRail", Vector3.new(0.35, 0.3, 14), at * CFrame.new(x, 0.15, 3), Color3.fromRGB(190, 195, 210), Enum.Material.Metal)
+	end
+	for k = 0, 6 do
+		makeDecor(parent, "DollyTie", Vector3.new(4.2, 0.2, 0.6), at * CFrame.new(0, 0.1, -3 + k * 2), Color3.fromRGB(140, 95, 65), Enum.Material.Wood)
+	end
+	makeDecor(parent, "DollyCart", Vector3.new(4, 1, 4.6), at * CFrame.new(0, 1.2, 0), CLAY_TEAL)
+	for _, x in { -1.6, 1.6 } do
+		for _, z in { -1.6, 1.6 } do
+			roller(parent, "DollyWheel", 1, 0.4, at * CFrame.new(x, 0.6, z), FILM)
+		end
+	end
+	cylinder(parent, "DollyColumn", 1, 5.4, at * CFrame.new(0, 1.7, 0), STEEL)
+	local body = at * CFrame.new(0, 8.6, 0) * CFrame.Angles(math.rad(-6), 0, 0)
+	makeDecor(parent, "MovieCamera", Vector3.new(2.6, 2.6, 4.2), body, FILM)
+	makeDecor(parent, "MovieCameraStripe", Vector3.new(2.7, 0.4, 4.3), body * CFrame.new(0, -0.5, 0), CLAY_GOLD)
+	roller(parent, "MovieLens", 1.8, 1.6, body * CFrame.new(0, 0, -2.7) * CFrame.Angles(0, math.pi / 2, 0), STEEL)
+	roller(parent, "MovieLensGlass", 1.4, 0.1, body * CFrame.new(0, 0, -3.55) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(120, 200, 255)).Material = Enum.Material.Glass
+	for _, z in { -0.9, 1.3 } do
+		local center = body * CFrame.new(0, 2.6, z)
+		local reel = Instance.new("Model")
+		reel.Name = "CameraReel"
+		roller(reel, "CameraReelDisc", 2.6, 0.3, center, FILM)
+		for k = 0, 2 do
+			local angle = k / 3 * math.pi * 2
+			roller(reel, "CameraReelHole", 0.6, 0.35, center * CFrame.new(0, math.cos(angle) * 0.7, math.sin(angle) * 0.7), CLAY_TEAL)
+		end
+		spinner(reel, parent, center * CFrame.Angles(0, math.pi / 2, 0), if z < 0 then 1.4 else -1.4)
+	end
+	-- a red tally light on top: recording
+	ball(parent, "TallyLight", 0.6, body * CFrame.new(0.9, 1.5, -1.6), Color3.fromRGB(255, 60, 70), Enum.Material.Neon).CastShadow = false
+end
+
+-- The director's chair (`at`: on the floor under it, -Z its front), DIRECTOR on its back,
+-- a megaphone on the seat.
+local function directorChair(parent: Instance, at: CFrame)
+	for _, x in { -1.6, 1.6 } do
+		for _, z in { -1, 1 } do
+			makeDecor(parent, "ChairLeg", Vector3.new(0.35, 4.2, 0.35), at * CFrame.new(x, 2.1, z) * CFrame.Angles(z * math.rad(14), 0, 0), Color3.fromRGB(140, 95, 65), Enum.Material.Wood)
+		end
+		makeDecor(parent, "ChairArm", Vector3.new(0.4, 0.3, 2.6), at * CFrame.new(x, 5.2, 0.2), Color3.fromRGB(140, 95, 65), Enum.Material.Wood)
+		makeDecor(parent, "ChairPost", Vector3.new(0.35, 4, 0.35), at * CFrame.new(x, 6.4, 1.2), Color3.fromRGB(140, 95, 65), Enum.Material.Wood)
+	end
+	makeDecor(parent, "ChairSeat", Vector3.new(3.4, 0.25, 2.4), at * CFrame.new(0, 4.2, 0), CLAY_TEAL, Enum.Material.Fabric)
+	local back = makeDecor(parent, "ChairBack", Vector3.new(3.4, 1.8, 0.2), at * CFrame.new(0, 7, 1.25), CLAY_TEAL, Enum.Material.Fabric)
+	label(back, Enum.NormalId.Back, "DIRECTOR", WHITE, nil, 30)
+	-- the megaphone on the seat
+	local cone = at * CFrame.new(0.4, 4.9, -0.2) * CFrame.Angles(0, math.rad(30), 0)
+	roller(parent, "Megaphone", 1, 2.2, cone, Color3.fromRGB(255, 200, 60))
+	roller(parent, "MegaphoneBell", 1.6, 0.4, cone * CFrame.new(1.2, 0, 0), WHITE)
+end
+
+-- A sculpting desk (`at`: on the floor under its middle, -Z toward the room): a wide
+-- table, lumps of clay, a half-made head on a stand, tools and a lamp.
+local function sculptingDesk(parent: Instance, at: CFrame)
+	makeDecor(parent, "DeskTop", Vector3.new(11, 0.7, 5.6), at * CFrame.new(0, 4.3, 0), Color3.fromRGB(225, 175, 120), Enum.Material.Wood)
+	for _, x in { -5, 5 } do
+		makeDecor(parent, "DeskLeg", Vector3.new(0.8, 4, 5), at * CFrame.new(x, 2, 0), CLAY_DARK)
+	end
+	local top = at * CFrame.new(0, 4.65, 0)
+	cylinder(parent, "BustStand", 0.6, 1.6, top * CFrame.new(-2.6, 0, 0.6), STEEL)
+	ball(parent, "Bust", 2.8, top * CFrame.new(-2.6, 2.9, 0.6), CLAY, Enum.Material.Sand)
+	for _, x in { -0.5, 0.5 } do
+		ball(parent, "BustEye", 0.6, top * CFrame.new(-2.6 + x, 3.2, -0.6), WHITE)
+	end
+	for index, spot in { Vector3.new(1, 0.6, -0.8), Vector3.new(2.6, 0.5, 0.6), Vector3.new(3.8, 0.55, -1) } do
+		ball(parent, "ClayLump", 1.4 + index * 0.2, top * CFrame.new(spot), CLAY_COLORS[index + 1], Enum.Material.Sand)
+	end
+	roller(parent, "DeskRollingPin", 0.7, 3.4, top * CFrame.new(1.6, 0.35, 1.6), Color3.fromRGB(225, 175, 120))
+	-- the desk lamp, bent over the bust
+	cylinder(parent, "LampBase", 1.4, 0.3, top * CFrame.new(4.4, 0, 1.6), STEEL)
+	local elbow = (top * CFrame.new(4.4, 3.4, 1.6)).Position
+	rod(parent, "LampArm", 0.25, (top * CFrame.new(4.4, 0.3, 1.6)).Position, elbow, STEEL)
+	local head = (top * CFrame.new(1.2, 4.6, 0.8)).Position
+	rod(parent, "LampArm", 0.25, elbow, head, STEEL)
+	ball(parent, "LampShade", 1.6, CFrame.new(head), CLAY_TEAL)
+	ball(parent, "LampBulb", 0.8, CFrame.new(head - Vector3.new(0, 0.6, 0)), Color3.fromRGB(255, 240, 200), Enum.Material.Neon).CastShadow = false
+	makeDecor(parent, "Stool", Vector3.new(2.6, 2.8, 2.6), at * CFrame.new(-1, 1.4, -4.6), CLAY_TEAL)
 end
 
 -- A film studio light on a stand (`at`: its foot, -Z where it points), a real spotlight.
@@ -1050,6 +1311,23 @@ local function studioLight(parent: Instance, at: CFrame)
 	light.Parent = housing
 end
 
+-- The ON AIR sign (`face`: its middle on the wall, -Z into the room): red neon in a
+-- frame of chasing bulbs.
+local function onAirSign(parent: Instance, face: CFrame)
+	local size = Vector2.new(13, 3.6)
+	neonSign(parent, face, size, "● ON AIR", Color3.fromRGB(255, 60, 75))
+	local index = 0
+	for _, y in { -1, 1 } do
+		for k = 0, 7 do
+			index += 1
+			local bulb = ball(parent, "Bulb", 0.7, face * CFrame.new(-size.X / 2 - 0.3 + k * (size.X + 0.6) / 7, y * (size.Y / 2 + 0.9), -0.4), Color3.fromRGB(255, 215, 130), Enum.Material.Neon)
+			bulb.CastShadow = false
+			bulb:SetAttribute("Index", if y < 0 then 16 - k else k)
+			CollectionService:AddTag(bulb, "Marquee")
+		end
+	end
+end
+
 local function buildClay(parent: Instance, floor: CFrame)
 	-- the sign over the side door off the outside stairs (X = +70, Z = 31), and chasing
 	-- string lights round the walls by the ceiling
@@ -1066,58 +1344,84 @@ local function buildClay(parent: Instance, floor: CFrame)
 	index = stringLights(parent, at(66, 26, 18), at(66, 26, -57), 1.6, index)
 	stringLights(parent, at(66, 26, -57), at(-66, 26, -57), 2, index)
 
-	-- drop cloths down the walkways, lamps and neon signs over them
-	for index_, x in { -19.6, 22.4 } do
-		dropCloth(parent, floor, x, -25, 45)
-		for k, z in { -32, -2, 30 } do
-			pendantLamp(parent, floor * CFrame.new(x, 28, z), 5, PAINT_COLORS[(index_ + k) % #PAINT_COLORS + 1])
-		end
-		hangingSign(parent, floor * CFrame.new(x, 28, 14), 6, Vector2.new(12, 2.6), if index_ == 1 then "🎬 LIGHTS, CAMERA, CLAY!" else "★ 100% HANDMADE ★", if index_ == 1 then Color3.fromRGB(255, 140, 70) else Color3.fromRGB(60, 205, 195))
+	-- the walkways between the turntables: film-strip runners, lighting trusses over
+	-- them with spotlights on the tables either side, and a hanging sign on each
+	for index_, x in { -21, 21 } do
+		filmRunner(parent, floor, x, -44, 46)
+		truss(parent, floor, x, -36, 42, {
+			Vector3.new(x - 21, 4, 4),
+			Vector3.new(x + 21, 4, 4),
+			Vector3.new(x - 21, 4, 18),
+			Vector3.new(x + 21, 4, 18),
+		})
+		hangingSign(parent, floor * CFrame.new(x, 25, -30), 4, Vector2.new(12, 2.6), if index_ == 1 then "🎬 LIGHTS, CAMERA, CLAY!" else "★ 100% HANDMADE ★", if index_ == 1 then Color3.fromRGB(255, 140, 70) else CLAY_TEAL)
 	end
 
-	-- paint splats up the walls, between the windows (and clear of the side door at
-	-- +X, Z = 31, and the doorway in the back)
-	local spots: { WallSpot } = {
-		{ -68, 15, -18 },
-		{ -68, 18, 18 },
-		{ -68, 14, 51 },
-		{ 68, 17, -18 },
-		{ 68, 14, 14 },
-		{ -32, 17, 59 },
-		{ 46, 14, 59 },
-		{ -39, 22, -58 },
-		{ 39, 16, -58 },
-	}
-	for index_, spot in spots do
-		splat(parent, wallFace(floor, spot), 5 + (index_ % 3) * 1.2, PAINT_COLORS[index_ % #PAINT_COLORS + 1])
+	-- the front wall: ON AIR over the middle, brainrot claymation posters between the
+	-- windows and in the corners
+	onAirSign(parent, wallFace(floor, { 0, 16, -58 }))
+	for _, ad in {
+		{ -39, 14, "🥁", "TUNG TUNG: THE MOVIE" },
+		{ 39, 14, "🦈", "JAWS OF TRALALERO" },
+		{ -63.5, 14, "🐊", "BOMBARDIRO RETURNS" },
+		{ 63.5, 14, "🍌", "CHIMPANZINI 2" },
+	} do
+		local x = ad[1] :: number
+		poster(parent, wallFace(floor, { x, ad[2] :: number, -58 }), Vector2.new(7.5, 10), CLAY_COLORS[if x > 0 then 3 else 5], CLAY_GOLD, ad[3] :: string, ad[4] :: string)
 	end
-	-- across from the side door: the sculpture, between big pots, clear of the first
-	-- line's presses
-	sculpture(parent, floor * CFrame.new(-61.5, 0, 31))
-	pot(parent, floor * CFrame.new(-61, 0, 16), 12, CLAY)
-	pot(parent, floor * CFrame.new(-61, 0, 46), 9, CLAY_LIGHT)
-	-- pottery wheels along the left wall, their stools toward the front
-	for _, z in { -6, -34 } do
-		potteryWheel(parent, floor * CFrame.new(-61, 0, z) * CFrame.Angles(0, math.pi / 2, 0), 1.5)
+
+	-- the back wall: two giant film reels turning, the film running between them over the
+	-- doorway, and a shelf of sets and clay maquettes beside it
+	wallReel(parent, wallFace(floor, { -42, 19.5, 59 }), 9.5, 0.6)
+	wallReel(parent, wallFace(floor, { 42, 19.5, 59 }), 9.5, 0.6)
+	wallFilm(parent, floor, { -37, 21.5, 59 }, { 37, 21.5, 59 })
+	wallShelf(parent, wallFace(floor, { -24, -6, 59 }), 14, Color3.fromRGB(245, 225, 195), CLAY_TEAL, setPiece)
+	-- (lowered: its board reaches up to 20.7 - 6, under the film between the reels)
+
+	-- the left wall: the storyboard, a shelf of miniature sets, a giant clapperboard
+	storyboard(parent, wallFace(floor, { -68, 14, -18 }))
+	wallShelf(parent, wallFace(floor, { -68, 0, 18 }), 18, Color3.fromRGB(245, 225, 195), CLAY, setPiece)
+	local clap = wallFace(floor, { -68, 13, 50 })
+	makeDecor(parent, "WallClapBoard", Vector3.new(8, 6, 0.4), clap * CFrame.new(0, 0, -0.2), FILM)
+	for k = 0, 5 do
+		makeDecor(parent, "WallClapStripe", Vector3.new(1.2, 1.4, 0.45), clap * CFrame.new(-3.3 + k * 1.33, 3.7, -0.2) * CFrame.Angles(0, 0, math.rad(-20)), if k % 2 == 0 then WHITE else FILM)
 	end
-	-- a shelf of pots on the back wall, between the first two lines
-	for _, y in { 5, 11 } do
-		makeDecor(parent, "Shelf", Vector3.new(20, 0.8, 4), floor * CFrame.new(-24, y, 56), Color3.fromRGB(225, 180, 125), Enum.Material.Wood)
+	local slate = makeDecor(parent, "WallClapSlate", Vector3.new(7, 4.4, 0.1), clap * CFrame.new(0, -0.4, -0.45), FILM)
+	label(slate, Enum.NormalId.Front, "SCENE 67\nTAKE 2", WHITE, CLAY_TEAL, 24)
+
+	-- the right wall: a pegboard of sculpting tools, tubs of clay on a shelf
+	pegboard(parent, wallFace(floor, { 68, 0, -18 }), 16)
+	wallShelf(parent, wallFace(floor, { 68, 0, 14 }), 13, Color3.fromRGB(245, 225, 195), CLAY_TEAL, clayTub)
+
+	-- paint splats up the walls where there's room
+	for index_, spot in { { -68, 22, -36 }, { -68, 22, 36 }, { 68, 22, -36 }, { -50, 6, -58 }, { 50, 6, -58 }, { -60, 6, 59 } } :: { WallSpot } do
+		splat(parent, wallFace(floor, spot), 3.4 + (index_ % 3) * 0.8, PAINT_COLORS[index_ % #PAINT_COLORS + 1])
 	end
-	for index_ = 1, 4 do
-		pot(parent, floor * CFrame.new(-31.5 + (index_ - 1) * 5, 5.4, 56), 4 + (index_ % 2) * 1.2, if index_ % 2 == 0 then CLAY else CLAY_LIGHT)
-		pot(parent, floor * CFrame.new(-31.5 + (index_ - 1) * 5, 11.4, 56), 3.8 + ((index_ + 1) % 2) * 1.2, if index_ % 2 == 1 then CLAY else Color3.fromRGB(240, 205, 170))
+
+	-- the front-left corner: the movie camera on its dolly, the director's chair, a light
+	movieCamera(parent, floor * CFrame.new(-55, 0, -44) * CFrame.Angles(0, math.rad(215), 0))
+	directorChair(parent, floor * CFrame.new(-44, 0, -51) * CFrame.Angles(0, math.rad(205), 0))
+	studioLight(parent, floor * CFrame.new(-64, 0, -36) * CFrame.Angles(0, math.rad(-120), 0))
+	-- the front-right corner: the sculpting desk against the front wall, a light
+	sculptingDesk(parent, floor * CFrame.new(52, 0, -54.5) * CFrame.Angles(0, math.pi, 0))
+	studioLight(parent, floor * CFrame.new(63.5, 0, -40) * CFrame.Angles(0, math.rad(140), 0))
+	-- the back-left corner: the giant sculpture turning on its plinth, pots by it
+	sculpture(parent, floor * CFrame.new(-58, 0, 47))
+	pot(parent, floor * CFrame.new(-64, 0, 36), 7, CLAY)
+	pot(parent, floor * CFrame.new(-48, 0, 54), 6, CLAY_LIGHT)
+	-- the back-right corner: buckets of clay slip
+	for index_, spot in { Vector3.new(62, 0, 50), Vector3.new(57, 0, 54), Vector3.new(62.5, 0, 55) } do
+		cylinder(parent, "Bucket", 4, 3.6, floor * CFrame.new(spot), Color3.fromRGB(150, 180, 220))
+		cylinder(parent, "Slip", 3.6, 0.3, floor * CFrame.new(spot + Vector3.new(0, 3.4, 0)), CLAY_COLORS[index_])
 	end
-	pot(parent, floor * CFrame.new(60, 0, -50), 8, Color3.fromRGB(240, 205, 170))
-	pot(parent, floor * CFrame.new(54, 0, -53), 5, CLAY)
-	-- buckets of clay slip by the door
-	for index_, z in { 48, 54 } do
-		cylinder(parent, "Bucket", 4, 3.6, floor * CFrame.new(62, 0, z), Color3.fromRGB(150, 180, 220))
-		cylinder(parent, "Slip", 3.6, 0.3, floor * CFrame.new(62, 3.4, z), if index_ == 1 then CLAY else CLAY_LIGHT)
+	-- splats of clay on the floor at the front, where people walk in
+	local random = Random.new(9)
+	for k = 1, 14 do
+		local spot = floor * CFrame.new(random:NextNumber(-40, 40), 0.06, random:NextNumber(-55, -32))
+		local size = random:NextNumber(1.4, 3)
+		local blob = makeDecor(parent, "FloorSplat", Vector3.new(0.08, size, size), spot * CFrame.Angles(0, 0, math.pi / 2), CLAY_COLORS[k % #CLAY_COLORS + 1])
+		blob.Shape = Enum.PartType.Cylinder
 	end
-	-- film lights in the front corners, aimed into the room
-	studioLight(parent, floor * CFrame.new(-62, 0, -50) * CFrame.Angles(0, math.rad(-140), 0))
-	studioLight(parent, floor * CFrame.new(63, 0, -38) * CFrame.Angles(0, math.rad(140), 0))
 end
 
 -- Vinyl Collectibles --------------------------------------------------------------------

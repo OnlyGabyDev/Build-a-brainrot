@@ -182,13 +182,18 @@ local ROOM_STYLES: { [string]: RoomStyle } = {
 	ClayStudio = {
 		Title = "🎨 CLAY STUDIO",
 		SignColor = Color3.fromRGB(225, 110, 60),
-		Floor = Color3.fromRGB(240, 175, 125),
-		FloorMaterial = Enum.Material.Sand,
-		Wall = Color3.fromRGB(255, 200, 150),
-		Band = Color3.fromRGB(225, 105, 65),
+		-- a stop-motion film studio: a glossy deep terracotta checker floor (the cream
+		-- turntables and the clay brainrots pop on it), warm orange striped walls over a
+		-- dark band, teal trims
+		Floor = Color3.fromRGB(118, 56, 40),
+		FloorMaterial = Enum.Material.SmoothPlastic,
+		Wall = Color3.fromRGB(245, 140, 80),
+		Band = Color3.fromRGB(92, 44, 34),
 		BandMaterial = Enum.Material.SmoothPlastic,
-		Trim = Color3.fromRGB(175, 75, 45),
-		Ceiling = Color3.fromRGB(255, 225, 185),
+		Trim = Color3.fromRGB(60, 205, 195),
+		Ceiling = Color3.fromRGB(255, 222, 192),
+		Wallpaper = Color3.fromRGB(252, 168, 108),
+		Checker = Color3.fromRGB(142, 70, 48),
 	},
 	VinylCollectibles = {
 		Title = "✨ VINYL COLLECTIBLES",
