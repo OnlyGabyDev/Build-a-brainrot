@@ -205,7 +205,7 @@ end
 -- The four slots across the top: each a big card in its part's color, the part on it
 -- (a turning figure) on its rarity's colors; the selected one lifted, rimmed in gold,
 -- with a pointer down to the picker.
-local SLOT_W, SLOT_H, SLOT_GAP, SLOT_TOP = 220, 196, 18, 102
+local SLOT_W, SLOT_H, SLOT_GAP, SLOT_TOP = 220, 176, 18, 102
 local function renderSlot(parent: Frame, line: LineView, partType: string, index: number)
 	local hasDropper = line.Droppers[partType] == true
 	local brainrotId = line.Parts[partType]
@@ -233,9 +233,9 @@ local function renderSlot(parent: Frame, line: LineView, partType: string, index
 
 	if brainrotId and rarity then
 		local model = BrainrotModels.CreatePart(brainrotId, partType)
-		Kit.viewport({ Position = UDim2.fromOffset(12, 44), Size = UDim2.new(1, -24, 0, 100), Parent = card }, model)
-		Kit.text({ Text = Brainrots.ById[brainrotId].Name, Position = UDim2.fromOffset(8, 144), Size = UDim2.new(1, -16, 0, 26), StrokeThickness = 3, Parent = card })
-		Kit.text({ Text = `{string.rep("⭐", rarity.Rank)} {string.upper(rarity.Id)}`, TextColor3 = Kit.White, Position = UDim2.fromOffset(8, 170), Size = UDim2.new(1, -16, 0, 20), StrokeThickness = 2, Parent = card })
+		Kit.viewport({ Position = UDim2.fromOffset(12, 42), Size = UDim2.new(1, -24, 0, 90), Parent = card }, model)
+		Kit.text({ Text = Brainrots.ById[brainrotId].Name, Position = UDim2.fromOffset(8, 132), Size = UDim2.new(1, -16, 0, 24), StrokeThickness = 3, Parent = card })
+		Kit.text({ Text = `{string.rep("⭐", rarity.Rank)} {string.upper(rarity.Id)}`, TextColor3 = Kit.White, Position = UDim2.fromOffset(8, 155), Size = UDim2.new(1, -16, 0, 17), StrokeThickness = 2, Parent = card })
 	else
 		Kit.text({ Text = "➕\nTAP TO PICK", TextColor3 = Color3.fromRGB(150, 145, 170), Position = UDim2.fromOffset(20, 70), Size = UDim2.new(1, -40, 0, 70), StrokeThickness = 0, Parent = card })
 	end
@@ -273,7 +273,7 @@ end
 -- A part to pick: a big tile on its rarity's colors with the part turning in it, its
 -- name and stars; EQUIPPED on the one in the slot, IN USE (dimmed) on one used by
 -- another line.
-local TILE_W, TILE_H = 140, 168
+local TILE_W, TILE_H = 132, 152
 local function renderTile(parent: Instance, order: number, text: string?, brainrotId: string?, option: Option?, onClick: () -> ())
 	local rarity = brainrotId and rarityOf(brainrotId)
 	local tile = Kit.new("TextButton", {
@@ -290,9 +290,9 @@ local function renderTile(parent: Instance, order: number, text: string?, brainr
 
 	if brainrotId and option and rarity then
 		local model = BrainrotModels.CreatePart(brainrotId, selectedSlot)
-		Kit.viewport({ Position = UDim2.fromOffset(8, 8), Size = UDim2.new(1, -16, 0, 96), Parent = tile }, model)
-		Kit.text({ Text = Brainrots.ById[brainrotId].Name, Position = UDim2.fromOffset(6, 104), Size = UDim2.new(1, -12, 0, 36), StrokeThickness = 2.5, Parent = tile })
-		Kit.text({ Text = string.rep("⭐", rarity.Rank), Position = UDim2.fromOffset(6, 140), Size = UDim2.new(1, -12, 0, 20), StrokeThickness = 0, Parent = tile })
+		Kit.viewport({ Position = UDim2.fromOffset(8, 8), Size = UDim2.new(1, -16, 0, 82), Parent = tile }, model)
+		Kit.text({ Text = Brainrots.ById[brainrotId].Name, Position = UDim2.fromOffset(6, 90), Size = UDim2.new(1, -12, 0, 34), StrokeThickness = 2.5, Parent = tile })
+		Kit.text({ Text = string.rep("⭐", rarity.Rank), Position = UDim2.fromOffset(6, 126), Size = UDim2.new(1, -12, 0, 20), StrokeThickness = 0, Parent = tile })
 		if not option.Usable then
 			local dim = Kit.new("Frame", {
 				Size = UDim2.fromScale(1, 1),
@@ -321,7 +321,7 @@ end
 
 local function renderPicker(parent: Frame, line: LineView)
 	local hasDropper = line.Droppers[selectedSlot] == true
-	local top = SLOT_TOP + SLOT_H + 30
+	local top = SLOT_TOP + SLOT_H + 18
 	Kit.text({
 		Text = if hasDropper
 			then `PICK A {string.upper(selectedSlot)}  ·  each part works on one line at a time`
@@ -337,7 +337,7 @@ local function renderPicker(parent: Frame, line: LineView)
 
 	local scroller = Kit.new("ScrollingFrame", {
 		Position = UDim2.fromOffset(20, top + 34),
-		Size = UDim2.new(1, -40, 1, -(top + 34) - 78),
+		Size = UDim2.new(1, -40, 1, -(top + 34) - 76),
 		BackgroundColor3 = Color3.fromRGB(235, 230, 248),
 		BorderSizePixel = 0,
 		ScrollBarThickness = 10,
@@ -442,7 +442,7 @@ local function buyUpgrade(lineId: string, track: string)
 	refresh()
 end
 
-local CARD = Vector2.new(372, 200)
+local CARD = Vector2.new(462, 222)
 local PREVIEW_WIDTH = 64
 
 -- Shows the track's next level on the line itself (UpgradePreview), the menu out of
@@ -486,6 +486,8 @@ local function renderUpgrades(parent: Frame, line: LineView)
 		})
 		Kit.corner(card, 18)
 		Kit.stroke(card, 4)
+		Kit.gradient(card, { Kit.White, track.Colors[1]:Lerp(Kit.White, 0.7) })
+		Kit.shine(card, 18)
 		local header = Kit.new("Frame", { Size = UDim2.new(1, 0, 0, 44), BackgroundColor3 = Kit.White, Parent = card })
 		Kit.corner(header, 18)
 		Kit.gradient(header, track.Colors)
@@ -532,8 +534,8 @@ local function renderUpgrades(parent: Frame, line: LineView)
 			})
 			Kit.text({
 				Text = LineUpgrades.Amount(track, spec[2] :: number),
-				Position = UDim2.fromOffset(x, 88),
-				Size = UDim2.fromOffset(half - 26, 34),
+				Position = UDim2.fromOffset(x, 86),
+				Size = UDim2.fromOffset(half - 26, 42),
 				TextColor3 = spec[3] :: Color3,
 				StrokeThickness = 3,
 				Parent = card,
@@ -545,8 +547,8 @@ local function renderUpgrades(parent: Frame, line: LineView)
 		local newLook = not maxed and LineUpgrades.TierStarts[nextLevel]
 		Kit.text({
 			Text = if newLook then `✨ NEW LOOK: {newLook}!` elseif maxed then "⭐ MAXED OUT ⭐" else LineUpgrades.Unit(track),
-			Position = UDim2.fromOffset(14, 122),
-			Size = UDim2.new(1, -28, 0, 16),
+			Position = UDim2.fromOffset(14, 130),
+			Size = UDim2.new(1, -28, 0, 20),
 			TextColor3 = if newLook or maxed then SELECTED_COLOR else MUTED_COLOR,
 			StrokeThickness = 1.5,
 			Parent = card,
@@ -557,15 +559,15 @@ local function renderUpgrades(parent: Frame, line: LineView)
 			Kit.text({
 				Text = `🔒 Buy the {upgrade.Needs} first`,
 				TextColor3 = BAD_COLOR,
-				Position = UDim2.fromOffset(14, 144),
-				Size = UDim2.new(1, -28, 0, 40),
+				Position = UDim2.fromOffset(14, 158),
+				Size = UDim2.new(1, -28, 0, 48),
 				Parent = card,
 			})
 		elseif price and not maxed then
 			local affordable = typeof(coins) == "number" and coins >= price
 			Kit.button({
-				Position = UDim2.fromOffset(14, 142),
-				Size = UDim2.new(1, -28 - PREVIEW_WIDTH - 10, 0, 48),
+				Position = UDim2.fromOffset(14, 156),
+				Size = UDim2.new(1, -28 - PREVIEW_WIDTH - 10, 0, 54),
 				Parent = card,
 			}, if affordable then Kit.Colors.Green else Kit.Colors.Red, `BUY  💰 {Format.Number(price)}`, function()
 				buyUpgrade(line.Id, track.Key)
@@ -573,8 +575,8 @@ local function renderUpgrades(parent: Frame, line: LineView)
 			-- 👀: fly over to the line and see the next level there
 			local preview = Kit.button({
 				AnchorPoint = Vector2.new(1, 0),
-				Position = UDim2.new(1, -14, 0, 142),
-				Size = UDim2.fromOffset(PREVIEW_WIDTH, 48),
+				Position = UDim2.new(1, -14, 0, 156),
+				Size = UDim2.fromOffset(PREVIEW_WIDTH, 54),
 				Parent = card,
 			}, Kit.Colors.Gems, nil, function()
 				previewUpgrade(line, track, nextLevel)
