@@ -40,22 +40,24 @@ export type Line = {
 -- The button chain on every line, after the line itself. Prices are multiplied per line.
 local LINE_ITEMS = {
 	{ Key = "Head", Name = "Head Dropper", Kind = "Dropper", PartType = "Head", Price = 0 },
-	{ Key = "Body", Name = "Body Dropper", Kind = "Dropper", PartType = "Body", Price = 40 },
-	{ Key = "Arms", Name = "Arms Dropper", Kind = "Dropper", PartType = "Arms", Price = 120 },
-	{ Key = "Legs", Name = "Legs Dropper", Kind = "Dropper", PartType = "Legs", Price = 300 },
-	{ Key = "Speed1", Name = "Turbo Belt", Kind = "Speed", Multiplier = 1.5, Price = 700 },
-	{ Key = "Station1", Name = "Paint Booth", Kind = "Station", Multiplier = 1.5, Price = 1500 },
-	{ Key = "Speed2", Name = "Mega Turbo", Kind = "Speed", Multiplier = 1.5, Price = 4000 },
-	{ Key = "Station2", Name = "Glitter Blaster", Kind = "Station", Multiplier = 2, Price = 9000 },
+	{ Key = "Body", Name = "Body Dropper", Kind = "Dropper", PartType = "Body", Price = 80 },
+	{ Key = "Arms", Name = "Arms Dropper", Kind = "Dropper", PartType = "Arms", Price = 240 },
+	{ Key = "Legs", Name = "Legs Dropper", Kind = "Dropper", PartType = "Legs", Price = 600 },
+	{ Key = "Speed1", Name = "Turbo Belt", Kind = "Speed", Multiplier = 1.5, Price = 1400 },
+	{ Key = "Station1", Name = "Paint Booth", Kind = "Station", Multiplier = 1.5, Price = 3000 },
+	{ Key = "Speed2", Name = "Mega Turbo", Kind = "Speed", Multiplier = 1.5, Price = 8000 },
+	{ Key = "Station2", Name = "Glitter Blaster", Kind = "Station", Multiplier = 2, Price = 18000 },
 	-- the zone's own special upgrade, named by the zone (Zones.SpecialStation)
-	{ Key = "Station3", Name = "", Kind = "Station", Multiplier = 2, Price = 25000 },
+	{ Key = "Station3", Name = "", Kind = "Station", Multiplier = 2, Price = 50000 },
 }
 
 -- Per line index within a zone: price to unlock the line, and multiplier on its items.
 -- Both are also multiplied by the zone's PriceMultiplier. A zone's first line is free
 -- once the zone unlocks.
-local LINE_UNLOCK_PRICES = { 0, 2500, 30000 }
-local LINE_PRICE_SCALES = { 1, 8, 60 }
+-- (the economy pass, 2026-10-02: the 2nd and 3rd lines cost 3x and 9x for the same
+-- output, so they pay back slower, and the next room stays worth opening)
+local LINE_UNLOCK_PRICES = { 0, 5000, 60000 }
+local LINE_PRICE_SCALES = { 1, 3, 9 }
 
 local TycoonItems = {}
 
@@ -205,7 +207,7 @@ end
 -- button out front, in order, and drops in (TycoonManager). Its rooms' zones unlock as
 -- usual. Placeholder prices.
 local FLOORS = {
-	{ Storey = 3, Name = "3rd Floor: Candy Factory", Price = 250000, Rebirths = 1 },
+	{ Storey = 3, Name = "3rd Floor: Candy Factory", Price = 1000000000, Rebirths = 1 },
 }
 do
 	local previous: string? = nil

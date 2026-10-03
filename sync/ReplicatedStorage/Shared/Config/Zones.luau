@@ -5,7 +5,13 @@
 	`Available = false` zones are designed but not built yet (no tycoon items/geometry).
 	The first run (before any rebirth) holds every room up to the Candy Factory, each
 	opened with Coins at its door (UnlockPrice); the Candy Factory needs a rebirth and its
-	floor (the user, 2026-10-02). Prices are placeholders until the economy pass.
+	floor (the user, 2026-10-02).
+	Economy (the economy pass, 2026-10-02): each room earns and costs 15 times the one
+	before (ValueMultiplier = PriceMultiplier), so a new room is always worth opening
+	however far the old ones are upgraded, and its buttons pay back like the first
+	room's. Tuned with a greedy-buyer simulation (tools/economy_sim.py) for ~5 h of play
+	to the first rebirth (~4.1 h for a perfect player). The later zones follow the same
+	rule until their content is built.
 	Style: Scale multiplies model size (big enough that the player's brainrot is the star of
 	its line, not a speck in the machines); Material/Reflectance/Transparency override the
 	brainrot's look when set (nil keeps the model's own look).
@@ -60,8 +66,8 @@ Zones.List = {
 		Edition = "Plushie",
 		UnlockRebirths = 0,
 		UnlockPrice = 25000,
-		ValueMultiplier = 2,
-		PriceMultiplier = 3,
+		ValueMultiplier = 15,
+		PriceMultiplier = 15,
 		GemMultiplier = 1.5,
 		LineCount = 3,
 		Style = { Scale = 1.25, Material = Enum.Material.Fabric, MaterialVariant = "PlushKnit" },
@@ -75,9 +81,9 @@ Zones.List = {
 		Name = "Clay Studio",
 		Edition = "Clay",
 		UnlockRebirths = 0,
-		UnlockPrice = 400000,
-		ValueMultiplier = 3.5,
-		PriceMultiplier = 8,
+		UnlockPrice = 80000000,
+		ValueMultiplier = 225,
+		PriceMultiplier = 225,
 		GemMultiplier = 2,
 		LineCount = 3,
 		Style = { Scale = 1.3, Material = Enum.Material.Plaster, MaterialVariant = "PlayDough" },
@@ -91,9 +97,9 @@ Zones.List = {
 		Name = "Vinyl Collectibles",
 		Edition = "Collectible",
 		UnlockRebirths = 0,
-		UnlockPrice = 6000000,
-		ValueMultiplier = 6,
-		PriceMultiplier = 20,
+		UnlockPrice = 4000000000,
+		ValueMultiplier = 3375,
+		PriceMultiplier = 3375,
 		GemMultiplier = 3,
 		LineCount = 3,
 		Style = { Scale = 1.4, Material = Enum.Material.SmoothPlastic, MaterialVariant = "VinylGloss" },
@@ -107,8 +113,8 @@ Zones.List = {
 		Name = "Candy Factory",
 		Edition = "Candy",
 		UnlockRebirths = 1, -- and its floor bought (TycoonItems.Floors)
-		ValueMultiplier = 10,
-		PriceMultiplier = 50,
+		ValueMultiplier = 50625,
+		PriceMultiplier = 50625,
 		GemMultiplier = 4.5,
 		LineCount = 3,
 		Style = { Scale = 1.5, Material = Enum.Material.Glass, Transparency = 0.2 },
@@ -120,8 +126,8 @@ Zones.List = {
 		Name = "Robot Plant",
 		Edition = "Animatronic",
 		UnlockRebirths = 2,
-		ValueMultiplier = 17,
-		PriceMultiplier = 120,
+		ValueMultiplier = 759375,
+		PriceMultiplier = 759375,
 		GemMultiplier = 6.5,
 		LineCount = 3,
 		Style = { Scale = 1.7, Material = Enum.Material.DiamondPlate },
@@ -133,8 +139,8 @@ Zones.List = {
 		Name = "Mad Science Lab",
 		Edition = "Living",
 		UnlockRebirths = 3,
-		ValueMultiplier = 30,
-		PriceMultiplier = 300,
+		ValueMultiplier = 11390625,
+		PriceMultiplier = 11390625,
 		GemMultiplier = 10,
 		LineCount = 3,
 		Style = { Scale = 2 },
@@ -146,8 +152,8 @@ Zones.List = {
 		Name = "Secret Bunker",
 		Edition = "Clone",
 		UnlockRebirths = 4,
-		ValueMultiplier = 50,
-		PriceMultiplier = 700,
+		ValueMultiplier = 170859375,
+		PriceMultiplier = 170859375,
 		GemMultiplier = 15,
 		LineCount = 3,
 		Style = { Scale = 2, Material = Enum.Material.ForceField },
@@ -159,8 +165,8 @@ Zones.List = {
 		Name = "Titan Foundry",
 		Edition = "Giant",
 		UnlockRebirths = 6,
-		ValueMultiplier = 85,
-		PriceMultiplier = 1500,
+		ValueMultiplier = 2562890625,
+		PriceMultiplier = 2562890625,
 		GemMultiplier = 22,
 		LineCount = 3,
 		Style = { Scale = 3, Material = Enum.Material.Metal },
@@ -172,8 +178,8 @@ Zones.List = {
 		Name = "Orbital Forge",
 		Edition = "Cosmic",
 		UnlockRebirths = 8,
-		ValueMultiplier = 150,
-		PriceMultiplier = 3500,
+		ValueMultiplier = 38443359375,
+		PriceMultiplier = 38443359375,
 		GemMultiplier = 33,
 		LineCount = 3,
 		Style = { Scale = 3.5, Material = Enum.Material.Glass },

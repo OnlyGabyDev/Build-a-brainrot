@@ -238,7 +238,7 @@ We also track the **Rebirths** count (not a currency), which gates zones and rar
 
 **Rebirth Shop** (spend Rebirth Points): Income %, Luck %, Walk Speed, Loot Box cap +1, Faster box respawn, Dropper speed %.
 - ✅ Built (v0.5), numbers in `Config/Rebirths`:
-  - Rebirth costs 50K Coins ×3 per rebirth, gives +25% Coins forever, and 1 Rebirth Point per full cost's worth of Coins (saving up pays).
+  - Rebirth costs 100B Coins ×3 per rebirth (v2.3: ~5 h of play to the first one), gives +25% Coins forever, and 1 Rebirth Point per full cost's worth of Coins (saving up pays).
   - Shop: **Income** (+10%/lv), **Dropper Speed** (+5%/lv), **Luck** (+10%/lv: rarer tiers weigh more, boxes upgrade more often).
   - Box cap and box respawn don't fit shared boxes, so they're dropped. Walk Speed comes later.
 - Line setups of lines you haven't bought back since a rebirth are remembered, but don't hold their parts, so those parts are free for your other lines.
@@ -272,18 +272,20 @@ Zones aren't only floors. The factory **physically expands**: new floors, annexe
 | 10 | **Orbital Forge** | Rooftop launchpad, then orbit | Cosmic: huge, galaxy texture | Tractor beams fuse it in space | Rebirth 30 | 🟡 |
 
 **Decided, not built yet (the user, 2026-10-02):**
-- **The first run holds every room up to the Candy Factory.** The Toy Workshop, the Plushie room, the Clay Studio and Vinyl Collectibles are all bought with Coins before the first rebirth; the Candy Factory needs Rebirth 1. Reaching the first rebirth should take **at least ~3 hours**, with many upgrades along the way. ✅ (v1.7) Rooms open with Coins at their door (placeholders: Plushie 25K, Clay 400K, Vinyl 6M; the Candy Factory at Rebirth 1 once its floor is bought; later zones at Rebirths 2/3/4/6/8). ✅ The Clay Studio and Vinyl Collectibles are playable (v1.7). 🟡 Left: the economy pass toward ~3 h, and room upgrades for those two rooms. (The table's unlock column is the old plan.)
+- **The first run holds every room up to the Candy Factory.** The Toy Workshop, the Plushie room, the Clay Studio and Vinyl Collectibles are all bought with Coins before the first rebirth; the Candy Factory needs Rebirth 1. Reaching the first rebirth should take **about 5 hours** (the user, 2026-10-02; it was ~3 h), with many upgrades along the way. ✅ (v1.7) Rooms open with Coins at their door (v2.3: Plushie 25K, Clay 80M, Vinyl 4B; the Candy Factory at Rebirth 1 once its floor is bought; later zones at Rebirths 2/3/4/6/8). ✅ The Clay Studio and Vinyl Collectibles are playable (v1.7). ✅ (v2.3) The economy pass: see **Economy** below. 🟡 Left: room upgrades for those two rooms. (The table's unlock column is the old plan.)
 - ✅ **Floors are bought** (v1.7). The factory starts with 2 storeys; the next ones are bought from a big button on the lawn out front (the 3rd floor, the Candy Factory's: 250K placeholder, 🔒 Rebirth 1), for the sense of discovering new things. The new storey **drops in**: the old roof lifts away and the storey falls into place chunk by chunk, bottom first, then the roof lands on top ("🏗️ NEW FLOOR!"). Floors reset on rebirth like the rest of the tycoon.
 - **From the Candy Factory on, assembly animations must be far superior** to the first run's rooms (the user accepts the current ones for those).
 - **Rebirth will reset the whole factory but unlock many cool new upgrades per rebirth**, like minigames (e.g. a claw machine in the Toy Workshop). Rebirth work comes only after the main loop, the HUD, the bosses and the gadgets.
 
 Rule of thumb: **the rarer the zone, the cooler the animation.** Every zone follows the Toy Workshop pattern: the brainrot is built **part by part** (Legs → Body → Arms → Head), and each part gets its own creative, funny, cute animation by machines themed after the zone. For example, the Plushie room's sewing machine stitches the arms on, and the Candy Factory pours the head from a mold.
 
-**Zone multipliers** (placeholder)
+**Economy** ✅ (v2.3, the economy pass; tuned with `tools/economy_sim.py`, a greedy buyer). A line's upgrades multiply it by ~300× (stations, speed, room upgrades, the line tracks), so small zone multipliers made every new room worthless next to the old, upgraded ones (a perfect player never opened Vinyl). Now **each room earns and costs 15× the one before** (ship value × = price × = 15^(zone − 1)): a new room's buttons pay back as fast as the first room's, and opening it is always worth it. A room's 2nd and 3rd lines cost 3× and 9× for the same output. Room openings: Plushie 25K, Clay 80M, Vinyl 4B; the first rebirth 100B. The run, for a perfect player: the Plushie room at ~30 min, the Clay Studio at ~55 min, Vinyl at ~2 h 10, the rebirth at ~4 h 05 with 98% of the buttons bought (a real player: ~5 h). The 3rd floor (Rebirth 1) costs 1B; the later zones follow the same ×15 rule until their content is built.
+
+**Zone multipliers**
 
 | Zone | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Ship value × | 1 | 2 | 3.5 | 6 | 10 | 17 | 30 | 50 | 85 | 150 |
+| Ship value × (and price ×) | 1 | 15 | 225 | 3,375 | 15^4 | 15^5 | 15^6 | 15^7 | 15^8 | 15^9 |
 | Completion Gems × | 1 | 1.5 | 2 | 3 | 4.5 | 6.5 | 10 | 15 | 22 | 33 |
 
 Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10 editions for 1,000 × 98.5 = **98,500 Gems**.
@@ -506,6 +508,7 @@ StarterPlayer/StarterPlayerScripts/
 ---
 
 ## Changelog
+- **v2.3 (2026-10-02):** The economy pass (§10 Economy): ~5 h to the first rebirth (the user). Each room earns and costs 15× the one before; the 2nd and 3rd lines cost 3×/9× (were 8×/60×); line items, line tracks and room upgrades cost 2×; rooms open at 25K / 80M / 4B; the first rebirth costs 100B (was 50K, reachable in ~10 min); the 3rd floor 1B.
 - **v2.2 (2026-10-02):** The Clay Studio's stop-motion turntable line (§6) and its quality pass: a film-studio room (§10), studio lights and a golden clapperboard as its Belt Boost look, a shutter sound on every frame.
 - **v2.1 (2026-10-02):** Room upgrades v3 (§6): every level visibly grows (bigger, and more stuff) and drops in piece by piece when bought. The Plushie room's upgrades (Yarn Spinner, Pillow Pile, Button Jar, Giant Plushie) are restyled for the plush factory (§10): satin cushions on a velvet stand, chrome and gold jars, a magenta wheel. The Box Conveyor's loop moved back a little and the Toy Workshop's side lamps moved in, so nothing touches it.
 - **v2.0 (2026-10-02):** Line layouts per room (§6), the engine (`Shared/LineLayouts`) and the first one: the Plushie room's overhead rail (open capsule, knitting machines in an arc knitting into it, a swinging hook on a 3D rail that dunks the plush into a giant paint bucket so it comes out painted and dripping, a disco ball, a satin bow flung from the Bow Tier's spool, an open fluff jar instead of the dome; a slower ride there, 4.6 s).
