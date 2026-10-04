@@ -25,13 +25,14 @@ local Shared = ReplicatedStorage.Shared
 local DailyWheel = require(Shared.Config.DailyWheel)
 local Gamepasses = require(Shared.Config.Gamepasses)
 local Products = require(Shared.Config.Products)
+local Admins = require(Shared.Config.Admins)
 local Remotes = require(Shared.Remotes)
 
 local DataManager = require(script.Parent.DataManager)
 local NukeManager = require(script.Parent.NukeManager)
 
 local function isDeveloper(player: Player): boolean
-	if RunService:IsStudio() or player.Name == "Dogezneo" or player.Name == "Gaby" then
+	if RunService:IsStudio() or table.find(Admins, player.Name) then
 		return true
 	end
 	if game.CreatorType == Enum.CreatorType.Group then
