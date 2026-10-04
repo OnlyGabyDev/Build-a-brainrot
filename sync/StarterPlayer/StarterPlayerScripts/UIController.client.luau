@@ -240,6 +240,23 @@ local wheelButton = menuButton(4, "🎡", "WHEEL", Kit.Colors.Rolls, DailyWheelM
 menuButton(5, "🛒", "SHOP", Kit.Colors.Green, function()
 	Shop.Open()
 end)
+
+task.spawn(function()
+	local dev = false
+	if RunService:IsStudio() then
+		dev = true
+	elseif game.CreatorType == Enum.CreatorType.Group then
+		local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)
+		dev = ok and rank >= 250
+	else
+		dev = player.UserId == game.CreatorId
+	end
+	if dev then
+		local DevMenu = require(UI:WaitForChild("DevMenu"))
+		menuButton(6, "🛠️", "DEV", Kit.Colors.Red, DevMenu.Open)
+	end
+end)
+
 SettingsMenu.Init() -- the ⚙️ button, top right
 
 -- A red "!" on the wheel button while a spin is waiting.

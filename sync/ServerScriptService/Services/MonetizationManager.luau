@@ -30,8 +30,20 @@ local Remotes = require(Shared.Remotes)
 local DataManager = require(script.Parent.DataManager)
 local NukeManager = require(script.Parent.NukeManager)
 
+local function isDeveloper(player: Player): boolean
+	if RunService:IsStudio() then
+		return true
+	end
+	if game.CreatorType == Enum.CreatorType.Group then
+		local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)
+		return ok and rank >= 250
+	else
+		return player.UserId == game.CreatorId
+	end
+end
+
 -- Flip on to test pass perks in Studio before the passes exist.
-local STUDIO_OWNS_ALL = false
+local DEV_OWNS_ALL = false
 local PERK_FLAGS = { "RemoteLines", "AutoCollect" }
 local passPrices: { [number]: number } = {} -- Robux, fetched once (for the Robux-spent leaderboard)
 
@@ -94,7 +106,7 @@ local function onPlayerAdded(player: Player)
 			if ok and has then
 				grant(player, key)
 			end
-		elseif STUDIO_OWNS_ALL and RunService:IsStudio() then
+		elseif DEV_OWNS_ALL and isDeveloper(player) then
 			grant(player, key)
 		end
 	end
@@ -202,22 +214,22 @@ function MonetizationManager.Init()
 	MarketplaceService.ProcessReceipt = processReceipt
 end
 
--- Studio only: gives `player` a pass for this session (DevTools' GrantPass), to test
+-- Studio/Dev only: gives `player` a pass for this session (DevTools' GrantPass), to test
 -- its perks before the passes exist. Nothing is saved: ownership is Roblox's.
 function MonetizationManager.GrantForTesting(player: Player, key: string): boolean
-	if not (RunService:IsStudio() and Gamepasses[key]) then
+	if not (isDeveloper(player) and Gamepasses[key]) then
 		return false
 	end
 	grant(player, key)
 	return true
 end
 
--- Studio only: grants a product as if bought (DevTools' GrantProduct), to test it
+-- Studio/Dev only: grants a product as if bought (DevTools' GrantProduct), to test it
 -- before its id exists. Nothing is charged and no receipt is kept.
 function MonetizationManager.GrantProductForTesting(player: Player, key: string): boolean
 	local product = Products[key]
 	local handler = product and productHandlers[product.Kind]
-	if not (RunService:IsStudio() and handler and DataManager.IsLoaded(player)) then
+	if not (isDeveloper(player) and handler and DataManager.IsLoaded(player)) then
 		return false
 	end
 	purchasedRemote:FireClient(player, handler(player, product))

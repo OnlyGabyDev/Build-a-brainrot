@@ -42,13 +42,27 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 local TextChatService = game:GetService("TextChatService")
 
-local BrainrotModels = require(ReplicatedStorage.Shared.BrainrotModels)
-local Brainrots = require(ReplicatedStorage.Shared.Config.Brainrots)
+local Shared = ReplicatedStorage.Shared
+local Remotes = require(Shared.Remotes)
+local BrainrotModels = require(Shared.BrainrotModels)
+local Brainrots = require(Shared.Config.Brainrots)
 local DataManager = require(script.Parent.DataManager)
 local LootManager = require(script.Parent.LootManager)
 local MonetizationManager = require(script.Parent.MonetizationManager)
 local NukeManager = require(script.Parent.NukeManager)
 local TycoonManager = require(script.Parent.TycoonManager)
+
+local function isDeveloper(player: Player): boolean
+	if RunService:IsStudio() then
+		return true
+	end
+	if game.CreatorType == Enum.CreatorType.Group then
+		local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)
+		return ok and rank >= 250
+	else
+		return player.UserId == game.CreatorId
+	end
+end
 
 local snapshots: { [Player]: DataManager.PlayerData } = {}
 
@@ -296,12 +310,23 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 		end
 		return true
 	end,
+	GiveBrainrots = function(player)
+		for _, brainrot in Brainrots.List do
+			for _, partType in Brainrots.PartTypes do
+				DataManager.AddPart(player, brainrot.Id, partType)
+			end
+		end
+		return true
+	end,
 }
 
 local DevTools = {}
 
 -- Runs a command from a "/dev Name arg arg..." chat line, for the player who typed it.
 local function fromChat(player: Player, message: string)
+	if not isDeveloper(player) then
+		return
+	end
 	local words = string.split(message, " ")
 	if words[1] ~= "/dev" or not words[2] then
 		return
@@ -323,17 +348,32 @@ local function fromChat(player: Player, message: string)
 end
 
 function DevTools.Init()
-	if not RunService:IsStudio() then
-		return
-	end
 	local command = Instance.new("BindableFunction")
 	command.Name = "DevCommand"
 	command.OnInvoke = function(name: string, player: Player, ...: any)
+		if not isDeveloper(player) then
+			return false
+		end
 		local handler = COMMANDS[name]
 		assert(handler, `Unknown dev command {name}`)
 		return handler(player, ...)
 	end
 	command.Parent = ServerStorage
+
+	local devRemote = Remotes.Function("DevMenu")
+	devRemote.OnServerInvoke = function(player: Player, targetUserId: number, commandName: string, ...: any)
+		if not isDeveloper(player) then
+			return false
+		end
+		local handler = COMMANDS[commandName]
+		if not handler then return false end
+
+		local targetPlayer = if targetUserId == 0 then player else Players:GetPlayerByUserId(targetUserId)
+		if not targetPlayer then return false end
+
+		local ok, result = pcall(handler, targetPlayer, ...)
+		return ok and result
+	end
 
 	workspace:GetAttributeChangedSignal("DevRequest"):Connect(function()
 		local request = workspace:GetAttribute("DevRequest")
@@ -345,6 +385,9 @@ function DevTools.Init()
 			local args = HttpService:JSONDecode(request)
 			local player = Players:GetPlayers()[1]
 			assert(player, "No player")
+			if not isDeveloper(player) then
+				return false
+			end
 			local handler = COMMANDS[args[1]]
 			assert(handler, `Unknown dev command {args[1]}`)
 			return handler(player, table.unpack(args, 2))
