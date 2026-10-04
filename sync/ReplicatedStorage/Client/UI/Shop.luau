@@ -188,7 +188,7 @@ local function renderCard(parent: Instance, item: Item)
 	end)
 	if not owned and not item.GemPrice and item.Id > 0 then
 		task.spawn(function()
-			local price = Passes.PriceOf(item.Kind, item.Id)
+			local price = if item.Kind == "Pass" then Passes.PassPrice(item.Key) else Passes.PriceOf(item.Kind, item.Id)
 			local label = button:FindFirstChildOfClass("TextLabel")
 			if label then
 				label.Text = if price then `R$ {price}` else "BUY"

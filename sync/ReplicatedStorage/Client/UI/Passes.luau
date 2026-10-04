@@ -36,6 +36,19 @@ function Passes.Owns(key: string): boolean
 	return player:GetAttribute(`Pass_{key}`) == true
 end
 
+-- How Roblox sells the pass: "Product" for one sold as a developer product (the Starter
+-- Pack), else "Pass" (for PriceOf).
+function Passes.KindOf(key: string): string
+	local pass = Gamepasses[key]
+	return if pass and pass.Product then "Product" else "Pass"
+end
+
+-- A pass's Robux price (see PriceOf).
+function Passes.PassPrice(key: string): number?
+	local pass = Gamepasses[key]
+	return if pass then Passes.PriceOf(Passes.KindOf(key), pass.Id) else nil
+end
+
 -- Seconds left on a limited pass's offer (0 once it's over), or nil for a pass that's
 -- always on sale.
 function Passes.OfferLeft(key: string): number?
@@ -69,7 +82,11 @@ function Passes.Prompt(key: string): boolean
 	if not pass or pass.Id <= 0 or Passes.Owns(key) then
 		return false
 	end
-	MarketplaceService:PromptGamePassPurchase(player, pass.Id)
+	if pass.Product then
+		MarketplaceService:PromptProductPurchase(player, pass.Id)
+	else
+		MarketplaceService:PromptGamePassPurchase(player, pass.Id)
+	end
 	return true
 end
 

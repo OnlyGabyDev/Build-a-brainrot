@@ -133,7 +133,7 @@ local function show(key: string, pitch: string?)
 		hide(card)
 	end)
 	task.spawn(function()
-		local price = Passes.PriceOf("Pass", pass.Id)
+		local price = Passes.PassPrice(key)
 		local label = buy:FindFirstChildOfClass("TextLabel")
 		if price and label and card.Parent then
 			label.Text = `GET IT!  R$ {price}`
@@ -194,7 +194,7 @@ function Upsell.Featured(key: string)
 		end
 	end)
 	task.spawn(function()
-		local price = Passes.PriceOf("Pass", pass.Id)
+		local price = Passes.PassPrice(key)
 		local label = buy:FindFirstChildOfClass("TextLabel")
 		if price and label and buy.Parent then
 			label.Text = `GET IT NOW!  R$ {price}`

@@ -21,6 +21,9 @@ export type Pass = {
 	RadarRank: number?, -- an arrow points at the nearest box of this rarity rank or up (client: LootBoxes)
 	Starter: StarterReward?, -- a newcomer's bundle, granted once (Services/StarterPack)
 	OfferHours: number?, -- sold only this long after the player's first join (the shop and the ads)
+	-- Id is a developer product's, bought once: owning it is saved in the player's data
+	-- (a DataManager claim) instead of checked with Roblox (MonetizationManager)
+	Product: boolean?,
 	-- the shop card (Client/UI/Shop)
 	Perks: { string }, -- what you get, one short line each
 	Colors: { Color3 }, -- the card's gradient, top to bottom
@@ -38,10 +41,12 @@ export type StarterReward = {
 
 local Gamepasses: { [string]: Pass } = {
 	-- A limited-time offer for newcomers (the user, 2026-10-03): the shop and a corner ad
-	-- count down 24 h from the first join, then it's gone from the game. (A pass can still
-	-- be bought from its page on the website afterwards; it grants the same way.)
+	-- count down 24 h from the first join, then it's gone from the game. A developer
+	-- product (the user, 2026-10-03; it was a gamepass, which could be bought on the
+	-- website after the offer ended), sold once a player.
 	StarterPack = {
-		Id = 2006294951,
+		Id = 3716361942,
+		Product = true,
 		Order = 0,
 		Name = "Starter Pack",
 		Icon = "🎉",

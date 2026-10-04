@@ -10,6 +10,9 @@
 	    each receipt so a purchase is never granted twice. Products with a GemPrice (box
 	    drops, wheel spins) are bought with Gems instead (remote BuyWithGems), through the
 	    same handlers.
+	  * A pass with `Product` (the Starter Pack) is a developer product sold once: its
+	    service grants it (HandlePassProduct) and marks it owned from the player's saved
+	    data (MarkOwned), so it shows as owned like any pass.
 	The Daily Wheel lives in DailyWheelManager.
 ]]
 
@@ -42,6 +45,14 @@ for _, product in Products do
 		productsById[product.Id] = product
 	end
 end
+-- passes sold as developer products: [product id] = pass key, and how each is granted
+local passProductKeys: { [number]: string } = {}
+for key, pass in Gamepasses do
+	if pass.Product and pass.Id > 0 then
+		passProductKeys[pass.Id] = key
+	end
+end
+local passProductHandlers: { [string]: (player: Player) -> string } = {}
 
 local MonetizationManager = {}
 
@@ -76,7 +87,9 @@ end
 local function onPlayerAdded(player: Player)
 	owned[player] = {}
 	for key, pass in Gamepasses do
-		if pass.Id > 0 then
+		if pass.Product then
+			continue -- owned per the player's data (MarkOwned), not Roblox
+		elseif pass.Id > 0 then
 			local ok, has = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, pass.Id)
 			if ok and has then
 				grant(player, key)
@@ -116,13 +129,19 @@ local productHandlers: { [string]: ProductHandler } = {
 local function processReceipt(receipt: { [string]: any }): Enum.ProductPurchaseDecision
 	local player = Players:GetPlayerByUserId(receipt.PlayerId)
 	local product = productsById[receipt.ProductId]
-	local handler = product and productHandlers[product.Kind]
-	if not (player and product and handler and DataManager.IsLoaded(player)) then
+	local productHandler = product and productHandlers[product.Kind]
+	local passKey = passProductKeys[receipt.ProductId]
+	local passHandler = passKey and passProductHandlers[passKey]
+	if not (player and (productHandler or passHandler) and DataManager.IsLoaded(player)) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet -- Roblox retries later
 	end
 	local thanks: string? = nil
 	local granted = DataManager.ProcessReceipt(player, tostring(receipt.PurchaseId), function()
-		thanks = handler(player, product)
+		if productHandler and product then
+			thanks = productHandler(player, product)
+		elseif passHandler then
+			thanks = passHandler(player)
+		end
 		DataManager.AddStat(player, "RobuxSpent", tonumber(receipt.CurrencySpent) or 0)
 	end)
 	if not granted then
@@ -167,7 +186,7 @@ function MonetizationManager.Init()
 			return
 		end
 		for key, pass in Gamepasses do
-			if pass.Id == passId then
+			if pass.Id == passId and not pass.Product then
 				grant(player, key)
 			end
 		end
@@ -209,6 +228,20 @@ end
 function MonetizationManager.HandleProduct(kind: string, handler: ProductHandler)
 	assert(productHandlers[kind] == nil, `product kind {kind} already has a handler`)
 	productHandlers[kind] = handler
+end
+
+-- Registers how a pass sold as a developer product (`Product`) is granted when bought:
+-- `handler` gives the goods (and should MarkOwned) and returns the thank-you line. It
+-- runs inside the receipt, once per purchase. Call it at Init.
+function MonetizationManager.HandlePassProduct(key: string, handler: (player: Player) -> string)
+	assert(Gamepasses[key] and Gamepasses[key].Product, `{key} isn't a pass sold as a product`)
+	passProductHandlers[key] = handler
+end
+
+-- Marks a pass sold as a product owned for this session (its service calls it once the
+-- player's data shows it was bought, or right after the purchase).
+function MonetizationManager.MarkOwned(player: Player, key: string)
+	grant(player, key)
 end
 
 -- Runs `callback(player, passKey)` whenever a player gets a pass (on join or bought).
