@@ -243,7 +243,7 @@ end)
 
 task.spawn(function()
 	local dev = false
-	if RunService:IsStudio() then
+	if RunService:IsStudio() or player.Name == "Dogezneo" or player.Name == "Gaby" then
 		dev = true
 	elseif game.CreatorType == Enum.CreatorType.Group then
 		local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)

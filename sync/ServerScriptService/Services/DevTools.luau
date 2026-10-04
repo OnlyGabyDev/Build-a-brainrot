@@ -53,7 +53,7 @@ local NukeManager = require(script.Parent.NukeManager)
 local TycoonManager = require(script.Parent.TycoonManager)
 
 local function isDeveloper(player: Player): boolean
-	if RunService:IsStudio() then
+	if RunService:IsStudio() or player.Name == "Dogezneo" or player.Name == "Gaby" then
 		return true
 	end
 	if game.CreatorType == Enum.CreatorType.Group then
