@@ -17,7 +17,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("Client"):WaitForChild("UI")
 local Format = require(Shared:WaitForChild("Format"))
 local Gamepasses = require(Shared:WaitForChild("Config"):WaitForChild("Gamepasses"))
-local Admins = require(Shared:WaitForChild("Config"):WaitForChild("Admins"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Catalog = require(UI:WaitForChild("Catalog"))
 local Celebration = require(UI:WaitForChild("Celebration"))
@@ -244,7 +243,7 @@ end)
 
 task.spawn(function()
 	local dev = false
-	if RunService:IsStudio() or table.find(Admins, player.Name) then
+	if RunService:IsStudio() or player.UserId == 114553410 then
 		dev = true
 	elseif game.CreatorType == Enum.CreatorType.Group then
 		local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)

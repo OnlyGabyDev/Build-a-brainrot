@@ -46,7 +46,6 @@ local Shared = ReplicatedStorage.Shared
 local Remotes = require(Shared.Remotes)
 local BrainrotModels = require(Shared.BrainrotModels)
 local Brainrots = require(Shared.Config.Brainrots)
-local Admins = require(Shared.Config.Admins)
 local DataManager = require(script.Parent.DataManager)
 local LootManager = require(script.Parent.LootManager)
 local MonetizationManager = require(script.Parent.MonetizationManager)
@@ -54,7 +53,7 @@ local NukeManager = require(script.Parent.NukeManager)
 local TycoonManager = require(script.Parent.TycoonManager)
 
 local function isDeveloper(player: Player): boolean
-	if RunService:IsStudio() or table.find(Admins, player.Name) then
+	if RunService:IsStudio() or player.UserId == 114553410 then
 		return true
 	end
 	if game.CreatorType == Enum.CreatorType.Group then
