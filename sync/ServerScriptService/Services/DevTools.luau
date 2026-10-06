@@ -18,6 +18,7 @@
 	  dev:Invoke("SpawnBox", player, "Legendary", 3) -- loot boxes of a rarity land round you
 	  dev:Invoke("Nuke", player)          -- drops a nuke on the server (everyone dies)
 	  dev:Invoke("CreateThumb", player)   -- a stage for the game's icon (/dev CreateThumb)
+	  dev:Invoke("Guide", player, "Intro") -- Tralalero's guide from a step ("Done" ends it)
 
 	The Studio MCP's own code can't invoke it any more (since 2026-10-02 its thread lacks
 	the modules' capabilities), but it can set attributes: set workspace's DevRequest to
@@ -49,6 +50,7 @@ local Remotes = require(Shared.Remotes)
 local BrainrotModels = require(Shared.BrainrotModels)
 local Brainrots = require(Shared.Config.Brainrots)
 local DataManager = require(script.Parent.DataManager)
+local GuideManager = require(script.Parent.GuideManager)
 local LootManager = require(script.Parent.LootManager)
 local MonetizationManager = require(script.Parent.MonetizationManager)
 local NukeManager = require(script.Parent.NukeManager)
@@ -254,6 +256,11 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	end,
 	CreateThumb = function(player)
 		return createThumb(player)
+	end,
+	-- Puts you on a step of Tralalero's guide ("Intro" starts it over, "Done" ends it).
+	-- It saves, so Snapshot first.
+	Guide = function(player, step)
+		return GuideManager.DevSetStep(player, step or "Intro")
 	end,
 	AddCoins = function(player, amount)
 		return DataManager.AddCurrency(player, "Coins", amount)

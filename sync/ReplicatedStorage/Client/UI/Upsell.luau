@@ -9,15 +9,18 @@
 
 	Never pushy: one ad at a time, at most one every GAP seconds, and the same pass at
 	most once every SAME_GAP seconds. Owned passes, offers that ended and passes not on
-	the dashboard yet (Id 0, outside Studio) are never shown.
+	the dashboard yet (Id 0, outside Studio) are never shown, nor any ad during
+	Tralalero's guide (a newcomer's first steps) and for GUIDE_QUIET seconds after.
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Gamepasses = require(Shared:WaitForChild("Config"):WaitForChild("Gamepasses"))
+local Guide = require(Shared:WaitForChild("Config"):WaitForChild("Guide"))
 local Sounds = require(Shared:WaitForChild("Config"):WaitForChild("Sounds"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
 local Passes = require(script.Parent:WaitForChild("Passes"))
@@ -29,10 +32,17 @@ local HOLD = 9 -- seconds an ad stays up
 local GAP = 45 -- seconds between any two ads
 local SAME_GAP = 240 -- seconds before the same pass is offered again
 local Z = 55 -- over the loot overlay (30), under the completion celebration (60)
+local GUIDE_QUIET = 60 -- seconds without ads after Tralalero's guide ends
 
 local current: Frame? = nil
 local lastShown = -math.huge
 local lastByKey: { [string]: number } = {}
+local guideEnded = -math.huge
+Players.LocalPlayer:GetAttributeChangedSignal("Guide"):Connect(function()
+	if Players.LocalPlayer:GetAttribute("Guide") == Guide.Done then
+		guideEnded = os.clock()
+	end
+end)
 
 local Upsell = {}
 
@@ -42,6 +52,9 @@ local function canShow(key: string): boolean
 		return false
 	end
 	if pass.Id <= 0 and not RunService:IsStudio() then
+		return false
+	end
+	if Guide.Running(Players.LocalPlayer:GetAttribute("Guide")) or os.clock() - guideEnded < GUIDE_QUIET then
 		return false
 	end
 	return os.clock() - (lastByKey[key] or -math.huge) >= SAME_GAP

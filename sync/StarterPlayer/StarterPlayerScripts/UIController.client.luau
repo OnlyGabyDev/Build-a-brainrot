@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("Client"):WaitForChild("UI")
 local Format = require(Shared:WaitForChild("Format"))
 local Gamepasses = require(Shared:WaitForChild("Config"):WaitForChild("Gamepasses"))
+local Guide = require(Shared:WaitForChild("Config"):WaitForChild("Guide"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Catalog = require(UI:WaitForChild("Catalog"))
 local Celebration = require(UI:WaitForChild("Celebration"))
@@ -454,11 +455,18 @@ Remotes.Event("Purchased").OnClientEvent:Connect(function(text: string)
 	Shop.Thanks(text)
 end)
 
--- A newcomer's Starter Pack offer pops up in the corner a little after joining, and
--- again now and then while it lasts (Upsell keeps it from nagging).
-local STARTER_FIRST, STARTER_EVERY = 12, 300
+-- A newcomer's Starter Pack offer pops up a little after joining, and again now and
+-- then in the corner while it lasts (Upsell keeps it from nagging). During Tralalero's
+-- guide it waits: it comes after the first PERFECT, its banner and the guide's gift.
+local STARTER_FIRST, STARTER_EVERY, STARTER_AFTER_GUIDE = 12, 300, 25
 task.spawn(function()
 	task.wait(STARTER_FIRST)
+	if player:GetAttribute("Guide") ~= Guide.Done then
+		repeat
+			player:GetAttributeChangedSignal("Guide"):Wait()
+		until player:GetAttribute("Guide") == Guide.Done
+		task.wait(STARTER_AFTER_GUIDE)
+	end
 	Upsell.Featured("StarterPack") -- the big popup, once a session
 	task.wait(STARTER_EVERY)
 	while true do

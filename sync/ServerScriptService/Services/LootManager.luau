@@ -42,6 +42,8 @@ local REQUEST_COOLDOWN = 0.25 -- per player, for open requests
 local BOX_HEIGHT = 1.5 -- box center above the ground
 local LUCK_SYNC_INTERVAL = 2 -- seconds between refreshes of the "Luck" attribute
 local BOX_GAP = 7 -- studs kept between boxes (the biggest is ~5 across)
+local GIFT_SPREAD = 22 -- studs round the front yard's middle: Tralalero's gift box
+local GIFT_RESERVED = 600 -- seconds only its owner may open it
 
 export type Box = {
 	Id: number,
@@ -79,6 +81,8 @@ local nextBoxId = 0
 local boxesRemote: RemoteEvent
 
 local LootManager = {}
+-- (player): someone opened a loot box (Tralalero's guide listens)
+LootManager.BoxOpened = Instance.new("BindableEvent")
 
 -- Rolling --------------------------------------------------------------------
 
@@ -409,6 +413,7 @@ local function onOpenBox(player: Player, boxId: unknown): Result?
 	local result = grant(player, "Box", brainrotId, box.PartType)
 	if result then
 		result.BoxRarity = box.Rarity
+		LootManager.BoxOpened:Fire(player)
 	end
 	return result
 end
@@ -454,6 +459,59 @@ function LootManager.DevSpawnBoxes(player: Player, rarityName: string, count: nu
 		boxesRemote:FireAllClients("Announce", first)
 	end
 	return true
+end
+
+-- Tralalero's guide: a box of the player's own (only they can open it for a while)
+-- lands in their front yard, without a banner. Returns its id and where it is.
+function LootManager.GiftBox(player: Player): (number?, Vector3?)
+	local home = homeOf(player)
+	if not home then
+		return nil, nil
+	end
+	nextBoxId += 1
+	local box: Box = {
+		Id = nextBoxId,
+		Position = randomBoxPosition(home, GIFT_SPREAD),
+		Rarity = Rarities.List[1].Id,
+		PartType = rollPartType(),
+		Bought = true,
+		Owner = player.UserId,
+		OwnerName = player.DisplayName,
+		ReservedUntil = workspace:GetServerTimeNow() + GIFT_RESERVED,
+	}
+	addBox(box)
+	return box.Id, box.Position
+end
+
+-- Whether a box is still on the map (not opened yet).
+function LootManager.HasBox(boxId: number): boolean
+	return boxes[boxId] ~= nil
+end
+
+-- Unlocks a new part of `minRank` or better (a Rare+ gift: Tralalero's guide), rolled
+-- with the player's luck. Returns the result to reveal.
+function LootManager.GrantRarePart(player: Player, minRank: number, source: string): Result?
+	local data = DataManager.GetData(player)
+	if not data then
+		return nil
+	end
+	local odds = {}
+	local fallback = nil
+	for rarityId, weight in Loot.RollOdds(luckOf(player, data)) do
+		local rank = Rarities.ById[rarityId].Rank
+		if rank >= minRank then
+			odds[rarityId] = weight
+			if rank == minRank then
+				fallback = rarityId
+			end
+		end
+	end
+	local rarityId = rollRarity(odds, fallback or Rarities.List[minRank].Id)
+	local brainrotId, partType = rollNewPart(player, rarityId, PART_TYPES)
+	if not (brainrotId and partType) then
+		brainrotId, partType = rollBrainrot(rarityId), rollPartType()
+	end
+	return grant(player, source, brainrotId :: string, partType :: string)
 end
 
 -- Rains `count` boxes onto the map round `player` (a bought drop). Doesn't yield.

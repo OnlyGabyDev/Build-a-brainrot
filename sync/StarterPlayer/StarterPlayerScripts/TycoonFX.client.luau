@@ -22,6 +22,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared:WaitForChild("Format"))
+local Guide = require(Shared:WaitForChild("Config"):WaitForChild("Guide"))
 local Sounds = require(Shared:WaitForChild("Config"):WaitForChild("Sounds"))
 local TycoonItems = require(Shared:WaitForChild("Config"):WaitForChild("TycoonItems"))
 local DropIn = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("DropIn"))
@@ -429,11 +430,7 @@ local function watchButton(plot: Instance, button: BasePart)
 	stroke.Color = Color3.fromRGB(30, 25, 45)
 	stroke.Parent = label
 
-	local function update()
-		gui.Enabled = button.Color == AFFORDABLE_COLOR
-	end
-	button:GetPropertyChangedSignal("Color"):Connect(update)
-	update()
+	gui.Enabled = false -- (shown by the loop below)
 	arrows[button] = gui
 	button.Destroying:Once(function()
 		arrows[button] = nil
@@ -442,8 +439,11 @@ end
 
 RunService.RenderStepped:Connect(function()
 	local bounce = math.abs(math.sin(os.clock() * 4)) * 1.2
-	for _, gui in arrows do
-		if gui.Enabled then -- (only affordable buttons show theirs)
+	-- (Tralalero's guide points with its own arrow meanwhile)
+	local guiding = Guide.Running(player:GetAttribute("Guide"))
+	for button, gui in arrows do
+		gui.Enabled = not guiding and button.Color == AFFORDABLE_COLOR -- only affordable buttons show theirs
+		if gui.Enabled then
 			gui.StudsOffset = Vector3.new(0, 6 + bounce, 0)
 		end
 	end

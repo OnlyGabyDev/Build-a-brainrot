@@ -559,6 +559,30 @@ function ProductionManager.GetIncome(player: Player): number
 	return income
 end
 
+-- Tralalero's guide: makes sure a line builds a full brainrot (its PERFECT step): if
+-- its 4 slots don't match, it gets all 4 parts of `brainrotId` (the starter), when the
+-- line rules allow it. Returns whether the line builds a full one now.
+function ProductionManager.EnsureFullMatch(player: Player, lineId: string, brainrotId: string): boolean
+	local data = DataManager.GetData(player)
+	if not data then
+		return false
+	end
+	local config = data.Tycoon.Lines[lineId]
+	if config and fullMatchId(config) then
+		return true
+	end
+	local usage = getUsage(data, lineId)
+	for _, partType in PART_TYPES do
+		if not canEquip(data, usage, partType, brainrotId) then
+			return false
+		end
+	end
+	for _, partType in PART_TYPES do
+		DataManager.SetLinePart(player, lineId, partType, brainrotId)
+	end
+	return true
+end
+
 function ProductionManager.Init()
 	productionRemote = Remotes.Event("Production")
 	completionRemote = Remotes.Event("Completion")

@@ -23,6 +23,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage.Shared
 local Brainrots = require(Shared.Config.Brainrots)
+local Guide = require(Shared.Config.Guide)
 local Remotes = require(Shared.Remotes)
 
 local IS_STUDIO = RunService:IsStudio()
@@ -83,6 +84,7 @@ export type PlayerData = {
 	Claims: { [string]: number }, -- [claim] = os.time() it was last claimed (one-off and daily rewards)
 	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number },
 	Settings: { LowGraphics: boolean }, -- the player's own (Client/Performance)
+	Guide: string, -- the step of Tralalero's guide they're on (Config/Guide), "Done" when finished
 }
 
 export type AddPartResult = "New" | "Duplicate" | "NotLoaded"
@@ -126,6 +128,7 @@ local TEMPLATE: PlayerData = {
 	Settings = {
 		LowGraphics = false,
 	},
+	Guide = Guide.Steps[1].Id,
 }
 
 -- What a client may set in its Settings, and the type each takes.
@@ -304,6 +307,7 @@ local function replicateExtras(profile: Profile)
 		profile.Player:SetAttribute(`Boost_{id}`, expires)
 	end
 	profile.Player:SetAttribute("WheelSpins", profile.Data.DailyWheel.Spins)
+	profile.Player:SetAttribute("Guide", profile.Data.Guide)
 end
 
 local function setupReplication(profile: Profile)
@@ -399,6 +403,10 @@ local function buildData(record: any): (PlayerData, number)
 		if migrate then
 			migrate(saved)
 		end
+	end
+	-- players from before Tralalero's guide skip it
+	if saved.Guide == nil then
+		saved.Guide = Guide.Done
 	end
 	reconcile(saved, TEMPLATE)
 	-- Keep a newer version number if this server runs older code than the one that
@@ -829,6 +837,14 @@ function DataManager.Claim(player: Player, claim: string, cooldown: number?): bo
 	return true
 end
 
+-- Studio testing: forgets a claim, so it can be claimed again.
+function DataManager.DevUnclaim(player: Player, claim: string)
+	local profile = profiles[player]
+	if profile then
+		profile.Data.Claims[claim] = nil
+	end
+end
+
 -- Starts or extends a timed boost (e.g. "Luck") by `seconds`.
 function DataManager.AddBoost(player: Player, boostId: string, seconds: number): boolean
 	checkId("boostId", boostId)
@@ -1011,6 +1027,17 @@ function DataManager.PurchaseItem(player: Player, itemId: string, price: number)
 	data.Coins -= price
 	data.Tycoon.Purchased[itemId] = true
 	replicateStat(profile, "Coins")
+	return true
+end
+
+-- Moves the player to a step of Tralalero's guide (GuideManager), or "Done".
+function DataManager.SetGuideStep(player: Player, step: string): boolean
+	local profile = profiles[player]
+	if not profile or not (step == Guide.Done or Guide.ById[step]) then
+		return false
+	end
+	profile.Data.Guide = step
+	player:SetAttribute("Guide", step)
 	return true
 end
 

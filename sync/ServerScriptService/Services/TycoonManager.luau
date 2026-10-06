@@ -58,7 +58,7 @@ local PLOT_COLORS = {
 	Color3.fromRGB(255, 245, 180),
 }
 
-local SPAWN_OFFSET = CFrame.new(0, FLOOR_TOP + 4, -54) * CFrame.Angles(0, math.pi, 0) -- facing into the plot
+local SPAWN_OFFSET = CFrame.new(0, FLOOR_TOP + 4, -54) * CFrame.Angles(0, math.pi, 0) -- inside the entrance, facing down the first line
 local FLOOR_BUTTON = Vector3.new(-30, 0, -78) -- the next floor's button, on the lawn out front
 -- Where a room's opening button sits (plot space, on the floor): beside its door, on the
 -- side you come from (clear of the middle line's belt end and buttons), or on the
@@ -138,6 +138,8 @@ local plotByPlayer: { [Player]: Plot } = {}
 local buttonCooldowns: { [Player]: number } = {}
 
 local TycoonManager = {}
+-- (player, amount): an owner banked their Cash Pad (Tralalero's guide listens)
+TycoonManager.Collected = Instance.new("BindableEvent")
 
 -- Helpers --------------------------------------------------------------------
 
@@ -227,6 +229,7 @@ local function lineOrigin(plot: Plot, lineId: string): CFrame
 	local zone = Zones.ById[line.Zone]
 	return plot.CFrame * FactoryBuilder.RoomCFrame(zone.Index) * CFrame.new(LINE_X[line.Index], 0, LINE_Z)
 end
+TycoonManager.LineOrigin = lineOrigin
 
 local function getLineModel(plot: Plot, lineId: string): Model
 	local existing = plot.LinesFolder:FindFirstChild(lineId)
@@ -1662,6 +1665,8 @@ refreshButtons = function(plot: Plot)
 				and open
 				and not purchased[item.Id]
 				and (item.Requires == nil or purchased[item.Requires] == true)
+				-- (Tralalero's guide shows the first line's buttons only, until it's done)
+				and not require(Shared.Config.Guide).HidesButton(data.Guide, item.Kind, item.LineId)
 		end
 
 		local button = plot.Buttons[item.Id]
@@ -1811,6 +1816,7 @@ local function buildPlot(index: number, parent: Instance): Plot
 			plot.Collected = 0
 			DataManager.AddCurrency(player, "Coins", amount)
 			updateCashLabel(plot)
+			TycoonManager.Collected:Fire(player, amount)
 		end
 	end)
 
@@ -1825,6 +1831,9 @@ local function teleportToPlot(plot: Plot, character: Model)
 		task.wait() -- let the default spawn finish placing the character first
 		if plot.Owner and plot.Owner.Character == character then
 			character:PivotTo(plot.CFrame * SPAWN_OFFSET)
+			-- the camera doesn't turn with a teleport: the client turns it to face the
+			-- line too (Guide.client), or flies a newcomer's intro onto the factory
+			Remotes.Event("Spawned"):FireClient(plot.Owner, plot.CFrame)
 		end
 	end)
 end
@@ -2042,6 +2051,14 @@ function TycoonManager.Init()
 	Players.PlayerRemoving:Connect(releasePlot)
 end
 
+-- Shows or hides the owner's buttons again (Tralalero's guide moved on).
+function TycoonManager.RefreshButtons(player: Player)
+	local plot = plotByPlayer[player]
+	if plot then
+		refreshButtons(plot)
+	end
+end
+
 function TycoonManager.GetPlot(player: Player): Plot?
 	return plotByPlayer[player]
 end
@@ -2104,6 +2121,17 @@ function TycoonManager.AddToCollector(player: Player, amount: number)
 	elseif plot then
 		plot.Collected += amount
 		updateCashLabel(plot)
+		-- standing on the pad already (its Touched only fires on stepping on): they go in
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		local pad = plot.CashPad
+		local offset = if root and root:IsA("BasePart") then pad.CFrame:PointToObjectSpace(root.Position) else nil
+		if offset and math.abs(offset.X) <= pad.Size.X / 2 + 1 and math.abs(offset.Z) <= pad.Size.Z / 2 + 1 and offset.Y > 0 and offset.Y < 6 then
+			local banked = plot.Collected
+			plot.Collected = 0
+			DataManager.AddCurrency(player, "Coins", banked)
+			updateCashLabel(plot)
+			TycoonManager.Collected:Fire(player, banked)
+		end
 	end
 end
 

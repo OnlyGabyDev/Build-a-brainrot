@@ -21,6 +21,7 @@ local DailyWheelManager = require(Services:WaitForChild("DailyWheelManager"))
 local DevTools = require(Services:WaitForChild("DevTools"))
 local LeaderboardManager = require(Services:WaitForChild("LeaderboardManager"))
 local StarterPack = require(Services:WaitForChild("StarterPack"))
+local GuideManager = require(Services:WaitForChild("GuideManager"))
 
 DataManager.Init()
 BadgeManager.Init()
@@ -37,6 +38,7 @@ LeaderboardManager.Init() -- the boards and the podium, in the spots the plaza l
 ProductionManager.Init()
 LootManager.Init()
 StarterPack.Init() -- after LootManager (its boxes) and MonetizationManager (its pass)
+GuideManager.Init() -- Tralalero's guide
 GadgetManager.Init()
 RebirthManager.Init()
 DailyWheelManager.Init()
