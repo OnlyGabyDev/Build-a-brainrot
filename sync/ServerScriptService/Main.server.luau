@@ -1,10 +1,39 @@
 -- Server entry point: requires each service and initializes it, in dependency order.
 local Players = game:GetService("Players")
+local ReplicatedFirst = game:GetService("ReplicatedFirst")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 -- The world is built over several frames (Services/WorkBudget): nobody spawns until
 -- it's there (no falling through ground that isn't filled in yet).
 Players.CharacterAutoLoads = false
+
+-- The loading screen's brainrots (ReplicatedFirst/LoadingScreen): every brainrot built
+-- whole, first thing, into ReplicatedFirst, so a joining player gets them before
+-- anything else (~1K parts, ~70 ms).
+do
+	local Shared = ReplicatedStorage:WaitForChild("Shared")
+	local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
+	local Brainrots = require(Shared.Config.Brainrots)
+	local Rarities = require(Shared.Config.Rarities)
+	local folder = Instance.new("Folder")
+	folder.Name = "LoadingBrainrots"
+	for _, brainrot in Brainrots.List do
+		local figure = Instance.new("Model")
+		figure.Name = brainrot.Id
+		for _, partType in Brainrots.PartTypes do
+			BrainrotModels.CreatePart(brainrot.Id, partType).Parent = figure
+		end
+		local rarity = Rarities.ById[brainrot.Rarity]
+		figure:SetAttribute("Rarity", string.upper(rarity.Id))
+		figure:SetAttribute("Rank", rarity.Rank)
+		figure:SetAttribute("Color", rarity.Color)
+		figure.Parent = folder
+	end
+	folder:SetAttribute("Count", #Brainrots.List)
+	folder:SetAttribute("Host", Brainrots.StarterId)
+	folder.Parent = ReplicatedFirst
+end
 
 local Services = ServerScriptService:WaitForChild("Services")
 

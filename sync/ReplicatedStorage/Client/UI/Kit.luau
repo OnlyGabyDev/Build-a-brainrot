@@ -284,7 +284,16 @@ function Kit.toggle(props: { [string]: any }, value: boolean, onChange: (on: boo
 	end
 end
 
--- A ViewportFrame showing `model` from the front (models face -Z).
+-- Where a viewport's camera sits round its model: three quarters on (models face -Z;
+-- head-on some are just a column, like Tralalero), a little from above.
+local VIEW_ANGLE = math.rad(38)
+local VIEW_LIFT = 0.3
+
+local function viewFrom(angle: number): Vector3
+	return Vector3.new(math.sin(angle), VIEW_LIFT, -math.cos(angle)).Unit
+end
+
+-- A ViewportFrame showing `model` at three quarters.
 function Kit.viewport(props: { [string]: any }, model: Model): ViewportFrame
 	local frame = Kit.new("ViewportFrame", {
 		BackgroundTransparency = 1,
@@ -302,7 +311,7 @@ function Kit.viewport(props: { [string]: any }, model: Model): ViewportFrame
 	model.Parent = frame
 	local box, size = model:GetBoundingBox()
 	local distance = size.Magnitude * 1.5 + 0.5
-	camera.CFrame = CFrame.lookAt(box.Position + Vector3.new(0.35, 0.3, -1).Unit * distance, box.Position)
+	camera.CFrame = CFrame.lookAt(box.Position + viewFrom(VIEW_ANGLE) * distance, box.Position)
 	frame.Parent = props.Parent
 	return frame
 end
@@ -688,14 +697,18 @@ function Kit.banner(icon: string, title: string, subtitle: string, color: Color3
 	end)
 end
 
--- Slowly orbits a viewport's camera around its model. Returns a stop function.
-function Kit.orbit(viewport: ViewportFrame, model: Model): () -> ()
+-- Sways a viewport's camera to and fro round its model's three-quarter view (a full
+-- orbit showed it head-on and from behind half the time), looking at `focus` from
+-- `distance` if given (else the whole model). Returns a stop function.
+function Kit.orbit(viewport: ViewportFrame, model: Model, focus: Vector3?, distance: number?): () -> ()
 	local camera = viewport.CurrentCamera :: Camera
 	local box, size = model:GetBoundingBox()
-	local distance = size.Magnitude * 1.5 + 0.5
+	local center = focus or box.Position
+	local reach = distance or size.Magnitude * 1.5 + 0.5
+	local start = os.clock()
 	local connection = RunService.RenderStepped:Connect(function()
-		local angle = os.clock() * 0.8
-		camera.CFrame = CFrame.lookAt(box.Position + Vector3.new(math.sin(angle), 0.3, -math.cos(angle)).Unit * distance, box.Position)
+		local angle = VIEW_ANGLE + math.sin((os.clock() - start) * 0.9) * math.rad(18)
+		camera.CFrame = CFrame.lookAt(center + viewFrom(angle) * reach, center)
 	end)
 	return function()
 		connection:Disconnect()

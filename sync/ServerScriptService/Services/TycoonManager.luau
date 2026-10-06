@@ -61,13 +61,13 @@ local PLOT_COLORS = {
 local SPAWN_OFFSET = CFrame.new(0, FLOOR_TOP + 4, -54) * CFrame.Angles(0, math.pi, 0) -- inside the entrance, facing down the first line
 local FLOOR_BUTTON = Vector3.new(-30, 0, -78) -- the next floor's button, on the lawn out front
 -- Where a room's opening button sits (plot space, on the floor): beside its door, on the
--- side you come from (clear of the middle line's belt end and buttons), or on the
--- outside stairs' landing.
+-- side you come from, clear of the middle line's belt end and buttons (at x 18 its label
+-- hid behind the Head Dropper's from the entrance), or on the outside stairs' landing.
 local ROOM_BUTTONS = {
-	PlushieRoom = Vector3.new(18, FactoryBuilder.FloorY(1), 55),
+	PlushieRoom = Vector3.new(27, FactoryBuilder.FloorY(1), 55),
 	-- (it brings the 2nd floor: its button waits at the elevator, downstairs)
 	ClayStudio = FactoryBuilder.ElevatorButton + Vector3.new(0, FactoryBuilder.FloorY(1), 0),
-	VinylCollectibles = Vector3.new(18, FactoryBuilder.FloorY(2), 55),
+	VinylCollectibles = Vector3.new(27, FactoryBuilder.FloorY(2), 55),
 }
 local OLD_BUILDING_DELAY = 2 -- seconds the old building stays (minus its top) while the new one streams in
 local CASH_PAD_OFFSET = CFrame.new(0, FLOOR_TOP + 0.3, -46)
@@ -1617,7 +1617,7 @@ local function createButton(plot: Plot, item: TycoonItems.Item)
 	local cframe: CFrame
 	local text: string
 	if item.Kind == "Room" then
-		local spot = ROOM_BUTTONS[item.Zone] or Vector3.new(18, FactoryBuilder.FloorY(1), 55)
+		local spot = ROOM_BUTTONS[item.Zone] or ROOM_BUTTONS.PlushieRoom
 		cframe = plot.CFrame * CFrame.new(spot.X, spot.Y + 0.2, spot.Z)
 		text = if TycoonItems.BuildsStorey(item.Id)
 			then `🏗️ NEW FLOOR: {Zones.ById[item.Zone].Name}\n{priceText(item.Price)}` -- (it brings its storey)
@@ -1644,7 +1644,9 @@ local function createButton(plot: Plot, item: TycoonItems.Item)
 	local big = item.Kind == "Floor" or item.Kind == "Room"
 	local size = if item.Kind == "Floor" then 8 elseif item.Kind == "Room" then 6 else 5
 	local button = makePart(plot.ButtonsFolder, item.Id, Vector3.new(size, 0.4, size), cframe, AFFORDABLE_COLOR, Enum.Material.Neon)
-	makeBillboard(button, text, if big then Vector2.new(12, 3.6) elseif item.Kind == "Decor" then Vector2.new(7.5, 3.4) else Vector2.new(7, 2.5), if big then 4 else 3, if big then 150 else 60)
+	-- (a room's label floats higher, over the line buttons' labels around it)
+	local lift = if item.Kind == "Room" then 6 elseif big then 4 else 3
+	makeBillboard(button, text, if big then Vector2.new(12, 3.6) elseif item.Kind == "Decor" then Vector2.new(7.5, 3.4) else Vector2.new(7, 2.5), lift, if big then 150 else 60)
 	button.Touched:Connect(function(hit)
 		onButtonTouched(plot, item, hit)
 	end)

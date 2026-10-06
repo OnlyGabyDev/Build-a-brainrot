@@ -11,6 +11,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -29,6 +30,9 @@ local AUTO_CLOSE = 8 -- seconds before a reveal closes itself
 local BIG_RANK = 3 -- Rare and up get the bigger reveal
 local CURRENCY_ICONS = { Coins = "💰", Gems = "💎" }
 local NEW_COLOR = Color3.fromRGB(120, 245, 110)
+local GHOST_COLOR = Color3.fromRGB(35, 30, 55) -- the rest of the brainrot round a part won
+local GHOST_TRANSPARENCY = 0.3
+local HOP_SHARE = 0.08 -- how far the part won hops out, as a share of its brainrot's height
 local BAD_COLOR = Color3.fromRGB(255, 90, 90)
 local QUICK_LINGER = 3 -- seconds the quick feed stays on after its last result
 local QUICK_GAP = 0.15 -- seconds between quick results
@@ -103,14 +107,48 @@ local function reveal(parent: Frame, result: Result)
 		Parent = card,
 	})
 
-	local model = BrainrotModels.CreatePart(result.BrainrotId, result.PartType)
+	-- the whole brainrot, the part won in color and the rest a see-through silhouette,
+	-- the camera leaning toward the part (a part alone was unreadable: Tralalero's arms
+	-- are two loose wedges)
+	local model = Instance.new("Model")
+	local won: Model? = nil
+	local wonCenter, wonSize = Vector3.zero, Vector3.one
+	for _, partType in Brainrots.PartTypes do
+		local piece, center, size = BrainrotModels.CreatePart(result.BrainrotId, partType)
+		if partType == result.PartType then
+			won, wonCenter, wonSize = piece, center, size
+		else
+			for _, object in piece:GetDescendants() do
+				if object:IsA("BasePart") then
+					object.Color = GHOST_COLOR
+					object.Material = Enum.Material.SmoothPlastic
+					object.MaterialVariant = ""
+					object.Reflectance = 0
+					object.Transparency = GHOST_TRANSPARENCY
+				elseif object:IsA("Decal") or object:IsA("Texture") then
+					object.Transparency = 1
+				end
+			end
+		end
+		piece.Parent = model
+	end
+	local figureBox, figureSize = model:GetBoundingBox()
 	local viewport = Kit.viewport({
 		Position = UDim2.fromOffset(40, 78),
 		Size = UDim2.fromOffset(360, 230),
 		ZIndex = 33,
 		Parent = card,
 	}, model)
-	local stopOrbit = Kit.orbit(viewport, model)
+	local stopOrbit = Kit.orbit(viewport, model, figureBox.Position:Lerp(wonCenter, 0.6), math.max(wonSize.Magnitude * 2, figureSize.Magnitude) + 0.5)
+	-- the part won hops out of its place and back in, again and again (up, or down for
+	-- the legs)
+	local hop = Vector3.new(0, (if wonCenter.Y < figureBox.Position.Y - figureSize.Y * 0.15 then -1 else 1) * figureSize.Y * HOP_SHARE, 0)
+	local home = if won then won:GetPivot() else CFrame.identity
+	local hopping = RunService.RenderStepped:Connect(function()
+		if won then
+			won:PivotTo(home + hop * math.max(0, math.sin(os.clock() * 4)) ^ 2)
+		end
+	end)
 
 	Kit.text({ Text = brainrot.Name, Position = UDim2.fromOffset(20, 314), Size = UDim2.new(1, -40, 0, 44), ZIndex = 33, Parent = card })
 	Kit.text({
@@ -183,6 +221,7 @@ local function reveal(parent: Frame, result: Result)
 		task.wait(0.05)
 	end
 	stopOrbit()
+	hopping:Disconnect()
 	stopRays()
 end
 

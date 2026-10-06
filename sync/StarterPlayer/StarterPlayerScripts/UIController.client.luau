@@ -6,12 +6,15 @@
 	opens the Line menu there. The menus live in ReplicatedStorage/Client/UI.
 ]]
 
+local GuiService = game:GetService("GuiService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
 local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UI = ReplicatedStorage:WaitForChild("Client"):WaitForChild("UI")
@@ -46,17 +49,81 @@ local VIP_TAG = '<font color="#FFD23C">[VIP]</font> '
 local player = Players.LocalPlayer
 local gui = Kit.getGui()
 
+-- The left column (the counters over the menu buttons) ------------------------
+-- Top left, Pet Simulator style. The Roblox chat window sits there too (40% x 25% of
+-- the screen, 475 x 275 px at most, plus its input bar): while it's open the column
+-- moves down under it, shrinking to fit if it must; with the chat closed (how phones
+-- start) it goes back up to the top.
+
+local HUD_TOP = 84 -- canvas units
+local HUD_HEIGHT = 560 -- the counters (212), a gap and three rows of menu buttons
+local HUD_MARGIN = 20 -- kept clear under the chat and above the screen's bottom
+local HUD_MIN_SCALE = 0.6
+
+local leftHud = Kit.new("Frame", {
+	Name = "LeftHud",
+	Position = UDim2.fromOffset(0, HUD_TOP),
+	Size = UDim2.fromOffset(420, HUD_HEIGHT),
+	BackgroundTransparency = 1,
+	Parent = gui,
+})
+local leftScale = Kit.new("UIScale", { Parent = leftHud })
+
+-- The bottom of the open chat, in canvas units, or nil. Until the first message only its
+-- input bar shows (the window reports no size). Phones and consoles keep the column up
+-- top: their chat starts closed, and a column squeezed under it would be too small to tap.
+local function chatBottom(): number?
+	if (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) or GuiService:IsTenFootInterface() then
+		return nil
+	end
+	local ok, active = pcall(StarterGui.GetCore, StarterGui, "ChatActive")
+	if ok and active == false then
+		return nil
+	end
+	local bottom: number? = nil
+	for _, config in { TextChatService:FindFirstChildOfClass("ChatWindowConfiguration"), TextChatService:FindFirstChildOfClass("ChatInputBarConfiguration") } do
+		local shown = config :: any -- (both have Enabled, AbsolutePosition and AbsoluteSize)
+		if shown and shown.Enabled and shown.AbsoluteSize.Y > 0 then
+			bottom = math.max(bottom or 0, shown.AbsolutePosition.Y + shown.AbsoluteSize.Y)
+		end
+	end
+	if not bottom then
+		return nil
+	end
+	local canvasScale = gui:FindFirstChildOfClass("UIScale")
+	return (bottom - gui.AbsolutePosition.Y) / (if canvasScale then canvasScale.Scale else 1)
+end
+
+local hudPlace = Vector2.new(HUD_TOP, 1) -- (top, scale) last set
+local function placeLeftHud()
+	local below = chatBottom()
+	local top = if below then math.max(HUD_TOP, below + HUD_MARGIN) else HUD_TOP
+	local scale = math.clamp((gui.Size.Y.Offset - HUD_MARGIN - top) / HUD_HEIGHT, HUD_MIN_SCALE, 1)
+	if math.abs(top - hudPlace.X) < 1 and math.abs(scale - hudPlace.Y) < 0.01 then
+		return
+	end
+	hudPlace = Vector2.new(top, scale)
+	local slide = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(leftHud, slide, { Position = UDim2.fromOffset(0, top) }):Play()
+	TweenService:Create(leftScale, slide, { Scale = scale }):Play()
+end
+task.spawn(function()
+	while true do -- (the chat says nothing when it's opened or closed: poll)
+		placeLeftHud()
+		task.wait(0.5)
+	end
+end)
+
 -- Counters -------------------------------------------------------------------
--- Top left, Pet Simulator style: a glossy pill per currency with its icon in a bubble
--- sticking out of its left end; it counts up smoothly, pops, and floats a "+N" off its
--- right end when it goes up.
+-- A glossy pill per currency with its icon in a bubble sticking out of its left end;
+-- it counts up smoothly, pops, and floats a "+N" off its right end when it goes up.
 
 local counters = Kit.new("Frame", {
 	Name = "Counters",
-	Position = UDim2.fromOffset(34, 84),
+	Position = UDim2.fromOffset(34, 0),
 	Size = UDim2.fromOffset(360, 212),
 	BackgroundTransparency = 1,
-	Parent = gui,
+	Parent = leftHud,
 })
 Kit.new("UIListLayout", { Padding = UDim.new(0, 16), SortOrder = Enum.SortOrder.LayoutOrder, Parent = counters })
 
@@ -160,10 +227,10 @@ end)
 -- Under the counters, two to a row: big glossy squares, their icons bobbing gently.
 local buttons = Kit.new("Frame", {
 	Name = "MenuButtons",
-	Position = UDim2.fromOffset(28, 316),
-	Size = UDim2.fromOffset(216, 340),
+	Position = UDim2.fromOffset(28, 232),
+	Size = UDim2.fromOffset(216, 328),
 	BackgroundTransparency = 1,
-	Parent = gui,
+	Parent = leftHud,
 })
 Kit.new("UIGridLayout", {
 	CellSize = UDim2.fromOffset(100, 100),

@@ -5,7 +5,8 @@
 	in a turning rainbow); its figure with unlocked parts in color and locked ones blacked
 	out (empty sticker pieces), "???" until you find one of its parts, and a round dot per
 	zone edition (gray: zone still locked, blue: can be collected, green: collected).
-	Progress bars up top. Click a sticker for the big picture with round edition buttons
+	Progress bars up top, and what a full set gets you (each sticker says it too).
+	Click a sticker for the big picture with round edition buttons
 	under it, its rewards, and to put the whole brainrot on a line.
 ]]
 
@@ -31,6 +32,8 @@ local GOOD_COLOR = Color3.fromRGB(110, 240, 110)
 local BAD_COLOR = Color3.fromRGB(255, 90, 90)
 local MUTED_COLOR = Color3.fromRGB(175, 175, 190)
 local FILTERS = { "ALL", "COMPLETED", "MISSING" }
+local REWARD_LINE = "All 4 parts = 🦸 Morph + 🎁 Gadget + 💎"
+local LOCKED_REWARD_COLORS = { Color3.fromRGB(150, 120, 210), Color3.fromRGB(95, 70, 160) }
 local CARD = Vector2.new(176, 228)
 local COLUMN_WIDTH = SIZE.X - 450 - 24 -- the details' right column (it starts at x 450)
 local EDITION_ICONS = { ToyWorkshop = "🧸", PlushieRoom = "🧵", ClayStudio = "🎨", VinylCollectibles = "💎", CandyFactory = "🍭" }
@@ -299,8 +302,8 @@ local function renderHeader(parent: Frame)
 
 	for index, name in FILTERS do
 		Kit.button({
-			Position = UDim2.fromOffset(24 + (index - 1) * 150, 58),
-			Size = UDim2.fromOffset(140, 42),
+			Position = UDim2.fromOffset(24 + (index - 1) * 138, 58),
+			Size = UDim2.fromOffset(128, 42),
 			Parent = parent,
 		}, if filter == name then Kit.Colors.Purple else Kit.Colors.Grey, name, function()
 			filter = name
@@ -310,12 +313,31 @@ local function renderHeader(parent: Frame)
 	Kit.button({
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -24, 0, 58),
-		Size = UDim2.fromOffset(210, 42),
+		Size = UDim2.fromOffset(180, 42),
 		Parent = parent,
 	}, Kit.Colors.Gems, if rarestFirst then "RARITY ▼" else "RARITY ▲", function()
 		rarestFirst = not rarestFirst
 		render()
 	end)
+
+	-- what collecting gets you, between the filters and the sort button
+	local goal = Kit.new("Frame", {
+		Position = UDim2.fromOffset(442, 58),
+		Size = UDim2.fromOffset(SIZE.X - 442 - 218, 42),
+		BackgroundColor3 = Kit.White,
+		Parent = parent,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = goal })
+	Kit.stroke(goal, 3)
+	Kit.gradient(goal, Kit.Colors.Coins)
+	Kit.shine(goal, 14)
+	Kit.text({
+		Text = REWARD_LINE,
+		Position = UDim2.fromOffset(12, 5),
+		Size = UDim2.new(1, -24, 1, -10),
+		StrokeThickness = 2.5,
+		Parent = goal,
+	})
 end
 
 local function renderCard(parent: Instance, order: number, brainrot: Brainrots.Brainrot)
@@ -356,21 +378,21 @@ local function renderCard(parent: Instance, order: number, brainrot: Brainrots.B
 	Kit.gradient(bubble, if done then Kit.Colors.Coins elseif count == #PART_TYPES then Kit.Colors.Green else Kit.Colors.Grey)
 	Kit.text({ Text = if done then "⭐" else `{count}/4`, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.78, 0.6), StrokeThickness = if done then 0 else 2, ZIndex = 4, Parent = bubble })
 
-	-- a completed one shows off its rewards right on the sticker (tap it to use them)
-	if done then
-		local pill = Kit.new("Frame", {
-			AnchorPoint = Vector2.new(0.5, 1),
-			Position = UDim2.new(0.5, 0, 0, 154),
-			Size = UDim2.new(1, -18, 0, 26),
-			BackgroundColor3 = Kit.White,
-			ZIndex = 5,
-			Parent = face,
-		})
-		Kit.corner(pill, 12)
-		Kit.stroke(pill, 2.5)
-		Kit.gradient(pill, Kit.Colors.Green)
-		Kit.text({ Text = if Gadgets[brainrot.Id] then "🦸 MORPH + 🎁 GADGET" else "🦸 MORPH", Position = UDim2.fromOffset(6, 3), Size = UDim2.new(1, -12, 1, -6), StrokeThickness = 2, ZIndex = 6, Parent = pill })
-	end
+	-- its rewards right on the sticker: a completed one shows them off (tap it to use
+	-- them), the rest say what completing them gets you
+	local pill = Kit.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 0, 154),
+		Size = UDim2.new(1, -18, 0, 26),
+		BackgroundColor3 = Kit.White,
+		ZIndex = 5,
+		Parent = face,
+	})
+	Kit.corner(pill, 12)
+	Kit.stroke(pill, 2.5)
+	Kit.gradient(pill, if done then Kit.Colors.Green else LOCKED_REWARD_COLORS)
+	local rewards = if Gadgets[brainrot.Id] then "🦸 MORPH + 🎁 GADGET" else "🦸 MORPH"
+	Kit.text({ Text = if done then rewards else `🔒 {rewards}`, Position = UDim2.fromOffset(6, 3), Size = UDim2.new(1, -12, 1, -6), StrokeThickness = 2, ZIndex = 6, Parent = pill })
 
 	-- its name on a ribbon, the edition dots under it
 	local ribbon = Kit.new("Frame", {
@@ -680,7 +702,7 @@ local function renderDetails(parent: Frame, brainrot: Brainrots.Brainrot)
 		end
 	else
 		Kit.text({
-			Text = if complete then "Buy an assembly line to build it!" else "Find all 4 parts to build a full one!",
+			Text = if complete then "Buy an assembly line to build it!" else "🎲 Rolls and 📦 boxes drop the missing parts!",
 			TextColor3 = MUTED_COLOR,
 			Position = UDim2.fromOffset(x, y + 10),
 			Size = UDim2.fromOffset(COLUMN_WIDTH, 28),
