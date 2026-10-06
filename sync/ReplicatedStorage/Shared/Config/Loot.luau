@@ -18,6 +18,7 @@ local Loot = {
 	HomeShare = 0.5,
 	HomeOffset = 40,
 	HomeSpread = 130,
+	MapBoxGap = 30, -- studs kept between map boxes (crowded boxes cluttered the screen; bought ones keep 7)
 	OpenDistance = 14, -- studs; the server's reach check (the client opens at ~6)
 	AnnounceRank = 3, -- boxes of this rarity rank and up (Rare+) are announced to everyone
 
@@ -39,6 +40,18 @@ local Loot = {
 	-- Coin duplicates also pay this many seconds of the player's current income, so
 	-- they stay worth something as the factory grows.
 	DuplicateIncomeSeconds = 15,
+
+	-- Every box opened also pays Coins by the box's own rarity (the user, 2026-10-06: a
+	-- rarer box is worth the run): `Base` plus `Seconds` of the player's income, so it
+	-- stays worth it as the factory grows. On top of the part (or its duplicate's reward).
+	BoxCoins = {
+		Common = { Base = 25, Seconds = 10 },
+		Uncommon = { Base = 75, Seconds = 20 },
+		Rare = { Base = 250, Seconds = 45 },
+		Legendary = { Base = 1000, Seconds = 90 },
+		Mythic = { Base = 4000, Seconds = 180 },
+		Godly = { Base = 15000, Seconds = 360 },
+	} :: { [string]: { Base: number, Seconds: number } },
 
 	-- Bought box drops (Config/Products, Kind "BoxDrop"): they rain onto the map round
 	-- the buyer, one every `Interval` seconds, on top of the map's own boxes (they don't

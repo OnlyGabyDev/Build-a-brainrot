@@ -1542,25 +1542,62 @@ end
 local BOW_COLOR = Color3.fromRGB(255, 80, 170)
 
 local function bowSpecial(build: Build, brainrot: Model, machine: BasePart, duration: number)
-	local frame, size = brainrot:GetBoundingBox()
 	local rotation = brainrot:GetPivot().Rotation
 	-- (on a rail the hook holds the top of its head: the bow flies off the machine's
-	-- ribbon spool onto its front instead of dropping onto its top)
+	-- ribbon spool instead of dropping from above)
 	local spool = findPart(build.Line, "Station3Nozzle")
-	local head = if spool
-		then rotation + (frame.Position + Vector3.new(0, size.Y / 2 - 1.2, 0) + rotation.LookVector * (size.Z / 2))
-		else rotation + (frame.Position + Vector3.new(0, size.Y / 2 + 0.5, 0))
-	local bow = require(Shared:WaitForChild("RibbonBow")).Build(brainrot, head, 3.6, BOW_COLOR)
+	-- A hair bow on a top corner of its head, tilted out, or a bow tie under its chin:
+	-- the first spot that covers none of its eyes (VoxelArt's "Face" parts; a mixed
+	-- build's head can carry them anywhere: on top for a frog, on the sides for a shark).
+	-- An eye is covered when it's inside the bow's outline (4 x 2.7 studs) and not in
+	-- front of it.
+	local headModel = brainrot:FindFirstChild("Head")
+	local frame, size = (if headModel and headModel:IsA("Model") then headModel else brainrot):GetBoundingBox()
+	local up, right, front = rotation.UpVector, rotation.RightVector, rotation.LookVector
+	local top = frame.Position + up * (size.Y / 2 + 0.9)
+	local spots = {
+		rotation * CFrame.Angles(0, 0, -0.4) + (top + right * (size.X * 0.3)),
+		rotation * CFrame.Angles(0, 0, 0.4) + (top - right * (size.X * 0.3)),
+		rotation + (frame.Position - up * (size.Y / 2 + 0.4) + front * (size.Z / 2 + 0.3)),
+	}
+	if not spool then
+		table.insert(spots, 1, rotation + top)
+	end
+	local face = {}
+	for _, part in (headModel or brainrot):GetDescendants() do
+		if part:IsA("BasePart") and part:GetAttribute("Face") then
+			table.insert(face, part.Position)
+		end
+	end
+	local head = spots[1]
+	for _, spot in spots do
+		local clear = true
+		for _, eye in face do
+			local offset = spot:PointToObjectSpace(eye)
+			if math.abs(offset.X) < 2.2 and math.abs(offset.Y) < 1.5 and offset.Z > -0.7 then
+				clear = false
+				break
+			end
+		end
+		if clear then
+			head = spot
+			break
+		end
+	end
+	local bow = require(Shared:WaitForChild("RibbonBow")).Build(brainrot, head, 3, BOW_COLOR)
+	-- (the spot rides along with the brainrot: it may move on while the bow flies)
+	local onHead = brainrot:GetPivot():ToObjectSpace(head)
 
 	stampMachine(build, machine)
 	Effects.sound(head.Position, Sounds.Sewing, 0.2, vary(1.5))
 	local from = if spool then rotation + spool.Position else head + Vector3.new(0, 7, 0)
 	bow:PivotTo(from)
 	run(duration * 0.45, function(a)
-		local landing = from:Lerp(head, ease(a, if spool then Enum.EasingStyle.Quad else Enum.EasingStyle.Bounce, Enum.EasingDirection.Out))
+		local landing = from:Lerp(brainrot:GetPivot() * onHead, ease(a, if spool then Enum.EasingStyle.Quad else Enum.EasingStyle.Bounce, Enum.EasingDirection.Out))
 		local arc = if spool then Vector3.new(0, 2.5 * math.sin(a * math.pi), 0) else Vector3.zero
 		bow:PivotTo((landing + arc) * CFrame.Angles(0, (1 - a) * math.pi * 2, 0))
 	end)
+	head = brainrot:GetPivot() * onHead
 	bow:PivotTo(head)
 	squish(brainrot)
 	sparkle(build, head.Position, Color3.fromRGB(255, 150, 210), 14)

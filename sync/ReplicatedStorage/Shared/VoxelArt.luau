@@ -59,6 +59,9 @@ export type Art = {
 local VoxelArt = {}
 
 local DETAIL = 0.8 -- studs: a part this small in every direction casts no shadow
+-- Palette keys of a head's eyes and face features: those parts get a "Face" attribute,
+-- so the Plushie room's Bow Tier ties its bow where it covers none of them.
+local FACE_KEYS = { Eye = true, EyeOrange = true, Pupil = true, Iris = true, White = true, Dark = true, Black = true, Shades = true, Lens = true }
 
 -- Shapes -----------------------------------------------------------------------
 
@@ -203,7 +206,7 @@ end
 
 -- Merges same-colored neighbours into boxes (greedy: along X, then Z, then Y) and
 -- makes one Part per box, in root space.
-local function mesh(model: Model, art: Art, origin: Vector3, size: Vector3, cells: { [number]: string })
+local function mesh(model: Model, art: Art, origin: Vector3, size: Vector3, cells: { [number]: string }, face: boolean)
 	local nx, ny, nz = size.X, size.Y, size.Z
 	local used: { [number]: boolean } = {}
 	local function index(x: number, y: number, z: number): number
@@ -277,6 +280,9 @@ local function mesh(model: Model, art: Art, origin: Vector3, size: Vector3, cell
 				part.Material = if art.Materials and art.Materials[color] then art.Materials[color] else material
 				part.TopSurface = Enum.SurfaceType.Smooth
 				part.BottomSurface = Enum.SurfaceType.Smooth
+				if face and FACE_KEYS[color] then
+					part:SetAttribute("Face", true)
+				end
 				part.Parent = model
 			end
 		end
@@ -293,7 +299,8 @@ function VoxelArt.Build(art: Art, partType: string): Model?
 	local model = Instance.new("Model")
 	model.Name = partType
 	local origin, size, cells = voxelize(shapes)
-	mesh(model, art, origin, size, cells)
+	local face = partType == "Head"
+	mesh(model, art, origin, size, cells, face)
 	local voxel = art.VoxelSize
 	for _, shape in shapes do
 		local solid = shape.Solid
@@ -322,6 +329,9 @@ function VoxelArt.Build(art: Art, partType: string): Model?
 		part.Material = if art.Materials and art.Materials[shape.Color] then art.Materials[shape.Color] else (art.Material or Enum.Material.SmoothPlastic)
 		part.TopSurface = Enum.SurfaceType.Smooth
 		part.BottomSurface = Enum.SurfaceType.Smooth
+		if face and FACE_KEYS[shape.Color] then
+			part:SetAttribute("Face", true)
+		end
 		part.Parent = model
 	end
 	model.WorldPivot = CFrame.identity

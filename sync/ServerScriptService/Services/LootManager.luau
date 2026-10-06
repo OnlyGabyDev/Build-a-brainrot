@@ -68,6 +68,7 @@ export type Result = {
 	New: boolean,
 	Currency: string?, -- duplicates only: what it converted into
 	Amount: number?,
+	Coins: number?, -- boxes only: the Coins the box paid by its rarity (Loot.BoxCoins)
 }
 
 local random = Random.new()
@@ -190,20 +191,20 @@ end
 
 -- Map loot boxes -------------------------------------------------------------
 
--- Whether a spot is clear of every box (across the ground).
-local function clearOfBoxes(spot: Vector3): boolean
+-- Whether a spot is `gap` studs clear of every box (across the ground).
+local function clearOfBoxes(spot: Vector3, gap: number): boolean
 	for _, other in boxes do
 		local offset = other.Position - spot
-		if offset.X * offset.X + offset.Z * offset.Z < BOX_GAP * BOX_GAP then
+		if offset.X * offset.X + offset.Z * offset.Z < gap * gap then
 			return false
 		end
 	end
 	return true
 end
 
--- Whether a box may land on `spot`: clear of the other boxes and off every factory lot.
-local function boxFits(spot: Vector3): boolean
-	return clearOfBoxes(spot) and not TycoonManager.IsInPlot(spot)
+-- Whether a box may land on `spot`: `gap` clear of the other boxes and off every factory lot.
+local function boxFits(spot: Vector3, gap: number): boolean
+	return clearOfBoxes(spot, gap) and not TycoonManager.IsInPlot(spot)
 end
 
 -- The middle of a player's front yard: just past their factory lot, toward the hub.
@@ -223,11 +224,15 @@ local function aroundPlayer(player: Player): Vector3?
 end
 
 -- A spot for a box: on dry ground (hills included), clear of decor, factory lots and
--- other boxes; within `spread` of `near` if given (falling back to anywhere in the ring).
-local function randomBoxPosition(near: Vector3?, spread: number?): Vector3
+-- other boxes (by `gap`, BOX_GAP if not given); within `spread` of `near` if given
+-- (falling back to anywhere in the ring).
+local function randomBoxPosition(near: Vector3?, spread: number?, gap: number?): Vector3
 	local min, max = Loot.SpawnRadius.Min, Loot.SpawnRadius.Max
-	local spot = near and MapBuilder.FindSpot(min, max, random, { Near = near, Spread = spread or Loot.Drops.Spread, Accept = boxFits })
-	spot = spot or MapBuilder.FindSpot(min, max, random, { Accept = boxFits })
+	local function accept(spot: Vector3): boolean
+		return boxFits(spot, gap or BOX_GAP)
+	end
+	local spot = near and MapBuilder.FindSpot(min, max, random, { Near = near, Spread = spread or Loot.Drops.Spread, Accept = accept })
+	spot = spot or MapBuilder.FindSpot(min, max, random, { Accept = accept })
 	if spot then
 		return spot + Vector3.new(0, BOX_HEIGHT, 0)
 	end
@@ -246,10 +251,10 @@ local function mapBoxPosition(): Vector3
 			table.insert(homes, homeOf(player))
 		end
 		if #homes > 0 then
-			return randomBoxPosition(homes[random:NextInteger(1, #homes)], Loot.HomeSpread)
+			return randomBoxPosition(homes[random:NextInteger(1, #homes)], Loot.HomeSpread, Loot.MapBoxGap)
 		end
 	end
-	return randomBoxPosition()
+	return randomBoxPosition(nil, nil, Loot.MapBoxGap)
 end
 
 -- More players, more boxes.
@@ -413,6 +418,12 @@ local function onOpenBox(player: Player, boxId: unknown): Result?
 	local result = grant(player, "Box", brainrotId, box.PartType)
 	if result then
 		result.BoxRarity = box.Rarity
+		local pay = Loot.BoxCoins[box.Rarity]
+		if pay then
+			local coins = math.floor(pay.Base + ProductionManager.GetIncome(player) * pay.Seconds)
+			DataManager.AddCurrency(player, "Coins", coins)
+			result.Coins = coins
+		end
 		LootManager.BoxOpened:Fire(player)
 	end
 	return result

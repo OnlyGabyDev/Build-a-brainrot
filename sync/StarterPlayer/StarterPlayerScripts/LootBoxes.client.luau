@@ -36,6 +36,7 @@ local RunService = game:GetService("RunService")
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
+local Format = require(Shared:WaitForChild("Format"))
 local Gamepasses = require(Config:WaitForChild("Gamepasses"))
 local LootConfig = require(Config:WaitForChild("Loot"))
 local Rarities = require(Config:WaitForChild("Rarities"))
@@ -50,14 +51,15 @@ local RETRY_DELAY = 1
 local BOB_HEIGHT = 0.4
 local REST_LIFT = 1.5 -- a box's middle over the ground (LootManager's BOX_HEIGHT)
 local ANIMATE_RANGE = 220 -- studs from the camera: farther boxes hold still
-local LABEL_NEAREST = 8 -- below Rare, only the nearest few boxes show their labels (a box storm's hundred hid the screen)
-local LABEL_ALWAYS_RANK = 3 -- Rare and up always show theirs (spotted from afar)
+-- Labels only up close (crowded labels cluttered the screen, the user, 2026-10-06): the
+-- nearest few within reach, Rare and up from further (their glow and beam say the rest).
+local LABEL = { Nearest = 5, Range = 60, RareRank = 3, RareRange = 140 }
 local EFFECTS_RANGE = 260 -- arrival and opening effects farther than this are skipped
 local SHAKE_RANGE = 60 -- a crash this close shakes your camera
 local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
 local SMOKE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
 local WHITE = Color3.new(1, 1, 1)
-local RIBBON_COLOR = Color3.fromRGB(255, 215, 60)
+local RIBBON_COLOR = Color3.fromRGB(250, 250, 255)
 local DUST_COLOR = Color3.fromRGB(235, 225, 210)
 local DIRT_COLORS = { Color3.fromRGB(125, 84, 52), Color3.fromRGB(98, 64, 40), Color3.fromRGB(86, 168, 72) }
 local FIRE_COLORS = { Color3.fromRGB(255, 240, 150), Color3.fromRGB(255, 160, 40), Color3.fromRGB(235, 70, 30), Color3.fromRGB(70, 60, 60) }
@@ -752,19 +754,24 @@ local function buildBox(entry: Entry)
 	local material = if rank == 4 then Enum.Material.Metal elseif rank == 5 then Enum.Material.Glass else nil
 	local base = makePart(model, Vector3.new(3, 2.4, 3) * k, Vector3.zero, rarity.Color, material)
 	local lid = makePart(model, Vector3.new(3.3, 0.7, 3.3) * k, Vector3.new(0, 1.5 * k, 0), light, if rank == 4 then Enum.Material.Metal else nil)
-	makePart(model, Vector3.new(3.1, 3.2, 0.5) * k, Vector3.new(0, 0.2 * k, 0), RIBBON_COLOR, Enum.Material.Neon)
-	makePart(model, Vector3.new(0.5, 3.2, 3.1) * k, Vector3.new(0, 0.2 * k, 0), RIBBON_COLOR, Enum.Material.Neon)
-	-- a bow on top
+	-- a plain white ribbon and a small bow: the rarity's color is what you see from afar
+	-- (a neon gold ribbon outshone it, the user, 2026-10-06), lit by a neon band of it
+	-- under the lid
+	makePart(model, Vector3.new(3.1, 3.2, 0.35) * k, Vector3.new(0, 0.2 * k, 0), RIBBON_COLOR)
+	makePart(model, Vector3.new(0.35, 3.2, 3.1) * k, Vector3.new(0, 0.2 * k, 0), RIBBON_COLOR)
 	for _, side in { -1, 1 } do
-		local loop = makePart(model, Vector3.new(1.4, 0.9, 0.5) * k, Vector3.new(side * 0.7 * k, 2.25 * k, 0), RIBBON_COLOR, Enum.Material.Neon)
+		local loop = makePart(model, Vector3.new(1, 0.65, 0.35) * k, Vector3.new(side * 0.5 * k, 2.1 * k, 0), RIBBON_COLOR)
 		loop.CFrame *= CFrame.Angles(0, 0, side * math.rad(-30))
 	end
-	makeBall(model, 0.7 * k, Vector3.new(0, 2.1 * k, 0), RIBBON_COLOR, Enum.Material.Neon)
+	makeBall(model, 0.5 * k, Vector3.new(0, 2 * k, 0), RIBBON_COLOR)
+	local band = makePart(model, Vector3.new(3.2, 0.3, 3.2) * k, Vector3.new(0, 1 * k, 0), rarity.Color, Enum.Material.Neon)
+	band.CastShadow = false
 	model.PrimaryPart = base
 	model.WorldPivot = CFrame.identity
 	if godly then
 		table.insert(entry.Rainbow, base)
 		table.insert(entry.Rainbow, lid)
+		table.insert(entry.Rainbow, band)
 	end
 
 	-- Rare and up: glowing edges
@@ -788,7 +795,7 @@ local function buildBox(entry: Entry)
 		beam.CastShadow = false
 		for index = 0, 9 do
 			local a = index / 10 * math.pi * 2
-			makeBall(model, 0.45 * k, Vector3.new(math.cos(a) * 1.8 * k, 3.3 * k, math.sin(a) * 1.8 * k), RIBBON_COLOR, Enum.Material.Neon).CastShadow = false
+			makeBall(model, 0.45 * k, Vector3.new(math.cos(a) * 1.8 * k, 3.3 * k, math.sin(a) * 1.8 * k), light, Enum.Material.Neon).CastShadow = false
 		end
 	end
 	-- Mythic and up: a glowing core in the crystal, stars orbiting it
@@ -866,27 +873,28 @@ local function addBox(box: Box)
 	end
 end
 
--- Which landed boxes show their labels: Rare and up always, the rest only the nearest
--- few to the camera.
+-- Which landed boxes show their labels: the nearest few to the camera within reach
+-- (LABEL), further for Rare and up.
 local function refreshLabels()
 	local camera = workspace.CurrentCamera
 	local eye = if camera then camera.CFrame.Position else Vector3.zero
-	local common: { Entry } = {}
+	local near: { { Entry: Entry, Distance: number } } = {}
 	for _, entry in entries do
 		local label = entry.Label
 		if label and entry.Born == nil then
-			if Rarities.ById[entry.Box.Rarity].Rank >= LABEL_ALWAYS_RANK then
-				label.Enabled = true
-			else
-				table.insert(common, entry)
+			local distance = (entry.Box.Position - eye).Magnitude
+			local reach = if Rarities.ById[entry.Box.Rarity].Rank >= LABEL.RareRank then LABEL.RareRange else LABEL.Range
+			label.Enabled = false
+			if distance <= reach then
+				table.insert(near, { Entry = entry, Distance = distance })
 			end
 		end
 	end
-	table.sort(common, function(a, b)
-		return (a.Box.Position - eye).Magnitude < (b.Box.Position - eye).Magnitude
+	table.sort(near, function(a, b)
+		return a.Distance < b.Distance
 	end)
-	for index, entry in common do
-		(entry.Label :: BillboardGui).Enabled = index <= LABEL_NEAREST
+	for index = 1, math.min(#near, LABEL.Nearest) do
+		(near[index].Entry.Label :: BillboardGui).Enabled = true
 	end
 end
 
@@ -973,6 +981,19 @@ local function tryOpen(entry: Entry)
 	task.spawn(function()
 		local ok, result = pcall(openBox.InvokeServer, openBox, entry.Box.Id)
 		if ok and result then
+			-- the Coins it paid by its rarity spray out of it toward you
+			local coins = result.Coins
+			if typeof(coins) == "number" and coins > 0 then
+				local at = entry.Box.Position + Vector3.new(0, 3, 0)
+				local rarity = Rarities.ById[entry.Box.Rarity]
+				Effects.popup(at + Vector3.new(0, 2, 0), `+{Format.Number(coins)}`, Color3.fromRGB(255, 215, 60), 2 + (if rarity then rarity.Rank * 0.3 else 0), 1.4)
+				Effects.sound(at, Sounds.Coins, 0.35, 1)
+				local character = player.Character
+				local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if root then
+					Effects.coins(at, root.Position, 4 + 2 * (if rarity then rarity.Rank else 1))
+				end
+			end
 			Loot.Show(result)
 		else
 			entry.Opening = false

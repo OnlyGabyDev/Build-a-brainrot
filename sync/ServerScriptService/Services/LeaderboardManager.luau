@@ -33,7 +33,6 @@ local BOARD = Vector2.new(22, 16) -- studs
 local GOLD = Color3.fromRGB(255, 205, 60)
 local WHITE = Color3.new(1, 1, 1)
 local INK = Color3.fromRGB(30, 25, 45)
-local MEDALS = { "🥇", "🥈", "🥉" }
 local STEP_COLORS = { Color3.fromRGB(255, 200, 50), Color3.fromRGB(205, 210, 225), Color3.fromRGB(215, 135, 70) }
 
 local function hours(seconds: number): string
@@ -53,23 +52,23 @@ type Board = {
 }
 
 local BOARDS: { Board } = {
-	{ Key = "RobuxSpent", Title = "💸 TOP ROBUX SPENT", Color = Color3.fromRGB(90, 220, 110), Value = function(data)
+	{ Key = "RobuxSpent", Title = "TOP ROBUX SPENT", Color = Color3.fromRGB(90, 220, 110), Value = function(data)
 		return data.Stats.RobuxSpent
 	end, Show = function(value)
 		return `R$ {Format.Number(value)}`
 	end, Rows = {}, Top = {} },
-	{ Key = "Playtime", Title = "⏱️ TOP PLAYTIME", Color = Color3.fromRGB(90, 180, 255), Value = function(data)
+	{ Key = "Playtime", Title = "TOP PLAYTIME", Color = Color3.fromRGB(90, 180, 255), Value = function(data)
 		return data.Stats.Playtime
 	end, Show = hours, Rows = {}, Top = {} },
-	{ Key = "Rebirths", Title = "🔄 TOP REBIRTHS", Color = Color3.fromRGB(190, 120, 255), Value = function(data)
+	{ Key = "Rebirths", Title = "TOP REBIRTHS", Color = Color3.fromRGB(190, 120, 255), Value = function(data)
 		return data.Rebirths
 	end, Show = function(value)
-		return `{Format.Number(value)} 🔄`
+		return `{Format.Number(value)}`
 	end, Rows = {}, Top = {} },
-	{ Key = "CoinsEarned", Title = "💰 TOP MONEY EARNED", Color = GOLD, Value = function(data)
+	{ Key = "CoinsEarned", Title = "TOP MONEY EARNED", Color = GOLD, Value = function(data)
 		return data.Stats.TotalCoinsEarned
 	end, Show = function(value)
-		return `💰 {Format.Number(value)}`
+		return `${Format.Number(value)}`
 	end, Rows = {}, Top = {} },
 }
 local MONEY = BOARDS[4]
@@ -153,7 +152,7 @@ local function buildBoard(parent: Instance, spot: CFrame, board: Board)
 		local corner = Instance.new("UICorner")
 		corner.CornerRadius = UDim.new(0.3, 0)
 		corner.Parent = band
-		local rank = text(band, MEDALS[row] or `#{row}`, UDim2.fromScale(0.12, 0.9), UDim2.fromScale(0.01, 0.05), WHITE)
+		local rank = text(band, `#{row}`, UDim2.fromScale(0.12, 0.9), UDim2.fromScale(0.01, 0.05), WHITE)
 		rank.TextColor3 = if row <= 3 then STEP_COLORS[row] else WHITE
 		local name = text(band, "...", UDim2.fromScale(0.5, 0.8), UDim2.fromScale(0.15, 0.1), WHITE, Enum.TextXAlignment.Left)
 		local value = text(band, "", UDim2.fromScale(0.32, 0.8), UDim2.fromScale(0.66, 0.1), board.Color:Lerp(WHITE, 0.35), Enum.TextXAlignment.Right)
@@ -181,9 +180,10 @@ local function buildPodium(parent: Instance, spot: CFrame)
 		gui.Parent = step
 		text(gui, `{place}`, UDim2.fromScale(0.5, 0.7), UDim2.fromScale(0.25, 0.15), WHITE)
 	end
-	local sign = makePart(parent, "PodiumSign", Vector3.new(26, 4, 0.5), spot * CFrame.new(0, 19, 6), Color3.fromRGB(40, 30, 70))
+	-- the sign high over the winners' name tags (the gold step's tag reaches ~19)
+	local sign = makePart(parent, "PodiumSign", Vector3.new(26, 4, 0.5), spot * CFrame.new(0, 24, 6), Color3.fromRGB(40, 30, 70))
 	for _, x in { -12, 12 } do
-		makePart(parent, "PodiumSignPost", Vector3.new(0.8, 21, 0.8), spot * CFrame.new(x, 10.5, 6.4), GOLD, Enum.Material.Metal)
+		makePart(parent, "PodiumSignPost", Vector3.new(0.8, 26, 0.8), spot * CFrame.new(x, 13, 6.4), GOLD, Enum.Material.Metal)
 	end
 	local gui = Instance.new("SurfaceGui")
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -192,7 +192,7 @@ local function buildPodium(parent: Instance, spot: CFrame)
 	gui.LightInfluence = 0
 	gui.Brightness = 2
 	gui.Parent = sign
-	text(gui, "👑 RICHEST PLAYERS 👑", UDim2.fromScale(0.94, 0.8), UDim2.fromScale(0.03, 0.1), GOLD)
+	text(gui, "RICHEST PLAYERS", UDim2.fromScale(0.94, 0.8), UDim2.fromScale(0.03, 0.1), GOLD)
 	local folder = Instance.new("Folder")
 	folder.Name = "PodiumAvatars"
 	folder.Parent = parent
@@ -250,12 +250,16 @@ local function standOn(place: number, userId: number, value: number)
 	-- the name over its head
 	local head = avatar:FindFirstChild("Head") :: BasePart?
 	if head then
+		-- sized in studs (narrower than the 8.5 between steps), so neighbors' tags never
+		-- run into each other however far you stand; over the avatar's very top, hats and
+		-- all
+		local frame, size = avatar:GetBoundingBox()
 		local tag = Instance.new("BillboardGui")
-		tag.Size = UDim2.fromOffset(220, 70)
-		tag.StudsOffsetWorldSpace = Vector3.new(0, 3.2, 0)
+		tag.Size = UDim2.fromScale(8, 2.6)
+		tag.StudsOffsetWorldSpace = Vector3.new(0, frame.Position.Y + size.Y / 2 - head.Position.Y + 1.5, 0)
 		tag.MaxDistance = 220
 		tag.Parent = head
-		text(tag, `{MEDALS[place]} {nameOf(userId)}`, UDim2.fromScale(1, 0.55), UDim2.fromScale(0, 0), WHITE)
+		text(tag, nameOf(userId), UDim2.fromScale(1, 0.55), UDim2.fromScale(0, 0), WHITE)
 		text(tag, MONEY.Show(value), UDim2.fromScale(1, 0.42), UDim2.fromScale(0, 0.58), GOLD)
 	end
 end

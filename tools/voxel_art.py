@@ -424,10 +424,15 @@ def standoff(art):
     moved = 0
     for part, shapes in art["Parts"].items():
         bases = _faces_of_cells(voxelize(shapes))
+        # faces this pass pushed out: a detail lying on one (a pupil on a white that grew
+        # out of its frame) may now sit level with it or under it, and goes out past it
+        # too (the two fronts ended level and the pupils vanished: Trippi, Brr, Boneca...)
+        pushed = []
         for index, shape in enumerate(shapes):
             if shape["Kind"] != "Solid" or shape.get("Carve") or shape.get("Paint"):
                 continue
             sol = shape["Solid"]
+            grown = []
             if sol["Shape"] == "Block":
                 size, center = list(sol["Size"]), list(shape["Center"])
                 for k in range(3):
@@ -440,23 +445,27 @@ def standoff(art):
                         normal = tuple(sign * a for a in axis)
                         front = tuple(center[i] + normal[i] * size[k] / 2 for i in range(3))
                         worst = None
-                        for n, offset, pts in bases:
-                            if dot(n, normal) < 0.999:
-                                continue
-                            gap = dot(normal, front) - offset
-                            if -0.05 < gap < STANDOFF:
-                                foot = tuple(front[i] - normal[i] * gap for i in range(3))
-                                if _covers(foot, n, pts) and (worst is None or gap < worst):
-                                    worst = gap
+                        for faces, low in ((bases, -0.05), (pushed, -THIN)):
+                            for n, offset, pts in faces:
+                                if dot(n, normal) < 0.999:
+                                    continue
+                                gap = dot(normal, front) - offset
+                                if low < gap < STANDOFF:
+                                    foot = tuple(front[i] - normal[i] * gap for i in range(3))
+                                    if _covers(foot, n, pts) and (worst is None or gap < worst):
+                                        worst = gap
                         if worst is not None:
                             grow = STANDOFF - worst
                             size[k] += grow
                             center = [center[i] + normal[i] * grow / 2 for i in range(3)]
+                            grown.append(normal)
                             moved += 1
                 c = tuple(center)
                 shape["Solid"] = dict(sol, Size=tuple(size))
                 shape["Center"], shape["Min"], shape["Max"] = c, c, c
-            bases += _flat_faces(shape)
+            faces = _flat_faces(shape)
+            bases += faces
+            pushed += [face for face in faces if any(dot(face[0], normal) > 0.999 for normal in grown)]
     return moved
 
 
