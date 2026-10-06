@@ -3,19 +3,19 @@
 	Rolls and shared map loot boxes (GDD §5). Every result is rolled here first; the
 	client's wheel only animates toward it. Odds live in Config/Loot, so the wheel
 	shows exactly what can drop.
-	  * Rolls: a loot box you carry. Opening one rolls a rarity (from the player's
-	    unlocked tiers) and a part type.
+	  * Rolls: a loot box you carry. Opening one rolls a rarity (with the player's
+	    luck: every rarity can drop from the start) and a part type.
 	  * Map loot boxes: shared. Boxes all over the map (half of them round a random
 	    player's front yard) show their rarity and part type,
 	    and whoever reaches one first gets it: mostly a part of the box's rarity,
-	    sometimes a rarer one. Boxes only spawn in rarities someone in the server has
-	    unlocked, and players who haven't unlocked a box's rarity can't open it.
-	    Rare+ spawns are announced to everyone.
+	    sometimes a rarer one. Anyone can open any box. Rare+ spawns are announced
+	    to everyone.
 	  * Bought box drops (Config/Products, Kind "BoxDrop"; Config/Loot.Drops): boxes rain
-	    onto the map round the buyer, rolled like a Roll with extra luck from the
-	    rarities the buyer has unlocked, theirs alone for a while, then anyone's. They
+	    onto the map round the buyer, rolled like a Roll with the buyer's luck plus
+	    extra, theirs alone for a while, then anyone's. They
 	    sit on top of the map's own boxes and aren't replaced when opened.
-	  * Duplicates convert into Coins (plus some income) or Gems, per rarity.
+	  * Duplicates convert into Coins (plus some income) or Gems, per rarity. A
+	    newcomer's first Rolls and first box always give a new part (Loot.SureNew).
 	The first map box a player opens earns the FirstBox badge (Rolls don't count).
 ]]
 
@@ -82,9 +82,9 @@ local LootManager = {}
 
 -- Rolling --------------------------------------------------------------------
 
--- A player's total luck: Rebirth Shop levels, passes and a running Luck boost.
+-- A player's total luck: rebirths, Rebirth Shop levels, passes and a running Luck boost.
 local function luckOf(player: Player, data: DataManager.PlayerData): number
-	return Rebirths.Luck(data.Upgrades) + MonetizationManager.Luck(player)
+	return Rebirths.Luck(data.Rebirths, data.Upgrades) + MonetizationManager.Luck(player)
 end
 
 -- Picks a rarity id from weighted odds (see Config/Loot).
@@ -113,6 +113,35 @@ end
 local function rollBrainrot(rarityId: string): string
 	local pool = Brainrots.ByRarity[rarityId]
 	return pool[random:NextInteger(1, #pool)].Id
+end
+
+-- A part of `rarityId` the player doesn't have yet, of one of `partTypes`: its brainrot
+-- and part type, or nil if they have every one.
+local function rollNewPart(player: Player, rarityId: string, partTypes: { string }): (string?, string?)
+	local fresh = {}
+	for _, brainrot in Brainrots.ByRarity[rarityId] do
+		for _, partType in partTypes do
+			if not DataManager.HasPart(player, brainrot.Id, partType) then
+				table.insert(fresh, { brainrot.Id, partType })
+			end
+		end
+	end
+	if #fresh == 0 then
+		return nil, nil
+	end
+	local pick = fresh[random:NextInteger(1, #fresh)]
+	return pick[1], pick[2]
+end
+
+-- Whether this is one of the player's first Rolls or boxes (`kind`: Loot.SureNew),
+-- which always give a new part. Each is claimed as it's used.
+local function sureNew(player: Player, kind: string): boolean
+	for index = 1, Loot.SureNew[kind] do
+		if DataManager.Claim(player, `SureNew{kind}{index}`) then
+			return true
+		end
+	end
+	return false
 end
 
 -- Unlocks the part, or converts a duplicate into currency.
@@ -233,18 +262,6 @@ local function targetBoxCount(): number
 	return math.min(Loot.BaseBoxes + (loaded - 1) * Loot.BoxesPerPlayer, Loot.MaxBoxes)
 end
 
--- Boxes roll from the best rarities anyone here has unlocked.
-local function serverRebirths(): number
-	local best = 0
-	for _, player in Players:GetPlayers() do
-		local data = DataManager.GetData(player)
-		if data then
-			best = math.max(best, data.Rebirths)
-		end
-	end
-	return best
-end
-
 local function addBox(box: Box)
 	boxes[box.Id] = box
 	if box.Bought then
@@ -260,7 +277,7 @@ local function spawnBox()
 		return
 	end
 	nextBoxId += 1
-	local rarityId = rollRarity(Loot.RollOdds(serverRebirths()), Rarities.List[1].Id)
+	local rarityId = rollRarity(Loot.RollOdds(), Rarities.List[1].Id)
 	local box: Box = {
 		Id = nextBoxId,
 		Position = mapBoxPosition(),
@@ -276,14 +293,13 @@ end
 -- Bought drops ---------------------------------------------------------------
 
 -- One box of `drop`, round its buyer (anywhere if they've left). Its rarity rolls like
--- a Roll with the buyer's luck plus the drop's, from the rarities they've unlocked.
+-- a Roll with the buyer's luck plus the drop's.
 local function spawnDropBox(drop: Drop)
 	local buyer = Players:GetPlayerByUserId(drop.UserId)
 	local data = buyer and DataManager.GetData(buyer)
-	local rebirths, luck = serverRebirths(), Loot.Drops.Luck
+	local luck = Loot.Drops.Luck
 	local near: Vector3? = nil
 	if buyer and data then
-		rebirths = data.Rebirths
 		luck += luckOf(buyer, data)
 		near = aroundPlayer(buyer)
 	end
@@ -291,7 +307,7 @@ local function spawnDropBox(drop: Drop)
 	addBox({
 		Id = nextBoxId,
 		Position = randomBoxPosition(near),
-		Rarity = rollRarity(Loot.RollOdds(rebirths, luck), Rarities.List[1].Id),
+		Rarity = rollRarity(Loot.RollOdds(luck), Rarities.List[1].Id),
 		PartType = rollPartType(),
 		Bought = true,
 		Owner = if buyer then drop.UserId else nil,
@@ -349,9 +365,13 @@ local function onOpenRoll(player: Player): Result?
 	if not data or not DataManager.UseRoll(player) then
 		return nil
 	end
-	local odds = Loot.RollOdds(data.Rebirths, luckOf(player, data))
-	local rarityId = rollRarity(odds, Rarities.List[1].Id)
-	return grant(player, "Roll", rollBrainrot(rarityId), rollPartType())
+	local rarityId = rollRarity(Loot.RollOdds(luckOf(player, data)), Rarities.List[1].Id)
+	local brainrotId, partType = rollBrainrot(rarityId), rollPartType()
+	if sureNew(player, "Roll") then
+		local newId, newType = rollNewPart(player, rarityId, PART_TYPES)
+		brainrotId, partType = newId or brainrotId, newType or partType
+	end
+	return grant(player, "Roll", brainrotId, partType)
 end
 
 local function onOpenBox(player: Player, boxId: unknown): Result?
@@ -368,9 +388,6 @@ local function onOpenBox(player: Player, boxId: unknown): Result?
 	if (root.Position - box.Position).Magnitude > Loot.OpenDistance then
 		return nil
 	end
-	if data.Rebirths < Rarities.ById[box.Rarity].UnlockRebirths then
-		return nil -- this rarity is still locked for them
-	end
 	if box.Owner and box.Owner ~= player.UserId and workspace:GetServerTimeNow() < (box.ReservedUntil or 0) then
 		return nil -- someone's bought box, still theirs
 	end
@@ -384,9 +401,12 @@ local function onOpenBox(player: Player, boxId: unknown): Result?
 	end
 	boxesRemote:FireAllClients("Remove", box.Id, player)
 	BadgeManager.Award(player, "FirstBox")
-	local odds = Loot.BoxOdds(box.Rarity, data.Rebirths, luckOf(player, data))
-	local rarityId = rollRarity(odds, box.Rarity)
-	local result = grant(player, "Box", rollBrainrot(rarityId), box.PartType)
+	local rarityId = rollRarity(Loot.BoxOdds(box.Rarity, luckOf(player, data)), box.Rarity)
+	local brainrotId = rollBrainrot(rarityId)
+	if sureNew(player, "Box") then
+		brainrotId = rollNewPart(player, rarityId, { box.PartType }) or brainrotId
+	end
+	local result = grant(player, "Box", brainrotId, box.PartType)
 	if result then
 		result.BoxRarity = box.Rarity
 	end

@@ -244,7 +244,7 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 		return MonetizationManager.GrantProductForTesting(player, key)
 	end,
 	-- Loot boxes of one rarity ("Common" ... "Godly") land round you, to watch their
-	-- arrival. Opening one of a rarity you haven't unlocked needs its rebirths.
+	-- arrival.
 	SpawnBox = function(player, rarity, count)
 		return LootManager.DevSpawnBoxes(player, rarity, count)
 	end,

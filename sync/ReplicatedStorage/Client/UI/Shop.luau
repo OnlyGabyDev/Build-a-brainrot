@@ -240,9 +240,9 @@ local function percent(weight: number, total: number): string
 end
 
 -- One box of a bought drop: the part's rarity (the box's roll and the upgrade when it's
--- opened, combined), for the player's rebirths and luck.
+-- opened, combined), for the player's luck.
 local function dropOddsLines(): { { Text: string, Color: Color3 } }
-	local chances = LootConfig.DropPartOdds(player:GetAttribute("Rebirths") or 0, player:GetAttribute("Luck") or 0)
+	local chances = LootConfig.DropPartOdds(player:GetAttribute("Luck") or 0)
 	local lines = {}
 	for _, rarity in Rarities.List do
 		local chance = chances[rarity.Id]

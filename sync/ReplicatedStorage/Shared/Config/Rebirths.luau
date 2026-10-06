@@ -1,7 +1,7 @@
 --[[
 	Rebirths and the Rebirth Shop (GDD §10). Placeholders to tune in playtests.
 	Rebirthing resets Coins and the tycoon, and keeps everything else. Each rebirth
-	gives Rebirth Points and a permanent income boost, and unlocks rarities and zones.
+	gives Rebirth Points, a permanent income boost and luck, and unlocks zones.
 ]]
 
 export type Upgrade = {
@@ -20,6 +20,7 @@ local Rebirths = {
 	BaseCost = 100000000000, -- Coins needed for the first rebirth (~5 h of play: the economy pass)...
 	CostGrowth = 3, -- ...and each next one costs this much more
 	IncomeBonus = 0.25, -- +25% ship value per rebirth, forever
+	LuckPerRebirth = 0.1, -- +10% luck per rebirth, forever (rarer loot: Config/Loot)
 
 	Upgrades = {
 		{
@@ -87,9 +88,10 @@ function Rebirths.SpeedMultiplier(levels: Levels): number
 	return 1 + bonus(levels, "Speed")
 end
 
--- Extra luck: rarer loot tiers get this much more weight (see Config/Loot).
-function Rebirths.Luck(levels: Levels): number
-	return bonus(levels, "Luck")
+-- Extra luck: rarer loot tiers get this much more weight (see Config/Loot). Rebirths
+-- plus the Luck upgrade.
+function Rebirths.Luck(rebirths: number, levels: Levels): number
+	return Rebirths.LuckPerRebirth * rebirths + bonus(levels, "Luck")
 end
 
 return Rebirths

@@ -1,5 +1,7 @@
 --[[
 	Rarity tiers, lowest to highest (GDD §4). All numbers are placeholders to tune in playtests.
+	Every rarity drops from the start (2026-10-06, the user: no rarity cap); the weights keep
+	the high ones rare, and rebirths add luck (Config/Rebirths).
 ]]
 
 export type Rarity = {
@@ -11,7 +13,6 @@ export type Rarity = {
 	CompletionGems: number, -- Gems for completing in Zone 1 (scaled by each zone's GemMultiplier)
 	DuplicateCurrency: string, -- what a duplicate part converts into
 	DuplicateValue: number, -- how much of it (Coin duplicates also add some income, see Config/Loot)
-	UnlockRebirths: number, -- rebirths needed before this rarity can drop
 }
 
 local Rarities = {}
@@ -26,7 +27,6 @@ Rarities.List = {
 		CompletionGems = 10,
 		DuplicateCurrency = "Coins",
 		DuplicateValue = 100,
-		UnlockRebirths = 0,
 	},
 	{
 		Id = "Uncommon",
@@ -37,7 +37,6 @@ Rarities.List = {
 		CompletionGems = 25,
 		DuplicateCurrency = "Coins",
 		DuplicateValue = 250,
-		UnlockRebirths = 0,
 	},
 	{
 		Id = "Rare",
@@ -48,7 +47,6 @@ Rarities.List = {
 		CompletionGems = 60,
 		DuplicateCurrency = "Coins",
 		DuplicateValue = 600,
-		UnlockRebirths = 1,
 	},
 	{
 		Id = "Legendary",
@@ -59,7 +57,6 @@ Rarities.List = {
 		CompletionGems = 150,
 		DuplicateCurrency = "Gems",
 		DuplicateValue = 30,
-		UnlockRebirths = 4,
 	},
 	{
 		Id = "Mythic",
@@ -70,7 +67,6 @@ Rarities.List = {
 		CompletionGems = 400,
 		DuplicateCurrency = "Gems",
 		DuplicateValue = 80,
-		UnlockRebirths = 10,
 	},
 	{
 		Id = "Godly",
@@ -81,7 +77,6 @@ Rarities.List = {
 		CompletionGems = 1000,
 		DuplicateCurrency = "Gems",
 		DuplicateValue = 250,
-		UnlockRebirths = 20,
 	},
 } :: { Rarity }
 

@@ -37,7 +37,7 @@ A joyful, colorful **brainrot factory tycoon**. The factory *is* the brainrot bu
 3. The Assembler combines the parts into a brainrot and ships it. Coins go into the **collector**. The player steps on the **Cash Pad** to bank them (the Auto-Collect gamepass skips this).
 4. **Loot boxes** spawn around the map. Opening one (or using a Roll) spins a **wheel** that unlocks a new part.
 5. Shipping a brainrot whose **4 parts all match** **completes** it in that zone's **edition**: Gems, plus a gadget and morph the first time.
-6. **Rebirth** resets the tycoon but slowly unlocks new **zones**, rarer loot, and permanent multipliers.
+6. **Rebirth** resets the tycoon but slowly unlocks new **zones**, more luck (rarer loot), and permanent multipliers.
 
 ---
 
@@ -93,17 +93,18 @@ ReplicatedStorage/Assets/Brainrots/<BrainrotId>   (Model, e.g. "TungTungTungSahu
 
 All numbers are **placeholders**. Tune them in playtests.
 
-| Rarity | Color | Base loot weight | Duplicate reward | Part value (Coins) | Completion Gems (Zone 1) | Unlocked at |
-|---|---|---|---|---|---|---|
-| Common | Light grey `#C8CDD2` | 65% | Coins | 5 | 10 | Start |
-| Uncommon | Green `#5BE35B` | 26% | Coins | 12 | 25 | Start |
-| Rare | Blue `#3DA5FF` | 6.5% | Coins | 30 | 60 | Rebirth 1 |
-| Legendary | Gold `#FFC53D` | 2% | **Gems** | 100 | 150 | Rebirth 4 |
-| Mythic | Pink `#FF4FD8` | 0.4% | **Gems** | 350 | 400 | Rebirth 10 |
-| Godly | Animated rainbow | 0.06% | **Gems** | 1,500 | 1,000 | Rebirth 20 |
+| Rarity | Color | Base loot weight | Duplicate reward | Part value (Coins) | Completion Gems (Zone 1) |
+|---|---|---|---|---|---|
+| Common | Light grey `#C8CDD2` | 65% | Coins | 5 | 10 |
+| Uncommon | Green `#5BE35B` | 26% | Coins | 12 | 25 |
+| Rare | Blue `#3DA5FF` | 6.5% | Coins | 30 | 60 |
+| Legendary | Gold `#FFC53D` | 2% | **Gems** | 100 | 150 |
+| Mythic | Pink `#FF4FD8` | 0.4% | **Gems** | 350 | 400 |
+| Godly | Animated rainbow | 0.06% | **Gems** | 1,500 | 1,000 |
 
-- Weights for rarities the player hasn't unlocked are removed and the rest are renormalized.
-- A **Luck** stat (from rebirth upgrades, gamepass, boosts) shifts weight toward rarer tiers: each tier above Common gets +25% weight per point of luck per rank (luck 1: Rare ×1.5, Legendary ×1.75, Godly ×2.25), and a box upgrades a tier 8% of the time (+50% per point of luck). v3.2 (the user, 2026-10-03: the high rarities came too easily): the weights above were 60/25/10/4/0.9/0.1, luck was +100% per rank and the upgrade 15% (+100% per luck): at full luck a Legendary Roll was 12.6% (now 3.9%) and a Godly map box at Rebirth 20 1 in 48 (now 1 in 550).
+- **No rarity cap** (v3.4, the user, 2026-10-06): every rarity drops from the start; the weights keep the high ones rare, and each rebirth adds +0.1 luck (rebirth 10: luck 1). Was: Rare at Rebirth 1, Legendary 4, Mythic 10, Godly 20 (before Rebirth 1 only Common/Uncommon dropped: 28 of 60 parts, all found in ~30 min).
+- A newcomer's first 3 Rolls (the starter ones) and first box always give a part they don't have yet (of the rolled rarity, while any is left; `Config/Loot.SureNew`).
+- A **Luck** stat (from rebirths, rebirth upgrades, gamepass, boosts) shifts weight toward rarer tiers: each tier above Common gets +25% weight per point of luck per rank (luck 1: Rare ×1.5, Legendary ×1.75, Godly ×2.25), and a box upgrades a tier 8% of the time (+50% per point of luck). v3.2 (the user, 2026-10-03: the high rarities came too easily): the weights above were 60/25/10/4/0.9/0.1, luck was +100% per rank and the upgrade 15% (+100% per luck): at full luck a Legendary Roll was 12.6% (now 3.9%) and a Godly map box at Rebirth 20 1 in 48 (now 1 in 550).
 
 ---
 
@@ -113,16 +114,16 @@ All numbers are **placeholders**. Tune them in playtests.
 - Boxes spawn all over the map (v3.4, the user: not only round the plaza, so players without fast gadgets get some too): half of them round a random player's front yard (just past their factory lot), the rest anywhere 40–600 studs from the hub, hills included (never on water or a factory lot). Each box has a visible **rarity** (color and glow) and a **part type** (label on top).
 - **Decision (v0.4):** boxes are **shared**. Anyone can grab any box, first come first served. This gets players out of their tycoons to interact (and later, use their gadgets on each other), and gives them something to do while saving up for the next purchase.
   - Box count grows with the server: 18 with one player, +6 per extra player, 50 max (v3.4: the area is ~7× bigger). A replacement spawns 10–20 s after one is opened.
-  - Boxes only roll rarities that **someone in the server** has unlocked. Players who haven't unlocked a box's rarity see it locked (`🔒 Rebirth 4`) and can't open it, which is a visible reason to rebirth.
+  - Map boxes roll their rarity like a Roll without luck (v3.4: they rolled from the server's best rebirths, and newcomers saw boxes locked `🔒 Rebirth 4`); anyone can open any box.
   - **Rare+ spawns are announced** to the whole server, and so is who grabbed them. (v3.0: a big banner drops in at the top, bigger by rarity: a sunburst from Legendary, a flash and confetti from Mythic, a rainbow for Godly; it says how far away the box landed and whether you can open it yet.)
-  - **What a box gives** ✅: mostly a part of its own rarity, sometimes a rarer one. Each tier above is 15% as likely as the one below (Common box ≈ 87% Common, 13% Uncommon, 2% Rare…), limited to tiers the opener has unlocked. Upgrades get a "RARITY UP!" reveal. Odds live in `Config/Loot`, so the wheel shows exactly what the server rolls.
+  - **What a box gives** ✅: mostly a part of its own rarity, sometimes a rarer one. Each tier above is 15% as likely as the one below (Common box ≈ 87% Common, 13% Uncommon, 2% Rare…). Upgrades get a "RARITY UP!" reveal. Odds live in `Config/Loot`, so the wheel shows exactly what the server rolls.
 - ✅ (v2.8) Per-rarity looks, arrivals and openings: the rarer, the bigger and louder. Rare boxes glow at the edges; Legendary ones are gold under a halo in a beam of light; Mythic ones are crystal with a glowing core and orbiting stars; Godly ones cycle through the rainbow over a black hole, which closes when they're opened. Opening one bursts in confetti, a shockwave and a flash, bigger with its rarity.
 - ✅ (v2.9, the user: every rarity its own arrival) **Arrivals:** Common drops out of the sky and bounces; Uncommon floats down under a striped parachute that collapses onto it; Rare bursts up out of the ground in a spray of dirt and leaves a mound; Legendary is a meteor (a fireball streaking in at a slant, trailing fire and smoke, a boom, a camera shake, a scorched crater that cools); Mythic is summoned (a magic circle lights up, lightning strikes it, the box materializes in stars); Godly rises out of its black hole. Only boxes near the camera animate (a box storm can put ~150 on the map).
-- ✅ (v2.9, the user) **Bought box drops** (§12): 1, 5, 10, 25 or 100 boxes (a "BOX STORM") rain onto the map round the buyer, one every 0.12 s. Each rolls its rarity like a Roll with extra luck (+1), from the rarities the buyer has unlocked, so the buyer can open them all; they're the buyer's alone for 2 minutes (their name and a countdown over each), then anyone's, at once if the buyer leaves. They don't count toward the map's own boxes and aren't replaced; at most 120 are out at once (the rest wait). The whole server sees "NAME started a BOX STORM!". Tuning: `Config/Loot.Drops`.
+- ✅ (v2.9, the user) **Bought box drops** (§12): 1, 5, 10, 25 or 100 boxes (a "BOX STORM") rain onto the map round the buyer, one every 0.12 s. Each rolls its rarity like a Roll with the buyer's luck +1; they're the buyer's alone for 2 minutes (their name and a countdown over each), then anyone's, at once if the buyer leaves. They don't count toward the map's own boxes and aren't replaced; at most 120 are out at once (the rest wait). The whole server sees "NAME started a BOX STORM!". Tuning: `Config/Loot.Drops`.
 - ✅ (v2.9) Results that pile up (a storm) skip the reel: they pop into a quick feed on the right (new part or the duplicate's reward), and a new Rare+ part still gets its full reel.
 
 **Rolls**
-- A **Roll** is a loot box you carry. Open it from the HUD any time, and it gives a random rarity (from unlocked tiers) and a random part type.
+- A **Roll** is a loot box you carry. Open it from the HUD any time, and it gives a random rarity (with the player's luck) and a random part type.
 - Sources: **3 free Rolls for new players**, the daily wheel, and Robux Roll packs. Roll packs are paid random items, so the UI must show their odds (see §12).
 
 **Opening (box or Roll)**
@@ -238,7 +239,7 @@ We also track the **Rebirths** count (not a currency), which gates zones and rar
 - Rebirthing requires a Coin threshold that grows each rebirth.
 - **Resets:** Coins (including those waiting on the Cash Pad), purchased tycoon items. Brainrots still on the belts are dropped and don't pay out.
 - **Keeps:** Gems, Rebirth Points, Rolls, unlocked parts, completions (all editions), morphs, gadgets, line configurations, and gamepass perks.
-- **Grants:** Rebirth Points, a permanent income multiplier, rarity unlocks (§4), and new zones.
+- **Grants:** Rebirth Points, a permanent income multiplier, +0.1 luck (§4; v3.4, was rarity unlocks), and new zones.
 
 **Rebirth Shop** (spend Rebirth Points): Income %, Luck %, Walk Speed, Loot Box cap +1, Faster box respawn, Dropper speed %.
 - ✅ Built (v0.5), numbers in `Config/Rebirths`:

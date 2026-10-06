@@ -116,10 +116,6 @@ local folder = Instance.new("Folder")
 folder.Name = "LootBoxes"
 folder.Parent = workspace
 
-local function isLocked(rarity: Rarities.Rarity): boolean
-	return (player:GetAttribute("Rebirths") or 0) < rarity.UnlockRebirths
-end
-
 -- Seconds left of a bought box's reservation (0: anyone can open it).
 local function reservedFor(box: Box): number
 	if not box.Owner then
@@ -708,8 +704,7 @@ local function refreshOwner(entry: Entry)
 	end
 end
 
--- Its part type and rarity over it (a lock if you haven't unlocked the rarity), and
--- whose it is while it's someone's bought box. Hidden while it's arriving.
+-- Its part type and rarity over it, and whose it is while it's someone's bought box. Hidden while it's arriving.
 local function buildLabel(entry: Entry, base: BasePart, k: number)
 	local box = entry.Box
 	local rarity = Rarities.ById[box.Rarity]
@@ -722,7 +717,7 @@ local function buildLabel(entry: Entry, base: BasePart, k: number)
 	label.Parent = base
 	Kit.text({ Text = string.upper(box.PartType), Size = UDim2.fromScale(1, 0.4), Parent = label })
 	Kit.text({
-		Text = if isLocked(rarity) then `🔒 REBIRTH {rarity.UnlockRebirths}` else string.upper(rarity.Id),
+		Text = string.upper(rarity.Id),
 		TextColor3 = rarity.Color,
 		Position = UDim2.fromScale(0, 0.4),
 		Size = UDim2.fromScale(1, 0.33),
@@ -943,7 +938,7 @@ end
 
 local function canOpen(entry: Entry): boolean
 	local box = entry.Box
-	if entry.Opening or entry.Born or isLocked(Rarities.ById[box.Rarity]) then
+	if entry.Opening or entry.Born then
 		return false
 	end
 	return box.Owner == nil or box.Owner == player.UserId or reservedFor(box) <= 0
@@ -969,8 +964,7 @@ local function announce(box: any)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local where = if root then `📍 {math.floor((box.Position - root.Position).Magnitude)} studs away` else "📍 somewhere on the map"
-	local note = if isLocked(rarity) then `🔒 opens at Rebirth {rarity.UnlockRebirths}` else "go grab it!"
-	Kit.banner("🎁", `{string.upper(rarity.Id)} BOX!`, `A {string.upper(box.PartType)} box spawned · {where} · {note}`, rarity.Color, rarity.Rank - LootConfig.AnnounceRank)
+	Kit.banner("🎁", `{string.upper(rarity.Id)} BOX!`, `A {string.upper(box.PartType)} box spawned · {where} · go grab it!`, rarity.Color, rarity.Rank - LootConfig.AnnounceRank)
 end
 
 Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payload: any, opener: Player?)
@@ -990,16 +984,6 @@ Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payloa
 			else `🎁 {payload.Name} dropped {count} loot boxes!`
 		Kit.toast(text, OWNER_COLOR)
 		Effects.sound2D(Sounds.Jingle, 0.4)
-	end
-end)
-
--- Relabel locked boxes after a rebirth.
-player:GetAttributeChangedSignal("Rebirths"):Connect(function()
-	for _, entry in entries do
-		entry.Model:Destroy()
-		table.clear(entry.Stars)
-		table.clear(entry.Rainbow)
-		buildBox(entry)
 	end
 end)
 
@@ -1139,13 +1123,12 @@ RunService.RenderStepped:Connect(function()
 	local target: Entry? = nil
 	local best = math.huge
 	if player:GetAttribute("Pass_BoxRadar") and root and root:IsA("BasePart") then
-		local rebirths = player:GetAttribute("Rebirths") or 0
 		local now = workspace:GetServerTimeNow()
 		for _, entry in entries do
 			local box = entry.Box
 			local rarity = Rarities.ById[box.Rarity]
 			local heldForOther = box.Owner ~= nil and box.Owner ~= player.UserId and (box.ReservedUntil or 0) > now
-			if rarity and rarity.Rank >= Radar.Rank and rebirths >= rarity.UnlockRebirths and not entry.Opening and not heldForOther then
+			if rarity and rarity.Rank >= Radar.Rank and not entry.Opening and not heldForOther then
 				local distance = (box.Position - root.Position).Magnitude
 				if distance < best then
 					best, target = distance, entry

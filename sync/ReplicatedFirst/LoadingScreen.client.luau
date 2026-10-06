@@ -26,7 +26,7 @@ local TIPS = {
 	"💡 A full match (4 parts of one brainrot) ships for much more!",
 	"💡 Loot boxes appear all over the map: grab them!",
 	"💡 Every room has its own machines and its own edition to collect.",
-	"💡 Rebirth to earn +25% income and unlock rarer parts!",
+	"💡 Rebirth for +25% income and more luck: rarer parts!",
 	"💡 Spin the Daily Wheel every day for free prizes!",
 	"💡 Line upgrades: tap a line's tablet to make it faster and richer.",
 }

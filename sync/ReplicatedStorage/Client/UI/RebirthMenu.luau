@@ -11,7 +11,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Format = require(Shared:WaitForChild("Format"))
-local Rarities = require(Config:WaitForChild("Rarities"))
 local Rebirths = require(Config:WaitForChild("Rebirths"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
@@ -45,14 +44,9 @@ local function levels(): Rebirths.Levels
 	return result
 end
 
--- What unlocks at exactly `rebirths` rebirths: rarities and built zones.
+-- What unlocks at exactly `rebirths` rebirths: built zones.
 local function unlocksAt(rebirths: number): { string }
 	local list = {}
-	for _, rarity in Rarities.List do
-		if rarity.UnlockRebirths == rebirths then
-			table.insert(list, `🔓 {rarity.Id} parts start dropping`)
-		end
-	end
 	for _, zone in Zones.List do
 		if zone.Available and zone.UnlockRebirths == rebirths then
 			table.insert(list, `🔓 The {zone.Name} opens`)
@@ -136,7 +130,8 @@ local function renderRebirth(parent: Frame)
 	line(parent, "🎁 YOU GET", 124, GOLD_COLOR, 36)
 	line(parent, `⭐ +{Rebirths.Points(math.max(coins, cost), rebirths)} Rebirth Points (more if you save up!)`, 166, nil, 34)
 	line(parent, `💰 +{math.floor(Rebirths.IncomeBonus * 100)}% Coins forever (x{string.format("%.2f", nextIncome)} total)`, 204, nil, 34)
-	local y = 244
+	line(parent, `🍀 +{math.floor(Rebirths.LuckPerRebirth * 100)}% Luck forever: rarer parts!`, 244, nil, 34)
+	local y = 284
 	for _, unlock in unlocksAt(rebirths + 1) do
 		line(parent, unlock, y, GOOD_COLOR, 32)
 		y += 36
