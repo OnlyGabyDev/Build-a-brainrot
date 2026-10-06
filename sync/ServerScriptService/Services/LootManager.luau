@@ -5,7 +5,8 @@
 	shows exactly what can drop.
 	  * Rolls: a loot box you carry. Opening one rolls a rarity (from the player's
 	    unlocked tiers) and a part type.
-	  * Map loot boxes: shared. Boxes around the hub show their rarity and part type,
+	  * Map loot boxes: shared. Boxes all over the map (half of them round a random
+	    player's front yard) show their rarity and part type,
 	    and whoever reaches one first gets it: mostly a part of the box's rarity,
 	    sometimes a rarer one. Boxes only spawn in rarities someone in the server has
 	    unlocked, and players who haven't unlocked a box's rarity can't open it.
@@ -30,9 +31,11 @@ local Remotes = require(Shared.Remotes)
 
 local BadgeManager = require(script.Parent.BadgeManager)
 local DataManager = require(script.Parent.DataManager)
+local FactoryBuilder = require(script.Parent.FactoryBuilder)
 local MapBuilder = require(script.Parent.MapBuilder)
 local MonetizationManager = require(script.Parent.MonetizationManager)
 local ProductionManager = require(script.Parent.ProductionManager)
+local TycoonManager = require(script.Parent.TycoonManager)
 
 local PART_TYPES = Brainrots.PartTypes
 local REQUEST_COOLDOWN = 0.25 -- per player, for open requests
@@ -165,12 +168,33 @@ local function clearOfBoxes(spot: Vector3): boolean
 	return true
 end
 
--- A spot for a box: on dry ground (hills included), clear of decor and other boxes;
--- round `near` if given (falling back to anywhere in the ring).
-local function randomBoxPosition(near: Vector3?): Vector3
+-- Whether a box may land on `spot`: clear of the other boxes and off every factory lot.
+local function boxFits(spot: Vector3): boolean
+	return clearOfBoxes(spot) and not TycoonManager.IsInPlot(spot)
+end
+
+-- The middle of a player's front yard: just past their factory lot, toward the hub.
+local function homeOf(player: Player): Vector3?
+	local plot = TycoonManager.GetPlot(player)
+	return plot and plot.CFrame * Vector3.new(0, 0, FactoryBuilder.Lot.Front - Loot.HomeOffset)
+end
+
+-- Where boxes rain round a player: round them, or their front yard while indoors.
+local function aroundPlayer(player: Player): Vector3?
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	local position = if root and root:IsA("BasePart") then root.Position else nil
+	if position and TycoonManager.IsInPlot(position) then
+		return homeOf(player) or position
+	end
+	return position
+end
+
+-- A spot for a box: on dry ground (hills included), clear of decor, factory lots and
+-- other boxes; within `spread` of `near` if given (falling back to anywhere in the ring).
+local function randomBoxPosition(near: Vector3?, spread: number?): Vector3
 	local min, max = Loot.SpawnRadius.Min, Loot.SpawnRadius.Max
-	local spot = near and MapBuilder.FindSpot(min, max, random, { Near = near, Spread = Loot.Drops.Spread, Accept = clearOfBoxes })
-	spot = spot or MapBuilder.FindSpot(min, max, random, { Accept = clearOfBoxes })
+	local spot = near and MapBuilder.FindSpot(min, max, random, { Near = near, Spread = spread or Loot.Drops.Spread, Accept = boxFits })
+	spot = spot or MapBuilder.FindSpot(min, max, random, { Accept = boxFits })
 	if spot then
 		return spot + Vector3.new(0, BOX_HEIGHT, 0)
 	end
@@ -178,6 +202,21 @@ local function randomBoxPosition(near: Vector3?): Vector3
 	local angle = random:NextNumber(0, math.pi * 2)
 	local radius = math.sqrt(random:NextNumber(min * min, max * max))
 	return Vector3.new(math.cos(angle) * radius, BOX_HEIGHT, math.sin(angle) * radius)
+end
+
+-- Where a new map box lands: `HomeShare` of the time round a random player's front
+-- yard (so everyone finds some near home), otherwise anywhere on the map.
+local function mapBoxPosition(): Vector3
+	if random:NextNumber() < Loot.HomeShare then
+		local homes = {}
+		for _, player in Players:GetPlayers() do
+			table.insert(homes, homeOf(player))
+		end
+		if #homes > 0 then
+			return randomBoxPosition(homes[random:NextInteger(1, #homes)], Loot.HomeSpread)
+		end
+	end
+	return randomBoxPosition()
 end
 
 -- More players, more boxes.
@@ -224,7 +263,7 @@ local function spawnBox()
 	local rarityId = rollRarity(Loot.RollOdds(serverRebirths()), Rarities.List[1].Id)
 	local box: Box = {
 		Id = nextBoxId,
-		Position = randomBoxPosition(),
+		Position = mapBoxPosition(),
 		Rarity = rarityId,
 		PartType = rollPartType(),
 	}
@@ -246,8 +285,7 @@ local function spawnDropBox(drop: Drop)
 	if buyer and data then
 		rebirths = data.Rebirths
 		luck += luckOf(buyer, data)
-		local root = buyer.Character and buyer.Character:FindFirstChild("HumanoidRootPart")
-		near = if root and root:IsA("BasePart") then root.Position else nil
+		near = aroundPlayer(buyer)
 	end
 	nextBoxId += 1
 	addBox({
@@ -368,14 +406,14 @@ end
 -- Studio only (DevTools' SpawnBox): `count` boxes of one rarity land round `player`
 -- (to watch each rarity's arrival). They're anyone's, like a bought box whose buyer left.
 function LootManager.DevSpawnBoxes(player: Player, rarityName: string, count: number?): boolean
-	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	local near = aroundPlayer(player)
 	local rarity = nil
 	for _, candidate in Rarities.List do
 		if string.lower(candidate.Id) == string.lower(tostring(rarityName)) then
 			rarity = candidate
 		end
 	end
-	if not (rarity and root and root:IsA("BasePart")) then
+	if not (rarity and near) then
 		return false
 	end
 	local first = nil
@@ -383,7 +421,7 @@ function LootManager.DevSpawnBoxes(player: Player, rarityName: string, count: nu
 		nextBoxId += 1
 		local box: Box = {
 			Id = nextBoxId,
-			Position = randomBoxPosition(root.Position),
+			Position = randomBoxPosition(near),
 			Rarity = rarity.Id,
 			PartType = rollPartType(),
 			Bought = true,

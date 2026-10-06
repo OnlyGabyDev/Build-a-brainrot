@@ -5,13 +5,19 @@ local Rarities = require(script.Parent.Rarities)
 
 local Loot = {
 	-- Map loot boxes are shared: anyone can grab any box, first come first served.
-	BaseBoxes = 10, -- boxes on the map with one player...
-	BoxesPerPlayer = 3, -- ...plus this many per extra player
-	MaxBoxes = 30,
+	BaseBoxes = 18, -- boxes on the map with one player...
+	BoxesPerPlayer = 6, -- ...plus this many per extra player
+	MaxBoxes = 50,
 	RespawnTime = NumberRange.new(10, 20), -- seconds before an opened box is replaced
-	-- Studs from the hub: the plaza, the bridges and the valley up to the factories'
-	-- entrances (at ~240). MapBuilder.FindSpot keeps them on dry, clear ground.
-	SpawnRadius = NumberRange.new(30, 225),
+	-- Boxes land all over the map, so players without fast gadgets find some too:
+	-- `HomeShare` of them round a random player's front yard (`HomeOffset` studs past
+	-- their factory lot's front, within `HomeSpread`), the rest anywhere `SpawnRadius`
+	-- studs from the hub (the plaza to the ponds; factories sit at 300, mountains at
+	-- 900). MapBuilder.FindSpot keeps them on dry, clear ground, never on a factory lot.
+	SpawnRadius = NumberRange.new(40, 600),
+	HomeShare = 0.5,
+	HomeOffset = 40,
+	HomeSpread = 130,
 	OpenDistance = 14, -- studs; the server's reach check (the client opens at ~6)
 	AnnounceRank = 3, -- boxes of this rarity rank and up (Rare+) are announced to everyone
 

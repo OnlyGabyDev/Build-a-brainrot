@@ -285,3 +285,7 @@ Each task is sized for one chat: take the first unchecked one under **Release**.
 - Art sources, in order: **1) build the assets ourselves first** (voxel brainrots split into parts, props, UI styling, all made in Studio). **2) Creator Store textures, skyboxes and models are fine for polish** (the user, v0.8: the map uses a store skybox and grass, water and paving textures). **3) Only if that falls short:** paid or online asset packs (map, facility, UI), or paid brainrot sets (voxelized to match the style).
 
 ---
+
+## Road to Kids/Select (2026-10-06)
+- **Boxes all over the map** (task 1): `Config/Loot` `SpawnRadius` 40–600 (was 30–225), `HomeShare` 0.5 round a random player's front yard (`plot.CFrame * (0, 0, Lot.Front - HomeOffset 40)`, `HomeSpread` 130), 18 boxes +6 a player, 50 max. `LootManager.boxFits` also rejects factory lots (`TycoonManager.IsInPlot`); `aroundPlayer` sends bought drops (and DevTools' SpawnBox) of a buyer indoors to their front yard. Checked in a fresh-start playtest: 18 boxes, 9 within 200 studs of the player, the rest spread 100–590 from the hub, all on grass or the plaza; 6 drops spawned from inside the factory landed in the front yard. The client (`LootBoxes`) already culls animation past 220 studs (built for ~150). Not checked: how it feels to hunt them on foot (the far half is sparse: ~9 boxes over ~1.1M sq studs).
+

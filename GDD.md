@@ -110,9 +110,9 @@ All numbers are **placeholders**. Tune them in playtests.
 ## 5. Loot Boxes, Rolls & the Wheel 🟢
 
 **Map loot boxes**
-- Boxes spawn across the valley: the plaza, the bridges and the grass between the factories' entrances, hills included (never on water). Each box has a visible **rarity** (color and glow) and a **part type** (label on top).
+- Boxes spawn all over the map (v3.4, the user: not only round the plaza, so players without fast gadgets get some too): half of them round a random player's front yard (just past their factory lot), the rest anywhere 40–600 studs from the hub, hills included (never on water or a factory lot). Each box has a visible **rarity** (color and glow) and a **part type** (label on top).
 - **Decision (v0.4):** boxes are **shared**. Anyone can grab any box, first come first served. This gets players out of their tycoons to interact (and later, use their gadgets on each other), and gives them something to do while saving up for the next purchase.
-  - Box count grows with the server: 6 with one player, +2 per extra player, 20 max. A replacement spawns 10–20 s after one is opened.
+  - Box count grows with the server: 18 with one player, +6 per extra player, 50 max (v3.4: the area is ~7× bigger). A replacement spawns 10–20 s after one is opened.
   - Boxes only roll rarities that **someone in the server** has unlocked. Players who haven't unlocked a box's rarity see it locked (`🔒 Rebirth 4`) and can't open it, which is a visible reason to rebirth.
   - **Rare+ spawns are announced** to the whole server, and so is who grabbed them. (v3.0: a big banner drops in at the top, bigger by rarity: a sunburst from Legendary, a flash and confetti from Mythic, a rainbow for Godly; it says how far away the box landed and whether you can open it yet.)
   - **What a box gives** ✅: mostly a part of its own rarity, sometimes a rarer one. Each tier above is 15% as likely as the one below (Common box ≈ 87% Common, 13% Uncommon, 2% Rare…), limited to tiers the opener has unlocked. Upgrades get a "RARITY UP!" reveal. Odds live in `Config/Loot`, so the wheel shows exactly what the server rolls.
