@@ -148,7 +148,7 @@ CollectionService:GetInstanceRemovedSignal("SpinningStatue"):Connect(function(st
 	spinning[statue :: Model] = nil
 end)
 task.spawn(function()
-	spin(workspace:WaitForChild("Hub"):WaitForChild("Statue"))
+	spin((workspace:WaitForChild("Hub", math.huge) :: Instance):WaitForChild("Statue", math.huge) :: Instance) -- (built after the client starts)
 end)
 RunService.RenderStepped:Connect(function()
 	if Performance.Low then
@@ -206,7 +206,7 @@ end)
 
 -- Each balloon (and its string) bobs gently on its own rhythm.
 task.spawn(function()
-	local folder = workspace:WaitForChild("Hub"):WaitForChild("Balloons")
+	local folder = (workspace:WaitForChild("Hub", math.huge) :: Instance):WaitForChild("Balloons", math.huge) :: Instance
 	local parts: { BasePart } = {}
 	local rests: { CFrame } = {}
 	local phases: { number } = {}

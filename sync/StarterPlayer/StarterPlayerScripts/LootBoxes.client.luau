@@ -50,6 +50,8 @@ local RETRY_DELAY = 1
 local BOB_HEIGHT = 0.4
 local REST_LIFT = 1.5 -- a box's middle over the ground (LootManager's BOX_HEIGHT)
 local ANIMATE_RANGE = 220 -- studs from the camera: farther boxes hold still
+local LABEL_NEAREST = 8 -- below Rare, only the nearest few boxes show their labels (a box storm's hundred hid the screen)
+local LABEL_ALWAYS_RANK = 3 -- Rare and up always show theirs (spotted from afar)
 local EFFECTS_RANGE = 260 -- arrival and opening effects farther than this are skipped
 local SHAKE_RANGE = 60 -- a crash this close shakes your camera
 local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
@@ -864,6 +866,30 @@ local function addBox(box: Box)
 	end
 end
 
+-- Which landed boxes show their labels: Rare and up always, the rest only the nearest
+-- few to the camera.
+local function refreshLabels()
+	local camera = workspace.CurrentCamera
+	local eye = if camera then camera.CFrame.Position else Vector3.zero
+	local common: { Entry } = {}
+	for _, entry in entries do
+		local label = entry.Label
+		if label and entry.Born == nil then
+			if Rarities.ById[entry.Box.Rarity].Rank >= LABEL_ALWAYS_RANK then
+				label.Enabled = true
+			else
+				table.insert(common, entry)
+			end
+		end
+	end
+	table.sort(common, function(a, b)
+		return (a.Box.Position - eye).Magnitude < (b.Box.Position - eye).Magnitude
+	end)
+	for index, entry in common do
+		(entry.Label :: BillboardGui).Enabled = index <= LABEL_NEAREST
+	end
+end
+
 -- It has arrived: back to its full size, its label on, and its props handed over.
 local function land(entry: Entry)
 	local arrival = entry.Arrival :: Arrival
@@ -873,9 +899,7 @@ local function land(entry: Entry)
 		entry.Model:ScaleTo(1)
 		entry.Scale = 1
 	end
-	if entry.Label then
-		entry.Label.Enabled = true
-	end
+	refreshLabels()
 	local props = entry.Props
 	entry.Props = nil
 	if arrival.Land then
@@ -988,7 +1012,8 @@ Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payloa
 	end
 end)
 
--- The reservation clocks on bought boxes tick once a second.
+-- The reservation clocks on bought boxes tick (and which labels show is checked) twice
+-- a second.
 task.spawn(function()
 	while true do
 		for _, entry in entries do
@@ -996,7 +1021,8 @@ task.spawn(function()
 				refreshOwner(entry)
 			end
 		end
-		task.wait(1)
+		refreshLabels()
+		task.wait(0.5)
 	end
 end)
 

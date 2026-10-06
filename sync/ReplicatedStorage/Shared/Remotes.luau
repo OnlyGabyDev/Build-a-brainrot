@@ -14,7 +14,9 @@ local Remotes = {}
 
 local function get(className: string, name: string): Instance
 	if not IS_SERVER then
-		return ReplicatedStorage:WaitForChild(FOLDER_NAME):WaitForChild(name)
+		-- (no time limit, and so no "infinite yield" warnings: the server makes some only
+		-- once the world is built, a good while after a client starts)
+		return (ReplicatedStorage:WaitForChild(FOLDER_NAME, math.huge) :: Instance):WaitForChild(name, math.huge) :: Instance
 	end
 
 	local folder = ReplicatedStorage:FindFirstChild(FOLDER_NAME)

@@ -631,7 +631,7 @@ local function watchPlot(plot: Instance)
 		watchLines(plot:WaitForChild("Lines"))
 	end)
 	task.spawn(function()
-		local pad = plot:WaitForChild("CashPad")
+		local pad = plot:WaitForChild("CashPad", math.huge) :: Instance -- (an empty plot has none: no warning)
 		if pad:IsA("BasePart") then
 			watchCashPad(plot, pad)
 		end
