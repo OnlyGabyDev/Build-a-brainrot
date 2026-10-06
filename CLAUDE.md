@@ -1,44 +1,41 @@
 # Build a Brainrot: notes for Claude
 
-A Roblox brainrot factory tycoon (Lua/Luau). **Start with [PROGRESS.md](PROGRESS.md)** (where we are, and the task queue), then check [GDD.md](GDD.md) (the design source of truth) for the sections your task touches. Update PROGRESS.md as work lands, and GDD.md when a mechanic changes (plus its changelog).
+A Roblox brainrot factory tycoon (Lua/Luau), **public since ~2026-10-03**. **Start with [PROGRESS.md](PROGRESS.md)** (where we are, the task queue, how to test). [GDD.md](GDD.md) is the design source of truth: `grep -n "^## " GDD.md` and read only the sections your task touches. When a mechanic changes, update the GDD and add a line to [docs/changelog.md](docs/changelog.md).
 
 ## One task per chat
-The user opens a new chat per task to save tokens. Take the first unchecked task in PROGRESS.md's task queue (or the one the user names) and see it through: build, type-check, playtest, commit and push. Then tick it off in PROGRESS.md, note anything the next chat needs, and tell the user it's done. Don't start the next task unless asked. The user writes in Portuguese; reply in Portuguese.
+The user opens a new chat per task to save tokens. Take the first unchecked task in PROGRESS.md's queue (or the one the user names) and see it through: build, type-check, playtest, commit and push. Then tick it off, and tell the user it's done. Start the next task only if the user said to keep going ("prossiga"). The user writes in Portuguese; reply in Portuguese.
+
+## Spend few tokens
+- Read only what the task needs: grep first, then read line ranges. Never read whole big files (`ProductionVisuals` 3.6K lines, `TycoonManager` 2.1K, `RoomDecor`, `MapBuilder`, `FactoryBuilder`, `RoomUpgradeBuilder`), nor [docs/history.md](docs/history.md) (an archive of past chats' notes: grep it for the system you touch). How-tos for voxel art, the geometry lab and the map: [docs/reference.md](docs/reference.md), by section.
+- Verify with data probes, not screenshots; one screenshot only when the look matters.
+- Keep PROGRESS.md short: a finished task becomes one line there; its details (what was built, constants, what wasn't checked) go to docs/history.md.
 
 ## Workflow
-- **Sync:** code lives in `sync/` and syncs to Roblox Studio through Azul (Studio-first). `Name.server.luau` is a Script, `Name.client.luau` a LocalScript, and `Name.luau` a ModuleScript. Before editing, check that Azul is running (`Get-Process node`); if it restarts, it rewrites `sync/` from Studio.
-- **Studio MCP:** use it to playtest (`start_stop_play`, `execute_luau`, `get_console_output`). Never edit code while a playtest is running; stop it first.
-  - The MCP's `execute_luau` can't require ModuleScripts or invoke the `DevCommand` BindableFunction (its thread lacks their capabilities). Reach the live game by setting workspace's `DevRequest` attribute on the Server to a JSON array, then reading `DevResult` (Studio-only, `Services/DevTools.luau`): AddCoins, AddGems, AddRolls, Snapshot, Restore, ShowOnLine (puts a brainrot's 4 parts on a line), SetPurchased(List), BuildUpgrade, ResetPlot.
-  - The user's Studio profile **saves**. Snapshot before destructive tests (rebirths, spending), and Restore **before stopping the playtest** (if it stops first, recover from the DataStore version history: PROGRESS.md, Known quirks).
-  - Buy a tycoon button from the Client executor by `PivotTo`-ing the character onto it.
-  - Name tags are AlwaysOnTop BillboardGuis, which `screen_capture` skips: set `AlwaysOnTop = false` for the shot.
-  - Verify with data probes (sample positions/sizes every 0.1 s), not bursts of screenshots. Take one `screen_capture` at a time, only when the look really matters, and only while Studio is rendering: if its window is minimized or the user is away, the capture hangs forever (ask the user first; a normal one returns in 2–10 s).
+- **Sync:** code lives in `sync/` and syncs to Roblox Studio through Azul (Studio-first). `Name.server.luau` is a Script, `Name.client.luau` a LocalScript, `Name.luau` a ModuleScript. Check that Azul runs (`Get-Process node`) before editing; never edit code while a playtest runs. Testing recipes and quirks: PROGRESS.md.
 - **Type-check:** `sh tools/typecheck.sh` (Git Bash). It must print nothing but "typecheck done".
-- **Git:** the repo is https://github.com/OnlyGabyDev/Build-a-brainrot, and you may commit and push on your own at checkpoints (type-checked + playtested). Keep files **LF**: Python on Windows writes CRLF unless you pass `newline="\n"`.
+- **Git:** https://github.com/OnlyGabyDev/Build-a-brainrot. Commit and push on your own at checkpoints (type-checked + playtested); push from PowerShell. Keep files **LF**: Python on Windows writes CRLF unless you pass `newline="\n"`.
 
 ## Code map
-- Server services: `sync/ServerScriptService/Services/*` (Data, Tycoon, Production, Loot, Gadget, Rebirth, Monetization, DailyWheel, DevTools), started by `Main.server.luau`, plus builder modules TycoonManager uses (`FactoryBuilder`, `RoomUpgradeBuilder`, `StationBuilder`; TycoonManager is at Luau's 200-locals limit, so new builders go in modules) and `MapBuilder` (builds the hub). **Only DataManager writes player data.**
-- Creator Store models the code clones live in `ServerStorage.Assets` (in the place file: Azul doesn't sync them, so the user must save the place; see PROGRESS.md, Known quirks).
-- Shared config: `sync/ReplicatedStorage/Shared/Config/*` (sound ids in `Config/Sounds`). Voxel brainrot art: `Shared/Art/<BrainrotId>.luau`, built by `Shared/VoxelArt.luau`.
-- Client modules: `sync/ReplicatedStorage/Client/` (`Effects` for world juice; `UI/*` for menus, built on `UI/Kit`). Client scripts: `sync/StarterPlayer/StarterPlayerScripts/*` (ProductionVisuals, TycoonFX, Atmosphere, UIController, LootBoxes, GadgetsClient).
-- Everything visual in the world is generated by code: MapBuilder builds the hub, FactoryBuilder each plot's factory building (storeys of rooms, facades, roofs, stairs, and the cutaway Models TycoonFX fades), TycoonManager the machines inside (server), ProductionVisuals animates the lines, TycoonFX adds belts/build-ins/Cash Pad juice, Atmosphere sets lighting and music.
+- Server services: `sync/ServerScriptService/Services/*` (Data, Tycoon, Production, Loot, Gadget, Rebirth, Monetization, DailyWheel, Leaderboard, Badge, Nuke, StarterPack, DevTools), started by `Main.server.luau`; builder modules (`FactoryBuilder`, `RoomDecor`, `RoomUpgradeBuilder`, `StationBuilder`, `RailBuilder`, `TurntableBuilder`, `TowerBuilder`) and `MapBuilder` (the hub). **Only DataManager writes player data.**
+- Shared: `sync/ReplicatedStorage/Shared/Config/*` (sound ids in `Config/Sounds`), `Shared/LineLayouts` (each room's line layout), brainrot art in `Shared/Art/<Id>.luau` (generated from `tools/art/<Id>.py`), built by `Shared/VoxelArt` and `Shared/BrainrotModels`.
+- Client: modules in `sync/ReplicatedStorage/Client/` (`Effects` for world juice; `UI/*` menus on `UI/Kit`); scripts in `sync/StarterPlayer/StarterPlayerScripts/*` (ProductionVisuals animates the lines, TycoonFX the build-ins/cutaway/Cash Pad, RoomFX the room upgrades, Atmosphere lighting/music/motion, UIController the HUD, LootBoxes the map boxes); `sync/ReplicatedFirst/LoadingScreen.client.luau`.
+- Everything in the world is generated by code (nothing hand-placed).
 
 ## Recipes
-- **Sounds:** `search_asset` with `assetType = "Audio"`, `scope = "creator_store"` and `facets = ["Pro Sound Effects"]` (or `["APM Music"]` for music). Their descriptions say what the sound is (you can't listen). Check that ids load on the Client (`ContentProvider:PreloadAsync`, then `TimeLength > 0`) before using them.
-- **Images/textures:** a Creator Store decal id doesn't load as a texture. Get the image id in Edit mode with `InsertService:LoadAsset(decalId)` and read the Decal's `Texture`. Preview thumbnails with curl from `thumbnails.roblox.com/v1/assets?assetIds=...&size=420x420&format=Png` and the Read tool. Other people's models (e.g. a skybox) only insert with the MCP's `insert_asset`; read what you need and delete the copy.
-- **Terrain and the map:** see PROGRESS.md, *World notes* (terrain height rules, painting the ground, the MaterialVariant that lives in the place file).
-- **Textures on a Top face:** U runs along the part's X, V along its Z, and raising an offset slides the texture toward +X / +Z.
-- **Gold:** `Metal` with no `Reflectance` (reflectance mixes in the pale sky and turns gold to cream).
-- **World effects:** use `Client/Effects` (sound, sparkle, puff, confetti, ring, flash, tint, popup, coins); it culls by distance and cleans up after itself.
+- **Sounds:** `search_asset` with `assetType = "Audio"`, `scope = "creator_store"`, `facets = ["Pro Sound Effects"]` (or `["APM Music"]`). Descriptions say what a sound is (you can't listen). Check ids load on the Client (`ContentProvider:PreloadAsync`, then `TimeLength > 0`).
+- **Images/textures:** a Creator Store decal id doesn't load as a texture: in Edit, `InsertService:LoadAsset(decalId)` and read the Decal's `Texture`. Preview thumbnails with curl from `thumbnails.roblox.com/v1/assets?assetIds=...&size=420x420&format=Png`. Other people's models only insert with the MCP's `insert_asset`.
+- **Textures on a Top face:** U runs along the part's X, V along its Z; raising an offset slides it toward +X / +Z.
+- **Gold:** `Metal` with no `Reflectance` (reflectance turns gold to cream).
+- **World effects:** `Client/Effects` (sound, sparkle, puff, confetti, ring, flash, tint, popup, coins, spray, shake); it culls by distance and cleans up.
 
 ## The user's preferences
 - Keep it simple first. Propose ideas (log them in GDD §16) instead of building them unasked.
-- Assembly animations are **high priority**: every zone builds brainrots part by part (Legs → Body → Arms → Head), with its own themed, cute machines, and lots of sounds, particles and light (it's what players watch most).
-- Art: **build it ourselves first** (voxel brainrots referencing *Steal a Brainrot*'s designs, props, UI). Creator Store textures, skyboxes and models are fine for polish, and preferred for characters (code-built robots looked "muito feios"); paid packs only as a fallback. Avoid Roblox AI generation.
-- Colors: one hue family per factory building, lively through saturation, white stripes, neon glow and motion (mixed hues per storey looked ugly). In-world labels are **neon signs**, never plain text on parts.
-- **Check visuals up close** (a close-up screenshot from a player's angle) before calling anything good, and say what wasn't verified. Visual references the user likes: *Pet Simulator 99* and *Adopt Me!* (fetch screenshots from their fandom wikis, like the brainrot renders).
-- The UI should be cute, friendly and **very** colorful (Pet Simulator style). The polish backlog is in GDD §15.
-- **Not too childish.** Aim for *Steal a Brainrot* / *Pet Simulator 99*: bright, glossy, neon, gold, sparkles, collectibles and brainrot memes that older players enjoy too. Avoid nursery/baby vibes (crib mobiles, baby toys, too many hearts and pastel bunnies).
-- **A very lively game:** motion, particles, light and sound everywhere the player looks. Every room must be beautiful and complete **on its own**, with free decor; buyable things add on top and never fill holes.
-- **Upgrades show their effect.** Each level looks clearly better and more eye-catching than the last (bigger, glowier, gold at the top tiers). Room upgrades make it obvious *why* they earn money (e.g. the yarn spinner visibly sends yarn to the knitting machines). The upgrade tracks the user wants: room upgrades (some rebirth-locked, so early rooms stay worth it after a rebirth, Cookie Clicker style), plus per-line tracks for better upgraders (+flat money), faster droppers, a faster belt and more money per sale at shipping.
-- **Editions look like their floor:** brainrots take a light touch of the floor's texture/style (Plushie: wool; Candy: e.g. squashed into a giant chocolate bar).
+- Players are mostly foreign (English text, no Portuguese-only wordplay) and many are young: few words, big icons.
+- Assembly animations matter most: every room builds brainrots part by part (Legs → Body → Arms → Head) with its own themed machines and lots of sound, particles and light.
+- Art: build it ourselves first (block-style brainrots referencing *Steal a Brainrot*); Creator Store textures, skyboxes and models are fine for polish; avoid Roblox AI generation.
+- Colors: one hue family per factory building, lively through saturation, white stripes, neon and motion. In-world labels are **neon signs**, never plain text on parts.
+- **Check visuals up close** from a player's angle before calling anything good, and say what wasn't verified. References: *Pet Simulator 99*, *Adopt Me!*, *Steal a Brainrot*.
+- UI: cute, glossy and **very** colorful (Pet Simulator style). **Not too childish**: bright, neon, gold, sparkles and memes older players enjoy too; no nursery vibes.
+- **Very lively:** motion, particles, light and sound everywhere. Every room is complete on its own; buyables add on top.
+- **Upgrades show their effect:** each level clearly bigger and glowier than the last, gold at the top; room upgrades show *why* they earn.
+- **Editions look like their floor** (Plushie: knitted; Clay: play-dough; Vinyl: glossy).

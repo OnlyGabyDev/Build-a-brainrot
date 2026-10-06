@@ -1,4 +1,4 @@
-"""Economy simulator for the Rebirth 0 -> 1 run (the economy pass, PROGRESS.md).
+"""Economy simulator for the Rebirth 0 -> 1 run (the economy pass, docs/history.md).
 
 A greedy player buys whatever button pays back best (income gained per Coin, a little
 less if it has to wait for it), and stops buying once saving for the rebirth is
@@ -34,7 +34,7 @@ BASE = dict(
         ("Shipping", "Percent", 0.1, 1000, 1.8, 10, "Legs"),
     ],
     # (the Clay and Vinyl room upgrades aren't built: without them the first rebirth takes
-    # 4.1 h instead of 4.0, so they were left out of the release; PROGRESS.md has their prices)
+    # 4.1 h instead of 4.0, so they were left out of the release; docs/history.md has their prices)
     room_upgrades=[  # Config/RoomUpgrades, the levels needing no rebirth
         ("ToyWorkshop", "GiftTower", [(1000, 1.1), (8000, 1.1), (40000, 1.15)]),
         ("ToyWorkshop", "BubbleWrap", [(3000, 1.1), (20000, 1.15), (100000, 1.2)]),
