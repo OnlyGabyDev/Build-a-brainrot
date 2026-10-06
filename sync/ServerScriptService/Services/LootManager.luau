@@ -20,7 +20,6 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage.Shared
 local Brainrots = require(Shared.Config.Brainrots)
@@ -376,7 +375,7 @@ function LootManager.DevSpawnBoxes(player: Player, rarityName: string, count: nu
 			rarity = candidate
 		end
 	end
-	if not (RunService:IsStudio() and rarity and root and root:IsA("BasePart")) then
+	if not (rarity and root and root:IsA("BasePart")) then
 		return false
 	end
 	local first = nil

@@ -35,7 +35,9 @@ local function isDeveloper(player: Player): boolean
 		return true
 	end
 	if game.CreatorType == Enum.CreatorType.Group then
-		local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)
+		-- (GroupService:GetRolesInGroupAsync, its replacement, lists no roles for this
+		-- group's owner, so this keeps the older call)
+		local ok, rank = pcall((player :: any).GetRankInGroupAsync, player, game.CreatorId)
 		return ok and rank >= 250
 	else
 		return player.UserId == game.CreatorId
@@ -98,6 +100,9 @@ end
 
 local function onPlayerAdded(player: Player)
 	owned[player] = {}
+	if DataManager.FreshStart then
+		return -- a newcomer owns nothing (Studio tests)
+	end
 	for key, pass in Gamepasses do
 		if pass.Product then
 			continue -- owned per the player's data (MarkOwned), not Roblox

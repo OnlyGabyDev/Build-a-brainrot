@@ -180,6 +180,12 @@ local DataManager = {}
 
 DataManager.Currencies = table.freeze(table.clone(CURRENCIES))
 
+-- Studio: play as a brand-new player. Set workspace's DevFreshStart attribute in Edit
+-- (and clear it after, or every playtest starts fresh): everyone gets a newcomer's data,
+-- nothing is loaded or saved, no gamepasses are granted (MonetizationManager) and the
+-- leaderboards aren't written (IsSaved). Ignored on live servers.
+DataManager.FreshStart = IS_STUDIO and workspace:GetAttribute("DevFreshStart") == true
+
 -- Helpers --------------------------------------------------------------------
 
 local function deepCopy(value: any): any
@@ -465,7 +471,12 @@ local function onPlayerAdded(player: Player)
 	end
 	activeSessions[userId] = true
 
-	local result, record = loadRecord(player)
+	local result, record
+	if DataManager.FreshStart then
+		result, record = "Offline", nil -- a newcomer's data; the real save isn't touched
+	else
+		result, record = loadRecord(player)
+	end
 	if result == "Failed" or result == "Cancelled" then
 		activeSessions[userId] = nil
 		if result == "Failed" and player:IsDescendantOf(Players) then
@@ -496,7 +507,10 @@ local function onPlayerAdded(player: Player)
 		return
 	end
 
-	if profile.Offline and not offlineWarned then
+	if profile.Offline and not offlineWarned and DataManager.FreshStart then
+		offlineWarned = true
+		warn("[DataManager] DevFreshStart is on: playing as a new player, nothing is loaded or saved.")
+	elseif profile.Offline and not offlineWarned then
 		offlineWarned = true
 		warn(
 			"[DataManager] Data will NOT be saved in this session. To test saving in Studio, publish the place and enable "
@@ -602,6 +616,13 @@ function DataManager.SetSetting(player: Player, name: string, value: any): boole
 	return true
 end
 
+-- Whether this session's data goes to the DataStore (not offline, nor a FreshStart, nor
+-- a lost lock): other stores (the leaderboards) follow it.
+function DataManager.IsSaved(player: Player): boolean
+	local profile = profiles[player]
+	return profile ~= nil and not profile.Offline and not profile.LockLost
+end
+
 function DataManager.IsLoaded(player: Player): boolean
 	return profiles[player] ~= nil
 end
@@ -655,7 +676,6 @@ end
 
 -- A deep copy of the player's data, to restore after a destructive test.
 function DataManager.DevSnapshot(player: Player): PlayerData?
-	assert(IS_STUDIO, "DevSnapshot is Studio-only")
 	local profile = profiles[player]
 	return profile and deepCopy(profile.Data)
 end
@@ -663,7 +683,6 @@ end
 -- Puts a snapshot back and re-replicates everything. The caller rebuilds the tycoon.
 -- Marks a tycoon item bought or not, for free (Studio tests; DevTools SetPurchased).
 function DataManager.DevSetPurchased(player: Player, itemId: string, purchased: boolean): boolean
-	assert(IS_STUDIO, "DevSetPurchased is Studio-only")
 	local profile = profiles[player]
 	if not profile then
 		return false
@@ -673,7 +692,6 @@ function DataManager.DevSetPurchased(player: Player, itemId: string, purchased: 
 end
 
 function DataManager.DevRestore(player: Player, snapshot: PlayerData): boolean
-	assert(IS_STUDIO, "DevRestore is Studio-only")
 	local profile = profiles[player]
 	if not profile then
 		return false
@@ -690,6 +708,16 @@ function DataManager.DevRestore(player: Player, snapshot: PlayerData): boolean
 	replicateUpgrades(profile)
 	replicateExtras(profile)
 	replicateInventory(profile)
+	return true
+end
+
+function DataManager.DevAddRebirths(player: Player, amount: number): boolean
+	local profile = profiles[player]
+	if not profile then
+		return false
+	end
+	profile.Data.Rebirths += checkAmount(amount)
+	replicateStat(profile, "Rebirths")
 	return true
 end
 

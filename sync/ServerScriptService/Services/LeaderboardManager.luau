@@ -285,7 +285,7 @@ end
 
 local function write(player: Player)
 	local data = DataManager.GetData(player)
-	if not data then
+	if not (data and DataManager.IsSaved(player)) then
 		return
 	end
 	for _, board in BOARDS do

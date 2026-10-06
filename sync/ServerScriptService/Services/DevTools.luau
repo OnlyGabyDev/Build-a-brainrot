@@ -1,6 +1,6 @@
 --[[
-	DevTools (Studio only)
-	Test helpers for playtests, reachable from the command bar or the Studio MCP
+	DevTools (developers only: Studio, the owner's UserId, or rank 250+ in the group)
+	Test helpers for playtests and live servers, reachable from the command bar or the Studio MCP
 	through a BindableFunction (module requires there get separate copies, but
 	instances are shared):
 
@@ -32,7 +32,9 @@
 	  /dev SpawnBox Legendary 3
 	  /dev GrantPass Sprint
 
-	Never created in live servers.
+	On live servers they run for developers only (isDeveloper), from the 🛠️ DEV menu
+	(Client/UI/DevMenu, remote DevMenu) or /dev in the chat. They write real saves there:
+	AddCoins and the like also reach the global leaderboards, and Nuke kills everyone.
 ]]
 
 local HttpService = game:GetService("HttpService")
@@ -57,7 +59,9 @@ local function isDeveloper(player: Player): boolean
 		return true
 	end
 	if game.CreatorType == Enum.CreatorType.Group then
-		local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)
+		-- (GroupService:GetRolesInGroupAsync, its replacement, lists no roles for this
+		-- group's owner, so this keeps the older call)
+		local ok, rank = pcall((player :: any).GetRankInGroupAsync, player, game.CreatorId)
 		return ok and rank >= 250
 	else
 		return player.UserId == game.CreatorId
@@ -259,6 +263,9 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	end,
 	AddRolls = function(player, amount)
 		return DataManager.AddRolls(player, amount)
+	end,
+	AddRebirths = function(player, amount)
+		return DataManager.DevAddRebirths(player, amount)
 	end,
 	Snapshot = function(player)
 		local snapshot = DataManager.DevSnapshot(player)

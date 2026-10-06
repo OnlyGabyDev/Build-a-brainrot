@@ -246,7 +246,9 @@ task.spawn(function()
 	if RunService:IsStudio() or player.UserId == 114553410 then
 		dev = true
 	elseif game.CreatorType == Enum.CreatorType.Group then
-		local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)
+		-- (GroupService:GetRolesInGroupAsync, its replacement, lists no roles for this
+		-- group's owner, so this keeps the older call)
+		local ok, rank = pcall((player :: any).GetRankInGroupAsync, player, game.CreatorId)
 		dev = ok and rank >= 250
 	else
 		dev = player.UserId == game.CreatorId

@@ -40,4 +40,4 @@ StarterPack.Init() -- after LootManager (its boxes) and MonetizationManager (its
 GadgetManager.Init()
 RebirthManager.Init()
 DailyWheelManager.Init()
-DevTools.Init() -- Studio only
+DevTools.Init() -- developers only (Studio, the owner, group admins)
