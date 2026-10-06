@@ -41,9 +41,9 @@ export type Line = {
 -- The button chain on every line, after the line itself. Prices are multiplied per line.
 local LINE_ITEMS = {
 	{ Key = "Head", Name = "Head Dropper", Kind = "Dropper", PartType = "Head", Price = 0 },
-	{ Key = "Body", Name = "Body Dropper", Kind = "Dropper", PartType = "Body", Price = 80 },
-	{ Key = "Arms", Name = "Arms Dropper", Kind = "Dropper", PartType = "Arms", Price = 240 },
-	{ Key = "Legs", Name = "Legs Dropper", Kind = "Dropper", PartType = "Legs", Price = 600 },
+	{ Key = "Body", Name = "Body Dropper", Kind = "Dropper", PartType = "Body", Price = 40 },
+	{ Key = "Arms", Name = "Arms Dropper", Kind = "Dropper", PartType = "Arms", Price = 120 },
+	{ Key = "Legs", Name = "Legs Dropper", Kind = "Dropper", PartType = "Legs", Price = 300 },
 	{ Key = "Speed1", Name = "Turbo Belt", Kind = "Speed", Multiplier = 1.5, Price = 1400 },
 	{ Key = "Station1", Name = "Paint Booth", Kind = "Station", Multiplier = 1.5, Price = 3000 },
 	{ Key = "Speed2", Name = "Mega Turbo", Kind = "Speed", Multiplier = 1.5, Price = 8000 },

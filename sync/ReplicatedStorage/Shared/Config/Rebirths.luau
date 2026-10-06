@@ -17,7 +17,7 @@ export type Upgrade = {
 export type Levels = { [string]: number } -- [upgradeId] = level
 
 local Rebirths = {
-	BaseCost = 100000000000, -- Coins needed for the first rebirth (~5 h of play: the economy pass)...
+	BaseCost = 60000000000, -- Coins needed for the first rebirth (~1 h of play: the pacing pass, tools/economy_sim.py)...
 	CostGrowth = 3, -- ...and each next one costs this much more
 	IncomeBonus = 0.25, -- +25% ship value per rebirth, forever
 	LuckPerRebirth = 0.1, -- +10% luck per rebirth, forever (rarer loot: Config/Loot)

@@ -95,12 +95,12 @@ All numbers are **placeholders**. Tune them in playtests.
 
 | Rarity | Color | Base loot weight | Duplicate reward | Part value (Coins) | Completion Gems (Zone 1) |
 |---|---|---|---|---|---|
-| Common | Light grey `#C8CDD2` | 65% | Coins | 5 | 10 |
-| Uncommon | Green `#5BE35B` | 26% | Coins | 12 | 25 |
-| Rare | Blue `#3DA5FF` | 6.5% | Coins | 30 | 60 |
-| Legendary | Gold `#FFC53D` | 2% | **Gems** | 100 | 150 |
-| Mythic | Pink `#FF4FD8` | 0.4% | **Gems** | 350 | 400 |
-| Godly | Animated rainbow | 0.06% | **Gems** | 1,500 | 1,000 |
+| Common | Light grey `#C8CDD2` | 65% | Coins | 20 | 10 |
+| Uncommon | Green `#5BE35B` | 26% | Coins | 48 | 25 |
+| Rare | Blue `#3DA5FF` | 6.5% | Coins | 120 | 60 |
+| Legendary | Gold `#FFC53D` | 2% | **Gems** | 400 | 150 |
+| Mythic | Pink `#FF4FD8` | 0.4% | **Gems** | 1,400 | 400 |
+| Godly | Animated rainbow | 0.06% | **Gems** | 6,000 | 1,000 |
 
 - **No rarity cap** (v3.4, the user, 2026-10-06): every rarity drops from the start; the weights keep the high ones rare, and each rebirth adds +0.1 luck (rebirth 10: luck 1). Was: Rare at Rebirth 1, Legendary 4, Mythic 10, Godly 20 (before Rebirth 1 only Common/Uncommon dropped: 28 of 60 parts, all found in ~30 min).
 - A newcomer's first 3 Rolls (the starter ones) and first box always give a part they don't have yet (of the rolled rarity, while any is left; `Config/Loot.SureNew`).
@@ -243,7 +243,7 @@ We also track the **Rebirths** count (not a currency), which gates zones and rar
 
 **Rebirth Shop** (spend Rebirth Points): Income %, Luck %, Walk Speed, Loot Box cap +1, Faster box respawn, Dropper speed %.
 - ✅ Built (v0.5), numbers in `Config/Rebirths`:
-  - Rebirth costs 100B Coins ×3 per rebirth (v2.3: ~5 h of play to the first one), gives +25% Coins forever, and 1 Rebirth Point per full cost's worth of Coins (saving up pays).
+  - Rebirth costs 60B Coins ×3 per rebirth (v3.4: ~1 h of play to the first one; v2.3: 100B, ~5 h), gives +25% Coins forever, and 1 Rebirth Point per full cost's worth of Coins (saving up pays).
   - Shop: **Income** (+10%/lv), **Dropper Speed** (+5%/lv), **Luck** (+10%/lv: rarer tiers weigh more, boxes upgrade more often).
   - Box cap and box respawn don't fit shared boxes, so they're dropped. Walk Speed comes later.
 - Line setups of lines you haven't bought back since a rebirth are remembered, but don't hold their parts, so those parts are free for your other lines.
@@ -278,14 +278,15 @@ Zones aren't only floors. The factory **physically expands**: new floors, annexe
 | 10 | **Orbital Forge** | Rooftop launchpad, then orbit | Cosmic: huge, galaxy texture | Tractor beams fuse it in space | Rebirth 30 | 🟡 |
 
 **Decided, not built yet (the user, 2026-10-02):**
-- **The first run holds every room up to the Candy Factory.** The Toy Workshop, the Plushie room, the Clay Studio and Vinyl Collectibles are all bought with Coins before the first rebirth; the Candy Factory needs Rebirth 1. Reaching the first rebirth should take **about 5 hours** (the user, 2026-10-02; it was ~3 h), with many upgrades along the way. ✅ (v1.7) Rooms open with Coins at their door (v2.3: Plushie 25K, Clay 80M, Vinyl 4B; the Candy Factory at Rebirth 1 once its floor is bought; later zones at Rebirths 2/3/4/6/8). ✅ The Clay Studio and Vinyl Collectibles are playable (v1.7). ✅ (v2.3) The economy pass: see **Economy** below. 🟡 Left: room upgrades for those two rooms. (The table's unlock column is the old plan.)
+- **The first run holds every room up to the Candy Factory.** The Toy Workshop, the Plushie room, the Clay Studio and Vinyl Collectibles are all bought with Coins before the first rebirth; the Candy Factory needs Rebirth 1. Reaching the first rebirth should take **about 1 hour** (the user, 2026-10-06, for the first minutes and retention; it was ~5 h, and ~3 h before that), with many upgrades along the way. ✅ (v1.7) Rooms open with Coins at their door (v2.3: Plushie 25K, Clay 80M, Vinyl 4B; the Candy Factory at Rebirth 1 once its floor is bought; later zones at Rebirths 2/3/4/6/8). ✅ The Clay Studio and Vinyl Collectibles are playable (v1.7). ✅ (v2.3) The economy pass: see **Economy** below. 🟡 Left: room upgrades for those two rooms. (The table's unlock column is the old plan.)
 - ✅ **Floors are bought** (v1.7; v3.1: the factory starts with **1 storey**, and the 2nd comes with the Clay Studio: its button waits in front of the elevator, downstairs, and opening it drops the 2nd floor in). The 3rd floor and up are bought from a big button on the lawn out front (the 3rd floor, the Candy Factory's: 250K placeholder, 🔒 Rebirth 1), for the sense of discovering new things. The new storey **drops in**: the old roof lifts away and the storey falls into place chunk by chunk, bottom first, then the roof lands on top ("🏗️ NEW FLOOR!"). Floors reset on rebirth like the rest of the tycoon.
 - **From the Candy Factory on, assembly animations must be far superior** to the first run's rooms (the user accepts the current ones for those).
 - **Rebirth will reset the whole factory but unlock many cool new upgrades per rebirth**, like minigames (e.g. a claw machine in the Toy Workshop). Rebirth work comes only after the main loop, the HUD, the bosses and the gadgets.
 
 Rule of thumb: **the rarer the zone, the cooler the animation.** Every zone follows the Toy Workshop pattern: the brainrot is built **part by part** (Legs → Body → Arms → Head), and each part gets its own creative, funny, cute animation by machines themed after the zone. For example, the Plushie room's sewing machine stitches the arms on, and the Candy Factory pours the head from a mold.
 
-**Economy** ✅ (v2.3, the economy pass; tuned with `tools/economy_sim.py`, a greedy buyer). A line's upgrades multiply it by ~300× (stations, speed, room upgrades, the line tracks), so small zone multipliers made every new room worthless next to the old, upgraded ones (a perfect player never opened Vinyl). Now **each room earns and costs 15× the one before** (ship value × = price × = 15^(zone − 1)): a new room's buttons pay back as fast as the first room's, and opening it is always worth it. A room's 2nd and 3rd lines cost 3× and 9× for the same output. Room openings: Plushie 25K, Clay 80M, Vinyl 4B; the first rebirth 100B. The run, for a perfect player: the Plushie room at ~30 min, the Clay Studio at ~55 min, Vinyl at ~2 h 10, the rebirth at ~4 h 05 with 98% of the buttons bought (a real player: ~5 h). The 3rd floor (Rebirth 1) costs 1B; the later zones follow the same ×15 rule until their content is built.
+**Economy** ✅ (v2.3, the economy pass; tuned with `tools/economy_sim.py`, a greedy buyer). A line's upgrades multiply it by ~300× (stations, speed, room upgrades, the line tracks), so small zone multipliers made every new room worthless next to the old, upgraded ones (a perfect player never opened Vinyl). Now **each room earns and costs 15× the one before** (ship value × = price × = 15^(zone − 1)): a new room's buttons pay back as fast as the first room's, and opening it is always worth it. A room's 2nd and 3rd lines cost 3× and 9× for the same output. Room openings: Plushie 25K, Clay 80M, Vinyl 4B; the first rebirth 60B.
+- ✅ **The pacing pass** (v3.4, the user, 2026-10-06: the first PERFECT in ~1 min, the Plushie room ~10 min, Rebirth 1 ~1 h). Part values ×4 (Common 20 ... Godly 6,000) and the Upgraders track's flat bonus with them (+24 a level); the first line's droppers cost 40/120/300 (were 80/240/600); the first rebirth 60B (was 100B). `tools/economy_sim.py` now rolls the player's parts like the game (the starter brainrot, the 3 starter Rolls, a map box a minute, every rarity) over 40 seeds: for a perfect player (median, 10th–90th percentile) the first full line (the first PERFECT) at 0.7 min, the Plushie room at 7.3 min (3–28), the Clay Studio at 14 min, Vinyl at 34 min, the rebirth at 50 min (29–65) with ~60% of the buttons bought (a real player: ~1 h). Luck now swings the run a lot (a Legendary part early is 20× a Common). The rebirth-locked room upgrades are the content after Rebirth 1. Was (v2.3, Commons and Uncommons only): the Plushie room at ~30 min, the rebirth at ~4 h with 98% of the buttons bought. The 3rd floor (Rebirth 1) costs 1B; the later zones follow the same ×15 rule until their content is built.
 
 **Zone multipliers**
 
