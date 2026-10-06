@@ -964,7 +964,8 @@ local function announce(box: any)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local where = if root then `📍 {math.floor((box.Position - root.Position).Magnitude)} studs away` else "📍 somewhere on the map"
-	Kit.banner("🎁", `{string.upper(rarity.Id)} BOX!`, `A {string.upper(box.PartType)} box spawned · {where} · go grab it!`, rarity.Color, rarity.Rank - LootConfig.AnnounceRank)
+	local article = if string.find(box.PartType, "^[AEIOU]") then "An" else "A" -- (An ARMS box)
+	Kit.banner("🎁", `{string.upper(rarity.Id)} BOX!`, `{article} {string.upper(box.PartType)} box spawned · {where} · go grab it!`, rarity.Color, rarity.Rank - LootConfig.AnnounceRank)
 end
 
 Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payload: any, opener: Player?)

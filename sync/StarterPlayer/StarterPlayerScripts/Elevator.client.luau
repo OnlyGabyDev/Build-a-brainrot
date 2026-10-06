@@ -66,9 +66,16 @@ local function fade(cover: Frame, opaque: boolean)
 end
 
 -- The player's movement controls (the default PlayerModule's), to switch off for a ride.
+-- This place has no PlayerModule in PlayerScripts (waiting for one hung every ride:
+-- the lift never moved and its prompts stayed off); the anchored root holds you still.
 local function setControls(on: boolean)
+	local scripts = player:FindFirstChild("PlayerScripts")
+	local playerModule = scripts and scripts:FindFirstChild("PlayerModule")
+	if not (playerModule and playerModule:IsA("ModuleScript")) then
+		return
+	end
 	pcall(function()
-		local module = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule") :: any)
+		local module = require(playerModule :: any)
 		local controls = module:GetControls()
 		if on then
 			controls:Enable()
