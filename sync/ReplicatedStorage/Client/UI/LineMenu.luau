@@ -1,13 +1,15 @@
 --[[
 	Line Menu
 	Pick which part each dropper builds, or press Equip Best (GDD §6); the UPGRADES tab
-	buys the line's upgrade tracks (Config/LineUpgrades), a level at a time. The server
+	buys the line's upgrade tracks (Config/LineUpgrades), 1, 5 or as many levels as the
+	Coins pay for at a time (the x1 / x5 / MAX pills). The server
 	builds the view (GetLines) and validates every change, so this only draws what it's
 	told and sends intents.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
@@ -36,7 +38,7 @@ local GOOD_COLOR = Color3.fromRGB(110, 240, 110)
 local MUTED_COLOR = Color3.fromRGB(150, 145, 170)
 
 type Option = { Id: string, Usable: boolean, UsedOn: string? }
-type UpgradeView = { Key: string, Level: number, Max: number, Price: number?, Needs: string? }
+type UpgradeView = { Key: string, Level: number, Max: number, Price: number?, Prices: { number }?, Needs: string? }
 type LineView = {
 	Id: string,
 	Zone: string,
@@ -61,6 +63,9 @@ local selectedSlot = "Head"
 local mode = "Parts" -- or "Upgrades"
 local busy = false
 local previewing = false -- an upgrade preview is playing (the menu steps aside meanwhile)
+local buyCount = 1 -- how many levels an upgrade's button buys: 1, 5 or math.huge (MAX)
+local shownLine: LineView? = nil -- the line on the Upgrades tab, and what its buttons buy
+local shownPlans = ""
 -- an upgrade track's pips by tier, like its look on the line (TycoonManager)
 local TIER_COLORS = { Color3.fromRGB(110, 230, 255), Color3.fromRGB(255, 110, 220), Color3.fromRGB(255, 200, 50) }
 local EMPTY_PIP = Color3.fromRGB(215, 215, 225)
@@ -185,7 +190,7 @@ local function renderInfo(parent: Frame, line: LineView)
 		Parent = parent,
 	})
 	Kit.iconText({ Position = UDim2.fromOffset(270, 68), Size = UDim2.fromOffset(300, 28), Parent = parent }, "Coin", `{Format.Number(line.Value)} / {string.format("%.1f", line.CycleTime)}s`)
-	if line.FullMatch then
+	if line.FullMatch and mode == "Parts" then -- (the x1 / x5 / MAX pills go there in Upgrades)
 		Kit.text({
 			Text = "FULL MATCH x2!",
 			TextColor3 = GOOD_COLOR,
@@ -420,16 +425,16 @@ end
 
 -- Upgrades ------------------------------------------------------------------------
 
-local function buyUpgrade(lineId: string, track: string)
+local function buyUpgrade(lineId: string, track: string, count: number | string)
 	if busy then
 		return
 	end
 	busy = true
 	local remote = Remotes.Function("BuyLineUpgrade")
-	local ok, success, reason = pcall(remote.InvokeServer, remote, lineId, track)
+	local ok, success, reason = pcall(remote.InvokeServer, remote, lineId, track, count)
 	busy = false
 	if ok and success then
-		Kit.toast("UPGRADED!", GOOD_COLOR, "ArrowUp")
+		Kit.toast(if typeof(reason) == "number" and reason > 1 then `+{reason} LEVELS!` else "UPGRADED!", GOOD_COLOR, "ArrowUp")
 	else
 		Kit.toast(
 			if reason == "Coins"
@@ -446,6 +451,62 @@ end
 
 local CARD = Vector2.new(462, 222)
 local PREVIEW_WIDTH = 64
+
+-- What an upgrade's button buys at the chosen amount: how many levels, for how much,
+-- and whether the Coins cover it (MAX: as many as they pay for, at least the next one).
+local function plan(upgrade: UpgradeView, coins: number): (number, number, boolean)
+	local prices = upgrade.Prices or { upgrade.Price :: number }
+	local count, total = 0, 0
+	for index, price in prices do
+		if index > buyCount or (buyCount == math.huge and total + price > coins) then
+			break
+		end
+		count, total = index, total + price
+	end
+	if count == 0 then
+		return 1, prices[1], false
+	end
+	return count, total, coins >= total
+end
+
+-- What every button on a line's Upgrades tab buys, in a word (to redraw them when the
+-- Coins change what they'd buy).
+local function plansKey(line: LineView, coins: number): string
+	local key = ""
+	local upgrades: { UpgradeView } = line.Upgrades or {}
+	for _, upgrade in upgrades do
+		if upgrade.Price and not upgrade.Needs then
+			local count, _, affordable = plan(upgrade, coins)
+			key ..= `{count}{if affordable then "+" else "-"}`
+		end
+	end
+	return key
+end
+
+-- The x1 / x5 / MAX pills, on the info row's right.
+local function renderAmounts(parent: Frame)
+	local amounts = { { 1, "x1" }, { 5, "x5" }, { math.huge, "MAX" } }
+	for index, spec in amounts do
+		Kit.button({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -24 - (#amounts - index) * 100, 0, 64),
+			Size = UDim2.fromOffset(92, 36),
+			Parent = parent,
+		}, if buyCount == spec[1] then Kit.Colors.Coins else Kit.Colors.Grey, spec[2] :: string, function()
+			buyCount = spec[1] :: number
+			render()
+		end)
+	end
+	Kit.text({
+		Text = "BUY",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -24 - #amounts * 100, 0, 68),
+		Size = UDim2.fromOffset(70, 28),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = MUTED_COLOR,
+		Parent = parent,
+	})
+end
 
 -- Shows the track's next level on the line itself (UpgradePreview), the menu out of
 -- the way meanwhile.
@@ -470,15 +531,25 @@ local function previewUpgrade(line: LineView, track: LineUpgrades.Track, level: 
 	end
 end
 
--- A card per track: its level in pips, what it gives now and next, and a buy button.
+-- A card per track: its level in pips (the ones its button buys see-through), what it
+-- gives now and after, and a buy button for the chosen amount.
 local function renderUpgrades(parent: Frame, line: LineView)
 	local coins = Players.LocalPlayer:GetAttribute("Coins")
 	local upgrades: { UpgradeView } = line.Upgrades or {}
+	renderAmounts(parent)
+	shownLine, shownPlans = line, plansKey(line, if typeof(coins) == "number" then coins else 0)
 	for index, upgrade in upgrades do
 		local track = LineUpgrades.ByKey[upgrade.Key]
 		if not track then
 			continue
 		end
+		local maxed = upgrade.Level >= upgrade.Max
+		local buying = not maxed and upgrade.Price ~= nil and not upgrade.Needs
+		local count, total, affordable = 1, upgrade.Price or 0, false
+		if buying then
+			count, total, affordable = plan(upgrade, if typeof(coins) == "number" then coins else 0)
+		end
+		local target = math.min(upgrade.Level + count, upgrade.Max)
 		local column, row = (index - 1) % 2, (index - 1) // 2
 		local card = Kit.new("Frame", {
 			BackgroundColor3 = Kit.White,
@@ -513,20 +584,25 @@ local function renderUpgrades(parent: Frame, line: LineView)
 		local pipWidth = (CARD.X - 28) / upgrade.Max
 		for level = 1, upgrade.Max do
 			local tier = if level >= 7 then 3 elseif level >= 4 then 2 else 1
+			local coming = buying and level > upgrade.Level and level <= target
 			local pip = Kit.new("Frame", {
 				Position = UDim2.fromOffset(14 + (level - 1) * pipWidth, 54),
 				Size = UDim2.fromOffset(pipWidth - 6, 14),
-				BackgroundColor3 = if level <= upgrade.Level then TIER_COLORS[tier] else EMPTY_PIP,
+				BackgroundColor3 = if level <= upgrade.Level or coming then TIER_COLORS[tier] else EMPTY_PIP,
+				BackgroundTransparency = if coming then 0.6 else 0,
 				Parent = card,
 			})
+			if coming then -- (they blink: the levels the button buys)
+				TweenService:Create(pip, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.05 }):Play()
+			end
 			Kit.corner(pip, 6)
 		end
-		-- what it gives now » next, in big numbers, and what they're of (or the new look
-		-- the next level brings, when it starts a tier)
-		local maxed = upgrade.Level >= upgrade.Max
+		-- what it gives now » after the levels its button buys, in big numbers, and what
+		-- they're of (or the newest look they bring, when they start a tier)
 		local nextLevel = math.min(upgrade.Level + 1, upgrade.Max)
 		local half = (CARD.X - 28) / 2
-		for side, spec in { { "NOW", upgrade.Level, Kit.White }, { if maxed then "MAXED" else "NEXT", nextLevel, GOOD_COLOR } } do
+		local after = if maxed then "MAXED" elseif target > nextLevel then `LV {target}` else "NEXT"
+		for side, spec in { { "NOW", upgrade.Level, Kit.White }, { after, target, GOOD_COLOR } } do
 			local x = 14 + (side - 1) * (half + 26) -- (the arrow goes between them)
 			Kit.text({
 				Text = spec[1] :: string,
@@ -548,7 +624,10 @@ local function renderUpgrades(parent: Frame, line: LineView)
 		if not maxed then
 			Kit.text({ Text = "»", Position = UDim2.fromOffset(14 + half - 20, 90), Size = UDim2.fromOffset(40, 30), TextColor3 = GOOD_COLOR, Parent = card })
 		end
-		local newLook = not maxed and LineUpgrades.TierStarts[nextLevel]
+		local newLook: string? = nil
+		for level = nextLevel, if maxed then 0 else target do
+			newLook = LineUpgrades.TierStarts[level] or newLook
+		end
 		Kit.text({
 			Text = if newLook then `NEW LOOK: {newLook}!` elseif maxed then "MAXED OUT!" else LineUpgrades.Unit(track),
 			Position = UDim2.fromOffset(14, 130),
@@ -558,22 +637,34 @@ local function renderUpgrades(parent: Frame, line: LineView)
 			Parent = card,
 		})
 
-		local price = upgrade.Price
 		if upgrade.Needs then
 			Kit.iconText({
 				Position = UDim2.fromOffset(14, 166),
 				Size = UDim2.new(1, -28, 0, 32),
 				Parent = card,
 			}, "Lock", `Buy the {upgrade.Needs} first`, BAD_COLOR)
-		elseif price and not maxed then
-			local affordable = typeof(coins) == "number" and coins >= price
-			Kit.button({
+		elseif buying then
+			local button = Kit.button({
 				Position = UDim2.fromOffset(14, 156),
 				Size = UDim2.new(1, -28 - PREVIEW_WIDTH - 10, 0, 54),
 				Parent = card,
-			}, if affordable then Kit.Colors.Green else Kit.Colors.Red, Format.Number(price), function()
-				buyUpgrade(line.Id, track.Key)
+			}, if affordable then Kit.Colors.Green else Kit.Colors.Red, Format.Number(total), function()
+				buyUpgrade(line.Id, track.Key, if buyCount == math.huge then "Max" else count)
 			end, "Coin")
+			if count > 1 then -- how many levels it buys, on a gold tag at its corner
+				local tag = Kit.new("Frame", {
+					AnchorPoint = Vector2.new(1, 0.5),
+					Position = UDim2.new(1, 6, 0, 2),
+					Size = UDim2.fromOffset(58, 28),
+					BackgroundColor3 = Kit.White,
+					ZIndex = 5,
+					Parent = button,
+				})
+				Kit.corner(tag, 14)
+				Kit.stroke(tag, 3)
+				Kit.gradient(tag, Kit.Colors.Coins)
+				Kit.text({ Text = `+{count}`, Size = UDim2.fromScale(1, 1), ZIndex = 6, Parent = tag })
+			end
 			-- the eye: fly over to the line and see the next level there
 			Kit.button({
 				AnchorPoint = Vector2.new(1, 0),
@@ -593,6 +684,7 @@ render = function()
 	end
 	local frame = Kit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = content })
 	body = frame
+	shownLine = nil
 
 	if #view == 0 then
 		Kit.text({
@@ -632,6 +724,13 @@ local function ensurePanel(): Frame
 	if not panel then
 		local newPanel, newContent = Kit.modal("LineMenu", "ASSEMBLY LINES", Kit.Hues.Purple, SIZE, "Factory")
 		panel, content = newPanel, newContent
+		-- the Upgrades tab's buttons follow the Coins (MAX buys as many levels as they pay for)
+		Players.LocalPlayer:GetAttributeChangedSignal("Coins"):Connect(function()
+			local coins = Players.LocalPlayer:GetAttribute("Coins")
+			if shownLine and newPanel.Visible and not busy and typeof(coins) == "number" and plansKey(shownLine, coins) ~= shownPlans then
+				render()
+			end
+		end)
 	end
 	return panel :: Frame
 end

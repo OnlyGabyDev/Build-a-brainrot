@@ -468,17 +468,23 @@ local function onGetLines(player: Player): { any }
 			options[partType] = list
 		end
 
-		-- its upgrade tracks: the level reached, and the next one's price (or what to buy first)
+		-- its upgrade tracks: the level reached, the price of each level left (for buying
+		-- x5 or MAX at once) or what to buy first
 		local upgrades = {}
 		for _, track in LineUpgrades.Tracks do
 			local level = TycoonItems.TrackLevel(data.Tycoon.Purchased, line.Id, track.Key)
-			local nextItem = (TycoonItems.TracksByLine[line.Id] or {})[track.Key][level + 1]
+			local levels = (TycoonItems.TracksByLine[line.Id] or {})[track.Key]
+			local prices = {}
+			for index = level + 1, #levels do
+				table.insert(prices, levels[index].Price)
+			end
 			local gate = TycoonItems.ById[`{line.Id}_{track.Gate}`]
 			table.insert(upgrades, {
 				Key = track.Key,
 				Level = level,
 				Max = track.Levels,
-				Price = if nextItem then nextItem.Price else nil,
+				Price = prices[1],
+				Prices = prices,
 				Needs = if gate and not data.Tycoon.Purchased[gate.Id] then gate.Name else nil,
 			})
 		end

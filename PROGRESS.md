@@ -27,8 +27,8 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 12. [ ] **The company mascot and the guide** (the user, 2026-10-07). In order, each tested before the next:
    a. [x] **The mascot, first version** (2026-10-07): built part by part out front, 1 level per rebirth (a growing stand, a neon sign with its bonuses, a menu from its prompt); the Rebirth Shop and Rebirth Points are gone (docs/history.md, "The user's new-player review").
    a2. [x] **The mascot, more visual** (2026-10-07): parts picked from big cards like the Line menu; it grows from a small crate into a giant statue (~43 studs at LV 10, ~53 at LV 20) with a new look every level or two (gold stand, bulbs, fountain, searchlights, columns, a monument with the owner's name, crown, rings, rainbow); `/dev MascotLevel <n>` previews a level (docs/history.md, "The user's new-player review").
-   b. **Line upgrades faster** (next): buying a track level one at a time is slow: a ×5 / MAX way to buy several at once.
-   c. **A new icon for "see the upgrade"** (the eye is weird and ugly).
+   b. [x] **Line upgrades faster** (2026-10-07): x1 / x5 / MAX pills on the Line menu's upgrade cards; MAX buys as many levels as the Coins pay for, the cards follow the Coins (docs/history.md, "The user's new-player review").
+   c. **A new icon for "see the upgrade"** (next; the eye is weird and ugly).
    d. **Tralalero's guide goes on to the Plushie room**: teach upgrading the line (a track level), then buying the Plushie room; the mascot as a stop.
 
 ### Then (backlog, roughly by value)

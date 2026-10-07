@@ -1997,10 +1997,12 @@ end
 
 -- Public API -----------------------------------------------------------------
 
--- A line upgrade track's next level, bought from the line's tablet (the Line menu).
--- Returns whether it was bought, and why not: "Max", "Locked" (its gate isn't bought,
--- or the zone isn't unlocked) or "Coins".
-local function onBuyLineUpgrade(player: Player, lineId: unknown, track: unknown): (boolean, string?)
+-- A line upgrade track's next `count` levels (1 by default; fewer if it maxes out
+-- first), bought from the line's tablet (the Line menu): all of them or none; or, for
+-- `count` "Max", as many as the Coins pay for (at least one). Returns whether they were
+-- bought and how many, or why not: "Max", "Locked" (its gate isn't bought, or the zone
+-- isn't unlocked) or "Coins".
+local function onBuyLineUpgrade(player: Player, lineId: unknown, track: unknown, count: unknown): (boolean, string | number | nil)
 	if typeof(lineId) ~= "string" or typeof(track) ~= "string" then
 		return false, nil
 	end
@@ -2017,18 +2019,39 @@ local function onBuyLineUpgrade(player: Player, lineId: unknown, track: unknown)
 	end
 	buttonCooldowns[player] = now + BUTTON_COOLDOWN
 	local purchased = data.Tycoon.Purchased
-	local item = levels[TycoonItems.TrackLevel(purchased, lineId, track) + 1]
-	if not item then
+	local level = TycoonItems.TrackLevel(purchased, lineId, track)
+	local first = levels[level + 1]
+	if not first then
 		return false, "Max"
 	end
-	if not isZoneUnlocked(data, item.Zone) or (item.Requires and not purchased[item.Requires]) then
+	if not isZoneUnlocked(data, first.Zone) or (first.Requires and not purchased[first.Requires]) then
 		return false, "Locked"
 	end
-	if not DataManager.PurchaseItem(player, item.Id, item.Price) then
+	local max = count == "Max"
+	local wanted = if max then #levels elseif typeof(count) == "number" and count == count then math.clamp(math.floor(count), 1, #levels) else 1
+	local items, total = {}, 0
+	for index = level + 1, math.min(level + wanted, #levels) do
+		local price = levels[index].Price
+		if max and total + price > data.Coins then
+			break
+		end
+		table.insert(items, levels[index])
+		total += price
+	end
+	if #items == 0 or data.Coins < total then
 		return false, "Coins"
 	end
-	buildItem(plot, item, true)
-	return true, nil
+	for _, item in items do
+		if not DataManager.PurchaseItem(player, item.Id, item.Price) then
+			break
+		end
+	end
+	local reached = TycoonItems.TrackLevel(purchased, lineId, track)
+	if reached == level then
+		return false, "Coins"
+	end
+	buildItem(plot, levels[reached], true) -- (only the highest level shows: it replaces the one before)
+	return true, reached - level
 end
 
 -- A preview of a line upgrade track's next level, for the Line menu's 👀 button: the
