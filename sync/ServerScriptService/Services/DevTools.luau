@@ -265,7 +265,8 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 		return GuideManager.DevSetStep(player, step or "Intro")
 	end,
 	-- The login streak as if `day` (0-7) was claimed yesterday, so the next claim is the
-	-- day after it (0: day 1); `missed` true: two days ago (it still goes on). It saves.
+	-- day after it (0: day 1; 7: all done); `missed` true: two days ago (it still goes
+	-- on). It saves.
 	DailyStreak = function(player, day, missed)
 		local today = os.time() // 86400
 		local done = DataManager.ClaimDailyLogin(player, math.clamp(tonumber(day) or 0, 0, 7), today - (if missed then 2 else 1))

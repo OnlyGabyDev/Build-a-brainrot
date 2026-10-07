@@ -1,11 +1,12 @@
 --[[
 	DailyLogin
 	The login streak (GDD §5, Config/DailyLogin): a reward each UTC day, claimed from
-	the calendar (Client/UI/DailyLoginMenu). The next day of the 7 on each new UTC day
-	you play, however many days you missed (the user, 2026-10-07: starting over could be
-	farmed), round to day 1 after day 7. Mirrored for the client as
-	"DailyDay" (the day to claim, or claimed today), "DailyReady" (it can be claimed)
-	and "DailyNext" (os.time() when the next day starts).
+	the calendar (Client/UI/DailyLoginMenu). The next of the 7 days on each new UTC day
+	you play, however many days you missed, and it's over once day 7 is claimed: it never
+	starts over (the user, 2026-10-07: starting over could be farmed). Mirrored for the
+	client as "DailyDay" (the day to claim, or claimed today), "DailyReady" (it can be
+	claimed), "DailyDone" (all 7 claimed) and "DailyNext" (os.time() when the next day
+	starts).
 ]]
 
 local Players = game:GetService("Players")
@@ -32,14 +33,13 @@ local function utcDay(): number
 	return os.time() // DailyLoginConfig.SecondsPerDay
 end
 
--- The day to claim now (or the one claimed today) and whether it can be claimed.
+-- The day to claim now (or the one claimed last) and whether it can be claimed.
 local function status(data: DataManager.PlayerData): (number, boolean)
 	local streak = data.DailyLogin
-	local today = utcDay()
-	if streak.LastDay == today then
-		return math.max(streak.Day, 1), false
+	if streak.LastDay == utcDay() or streak.Day >= #DAYS then
+		return math.clamp(streak.Day, 1, #DAYS), false -- (claimed today, or all done)
 	end
-	return streak.Day % #DAYS + 1, true -- (a first visit: day 1)
+	return streak.Day + 1, true -- (a first visit: day 1)
 end
 
 local function update(player: Player)
@@ -50,6 +50,7 @@ local function update(player: Player)
 	local day, ready = status(data)
 	player:SetAttribute("DailyDay", day)
 	player:SetAttribute("DailyReady", ready)
+	player:SetAttribute("DailyDone", data.DailyLogin.Day >= #DAYS)
 	player:SetAttribute("DailyNext", (utcDay() + 1) * DailyLoginConfig.SecondsPerDay)
 end
 

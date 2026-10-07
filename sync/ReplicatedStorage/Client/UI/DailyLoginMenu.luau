@@ -57,6 +57,10 @@ local function ready(): boolean
 	return player:GetAttribute("DailyReady") == true
 end
 
+local function done(): boolean -- (all 7 claimed: it's over)
+	return player:GetAttribute("DailyDone") == true
+end
+
 -- "5h 12m", "12m 30s"
 local function clock(seconds: number): string
 	seconds = math.max(0, math.floor(seconds))
@@ -152,7 +156,7 @@ render = function()
 	-- (this streak's days before today are claimed; today's too once it's claimed)
 	local claimedUpTo = if open then current - 1 else current
 	Kit.text({
-		Text = if open then `DAY {current}: your reward is ready!` else "Come back tomorrow!",
+		Text = if open then `DAY {current}: your reward is ready!` elseif done() then "All 7 rewards claimed!" else "Come back tomorrow!",
 		Position = UDim2.fromOffset(24, 10),
 		Size = UDim2.new(1, -48, 0, 40),
 		StrokeThickness = 3.5,
@@ -178,7 +182,7 @@ render = function()
 		end, "Gift")
 		Kit.stripes(button, 0.8, 14, 5)
 		table.insert(pulses, Kit.new("UIScale", { Parent = button }))
-	else
+	elseif not done() then
 		countdown = Kit.text({
 			Text = "",
 			AnchorPoint = Vector2.new(0.5, 0),
@@ -196,7 +200,7 @@ render = function()
 		Size = UDim2.fromOffset(760, 30),
 		ZIndex = 3,
 		Parent = frame,
-	}, "Calendar", "Come back every day for the next reward!")
+	}, "Calendar", if done() then "Thanks for playing every day!" else "Come back every day for the next reward!")
 end
 
 -- Today's card and the CLAIM! button pulse, the countdown ticks.
@@ -270,6 +274,7 @@ function DailyLoginMenu.Init()
 	Kit.stroke(badge, 3)
 	task.spawn(function()
 		while true do
+			button.Visible = not done() -- (all claimed: the button goes)
 			badge.Visible = ready()
 			if badge.Visible then
 				Kit.pop(badge, 0.3)
