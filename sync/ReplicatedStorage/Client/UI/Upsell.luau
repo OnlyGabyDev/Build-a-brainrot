@@ -36,14 +36,15 @@ local HOLD = 9 -- seconds an ad stays up
 local GAP = 45 -- seconds between any two ads
 local SAME_GAP = 240 -- seconds before the same pass is offered again
 local Z = 55 -- over the loot overlay (30), under the completion celebration (60)
-local GUIDE_QUIET = 60 -- seconds without ads after Tralalero's guide ends
+local GUIDE_QUIET = 60 -- seconds without ads after Tralalero's guide lets go (its basics, the upgrade, the mascot)
 
 local current: Frame? = nil
 local lastShown = -math.huge
 local lastByKey: { [string]: number } = {}
 local guideEnded = -math.huge
 Players.LocalPlayer:GetAttributeChangedSignal("Guide"):Connect(function()
-	if Players.LocalPlayer:GetAttribute("Guide") == Guide.Done then
+	local step = Players.LocalPlayer:GetAttribute("Guide")
+	if step ~= nil and not Guide.Focused(step) then
 		guideEnded = os.clock()
 	end
 end)
@@ -58,7 +59,7 @@ local function canShow(key: string): boolean
 	if pass.Id <= 0 and not RunService:IsStudio() then
 		return false
 	end
-	if Guide.Running(Players.LocalPlayer:GetAttribute("Guide")) or os.clock() - guideEnded < GUIDE_QUIET then
+	if Guide.Focused(Players.LocalPlayer:GetAttribute("Guide")) or os.clock() - guideEnded < GUIDE_QUIET then
 		return false
 	end
 	return os.clock() - (lastByKey[key] or -math.huge) >= SAME_GAP

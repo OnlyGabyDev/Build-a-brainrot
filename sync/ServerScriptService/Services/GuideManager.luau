@@ -8,7 +8,8 @@
 	"GuideRing" (the glowing ring round it, across; 0 for none). Short of Coins for a
 	button, with enough waiting on the Cash Pad, it points there first ("GuideSay":
 	the step or hint whose line Tralalero says meanwhile, "Collect"); and to the line
-	("Watch") while the pad waits for its first Coins. A step
+	("Watch") while the pad waits for its first Coins. "GuidePrice" is the price of a
+	step's button or item (the bubble shows the Coins saved toward it). A step
 	whose goal is already met (done out of order) passes at once, still paid.
 	  * Intro: the client flies the camera onto the factory, then says so (remote Guide);
 	    the server moves on by itself after INTRO_TIMEOUT in case it never does.
@@ -17,10 +18,14 @@
 	  * Box: any loot box opened (LootManager.BoxOpened); a gift box of their own lands in
 	    their front yard to point at.
 	  * Perfect: any brainrot completed; the first line gets the starter's 4 parts first
-	    if it isn't building a full one (Rolls opened before the first dropper).
-	At the end: a new Rare+ part (Guide.FinalRank, once: the "GuideGift" claim), which
-	the client reveals after the completion banner, then Tralalero asks for a favorite
-	(once ever: the "FavoritePrompt" claim).
+	    if it isn't building a full one (Rolls opened before the first dropper). The
+	    basics end here (Gift): a new Rare+ part (Guide.FinalRank, once: the "GuideGift"
+	    claim), which the client reveals after the completion banner, then Tralalero
+	    asks for a favorite (once ever: the "FavoritePrompt" claim).
+	  * Upgrade: any upgrade track's first level on the first line (its tablet; the Line
+	    menu points at the button).
+	  * Mascot: walk up to your mascot out front.
+	  * Plushie: the Plushie room opened (an Open step: every button shows again).
 ]]
 
 local Players = game:GetService("Players")
@@ -30,6 +35,8 @@ local Shared = ReplicatedStorage.Shared
 local Brainrots = require(Shared.Config.Brainrots)
 local Guide = require(Shared.Config.Guide)
 local LineLayouts = require(Shared.LineLayouts)
+local LineUpgrades = require(Shared.Config.LineUpgrades)
+local MascotConfig = require(Shared.Config.Mascot)
 local Remotes = require(Shared.Remotes)
 local TycoonItems = require(Shared.Config.TycoonItems)
 
@@ -49,6 +56,9 @@ local PAD_LIFT, PAD_RING = 6, 11
 local BOX_LIFT, BOX_RING = 7, 6.5
 local BOX_HEIGHT = 1.5 -- a box's middle over the ground (LootManager)
 local LINE_LIFT = 16 -- over the chute, where the brainrot comes out
+local TABLET_LIFT, TABLET_RING = 8, 6
+local MASCOT_LIFT, MASCOT_RING = 4, 14 -- (the lift over its top)
+local MASCOT_NEAR = 12 -- studs (flat) from the mascot's middle that meet it
 
 type State = {
 	Since: number, -- os.clock() the current step began
@@ -66,13 +76,21 @@ local guideRemote: RemoteEvent
 
 local GuideManager = {}
 
-local function buttonId(step: Guide.Step): string?
-	return if step.Button then `{Guide.LineId}_{step.Button}` else nil
+-- The mascot's middle on the ground, in front of the player's factory.
+local function mascotSpot(plot: TycoonManager.Plot): Vector3
+	return plot.CFrame * MascotConfig.Spot
 end
 
 local function goalMet(player: Player, data: DataManager.PlayerData, state: State, step: Guide.Step): boolean
-	local itemId = buttonId(step)
-	if itemId then
+	local itemId = Guide.ItemOf(step)
+	if step.Track then -- (any track's first level)
+		for _, track in LineUpgrades.Tracks do
+			if data.Tycoon.Purchased[`{Guide.LineId}_Up{track.Key}_1`] then
+				return true
+			end
+		end
+		return false
+	elseif itemId then
 		return data.Tycoon.Purchased[itemId] == true
 	elseif step.Id == "Collect" then
 		return state.Collected or MonetizationManager.HasPerk(player, "AutoCollect")
@@ -80,6 +98,14 @@ local function goalMet(player: Player, data: DataManager.PlayerData, state: Stat
 		return state.BoxOpened
 	elseif step.Id == "Perfect" then
 		return data.Stats.Perfects > 0
+	elseif step.Id == "Mascot" then
+		local plot = TycoonManager.GetPlot(player)
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if not (plot and root and root:IsA("BasePart")) then
+			return false
+		end
+		local offset = root.Position - mascotSpot(plot)
+		return Vector2.new(offset.X, offset.Z).Magnitude < MASCOT_NEAR
 	elseif step.Id == "Intro" then
 		return os.clock() - state.Since > INTRO_TIMEOUT
 	end
@@ -99,13 +125,17 @@ local function targetOf(player: Player, state: State, step: Guide.Step): (Vector
 	if not plot then
 		return nil, 0, 0
 	end
-	local itemId = buttonId(step)
+	local itemId = Guide.ItemOf(step)
 	if itemId then
 		-- short of Coins, with enough on the Cash Pad: grab them first
 		local coins = DataManager.GetCurrency(player, "Coins")
 		local price = TycoonItems.ById[itemId].Price
 		if coins < price and coins + plot.Collected >= price then
 			return plot.CashPad.Position, PAD_LIFT, PAD_RING, "Collect"
+		end
+		if step.Track then -- (bought from the line's tablet)
+			local line = TycoonItems.LinesById[Guide.LineId]
+			return (TycoonManager.LineOrigin(plot, Guide.LineId) * CFrame.new(LineLayouts.For(line.Zone).Tablet)).Position, TABLET_LIFT, TABLET_RING
 		end
 		local button = plot.Buttons[itemId]
 		return if button then button.Position else nil, BUTTON_LIFT, BUTTON_RING
@@ -118,8 +148,19 @@ local function targetOf(player: Player, state: State, step: Guide.Step): (Vector
 		return if state.GiftAt then state.GiftAt - Vector3.new(0, BOX_HEIGHT, 0) else nil, BOX_LIFT, BOX_RING
 	elseif step.Id == "Perfect" then
 		return lineShip(plot), LINE_LIFT, 0
+	elseif step.Id == "Mascot" then
+		local stand = plot.Model:FindFirstChild("Mascot")
+		local top = if stand then stand:GetAttribute("Top") else nil
+		return mascotSpot(plot), (if typeof(top) == "number" then top else 9) + MASCOT_LIFT, MASCOT_RING
 	end
 	return nil, 0, 0
+end
+
+-- The price the bubble counts the Coins toward (a step's button or item), or nil.
+local function priceOf(step: Guide.Step?): number?
+	local itemId = if step then Guide.ItemOf(step) else nil
+	local item = if itemId then TycoonItems.ById[itemId] else nil
+	return if item then item.Price else nil
 end
 
 local function setTarget(player: Player, target: Vector3?, lift: number, ring: number, say: string?)
@@ -170,24 +211,33 @@ local function finish(player: Player, state: State, step: Guide.Step)
 	if step.Id ~= "Intro" then
 		guideRemote:FireClient(player, "Reward", step.Id, step.Coins or 0, step.Rolls or 0)
 	end
-	-- the reward shows a moment before the next goal (the intro hands straight over)
+	-- the reward shows a moment before the next goal (the intro hands straight over;
+	-- a Then line waits too)
 	state.Waiting = true
 	setTarget(player, nil, 0, 0)
-	task.delay(if step.Id == "Intro" then 0 else STEP_GAP, function()
+	player:SetAttribute("GuidePrice", nil)
+	local gap = if step.Id == "Intro" then 0 elseif step.Then then STEP_GAP + Guide.ThenTime else STEP_GAP
+	task.delay(gap, function()
 		state.Waiting = false
 		if states[player] ~= state then
 			return
 		end
 		local nextStep = Guide.Next(step.Id)
-		DataManager.SetGuideStep(player, nextStep)
-		state.Since = os.clock()
-		if nextStep == Guide.Done then
-			states[player] = nil
-			TycoonManager.RefreshButtons(player) -- every button shows again
+		if step.Gift then
+			-- (first: the client holds the next goal back while it shows them)
 			giveGift(player)
 			if DataManager.Claim(player, "FavoritePrompt") then
 				guideRemote:FireClient(player, "Favorite")
 			end
+		end
+		DataManager.SetGuideStep(player, nextStep)
+		player:SetAttribute("GuidePrice", priceOf(Guide.ById[nextStep]))
+		state.Since = os.clock()
+		if Guide.Focused(step.Id) and not Guide.Focused(nextStep) then
+			TycoonManager.RefreshButtons(player) -- every button shows again
+		end
+		if nextStep == Guide.Done then
+			states[player] = nil
 		end
 	end)
 end
@@ -230,6 +280,7 @@ local function onLoaded(player: Player)
 		Ensured = false,
 	}
 	states[player] = state
+	player:SetAttribute("GuidePrice", priceOf(Guide.ById[data.Guide]))
 	-- (the intro's timeout runs from the spawn: the world may still be building)
 	player.CharacterAdded:Connect(function()
 		state.Since = os.clock()
@@ -283,6 +334,8 @@ function GuideManager.DevSetStep(player: Player, step: string): boolean
 	DataManager.DevUnclaim(player, "GuideGift")
 	DataManager.DevUnclaim(player, "FavoritePrompt")
 	states[player] = nil
+	player:SetAttribute("GuidePrice", nil)
+	setTarget(player, nil, 0, 0)
 	onLoaded(player)
 	TycoonManager.RefreshButtons(player)
 	return true

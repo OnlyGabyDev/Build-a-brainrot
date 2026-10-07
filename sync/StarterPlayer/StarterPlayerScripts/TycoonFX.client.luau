@@ -438,8 +438,8 @@ end
 
 RunService.RenderStepped:Connect(function()
 	local bounce = math.abs(math.sin(os.clock() * 4)) * 1.2
-	-- (Tralalero's guide points with its own arrow meanwhile)
-	local guiding = Guide.Running(player:GetAttribute("Guide"))
+	-- (Tralalero's guide points with its own arrow meanwhile, but for a long goal)
+	local guiding = Guide.Focused(player:GetAttribute("Guide"))
 	for button, gui in arrows do
 		gui.Enabled = not guiding and button.Color == AFFORDABLE_COLOR -- only affordable buttons show theirs
 		if gui.Enabled then

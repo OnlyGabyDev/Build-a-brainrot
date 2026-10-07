@@ -12,11 +12,13 @@
 	    "GuideSay" when it points somewhere else first, like the Cash Pad for Coins):
 	    a big 3D arrow bouncing over it (turned to you, seen through walls), a ring round
 	    it, and a short trail of moving chevrons on the floor from your feet toward it.
-	  * Each step's reward pops out of the bubble; the last gift (a new Rare+ part) is
-	    revealed by Loot once any celebration on screen has gone. Then, once ever,
-	    Tralalero asks for a favorite and Roblox's favorite prompt opens (no reward for
-	    it: Roblox's rules). Meanwhile "GuideTalking" (a local Player attribute) holds
-	    UIController's join popups back.
+	  * Short of Coins for a goal ("GuidePrice"), a bar in the bubble fills with them; on
+	    a long goal (an Open step) the bubble shrinks after a moment, out of the way.
+	  * Each step's reward pops out of the bubble (then its Then line, if it has one); the
+	    basics' gift (a new Rare+ part) is revealed by Loot once any celebration on screen
+	    has gone. Then, once ever, Tralalero asks for a favorite and Roblox's favorite
+	    prompt opens (no reward for it: Roblox's rules). Meanwhile "GuideTalking" (a local
+	    Player attribute) holds UIController's join popups back, and the next goal waits.
 ]]
 
 local AvatarEditorService = game:GetService("AvatarEditorService")
@@ -31,6 +33,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
 local Brainrots = require(Config:WaitForChild("Brainrots"))
+local Format = require(Shared:WaitForChild("Format"))
 local Guide = require(Config:WaitForChild("Guide"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
@@ -51,6 +54,7 @@ local INK = Color3.fromRGB(40, 32, 60)
 local NEAR = 7 -- studs: the trail hides this close to the goal
 local TRAIL = 16 -- studs: the trail's length at most (a compass at your feet, not a path)
 local CELEBRATION_WAIT = 20 -- seconds at most the gift waits for a celebration on screen (a claim)
+local COMPACT_AFTER, COMPACT_SCALE = 6, 0.7 -- a long goal's bubble shrinks after this many seconds
 local SKIP_INPUTS = {
 	[Enum.UserInputType.MouseButton1] = true,
 	[Enum.UserInputType.Touch] = true,
@@ -129,6 +133,37 @@ local line = Kit.text({
 	Parent = panel,
 })
 Kit.new("UITextSizeConstraint", { MaxTextSize = 48, Parent = line })
+local LINE_ALONE, LINE_OVER_BAR = line.Position, UDim2.new(0, 120, 0, 34) -- (moved up over the bar)
+
+-- the Coins saved toward the goal's price, short of it: a gold bar filling under the line
+local bar = Kit.new("Frame", {
+	Name = "Savings",
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 120, 1, -12),
+	Size = UDim2.new(1, -140, 0, 26),
+	BackgroundColor3 = Color3.fromRGB(70, 60, 95),
+	Visible = false,
+	ZIndex = BUBBLE_Z + 1,
+	Parent = panel,
+})
+Kit.corner(bar, 13)
+Kit.stroke(bar, 3)
+local barFill = Kit.new("Frame", {
+	Size = UDim2.fromScale(0, 1),
+	BackgroundColor3 = Color3.new(1, 1, 1),
+	ZIndex = BUBBLE_Z + 2,
+	Parent = bar,
+})
+Kit.corner(barFill, 13)
+Kit.gradient(barFill, Kit.Colors.Coins)
+local barText = Kit.text({
+	Size = UDim2.fromScale(1, 1),
+	Text = "",
+	StrokeThickness = 2.5,
+	ZIndex = BUBBLE_Z + 3,
+	Parent = bar,
+})
+local bubbleScale = Kit.new("UIScale", { Parent = bubble })
 
 -- Tralalero himself: the starter brainrot in a round blue bubble, swaying as he talks
 local portrait = Kit.new("Frame", {
@@ -180,13 +215,20 @@ RunService.RenderStepped:Connect(function()
 end)
 
 local shownText = ""
+local saidAt = 0
 local function say(text: string, symbol: string) -- (symbol: one of our icons)
 	if text == shownText and bubble.Visible then
 		return
 	end
 	shownText = text
+	saidAt = os.clock()
+	bar.Visible = false -- (showStep brings it back under the goal)
+	line.Position, line.Size = LINE_ALONE, UDim2.new(1, -140, 0, 64)
 	line.Text = text
 	icon.Image = Kit.iconId(symbol)
+	if bubbleScale.Scale ~= 1 then
+		TweenService:Create(bubbleScale, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+	end
 	if not bubble.Visible then
 		bubble.Visible = true
 		bubble.Position = BUBBLE_HIDDEN
@@ -296,7 +338,8 @@ end
 
 RunService.RenderStepped:Connect(function()
 	local target = player:GetAttribute("GuideTarget")
-	if introPlaying or typeof(target) ~= "Vector3" or not Guide.Running(player:GetAttribute("Guide")) then
+	local talking = bubble:GetAttribute("Gifting") or player:GetAttribute("GuideTalking")
+	if introPlaying or talking or typeof(target) ~= "Vector3" or not Guide.Running(player:GetAttribute("Guide")) then
 		pointer.Parent = nil
 		return
 	end
@@ -494,19 +537,84 @@ end)
 
 -- Steps -----------------------------------------------------------------------------
 
+-- How far the Coins are toward the goal's price, short of it (nil: not saving up).
+local function savings(): (number?, number?)
+	local price, coins = player:GetAttribute("GuidePrice"), player:GetAttribute("Coins")
+	local saying = player:GetAttribute("GuideSay")
+	if typeof(price) ~= "number" or typeof(coins) ~= "number" or coins >= price or saying ~= nil then
+		return nil, nil
+	end
+	return coins, price
+end
+
+local affordable = false -- (the Coins covered the price at the last look)
+local holdUntil = 0
+local function showSavings()
+	local coins, price = savings()
+	if coins and affordable then
+		-- just spent: maybe on the goal itself, whose step is about to end
+		holdUntil = os.clock() + 1
+		task.delay(1.05, showSavings)
+	end
+	local rawPrice, rawCoins = player:GetAttribute("GuidePrice"), player:GetAttribute("Coins")
+	affordable = typeof(rawPrice) == "number" and typeof(rawCoins) == "number" and rawCoins >= rawPrice
+	local info = Guide.ById[player:GetAttribute("Guide") or ""]
+	local saving = coins ~= nil and os.clock() >= holdUntil and info ~= nil and shownText == info.Say
+	bar.Visible = saving
+	line.Position = if saving then LINE_OVER_BAR else LINE_ALONE
+	line.Size = UDim2.new(1, -140, 0, if saving then 52 else 64)
+	if saving and coins and price then
+		barFill.Size = UDim2.fromScale(math.clamp(coins / price, 0.06, 1), 1)
+		barText.Text = `{Format.Number(coins)} / {Format.Number(price)}`
+	end
+end
+
 local function showStep()
 	local step = player:GetAttribute("Guide")
 	local saying = player:GetAttribute("GuideSay") or step
 	local info = if type(saying) == "string" then Guide.ById[saying] or Guide.Hints[saying] else nil
-	if os.clock() < rewardUntil then
-		return -- (the reward's still up: the timer below shows the goal after)
+	if os.clock() < rewardUntil or bubble:GetAttribute("Gifting") or player:GetAttribute("GuideTalking") then
+		return -- (the reward or the gift is still up: they show the goal after)
 	end
 	if info and info.Say ~= "" then
 		say(info.Say, info.Icon)
 	elseif step ~= Guide.Done then
 		hideBubble()
 	end
+	showSavings()
 end
+
+-- After the gift or the favorite prompt: the goal, or nothing once the guide's over.
+local function afterTalking()
+	if Guide.Running(player:GetAttribute("Guide")) then
+		showStep()
+	elseif not (bubble:GetAttribute("Gifting") or player:GetAttribute("GuideTalking")) then
+		hideBubble()
+	end
+end
+
+player:GetAttributeChangedSignal("Coins"):Connect(showSavings)
+player:GetAttributeChangedSignal("GuidePrice"):Connect(showSavings)
+-- a long goal's bubble shrinks out of the way while you save up for it, and comes back
+-- once the Coins are there
+local compacted = false
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		local info = Guide.ById[player:GetAttribute("Guide") or ""]
+		local onGoal = info ~= nil and info.Open == true and bubble.Visible and shownText == info.Say
+		local compact = onGoal and savings() ~= nil and os.clock() - saidAt > COMPACT_AFTER
+		if compact ~= compacted then
+			compacted = compact
+			local style = if compact then Enum.EasingStyle.Quad else Enum.EasingStyle.Back
+			TweenService:Create(bubbleScale, TweenInfo.new(0.5, style), { Scale = if compact then COMPACT_SCALE else 1 }):Play()
+			if onGoal and not compact then -- (saved up: go!)
+				Kit.pop(panel, 0.2)
+				Kit.playSound(Sounds.Pop, 0.45, 1.25)
+			end
+		end
+	end
+end)
 
 player:GetAttributeChangedSignal("Guide"):Connect(function()
 	if player:GetAttribute("Guide") == Guide.Done then
@@ -526,7 +634,7 @@ showStep()
 
 guideRemote.OnClientEvent:Connect(function(action: string, ...)
 	if action == "Reward" then
-		local _stepId, coins, rolls = ...
+		local stepId, coins, rolls = ...
 		local parts = {}
 		if coins > 0 then
 			table.insert(parts, `+{coins} Coins`)
@@ -538,7 +646,16 @@ guideRemote.OnClientEvent:Connect(function(action: string, ...)
 		say(if #parts > 0 then table.concat(parts, "  ") else "Nice!", if rolls > 0 then "Roll" elseif coins > 0 then "Coin" else "Check")
 		Kit.confetti(bubble, { ARROW_COLOR, Color3.fromRGB(120, 245, 110), Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 140, 230) }, 14, BUBBLE_Z + 5)
 		Kit.playSound(Sounds.Cash, 0.5)
-		task.delay(1.45, showStep)
+		local after = Guide.ById[stepId] and Guide.ById[stepId].Then
+		task.delay(1.45, function()
+			if after then -- (one more line before the next goal)
+				rewardUntil = os.clock() + Guide.ThenTime
+				say(after.Say, after.Icon)
+				task.delay(Guide.ThenTime + 0.05, showStep)
+			else
+				showStep()
+			end
+		end)
 	elseif action == "Gift" then
 		local result = ...
 		bubble:SetAttribute("Gifting", true)
@@ -562,11 +679,7 @@ guideRemote.OnClientEvent:Connect(function(action: string, ...)
 		say(if ready then "Claim it in the ALBUM!" else "Keep building!", if ready then "Album" else "Rocket")
 		task.wait(3.5)
 		bubble:SetAttribute("Gifting", nil)
-		if Guide.Running(player:GetAttribute("Guide")) then
-			showStep() -- (started over: DevTools' Guide)
-		elseif not player:GetAttribute("GuideTalking") then
-			hideBubble()
-		end
+		afterTalking()
 	elseif action == "Favorite" then
 		-- after the gift (once ever): a favorite brings them back
 		player:SetAttribute("GuideTalking", true)
@@ -575,7 +688,7 @@ guideRemote.OnClientEvent:Connect(function(action: string, ...)
 			task.wait(0.25)
 		end
 		local known, favorited = pcall(AvatarEditorService.GetFavorite, AvatarEditorService, game.PlaceId, Enum.AvatarItemType.Asset)
-		if not (known and favorited) and not Guide.Running(player:GetAttribute("Guide")) then
+		if not (known and favorited) then
 			rewardUntil = os.clock() + 3
 			say("Like it? Favorite the game!", "Star")
 			task.wait(1.2)
@@ -596,10 +709,8 @@ guideRemote.OnClientEvent:Connect(function(action: string, ...)
 			end
 			connection:Disconnect()
 			task.wait(2)
-			if not Guide.Running(player:GetAttribute("Guide")) then
-				hideBubble()
-			end
 		end
 		player:SetAttribute("GuideTalking", nil)
+		afterTalking()
 	end
 end)

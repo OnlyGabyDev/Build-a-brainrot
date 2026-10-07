@@ -4,7 +4,8 @@
 	buys the line's upgrade tracks (Config/LineUpgrades), 1, 5 or as many levels as the
 	Coins pay for at a time (the x1 / x5 / MAX pills). The server
 	builds the view (GetLines) and validates every change, so this only draws what it's
-	told and sends intents.
+	told and sends intents. On Tralalero's upgrade step (Config/Guide) it opens the guide's
+	line on UPGRADES and a yellow arrow bounces under the button to press.
 ]]
 
 local Players = game:GetService("Players")
@@ -16,6 +17,7 @@ local Config = Shared:WaitForChild("Config")
 local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
 local Brainrots = require(Config:WaitForChild("Brainrots"))
 local Format = require(Shared:WaitForChild("Format"))
+local Guide = require(Config:WaitForChild("Guide"))
 local LineUpgrades = require(Config:WaitForChild("LineUpgrades"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
@@ -36,6 +38,7 @@ local SELECTED_COLOR = Color3.fromRGB(255, 200, 40)
 local BAD_COLOR = Color3.fromRGB(255, 90, 90)
 local GOOD_COLOR = Color3.fromRGB(110, 240, 110)
 local MUTED_COLOR = Color3.fromRGB(150, 145, 170)
+local GUIDE_COLOR = Color3.fromRGB(255, 225, 50) -- Tralalero's arrow (Guide.client)
 
 type Option = { Id: string, Usable: boolean, UsedOn: string? }
 type UpgradeView = { Key: string, Level: number, Max: number, Price: number?, Prices: { number }?, Needs: string? }
@@ -124,6 +127,37 @@ end
 -- Tabs for the lines in the current line's room (3 at most), after a pill that names the
 -- room and steps on to the next room with lines; then the parts/upgrades switch.
 local ROOM_PILL, LINE_TAB, TAB_GAP = 150, 96, 8
+
+-- Whether Tralalero's guide is teaching the upgrades on this line (its upgrade step, and
+-- no level bought yet).
+local function guidePoints(line: LineView): boolean
+	local step = Guide.ById[Players.LocalPlayer:GetAttribute("Guide") or ""]
+	if not (step and step.Track and line.Id == Guide.LineId) then
+		return false
+	end
+	local upgrades: { UpgradeView } = line.Upgrades or {}
+	for _, upgrade in upgrades do
+		if upgrade.Level > 0 then
+			return false
+		end
+	end
+	return true
+end
+
+-- A big yellow arrow bouncing up at `spot` (in `parent`), made last so it's on top.
+local function guideArrow(parent: Frame, spot: UDim2)
+	local arrow = Kit.icon("Arrow", {
+		Name = "GuideArrow",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = spot,
+		Size = UDim2.fromOffset(84, 84),
+		Rotation = -90,
+		ImageColor3 = GUIDE_COLOR,
+		ZIndex = 20,
+		Parent = parent,
+	})
+	TweenService:Create(arrow, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Position = spot + UDim2.fromOffset(0, 16) }):Play()
+end
 
 local function renderTabs(parent: Frame, current: LineView)
 	local rooms: { string } = {}
@@ -538,6 +572,8 @@ local function renderUpgrades(parent: Frame, line: LineView)
 	local upgrades: { UpgradeView } = line.Upgrades or {}
 	renderAmounts(parent)
 	shownLine, shownPlans = line, plansKey(line, if typeof(coins) == "number" then coins else 0)
+	local pointAt: UDim2? = nil -- (Tralalero's guide: under the first button that can buy)
+	local pointAffordable = false
 	for index, upgrade in upgrades do
 		local track = LineUpgrades.ByKey[upgrade.Key]
 		if not track then
@@ -644,6 +680,11 @@ local function renderUpgrades(parent: Frame, line: LineView)
 				Parent = card,
 			}, "Lock", `Buy the {upgrade.Needs} first`, BAD_COLOR)
 		elseif buying then
+			if not pointAffordable and (affordable or not pointAt) then
+				local buttonWidth = CARD.X - 28 - PREVIEW_WIDTH - 10
+				pointAt = UDim2.fromOffset(card.Position.X.Offset + 14 + buttonWidth / 2, card.Position.Y.Offset + 156 + 54)
+				pointAffordable = affordable
+			end
 			local button = Kit.button({
 				Position = UDim2.fromOffset(14, 156),
 				Size = UDim2.new(1, -28 - PREVIEW_WIDTH - 10, 0, 54),
@@ -675,6 +716,9 @@ local function renderUpgrades(parent: Frame, line: LineView)
 				previewUpgrade(line, track, nextLevel)
 			end, "Preview")
 		end
+	end
+	if pointAt and guidePoints(line) then
+		guideArrow(parent, pointAt)
 	end
 end
 
@@ -716,6 +760,9 @@ render = function()
 	end
 	renderPicker(frame, line)
 	renderFooter(frame, line)
+	if guidePoints(line) then -- (under the UPGRADES tab)
+		guideArrow(frame, UDim2.new(1, -24 - 90, 0, 60))
+	end
 end
 
 -- Public API -----------------------------------------------------------------
@@ -724,6 +771,12 @@ local function ensurePanel(): Frame
 	if not panel then
 		local newPanel, newContent = Kit.modal("LineMenu", "ASSEMBLY LINES", Kit.Hues.Purple, SIZE, "Factory")
 		panel, content = newPanel, newContent
+		-- Tralalero's arrow goes once the guide moves on
+		Players.LocalPlayer:GetAttributeChangedSignal("Guide"):Connect(function()
+			if newPanel.Visible and not busy then
+				render()
+			end
+		end)
 		-- the Upgrades tab's buttons follow the Coins (MAX buys as many levels as they pay for)
 		Players.LocalPlayer:GetAttributeChangedSignal("Coins"):Connect(function()
 			local coins = Players.LocalPlayer:GetAttribute("Coins")
@@ -740,6 +793,10 @@ function LineMenu.Open(lineId: string?, partType: string?)
 	local menu = ensurePanel()
 	if lineId then
 		selectedLine = lineId
+	end
+	local step = Guide.ById[Players.LocalPlayer:GetAttribute("Guide") or ""]
+	if step and step.Track and (lineId == nil or lineId == Guide.LineId) then
+		selectedLine, mode = Guide.LineId, "Upgrades" -- (Tralalero's upgrade step)
 	end
 	if partType and table.find(PART_TYPES, partType) then
 		selectedSlot = partType
