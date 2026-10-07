@@ -176,7 +176,7 @@ local function grant(player: Player, source: string, brainrotId: string, partTyp
 			amount += ProductionManager.GetIncome(player) * (Loot.DuplicateIncomeSeconds[rarity.Id] or 0)
 		end
 		amount = math.floor(amount)
-		DataManager.AddCurrency(player, rarity.DuplicateCurrency, amount)
+		DataManager.AddCurrency(player, rarity.DuplicateCurrency, amount, "Duplicates", rarity.Id)
 		result.Currency = rarity.DuplicateCurrency
 		result.Amount = amount
 	end
@@ -424,7 +424,7 @@ local function onOpenBox(player: Player, boxId: unknown): Result?
 		local pay = Loot.BoxCoins[box.Rarity]
 		if pay then
 			local coins = math.floor(pay.Base + ProductionManager.GetIncome(player) * pay.Seconds)
-			DataManager.AddCurrency(player, "Coins", coins)
+			DataManager.AddCurrency(player, "Coins", coins, "Boxes", box.Rarity)
 			result.Coins = coins
 		end
 		LootManager.BoxOpened:Fire(player)

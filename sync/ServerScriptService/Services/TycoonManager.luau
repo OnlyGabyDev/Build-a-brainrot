@@ -1866,7 +1866,7 @@ local function buildPlot(index: number, parent: Instance): Plot
 		if player and player == plot.Owner and plot.Collected > 0 then
 			local amount = plot.Collected
 			plot.Collected = 0
-			DataManager.AddCurrency(player, "Coins", amount)
+			DataManager.AddCurrency(player, "Coins", amount, "Production")
 			updateCashLabel(plot)
 			TycoonManager.Collected:Fire(player, amount)
 		end
@@ -2141,7 +2141,7 @@ function TycoonManager.BankCashPad(player: Player)
 	if plot and plot.Collected > 0 then
 		local amount = plot.Collected
 		plot.Collected = 0
-		DataManager.AddCurrency(player, "Coins", amount)
+		DataManager.AddCurrency(player, "Coins", amount, "Production")
 		updateCashLabel(plot)
 	end
 end
@@ -2211,7 +2211,7 @@ end
 function TycoonManager.AddToCollector(player: Player, amount: number)
 	local plot = plotByPlayer[player]
 	if plot and MonetizationManager.HasPerk(player, "AutoCollect") then
-		DataManager.AddCurrency(player, "Coins", amount)
+		DataManager.AddCurrency(player, "Coins", amount, "Production")
 		updateCashLabel(plot, amount)
 	elseif plot then
 		plot.Collected += amount
@@ -2223,7 +2223,7 @@ function TycoonManager.AddToCollector(player: Player, amount: number)
 		if offset and math.abs(offset.X) <= pad.Size.X / 2 + 1 and math.abs(offset.Z) <= pad.Size.Z / 2 + 1 and offset.Y > 0 and offset.Y < 6 then
 			local banked = plot.Collected
 			plot.Collected = 0
-			DataManager.AddCurrency(player, "Coins", banked)
+			DataManager.AddCurrency(player, "Coins", banked, "Production")
 			updateCashLabel(plot)
 			TycoonManager.Collected:Fire(player, banked)
 		end

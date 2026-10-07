@@ -60,7 +60,7 @@ local function bank(player: Player): number
 		return 0
 	end
 	set(player, 0, 0)
-	DataManager.AddCurrency(player, "Coins", coins)
+	DataManager.AddCurrency(player, "Coins", coins, "Offline")
 	return coins
 end
 

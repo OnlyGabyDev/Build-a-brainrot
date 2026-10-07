@@ -21,10 +21,10 @@ function RewardManager.Grant(player: Player, reward: Rewards.Reward, source: str
 	local kind, amount = reward.Kind, reward.Amount or 0
 	if kind == "Coins" then
 		local coins = Rewards.Coins(reward, ProductionManager.GetIncome(player))
-		DataManager.AddCurrency(player, "Coins", coins)
+		DataManager.AddCurrency(player, "Coins", coins, source)
 		return `+{Format.Number(coins)} COINS!`
 	elseif kind == "Gems" then
-		DataManager.AddCurrency(player, "Gems", amount)
+		DataManager.AddCurrency(player, "Gems", amount, source)
 		return `+{Format.Number(amount)} GEMS!`
 	elseif kind == "Rolls" then
 		DataManager.AddRolls(player, amount)
@@ -34,7 +34,7 @@ function RewardManager.Grant(player: Player, reward: Rewards.Reward, source: str
 		return `A {string.upper(reward.Rarity or "")} BOX in your yard!`
 	elseif kind == "RarePart" then
 		if reward.Gems then
-			DataManager.AddCurrency(player, "Gems", reward.Gems)
+			DataManager.AddCurrency(player, "Gems", reward.Gems, source)
 		end
 		local result = LootManager.GrantRarePart(player, reward.MinRank or 3, source)
 		return `A NEW PART + {reward.Gems or 0} GEMS!`, result

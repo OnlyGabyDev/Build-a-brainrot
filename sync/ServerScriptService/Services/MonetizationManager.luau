@@ -126,7 +126,7 @@ end
 type ProductHandler = (player: Player, product: Products.Product) -> string
 local productHandlers: { [string]: ProductHandler } = {
 	Gems = function(player, product)
-		DataManager.AddCurrency(player, "Gems", product.Amount)
+		DataManager.AddCurrency(player, "Gems", product.Amount, "IAP", product.Name)
 		return `+{product.Amount} GEMS!`
 	end,
 	Rolls = function(player, product)
@@ -177,7 +177,7 @@ local function buyWithGems(player: Player, key: unknown): boolean
 	if not (product and product.GemPrice and handler and DataManager.IsLoaded(player)) then
 		return false
 	end
-	if not DataManager.SpendCurrency(player, "Gems", product.GemPrice) then
+	if not DataManager.SpendCurrency(player, "Gems", product.GemPrice, "GemShop", product.Name) then
 		return false
 	end
 	purchasedRemote:FireClient(player, handler(player, product))

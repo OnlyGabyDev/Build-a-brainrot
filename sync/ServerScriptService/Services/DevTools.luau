@@ -51,6 +51,7 @@ local Remotes = require(Shared.Remotes)
 local BrainrotModels = require(Shared.BrainrotModels)
 local Brainrots = require(Shared.Config.Brainrots)
 local AchievementManager = require(script.Parent.AchievementManager)
+local AnalyticsManager = require(script.Parent.AnalyticsManager)
 local DailyLogin = require(script.Parent.DailyLogin)
 local DailyMissions = require(script.Parent.DailyMissions)
 local FreeGifts = require(script.Parent.FreeGifts)
@@ -292,14 +293,18 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	GiftTime = function(player, minutes)
 		return FreeGifts.DevSetPlayed(player, tonumber(minutes) or 0)
 	end,
+	-- The last analytics events sent, one a line (`now` true: yours waiting go first).
+	Analytics = function(player, now)
+		return table.concat(AnalyticsManager.DevRecent(player, now == true), "\n")
+	end,
 	SetAway = function(player, hours)
 		return OfflineEarnings.DevSetAway(player, tonumber(hours) or 1)
 	end,
 	AddCoins = function(player, amount)
-		return DataManager.AddCurrency(player, "Coins", amount)
+		return DataManager.AddCurrency(player, "Coins", amount, "Dev")
 	end,
 	AddGems = function(player, amount)
-		return DataManager.AddCurrency(player, "Gems", amount)
+		return DataManager.AddCurrency(player, "Gems", amount, "Dev")
 	end,
 	AddRolls = function(player, amount)
 		return DataManager.AddRolls(player, amount)

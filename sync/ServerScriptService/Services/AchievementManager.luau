@@ -112,10 +112,10 @@ local function claimNext(player: Player, data: DataManager.PlayerData, achieveme
 	end
 	local gems, coins = Achievements.Reward(achievement, tier, ProductionManager.GetIncome(player))
 	if gems > 0 then
-		DataManager.AddCurrency(player, "Gems", gems)
+		DataManager.AddCurrency(player, "Gems", gems, "Achievements", achievement.Id)
 	end
 	if coins > 0 then
-		DataManager.AddCurrency(player, "Coins", coins)
+		DataManager.AddCurrency(player, "Coins", coins, "Achievements", achievement.Id)
 	end
 	return tier, gems, coins
 end

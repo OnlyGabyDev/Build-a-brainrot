@@ -54,6 +54,7 @@ local DailyMissions = require(Services:WaitForChild("DailyMissions"))
 local FreeGifts = require(Services:WaitForChild("FreeGifts"))
 local OfflineEarnings = require(Services:WaitForChild("OfflineEarnings"))
 local DevTools = require(Services:WaitForChild("DevTools"))
+local AnalyticsManager = require(Services:WaitForChild("AnalyticsManager"))
 local LeaderboardManager = require(Services:WaitForChild("LeaderboardManager"))
 local StarterPack = require(Services:WaitForChild("StarterPack"))
 local GuideManager = require(Services:WaitForChild("GuideManager"))
@@ -84,3 +85,4 @@ DailyMissions.Init() -- three daily quests
 FreeGifts.Init() -- gifts for time played each day
 OfflineEarnings.Init() -- what the factory made while you were away
 DevTools.Init() -- developers only (Studio, the owner, group admins)
+AnalyticsManager.Init() -- funnel and economy events (last: after every service that banks Coins as a player leaves)

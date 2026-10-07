@@ -34,7 +34,7 @@ local function give(player: Player, reward: Gamepasses.StarterReward): string
 	for _, entry in reward.Parts do
 		DataManager.AddPart(player, entry[1], entry[2])
 	end
-	DataManager.AddCurrency(player, "Coins", reward.Coins)
+	DataManager.AddCurrency(player, "Coins", reward.Coins, "StarterPack")
 	DataManager.AddRolls(player, reward.Rolls)
 	LootManager.Drop(player, reward.Boxes)
 	local ownBoxes: { string } = reward.OwnBoxes or {}

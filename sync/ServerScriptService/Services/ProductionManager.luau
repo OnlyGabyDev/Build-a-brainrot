@@ -573,7 +573,7 @@ function ProductionManager.Init()
 	-- worth buying as the factory grows
 	MonetizationManager.HandleProduct("Coins", function(player, product)
 		local amount = math.floor(math.max(ProductionManager.GetIncome(player) * product.Amount, product.MinCoins or 0))
-		DataManager.AddCurrency(player, "Coins", amount)
+		DataManager.AddCurrency(player, "Coins", amount, "IAP", product.Name)
 		return `+{Format.Number(amount)} COINS!`
 	end)
 

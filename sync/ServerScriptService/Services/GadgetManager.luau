@@ -279,7 +279,7 @@ local function onClaim(player: Player, brainrotId: unknown): number?
 		return nil
 	end
 	local gems = rarity.CompletionGems
-	DataManager.AddCurrency(player, "Gems", gems)
+	DataManager.AddCurrency(player, "Gems", gems, "Album", rarity.Id)
 	if rarity.Rank >= ANNOUNCE_RANK then
 		Remotes.Event("Announce"):FireAllClients(`{player.DisplayName} unlocked {brainrot.Name}!`, rarity.Color, player)
 	end

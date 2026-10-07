@@ -92,6 +92,7 @@ export type PlayerData = {
 	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number, Perfects: number, LastSeen: number, LastIncome: number },
 	Settings: { LowGraphics: boolean }, -- the player's own (Client/Performance)
 	Guide: string, -- the step of Tralalero's guide they're on (Config/Guide), "Done" when finished
+	Funnel: number, -- the last onboarding funnel step sent (Services/AnalyticsManager); -1: joined before it
 	Achievements: { [string]: number }, -- [achievementId] = tiers claimed (Config/Achievements)
 	-- lifetime counts the achievements read (never reset): Built, Boxes, Rolls, Spins,
 	-- Upgrades, Days (UTC days played; LastDay the last), Room_<zoneId> (1: opened once)
@@ -159,6 +160,7 @@ local TEMPLATE: PlayerData = {
 		LowGraphics = false,
 	},
 	Guide = Guide.Steps[1].Id,
+	Funnel = 0,
 	Achievements = {},
 	Counters = {},
 	Missions = { Day = 0, List = {}, Bonus = false },
@@ -208,6 +210,7 @@ local profiles: { [Player]: Profile } = {}
 local activeSessions: { [number]: boolean } = {}
 local loadedCallbacks: { (Player) -> () } = {}
 local saveCallbacks: { (Player, boolean) -> () } = {}
+local currencyCallbacks: { (Player, string, number, number, string?, string?) -> () } = {}
 
 local dataStore: DataStore? = nil
 local inventoryRemote: RemoteEvent
@@ -443,6 +446,10 @@ local function buildData(record: any): (PlayerData, number)
 	-- players from before Tralalero's guide skip it
 	if saved.Guide == nil then
 		saved.Guide = Guide.Done
+	end
+	-- and from before the onboarding funnel: they aren't counted in it
+	if saved.Funnel == nil then
+		saved.Funnel = -1
 	end
 	-- saves from before the Album: whatever they completed (in any edition) is claimed,
 	-- and their first PERFECT is behind them
@@ -717,13 +724,33 @@ end
 
 -- Currencies -----------------------------------------------------------------
 
+-- The OnCurrencyChanged callbacks: `amount` earned (> 0) or spent (< 0).
+local function currencyChanged(profile: Profile, currency: string, amount: number, source: string?, sku: string?)
+	for _, callback in currencyCallbacks do
+		local ok, problem = pcall(callback, profile.Player, currency, amount, profile.Data[currency], source, sku)
+		if not ok then
+			warn(`[DataManager] a currency callback failed for {profile.Key}: {problem}`)
+		end
+	end
+end
+
+-- Runs `callback(player, currency, amount, balance, source, sku)` after every change of a
+-- currency: `amount` earned (> 0) or spent (< 0), the new balance, and where it came
+-- from or went (`source`, e.g. "Production"; `sku` a detail, e.g. a box's rarity). A
+-- tycoon purchase's source is "Item" and its sku the item id; a rebirth's is "Rebirth".
+-- It must not yield.
+function DataManager.OnCurrencyChanged(callback: (Player, string, number, number, string?, string?) -> ())
+	table.insert(currencyCallbacks, callback)
+end
+
 function DataManager.GetCurrency(player: Player, currency: string): number
 	checkCurrency(currency)
 	local profile = profiles[player]
 	return if profile then profile.Data[currency] else 0
 end
 
-function DataManager.AddCurrency(player: Player, currency: string, amount: number): boolean
+-- `source` and `sku` say where it came from (OnCurrencyChanged).
+function DataManager.AddCurrency(player: Player, currency: string, amount: number, source: string?, sku: string?): boolean
 	checkCurrency(currency)
 	amount = checkAmount(amount)
 	local profile = profiles[player]
@@ -736,11 +763,13 @@ function DataManager.AddCurrency(player: Player, currency: string, amount: numbe
 		profile.Data.Stats.TotalCoinsEarned += amount
 	end
 	replicateStat(profile, currency)
+	currencyChanged(profile, currency, amount, source, sku)
 	return true
 end
 
--- Returns false and changes nothing if the player can't afford it.
-function DataManager.SpendCurrency(player: Player, currency: string, amount: number): boolean
+-- Returns false and changes nothing if the player can't afford it. `source` and `sku`
+-- say where it went (OnCurrencyChanged).
+function DataManager.SpendCurrency(player: Player, currency: string, amount: number, source: string?, sku: string?): boolean
 	checkCurrency(currency)
 	amount = checkAmount(amount)
 	local profile = profiles[player]
@@ -750,6 +779,7 @@ function DataManager.SpendCurrency(player: Player, currency: string, amount: num
 
 	profile.Data[currency] -= amount
 	replicateStat(profile, currency)
+	currencyChanged(profile, currency, -amount, source, sku)
 	return true
 end
 
@@ -838,7 +868,9 @@ function DataManager.Rebirth(player: Player, cost: number): boolean
 		return false
 	end
 	local data = profile.Data
+	local spent = data.Coins
 	data.Coins = 0
+	currencyChanged(profile, "Coins", -spent, "Rebirth") -- (while the data still says the stage it ends)
 	data.Tycoon.Purchased = {}
 	data.Rebirths += 1
 	for _, stat in { "Coins", "Rebirths" } do
@@ -1218,6 +1250,9 @@ function DataManager.PurchaseItem(player: Player, itemId: string, price: number)
 	data.Coins -= price
 	data.Tycoon.Purchased[itemId] = true
 	replicateStat(profile, "Coins")
+	if price > 0 then
+		currencyChanged(profile, "Coins", -price, "Item", itemId)
+	end
 	return true
 end
 
@@ -1229,6 +1264,16 @@ function DataManager.SetGuideStep(player: Player, step: string): boolean
 	end
 	profile.Data.Guide = step
 	player:SetAttribute("Guide", step)
+	return true
+end
+
+-- Records the last onboarding funnel step sent (Services/AnalyticsManager).
+function DataManager.SetFunnelStep(player: Player, step: number): boolean
+	local profile = profiles[player]
+	if not profile then
+		return false
+	end
+	profile.Data.Funnel = step
 	return true
 end
 

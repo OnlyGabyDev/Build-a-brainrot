@@ -401,6 +401,7 @@ ServerScriptService/
     MonetizationManager.luau    -- gamepasses (perks from config), dev products (ProcessReceipt)
     DailyWheelManager.luau      -- the Daily Wheel (free + bought spins, prizes)
     DevTools.luau               -- Studio only: ServerStorage.DevCommand (AddCoins, Snapshot, Restore…) for playtests
+    AnalyticsManager.luau       -- Roblox Analytics: the onboarding funnel (each step once per new player) and economy events (Coins/Gems sources and sinks, summed per minute)
 ReplicatedStorage/
   Shared/
     Remotes.luau                -- get RemoteEvents/Functions by name (server creates, client waits)

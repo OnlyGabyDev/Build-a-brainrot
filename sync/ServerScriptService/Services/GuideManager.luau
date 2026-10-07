@@ -203,7 +203,7 @@ end
 
 local function finish(player: Player, state: State, step: Guide.Step)
 	if step.Coins then
-		DataManager.AddCurrency(player, "Coins", step.Coins)
+		DataManager.AddCurrency(player, "Coins", step.Coins, "Guide")
 	end
 	if step.Rolls then
 		DataManager.AddRolls(player, step.Rolls)
