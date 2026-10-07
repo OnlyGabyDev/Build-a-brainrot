@@ -48,6 +48,7 @@ local GadgetManager = require(Services:WaitForChild("GadgetManager"))
 local RebirthManager = require(Services:WaitForChild("RebirthManager"))
 local DailyWheelManager = require(Services:WaitForChild("DailyWheelManager"))
 local DailyLogin = require(Services:WaitForChild("DailyLogin"))
+local OfflineEarnings = require(Services:WaitForChild("OfflineEarnings"))
 local DevTools = require(Services:WaitForChild("DevTools"))
 local LeaderboardManager = require(Services:WaitForChild("LeaderboardManager"))
 local StarterPack = require(Services:WaitForChild("StarterPack"))
@@ -73,4 +74,5 @@ GadgetManager.Init()
 RebirthManager.Init()
 DailyWheelManager.Init()
 DailyLogin.Init() -- the login streak
+OfflineEarnings.Init() -- what the factory made while you were away
 DevTools.Init() -- developers only (Studio, the owner, group admins)

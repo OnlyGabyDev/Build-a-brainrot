@@ -195,7 +195,9 @@ function MonetizationManager.Init()
 		task.spawn(onPlayerAdded, player)
 	end
 	Players.PlayerRemoving:Connect(function(player)
-		owned[player] = nil
+		task.defer(function() -- (the last save still reads the passes: the income it stamps)
+			owned[player] = nil
+		end)
 	end)
 
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)

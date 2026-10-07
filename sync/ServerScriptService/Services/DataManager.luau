@@ -88,7 +88,7 @@ export type PlayerData = {
 	DailyLogin: { Day: number, LastDay: number }, -- the login streak: the day last claimed (1-7) and its UTC day number (os.time() // 86400)
 	Receipts: { string }, -- recent Robux purchase ids, so none is granted twice
 	Claims: { [string]: number }, -- [claim] = os.time() it was last claimed (one-off and daily rewards)
-	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number, Perfects: number },
+	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number, Perfects: number, LastSeen: number, LastIncome: number },
 	Settings: { LowGraphics: boolean }, -- the player's own (Client/Performance)
 	Guide: string, -- the step of Tralalero's guide they're on (Config/Guide), "Done" when finished
 }
@@ -133,6 +133,8 @@ local TEMPLATE: PlayerData = {
 		RobuxSpent = 0, -- every Robux purchase, for the leaderboards
 		Playtime = 0, -- seconds in game
 		Perfects = 0, -- full matches shipped (Tralalero's guide waits for the first)
+		LastSeen = 0, -- os.time() of the last save, and the income (Coins/s) then: the
+		LastIncome = 0, -- offline earnings on the next join (Services/OfflineEarnings)
 	},
 	Settings = {
 		LowGraphics = false,
@@ -787,6 +789,18 @@ function DataManager.AddStat(player: Player, stat: string, amount: number): bool
 		return false
 	end
 	stats[stat] += amount
+	return true
+end
+
+-- Stamps the time and the player's income (Coins a second) at a save, for the offline
+-- earnings on their next join.
+function DataManager.SetLastSeen(player: Player, income: number): boolean
+	local profile = profiles[player]
+	if not (profile and type(income) == "number" and income == income and income >= 0 and income < math.huge) then
+		return false
+	end
+	profile.Data.Stats.LastSeen = os.time()
+	profile.Data.Stats.LastIncome = income
 	return true
 end
 

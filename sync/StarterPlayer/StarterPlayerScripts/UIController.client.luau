@@ -24,6 +24,7 @@ local Guide = require(Shared:WaitForChild("Config"):WaitForChild("Guide"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Catalog = require(UI:WaitForChild("Catalog"))
 local DailyLoginMenu = require(UI:WaitForChild("DailyLoginMenu"))
+local WelcomeBackMenu = require(UI:WaitForChild("WelcomeBackMenu"))
 local DailyWheelMenu = require(UI:WaitForChild("DailyWheelMenu"))
 local Kit = require(UI:WaitForChild("Kit"))
 local LineMenu = require(UI:WaitForChild("LineMenu"))
@@ -328,6 +329,7 @@ end)
 
 SettingsMenu.Init() -- the gear button, top right
 DailyLoginMenu.Init() -- the calendar button, under it
+WelcomeBackMenu.Init()
 
 -- A red "!" on the wheel button while a spin is waiting.
 local wheelBadge = Kit.text({
@@ -532,11 +534,12 @@ Remotes.Event("Purchased").OnClientEvent:Connect(function(text: string)
 	Shop.Thanks(text)
 end)
 
--- The join popups, one after the other: the login streak's calendar (the first join of
--- each day), then a newcomer's Starter Pack offer, which also comes back now and then
--- in the corner while it lasts (Upsell keeps it from nagging). During Tralalero's guide
--- both wait: they come after the first PERFECT and the guide's gift.
-local POPUPS_FIRST, AFTER_GUIDE, AFTER_DAILY, STARTER_EVERY = 6, 6, 20, 300
+-- The join popups, one after the other: what the factory made while you were away, the
+-- login streak's calendar (the first join of each day), then a newcomer's Starter Pack
+-- offer, which also comes back now and then in the corner while it lasts (Upsell keeps
+-- it from nagging). During Tralalero's guide they all wait: they come after the first
+-- PERFECT and the guide's gift.
+local POPUPS_FIRST, AFTER_GUIDE, AFTER_OFFLINE, AFTER_DAILY, STARTER_EVERY = 6, 6, 2, 20, 300
 local function waitForQuiet() -- (no loot reveal or celebration on screen)
 	local deadline = os.clock() + 30
 	while (gui:FindFirstChild("LootOverlay") or gui:FindFirstChild("Celebration")) and os.clock() < deadline do
@@ -560,6 +563,10 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 	waitForQuiet()
+	if WelcomeBackMenu.ShowIfWaiting() then
+		task.wait(AFTER_OFFLINE)
+		waitForQuiet()
+	end
 	if DailyLoginMenu.ShowIfReady() then
 		task.wait(AFTER_DAILY)
 		waitForQuiet()

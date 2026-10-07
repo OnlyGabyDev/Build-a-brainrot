@@ -55,6 +55,7 @@ local GuideManager = require(script.Parent.GuideManager)
 local LootManager = require(script.Parent.LootManager)
 local MonetizationManager = require(script.Parent.MonetizationManager)
 local NukeManager = require(script.Parent.NukeManager)
+local OfflineEarnings = require(script.Parent.OfflineEarnings)
 local TycoonManager = require(script.Parent.TycoonManager)
 
 local function isDeveloper(player: Player): boolean
@@ -270,6 +271,9 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 		local done = DataManager.ClaimDailyLogin(player, math.clamp(tonumber(day) or 0, 0, 7), today - (if missed then 2 else 1))
 		DailyLogin.Refresh(player)
 		return done
+	end,
+	SetAway = function(player, hours)
+		return OfflineEarnings.DevSetAway(player, tonumber(hours) or 1)
 	end,
 	AddCoins = function(player, amount)
 		return DataManager.AddCurrency(player, "Coins", amount)
