@@ -59,7 +59,7 @@ local PLOT_COLORS = {
 }
 
 local SPAWN_OFFSET = CFrame.new(0, FLOOR_TOP + 4, -54) * CFrame.Angles(0, math.pi, 0) -- inside the entrance, facing down the first line
-local FLOOR_BUTTON = Vector3.new(-30, 0, -78) -- the next floor's button, on the lawn out front
+local FLOOR_BUTTON = Vector3.new(-30, 0, -86) -- the next floor's button, on the lawn out front (at the lift tower's foot)
 -- Where a room's opening button sits (plot space, on the floor): beside its door, on the
 -- side you come from, clear of the middle line's belt end and buttons (at x 18 its label
 -- hid behind the Head Dropper's from the entrance), or on the outside stairs' landing.

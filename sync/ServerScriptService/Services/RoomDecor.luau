@@ -573,11 +573,11 @@ local function buildToy(parent: Instance, floor: CFrame)
 	wallShelf(parent, wallFace(floor, { 68, 0, -18 }), 18, shelfBoard, Color3.fromRGB(255, 130, 150), shelfToy)
 	wallShelf(parent, wallFace(floor, { 68, 0, 18 }), 18, shelfBoard, Color3.fromRGB(255, 205, 70), shelfToy)
 
-	-- brainrot posters by the entrance and in the corners (the front-right one's wall has
-	-- the lift's door)
+	-- brainrot posters by the entrance and in the corners
 	poster(parent, wallFace(floor, { -20, 12, -58 }), Vector2.new(7, 9), TOY_COLORS[3], WHITE, "🦈", "TRALALERO!")
 	poster(parent, wallFace(floor, { 20, 12, -58 }), Vector2.new(7, 9), TOY_COLORS[1], WHITE, "🐊", "BOMBARDIRO!")
 	poster(parent, wallFace(floor, { -68, 16, -50 }), Vector2.new(7, 9), TOY_COLORS[5], WHITE, "☕", "BALLERINA!")
+	poster(parent, wallFace(floor, { 68, 16, -50 }), Vector2.new(7, 9), TOY_COLORS[4], WHITE, "🍌", "CHIMPANZINI!")
 	poster(parent, wallFace(floor, { -68, 14, 50 }), Vector2.new(7, 9), TOY_COLORS[6], WHITE, "🥁", "TUNG TUNG!")
 	poster(parent, wallFace(floor, { 68, 14, 50 }), Vector2.new(7, 9), TOY_COLORS[2], WHITE, "🐘", "LIRILÌ!")
 
@@ -1404,7 +1404,7 @@ local function buildClay(parent: Instance, floor: CFrame)
 	wallShelf(parent, wallFace(floor, { 68, 0, 14 }), 13, Color3.fromRGB(245, 225, 195), CLAY_TEAL, clayTub)
 
 	-- paint splats up the walls where there's room
-	for index_, spot in { { -68, 22, -36 }, { -68, 22, 36 }, { 68, 22, -43 }, { -50, 6, -58 }, { 50, 6, -58 }, { -60, 6, 59 } } :: { WallSpot } do
+	for index_, spot in { { -68, 22, -36 }, { -68, 22, 36 }, { 68, 22, -36 }, { -50, 6, -58 }, { 50, 6, -58 }, { -60, 6, 59 } } :: { WallSpot } do
 		splat(parent, wallFace(floor, spot), 3.4 + (index_ % 3) * 0.8, PAINT_COLORS[index_ % #PAINT_COLORS + 1])
 	end
 
@@ -1791,12 +1791,13 @@ local function cupcake(parent: Instance, at: CFrame, cup: Color3, frosting: Colo
 end
 
 local function buildCandy(parent: Instance, floor: CFrame)
-	-- giant lollipops along the front wall, facing the door at the back
-	for index, x in { -40, -14, 14, 40 } do
+	-- giant lollipops along the front wall, facing the door at the back (clear of the
+	-- lift's door at x -30)
+	for index, x in { -44, -14, 14, 40 } do
 		lollipop(parent, floor * CFrame.new(x, 0, -54) * CFrame.Angles(0, math.pi, 0), 11 + (index % 2) * 4, 10, CANDY_COLORS[index])
 	end
 	candyCane(parent, floor * CFrame.new(-63, 0, -52), Color3.fromRGB(255, 90, 120), 1.6)
-	candyCane(parent, floor * CFrame.new(58, 0, -40) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(120, 200, 255), 1.6) -- (clear of the lift's door)
+	candyCane(parent, floor * CFrame.new(60, 0, -52) * CFrame.Angles(0, math.pi, 0), Color3.fromRGB(120, 200, 255), 1.6)
 	gumballMachine(parent, floor * CFrame.new(-60, 0, -24) * CFrame.Angles(0, -math.pi / 2, 0), Color3.fromRGB(255, 70, 110))
 	gumballMachine(parent, floor * CFrame.new(60, 0, 14) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(80, 170, 255))
 	cupcake(parent, floor * CFrame.new(-59, 0, 22), Color3.fromRGB(255, 150, 200), Color3.fromRGB(255, 245, 250))
