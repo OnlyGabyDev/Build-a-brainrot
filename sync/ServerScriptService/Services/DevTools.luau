@@ -53,6 +53,7 @@ local Brainrots = require(Shared.Config.Brainrots)
 local AchievementManager = require(script.Parent.AchievementManager)
 local DailyLogin = require(script.Parent.DailyLogin)
 local DailyMissions = require(script.Parent.DailyMissions)
+local FreeGifts = require(script.Parent.FreeGifts)
 local DataManager = require(script.Parent.DataManager)
 local GuideManager = require(script.Parent.GuideManager)
 local LootManager = require(script.Parent.LootManager)
@@ -286,6 +287,10 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	-- New daily quests now, as if a new day began.
 	NewQuests = function(player)
 		return DailyMissions.DevNewDay(player)
+	end,
+	-- Today's free gifts as if `minutes` were played (none opened).
+	GiftTime = function(player, minutes)
+		return FreeGifts.DevSetPlayed(player, tonumber(minutes) or 0)
 	end,
 	SetAway = function(player, hours)
 		return OfflineEarnings.DevSetAway(player, tonumber(hours) or 1)

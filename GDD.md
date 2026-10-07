@@ -157,6 +157,9 @@ Long goals in **tiers** (§16.25): claiming a tier opens the next, which asks mo
 Three quests a UTC day, so there's a reason to play today (`Config/DailyMissions`): picked at random from a pool on your first moment in the game that day, the first **EASY** (green), the second **MEDIUM** (blue), the third **HARD** (purple), each counting from that moment. The pool: open boxes (4 / 8 / 15), build brainrots (40 / 100 / 250), make PERFECTs (5 / 15 / 40), buy line upgrades (2 / 5 / 10), play (10 / 20 / 40 min), earn Coins (5 / 10 / 20 min of your income then, at least 5K), spin the wheel (1). **Rewards:** EASY Coins (5 min of income, at least 2K), MEDIUM 25 Gems, HARD 1 Roll; claiming all three opens a gold bonus row: **2 Rolls**. They're the **DAILY** tab of the QUESTS menu (the other tab: ACHIEVEMENTS; each tab shows a gold count of what waits; the menu opens on DAILY while something there waits or isn't claimed): a wide row per quest with its icon, its difficulty pill, its goal, a progress bar and its reward on a white chip, a pulsing CLAIM! once done, a big tick once claimed; the bonus row with a tick per quest claimed; "NEW QUESTS IN 5h 12m". A quest done gets the toast ("DAILY QUEST done! Claim it!"). New quests replace the old at the next UTC day, claimed or not. Saved as `Missions = { Day, List = { { Id, Goal, Base, Claimed } }, Bonus }`.
 - **The join popups wait for an open menu** (v5.0): the welcome back, the calendar and the Starter Pack offer never cover a menu you're using; they come once it's closed.
 
+### Free gifts ✅ (v5.1, the user, 2026-10-07; *Pet Simulator 99*'s "Free Gifts")
+**Nine gifts a UTC day** for time played (`Config/FreeGifts`), counted over the whole day (every session adds up, so leaving doesn't start them over and rejoining can't farm them): 1 min Coins (1 min of income, at least 500), 3 min 10 Gems, 5 min Coins (3 min, at least 2K), 10 min 1 Roll, 15 min 25 Gems, 20 min a 10-minute Luck boost, 30 min Coins (10 min, at least 10K), 45 min 2 Rolls, 60 min a **Rare box** of your own in your front yard. A pink **gift button** on the HUD's right column (under the calendar, or in its place once the calendar is over) wobbles over a pill with the time to the next gift, or a gold **OPEN!** while one waits; it goes away once all nine are open (until tomorrow). Its **FREE GIFTS** menu: "PLAYED TODAY: 12m" and "NEW GIFTS IN 5h", then nine cards, each a rarer color than the last (Common up to the Godly rainbow) with a bigger gift, what's inside on a white chip and its countdown; a ready one wobbles over a gold sunburst with a pulsing **OPEN!**, an opened one gets a tick. A toast says "FREE GIFT ready!" (not during the guide or with the menu open). Saved as `Gifts = { Day, Played, Claimed }` (the time played today before this session; each save adds the session in).
+
 ---
 
 ## 6. Assembly Lines 🟢
@@ -469,6 +472,7 @@ StarterPlayer/StarterPlayerScripts/
   },
   Achievements = {}, -- [achievementId] = tiers claimed (v4.9)
   Missions = { Day = 0, List = {}, Bonus = false }, -- today's daily quests (v5.0): { Id, Goal, Base, Claimed } each
+  Gifts = { Day = 0, Played = 0, Claimed = {} },    -- today's free gifts (v5.1): seconds played before this session, gifts opened
   Counters = {},     -- lifetime counts for the achievements: Built, Boxes, Rolls, Spins, Upgrades, Days, LastDay, Room_<zoneId>
   Settings = {
     LowGraphics = false, -- the player's own (v2.9), set through the SetSetting remote

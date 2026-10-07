@@ -25,6 +25,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local AchievementsMenu = require(UI:WaitForChild("AchievementsMenu"))
 local Catalog = require(UI:WaitForChild("Catalog"))
 local DailyLoginMenu = require(UI:WaitForChild("DailyLoginMenu"))
+local GiftsMenu = require(UI:WaitForChild("GiftsMenu"))
 local WelcomeBackMenu = require(UI:WaitForChild("WelcomeBackMenu"))
 local DailyWheelMenu = require(UI:WaitForChild("DailyWheelMenu"))
 local Kit = require(UI:WaitForChild("Kit"))
@@ -333,6 +334,7 @@ end)
 
 SettingsMenu.Init() -- the gear button, top right
 DailyLoginMenu.Init() -- the calendar button, under it
+GiftsMenu.Init() -- the free gifts button, under that
 WelcomeBackMenu.Init()
 MascotMenu.Init() -- opened from the mascot out front
 

@@ -99,6 +99,9 @@ export type PlayerData = {
 	-- today's three daily quests (Services/DailyMissions): the UTC day they were picked,
 	-- each one's goal and its source's value then, whether it was claimed, and the bonus
 	Missions: { Day: number, List: { DailyMission }, Bonus: boolean },
+	-- today's free gifts (Services/FreeGifts): the UTC day, the seconds played that day
+	-- before this session, and the gifts opened (their numbers)
+	Gifts: { Day: number, Played: number, Claimed: { number } },
 }
 
 export type DailyMission = { Id: string, Goal: number, Base: number, Claimed: boolean }
@@ -159,6 +162,7 @@ local TEMPLATE: PlayerData = {
 	Achievements = {},
 	Counters = {},
 	Missions = { Day = 0, List = {}, Bonus = false },
+	Gifts = { Day = 0, Played = 0, Claimed = {} },
 }
 
 -- What a client may set in its Settings, and the type each takes.
@@ -1145,6 +1149,33 @@ function DataManager.ClaimDailyMissionBonus(player: Player): boolean
 		end
 	end
 	profile.Data.Missions.Bonus = true
+	return true
+end
+
+-- Starts a new day's free gifts: none played or opened.
+function DataManager.ResetGifts(player: Player, day: number)
+	local profile = profiles[player]
+	if profile then
+		profile.Data.Gifts = { Day = day, Played = 0, Claimed = {} }
+	end
+end
+
+-- Adds a session's seconds to today's time played for the free gifts.
+function DataManager.AddGiftTime(player: Player, seconds: number)
+	local profile = profiles[player]
+	if profile and type(seconds) == "number" and seconds == seconds and seconds > 0 and seconds < math.huge then
+		profile.Data.Gifts.Played += seconds
+	end
+end
+
+-- Marks today's free gift `index` opened. The caller checks the time and pays it.
+-- Returns whether it was opened now.
+function DataManager.ClaimGift(player: Player, index: number): boolean
+	local profile = profiles[player]
+	if not profile or table.find(profile.Data.Gifts.Claimed, index) then
+		return false
+	end
+	table.insert(profile.Data.Gifts.Claimed, index)
 	return true
 end
 

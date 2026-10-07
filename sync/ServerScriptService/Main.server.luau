@@ -51,6 +51,7 @@ local DailyWheelManager = require(Services:WaitForChild("DailyWheelManager"))
 local DailyLogin = require(Services:WaitForChild("DailyLogin"))
 local AchievementManager = require(Services:WaitForChild("AchievementManager"))
 local DailyMissions = require(Services:WaitForChild("DailyMissions"))
+local FreeGifts = require(Services:WaitForChild("FreeGifts"))
 local OfflineEarnings = require(Services:WaitForChild("OfflineEarnings"))
 local DevTools = require(Services:WaitForChild("DevTools"))
 local LeaderboardManager = require(Services:WaitForChild("LeaderboardManager"))
@@ -80,5 +81,6 @@ DailyWheelManager.Init()
 DailyLogin.Init() -- the login streak
 AchievementManager.Init() -- achievements in tiers
 DailyMissions.Init() -- three daily quests
+FreeGifts.Init() -- gifts for time played each day
 OfflineEarnings.Init() -- what the factory made while you were away
 DevTools.Init() -- developers only (Studio, the owner, group admins)
