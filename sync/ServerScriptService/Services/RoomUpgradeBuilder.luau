@@ -548,11 +548,15 @@ local function buildBoxConveyor(model: Model, floor: CFrame, level: number)
 	tagged(model, "BoxConveyor", model.Parent :: Instance)
 end
 
--- Jack-in-the-Box (Toy Workshop, the front-right corner) -------------------------------
+-- Jack-in-the-Box (Toy Workshop, at the front of the walkway between the middle and
+-- right lines, in view from the entrance and the Cash Pad) ------------------------------
 -- A giant toy box with a crank. Every few seconds (RoomFX) the crank whirs, the lid
 -- flips open and a brainrot head springs out on a coil with confetti, spilling coins
 -- onto the Cash Pad. Level 2 (R3): a bigger box on a gold-rimmed stage, glowing
 -- question marks, chasing lights round its top, and heaps of gold coins round its foot.
+-- Its front (-Z, where the head looks) turns toward the entrance and the pad; the crank
+-- is on its left side (-X), the one they see too; the lid opens toward the back.
+local JACK_SPOT = CFrame.new(21.5, 0, -38) * CFrame.Angles(0, math.rad(25), 0)
 
 local function coinStack(parent: Instance, at: CFrame, count: number, seed: number)
 	local stack = Instance.new("Model")
@@ -570,7 +574,7 @@ local function buildJackBox(model: Model, floor: CFrame, level: number)
 	local s = if big then 1.25 else 1
 	local size = 8 * s
 	local stage = if big then 0.8 else 0
-	local spot = floor * CFrame.new(59.5, 0, -50.5)
+	local spot = floor * JACK_SPOT
 	local center = spot * CFrame.new(0, stage, 0)
 	local body = TOY_COLORS[1]
 	local trim = TOY_COLORS[2]
@@ -578,7 +582,7 @@ local function buildJackBox(model: Model, floor: CFrame, level: number)
 		-- the stage: a gold-rimmed purple slab, heaps of coins round it
 		makeDecor(model, "JackStage", Vector3.new(size + 3, stage, size + 3), spot * CFrame.new(0, stage / 2, 0), TOY_COLORS[5])
 		makeDecor(model, "JackStageRim", Vector3.new(size + 3.4, 0.3, size + 3.4), spot * CFrame.new(0, stage - 0.1, 0), GOLD, Enum.Material.Metal)
-		for index, heap in { { -5.6, 7.8, 7 }, { -2.2, 8.5, 5 }, { -8.2, -4.6, 4 } } do
+		for index, heap in { { -7.8, -5.6, 7 }, { 7.6, -4.4, 5 }, { -8.4, 4.2, 4 } } do
 			coinStack(model, spot * CFrame.new(heap[1], 0, heap[2]), heap[3], index)
 		end
 	end
@@ -591,9 +595,9 @@ local function buildJackBox(model: Model, floor: CFrame, level: number)
 	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
 		printOn(box, face, "?", if big then Color3.fromRGB(255, 245, 190) else WHITE, if big then trim else INK, big)
 	end
-	-- the lid, hinged along its top edge on the wall side (+X); RoomFX turns it about
-	-- its pivot's X by OpenAngle to open it
-	local hinge = center * CFrame.fromMatrix(Vector3.new(size / 2, size, 0), Vector3.zAxis, Vector3.yAxis)
+	-- the lid, hinged along its top edge at the back (+Z; the hinge's own +Z points
+	-- into the box); RoomFX turns it about its pivot's X by OpenAngle to open it
+	local hinge = center * CFrame.new(0, size, size / 2) * CFrame.Angles(0, math.pi, 0)
 	local lid = Instance.new("Model")
 	lid.Name = "JackLid"
 	makeDecor(lid, "Lid", Vector3.new(size + 0.6, 0.8 * s, size + 0.6), hinge * CFrame.new(0, 0.4 * s, size / 2), trim)
@@ -602,8 +606,8 @@ local function buildJackBox(model: Model, floor: CFrame, level: number)
 	lid.WorldPivot = hinge
 	lid:SetAttribute("OpenAngle", -math.rad(115))
 	lid.Parent = model
-	-- the crank on the side facing into the room (+Z)
-	local hub = center * CFrame.new(0, size * 0.5, size / 2 + 0.3)
+	-- the crank on its left side (-X; the hub's +Z points out of that face)
+	local hub = center * CFrame.new(-size / 2 - 0.3, size * 0.5, 0) * CFrame.Angles(0, -math.pi / 2, 0)
 	local crank = Instance.new("Model")
 	crank.Name = "JackCrank"
 	roller(crank, "CrankWheel", 3.2 * s, 0.5, hub * CFrame.Angles(0, math.pi / 2, 0), trim)
@@ -1277,7 +1281,7 @@ local SPOTS: { [string]: Spot } = {
 	GiftTower = { Button = Vector3.new(-52, 0, -42), Tag = Vector3.new(-50, 18, -42), Build = buildGiftTower },
 	BubbleWrap = { Button = Vector3.new(-52.5, 0, -10), Tag = Vector3.new(-58.5, 12.5, -18), Build = buildBubbleWrap },
 	BoxConveyor = { Button = Vector3.new(30, 0, -52), Tag = Vector3.new(30, 19, -50), Build = buildBoxConveyor },
-	JackBox = { Button = Vector3.new(50, 0, -48), Tag = Vector3.new(51, 15, -55), Build = buildJackBox },
+	JackBox = { Button = Vector3.new(16, 0, -51), Tag = Vector3.new(13.5, 15, -38.5), Build = buildJackBox },
 	ToyTrain = { Button = Vector3.new(-56, 0, 8), Tag = Vector3.new(-58, 15, 34), Build = buildToyTrain },
 	YarnSpinner = { Button = Vector3.new(-52.5, 0, -10), Tag = Vector3.new(-56, 15, -27), Build = buildYarnSpinner },
 	PillowPile = { Button = Vector3.new(-52, 0, -42), Tag = Vector3.new(-50, 13, -50), Build = buildPillowPile },

@@ -1,73 +1,197 @@
 --[[
 	Elevator
-	Rides the factories' lifts (FactoryBuilder's elevator: one per storey, stacked in the
-	front room's lobby). Each lift's call panel (tagged "ElevatorCall") gets a prompt per
-	way it goes (its Up / Down attributes: where it arrives, facing out of that lift's
-	door), shown in the middle of the cabin and only while you stand inside it (its Cabin
-	attribute). A ride: you stop where you are (anchored, controls off), the doors fold
-	shut, the screen fades, you're taken to the other lift, and its doors fold open as
-	the screen clears. Doors move on this client only. A
-	1-storey factory's lift has no panel tag: it waits shut until the Clay Studio brings
-	the 2nd floor. Client only.
+	Runs the factories' lifts (FactoryBuilder: a glass tower off each factory's front
+	room, its cabin, counterweight, pulley and cables in the "Lift" model). Everything
+	moves on this client only, from the rig's attributes:
+	  * the cabin comes to the floor you're on while you're in the building (or by the
+	    tower), and while you're away it visits the other floors on its own, so the
+	    tower is never still when you look at it;
+	  * standing in it while it waits, you get a prompt per way it goes (E up, F down);
+	    a ride holds you in place (anchored), slides the doors shut, glides the cabin a
+	    storey with you in it (the pulley turning, the counterweight going the other
+	    way, the cables paying out, a motor hum and elevator music), then a ding and the
+	    doors slide open;
+	  * each storey's doors (tagged "LiftDoor") are open only while the cabin waits there;
+	  * while TycoonFX's cutaway fades the storeys above yours, the rig's parts up there
+	    (the pulley, the counterweight, the cables) fade with them.
+	A 1-storey factory's lift stays shut (the Clay Studio brings the 2nd floor).
 ]]
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Sounds = require(Shared:WaitForChild("Config"):WaitForChild("Sounds"))
 local Client = ReplicatedStorage:WaitForChild("Client")
 local Effects = require(Client:WaitForChild("Effects"))
-local Kit = require(Client:WaitForChild("UI"):WaitForChild("Kit"))
 
-local DOOR_TIME = 0.35
-local FADE_TIME = 0.25
-local LIFT_REACH = 12 -- studs from a call panel to its own doors
-local FADE_COLOR = Color3.fromRGB(255, 245, 225)
-local INSIDE_CHECK = 0.15 -- seconds between checks of who's inside which cabin
-local CABIN_HEIGHT = 9 -- studs over its floor that count as inside
+local DOOR_TIME = 0.5
+local RIDE_TIME = 2.4 -- seconds per storey
+local CHECK_EVERY = 0.15 -- seconds between looks at where you are
+local NEAR_TOWER = 22 -- studs (across) from the tower that count as being at the lift
+local SEEN_FROM = 450 -- the cabin only wanders while the camera is this close
+local WAIT_AT_FLOOR = { 3, 7 } -- seconds it waits at a floor when wandering
+local HUM_RANGE = 140
 
 local player = Players.LocalPlayer
 local riding = false
 
--- The doors in `building` of the lift whose call panel (or arrival spot) is at `near`.
-local function doorsNear(building: Instance, near: Vector3): { BasePart }
+type Cable = { Part: BasePart, X: number, Z: number, Weight: boolean }
+type Motion = { From: number, To: number, Start: number, Time: number, Rider: BasePart?, Offset: CFrame? }
+type Lift = {
+	Rig: Model,
+	Building: Instance, -- (the plot's model: its doors are in it)
+	Base: CFrame, -- the tower, on the ground floor's floor (-Z toward the building)
+	Storeys: number,
+	Rise: number,
+	Cabin: Model?,
+	Weight: Model?,
+	Pulley: Model?,
+	PulleyRest: CFrame,
+	PulleyRadius: number,
+	PulleyY: number,
+	CabinTop: number,
+	WeightTop: number,
+	CabinZ: number,
+	CabinHalf: number,
+	CabinHeight: number,
+	DoorZ: number,
+	Area: CFrame,
+	AreaSize: Vector3,
+	Cables: { Cable },
+	Parts: { BasePart }, -- all of the rig's, for the cutaway's fade
+	Fade: number, -- the fade they're at
+	Layers: { [number]: BasePart }, -- a part of each cutaway layer (by Level), to read its fade
+	At: number, -- where the cabin is, in storeys (1 = ground); between two while moving
+	Busy: boolean,
+	Motion: Motion?,
+	NextWander: number,
+	Prompts: { [string]: ProximityPrompt },
+}
+local lifts: { [Model]: Lift } = {}
+
+local function numberOf(rig: Instance, name: string, default: number): number
+	local value = rig:GetAttribute(name)
+	return if typeof(value) == "number" then value else default
+end
+
+-- Where the cabin's floor is at `at` (storeys).
+local function cabinFrame(lift: Lift, at: number): CFrame
+	return lift.Base * CFrame.new(0, (at - 1) * lift.Rise, 0)
+end
+
+-- Puts the cabin, counterweight, pulley and cables where lift.At says.
+local function pose(lift: Lift)
+	local y = (lift.At - 1) * lift.Rise
+	if lift.Cabin then
+		lift.Cabin:PivotTo(lift.Base * CFrame.new(0, y, 0))
+	end
+	if lift.Weight then
+		lift.Weight:PivotTo(lift.Base * CFrame.new(0, -y, 0))
+	end
+	if lift.Pulley then
+		-- (its rim on the cabin's side, -Z, rises with the cabin)
+		lift.Pulley:PivotTo(lift.PulleyRest * CFrame.Angles(y / lift.PulleyRadius, 0, 0))
+	end
+	for _, cable in lift.Cables do
+		local bottom = if cable.Weight then lift.WeightTop - y else lift.CabinTop + y
+		local length = math.max(lift.PulleyY - bottom, 0.1)
+		local part = cable.Part
+		part.Size = Vector3.new(part.Size.X, length, part.Size.Z)
+		part.CFrame = lift.Base * CFrame.new(cable.X, bottom + length / 2, cable.Z)
+	end
+end
+
+-- A storey's doors (and their neon edges), or every storey's.
+local function doorsOf(lift: Lift, storey: number?): { BasePart }
 	local doors = {}
-	for _, part in building:GetDescendants() do
-		if part.Name == "LiftDoor" and part:IsA("BasePart") and (part.Position - near).Magnitude < LIFT_REACH then
-			table.insert(doors, part)
+	for _, door in CollectionService:GetTagged("LiftDoor") do
+		if door:IsA("BasePart") and door:IsDescendantOf(lift.Building) and (storey == nil or door:GetAttribute("Storey") == storey) then
+			table.insert(doors, door)
 		end
 	end
 	return doors
 end
 
--- Folds the doors shut (or open), over `time` seconds (at once with 0).
-local function setDoors(doors: { BasePart }, shut: boolean, time: number)
-	for _, door in doors do
-		local size = door:GetAttribute(if shut then "ClosedSize" else "OpenSize")
-		local cframe = door:GetAttribute(if shut then "ClosedCFrame" else "OpenCFrame")
-		if typeof(size) == "Vector3" and typeof(cframe) == "CFrame" then
-			if time > 0 then
-				TweenService:Create(door, TweenInfo.new(time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { Size = size, CFrame = cframe }):Play()
-			else
-				door.Size, door.CFrame = size, cframe
-			end
+local function waitsAt(lift: Lift, storey: number): boolean
+	return lift.Storeys > 1 and not lift.Busy and lift.At == storey
+end
+
+-- Slides doors open or shut over `time` seconds (at once with 0).
+local function setDoor(door: BasePart, open: boolean, time: number)
+	local cframe = door:GetAttribute(if open then "OpenCFrame" else "ClosedCFrame")
+	if typeof(cframe) ~= "CFrame" then
+		return
+	end
+	if time > 0 then
+		TweenService:Create(door, TweenInfo.new(time, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { CFrame = cframe }):Play()
+	else
+		door.CFrame = cframe
+	end
+end
+
+local function setDoors(lift: Lift, storey: number, open: boolean, time: number)
+	for _, door in doorsOf(lift, storey) do
+		setDoor(door, open, time)
+	end
+	if time > 0 then
+		local at = (cabinFrame(lift, storey) * CFrame.new(0, 6, lift.DoorZ)).Position
+		local sound = Effects.sound(at, Sounds.LiftDoors, 0.35, 1.2)
+		if sound then
+			task.delay(time + 0.35, function()
+				sound:Stop()
+			end)
 		end
 	end
 end
 
--- A full-screen fade, in (to opaque) or out.
-local function fade(cover: Frame, opaque: boolean)
-	TweenService:Create(cover, TweenInfo.new(FADE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { BackgroundTransparency = if opaque then 0 else 1 }):Play()
-	task.wait(FADE_TIME)
+-- The motor's hum, riding along in the cabin's floor.
+local function hum(lift: Lift): Sound?
+	local floor = lift.Cabin and lift.Cabin:FindFirstChild("CabinFloor")
+	if not (floor and floor:IsA("BasePart") and Effects.near(floor.Position, HUM_RANGE)) then
+		return nil
+	end
+	local sound = Instance.new("Sound")
+	sound.SoundId = Sounds.LiftRun
+	sound.Volume = 0.3
+	sound.Looped = true
+	sound.RollOffMode = Enum.RollOffMode.InverseTapered
+	sound.RollOffMinDistance = 12
+	sound.RollOffMaxDistance = HUM_RANGE
+	sound.SoundGroup = Effects.SfxGroup
+	sound.Parent = floor
+	sound:Play()
+	return sound
+end
+
+-- Elevator music while you ride (from somewhere in the tune), faded out on arrival.
+local function music(): Sound
+	local sound = Instance.new("Sound")
+	sound.SoundId = Sounds.LiftMusic
+	sound.Volume = 0.3
+	sound.TimePosition = math.random(0, 40)
+	sound.SoundGroup = Effects.MusicGroup
+	sound.Parent = SoundService
+	sound:Play()
+	return sound
+end
+
+local function fadeOut(sound: Sound?)
+	if sound then
+		TweenService:Create(sound, TweenInfo.new(0.4), { Volume = 0 }):Play()
+		task.delay(0.45, function()
+			sound:Destroy()
+		end)
+	end
 end
 
 -- The player's movement controls (the default PlayerModule's), to switch off for a ride.
--- This place has no PlayerModule in PlayerScripts (waiting for one hung every ride:
--- the lift never moved and its prompts stayed off); the anchored root holds you still.
+-- This place has no PlayerModule in PlayerScripts (waiting for one hung every ride);
+-- the anchored root holds you still.
 local function setControls(on: boolean)
 	local scripts = player:FindFirstChild("PlayerScripts")
 	local playerModule = scripts and scripts:FindFirstChild("PlayerModule")
@@ -85,45 +209,54 @@ local function setControls(on: boolean)
 	end)
 end
 
-local function ride(panel: BasePart, to: CFrame)
+-- Takes the cabin to `target`: doors shut, the glide (the frame loop below moves it, and
+-- `rider` with it), a ding, doors open. Yields.
+local function travel(lift: Lift, target: number, rider: BasePart?)
+	lift.Busy = true
+	local from = lift.At
+	setDoors(lift, from, false, DOOR_TIME)
+	task.wait(DOOR_TIME)
+	local motion: Motion = {
+		From = from,
+		To = target,
+		Start = os.clock(),
+		Time = RIDE_TIME * math.abs(target - from),
+		Rider = rider,
+		Offset = if rider then cabinFrame(lift, from):ToObjectSpace(rider.CFrame) else nil,
+	}
+	local motor = hum(lift)
+	local tune = if rider then music() else nil
+	lift.Motion = motion
+	while lift.Motion == motion and lifts[lift.Rig] == lift do
+		task.wait()
+	end
+	fadeOut(motor)
+	fadeOut(tune)
+	local arrival = (cabinFrame(lift, target) * CFrame.new(0, 8, lift.CabinZ)).Position
+	Effects.sound(arrival, Sounds.LiftDing, 0.5)
+	setDoors(lift, target, true, DOOR_TIME)
+	task.wait(DOOR_TIME)
+	lift.Busy = false
+	lift.NextWander = os.clock() + math.random(WAIT_AT_FLOOR[1], WAIT_AT_FLOOR[2])
+end
+
+-- A ride with you in it, from where it waits to `target`.
+local function ride(lift: Lift, target: number)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if riding or not (character and root) then
+	if riding or lift.Busy or not (character and root) then
 		return
 	end
 	riding = true
-	-- you stop right where you are for the whole ride
+	for _, prompt in lift.Prompts do
+		prompt.Enabled = false
+	end
 	setControls(false)
 	root.AssemblyLinearVelocity = Vector3.zero
 	root.Anchored = true
-	local building = panel:FindFirstAncestor("Building") or workspace
-	local here = doorsNear(building, panel.Position)
-	Effects.sound(panel.Position, Sounds.Servo, 0.3, 1.2)
-	setDoors(here, true, DOOR_TIME)
-	task.wait(DOOR_TIME)
-
-	local cover = Kit.new("Frame", {
-		Name = "ElevatorFade",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = FADE_COLOR,
-		BackgroundTransparency = 1,
-		ZIndex = 60,
-		Parent = Kit.getGui(),
-	})
-	Effects.sound2D(Sounds.Whoosh, 0.25, 0.9)
-	fade(cover, true)
-	-- (still held while the floor there streams in)
-	pcall(player.RequestStreamAroundAsync, player, to.Position, 2)
-	character:PivotTo(to)
-	local there = doorsNear(building, to.Position)
-	setDoors(there, true, 0)
-	setDoors(here, false, 0)
-	task.wait(0.1)
-	Effects.sound2D(Sounds.Coin, 0.4, 1.6) -- ding!
-	task.spawn(fade, cover, false)
-	setDoors(there, false, DOOR_TIME)
-	task.wait(math.max(FADE_TIME, DOOR_TIME))
-	cover:Destroy()
+	-- (the floor there streams in meanwhile)
+	task.spawn(pcall, player.RequestStreamAroundAsync, player, cabinFrame(lift, target).Position, 2)
+	travel(lift, target, root)
 	if root.Parent then
 		root.Anchored = false
 	end
@@ -131,79 +264,230 @@ local function ride(panel: BasePart, to: CFrame)
 	riding = false
 end
 
--- Each lift's prompts, with its cabin, for the inside check.
-type Lift = { Cabin: CFrame, Half: number, Prompts: { ProximityPrompt } }
-local lifts: { [BasePart]: Lift } = {}
-
--- A prompt for one way a lift goes (on `spot`: an attachment in the cabin's middle).
-local function addPrompt(panel: BasePart, spot: Attachment, attribute: string, text: string, key: Enum.KeyCode): ProximityPrompt?
-	local to = panel:GetAttribute(attribute)
-	if typeof(to) ~= "CFrame" then
-		return nil
+-- How far the cutaway (TycoonFX) has faded the building's layer at `level` (0..1).
+local function layerFade(lift: Lift, level: number): number
+	local sample = lift.Layers[level]
+	if not (sample and sample:IsDescendantOf(lift.Building)) then
+		sample = nil
+		for _, layer in lift.Building:GetChildren() do
+			if layer:IsA("Model") and layer:GetAttribute("Level") == level then
+				sample = layer:FindFirstChildWhichIsA("BasePart", true)
+				break
+			end
+		end
+		if not sample then
+			return 0
+		end
+		lift.Layers[level] = sample
 	end
-	local prompt = Kit.new("ProximityPrompt", {
-		Name = `Lift{attribute}`,
-		ActionText = text,
-		ObjectText = "Elevator",
-		KeyboardKeyCode = key,
-		HoldDuration = 0,
-		MaxActivationDistance = 8,
-		RequiresLineOfSight = false,
-		Enabled = false, -- (on while you're inside: see below)
-		Parent = spot,
-	})
-	prompt.Triggered:Connect(function()
-		ride(panel, to)
-	end)
-	return prompt
+	return sample.LocalTransparencyModifier
 end
 
-local function watch(panel: Instance)
-	local cabin, half = panel:GetAttribute("Cabin"), panel:GetAttribute("CabinHalf")
-	if not panel:IsA("BasePart") or lifts[panel] or typeof(cabin) ~= "CFrame" or typeof(half) ~= "number" then
+-- Fades the rig's parts over your storey's ceiling (and every cable) as the layers above
+-- you fade: while you're inside the building and the camera is up above your ceiling.
+local function cutaway(lift: Lift, root: BasePart?)
+	local fade, ceiling = 0, math.huge
+	if root then
+		local at = lift.Area:PointToObjectSpace(root.Position)
+		local size = lift.AreaSize
+		if math.abs(at.X) <= size.X / 2 and math.abs(at.Z) <= size.Z / 2 and at.Y > -2 and at.Y < size.Y then
+			local storey = math.floor(at.Y / lift.Rise) + 1
+			fade = layerFade(lift, storey + 1)
+			ceiling = storey * lift.Rise - 2
+		end
+	end
+	if fade == lift.Fade and not (fade > 0 and lift.Motion) then
 		return
 	end
-	local spot = Instance.new("Attachment")
-	spot.Name = "LiftPromptSpot"
-	spot.Parent = panel
-	spot.WorldPosition = (cabin * CFrame.new(0, 3, 0)).Position
-	local both = panel:GetAttribute("Up") ~= nil and panel:GetAttribute("Down") ~= nil
-	local prompts = {}
-	for _, prompt in {
-		addPrompt(panel, spot, "Up", "Go up ⬆️", Enum.KeyCode.E),
-		addPrompt(panel, spot, "Down", "Go down ⬇️", if both then Enum.KeyCode.F else Enum.KeyCode.E),
-	} do
-		table.insert(prompts, prompt)
+	lift.Fade = fade
+	for _, part in lift.Parts do
+		local cable = part.Name == "CabinCable" or part.Name == "WeightCable"
+		part.LocalTransparencyModifier = if cable or lift.Base:PointToObjectSpace(part.Position).Y > ceiling then fade else 0
 	end
-	lifts[panel] = { Cabin = cabin, Half = half, Prompts = prompts }
 end
 
-for _, panel in CollectionService:GetTagged("ElevatorCall") do
-	watch(panel)
+-- Whether a world point is inside the cabin where it is now.
+local function inCabin(lift: Lift, position: Vector3): boolean
+	local at = cabinFrame(lift, lift.At):PointToObjectSpace(position)
+	return math.abs(at.X) <= lift.CabinHalf and math.abs(at.Z - lift.CabinZ) <= lift.CabinHalf and at.Y > 0 and at.Y < lift.CabinHeight
 end
-CollectionService:GetInstanceAddedSignal("ElevatorCall"):Connect(watch)
-CollectionService:GetInstanceRemovedSignal("ElevatorCall"):Connect(function(panel)
-	lifts[panel :: BasePart] = nil
+
+local function watch(rig: Instance)
+	if not rig:IsA("Model") or lifts[rig] then
+		return
+	end
+	local base, storeys, building = rig:GetAttribute("Base"), rig:GetAttribute("Storeys"), rig.Parent
+	local area, areaSize = rig:GetAttribute("Area"), rig:GetAttribute("AreaSize")
+	if typeof(base) ~= "CFrame" or typeof(storeys) ~= "number" or typeof(area) ~= "CFrame" or typeof(areaSize) ~= "Vector3" or not building then
+		return
+	end
+	local cabin, weight, pulley = rig:FindFirstChild("Cabin"), rig:FindFirstChild("Weight"), rig:FindFirstChild("Pulley")
+	local lift: Lift = {
+		Rig = rig,
+		Building = building,
+		Base = base,
+		Storeys = storeys,
+		Rise = numberOf(rig, "Rise", 30),
+		Cabin = if cabin and cabin:IsA("Model") then cabin else nil,
+		Weight = if weight and weight:IsA("Model") then weight else nil,
+		Pulley = if pulley and pulley:IsA("Model") then pulley else nil,
+		PulleyRest = if pulley and pulley:IsA("Model") then pulley:GetPivot() else base,
+		PulleyRadius = numberOf(rig, "PulleyRadius", 3),
+		PulleyY = numberOf(rig, "PulleyY", 0),
+		CabinTop = numberOf(rig, "CabinTop", 12),
+		WeightTop = numberOf(rig, "WeightTop", 12),
+		CabinZ = numberOf(rig, "CabinZ", 0),
+		CabinHalf = numberOf(rig, "CabinHalf", 4.5),
+		CabinHeight = numberOf(rig, "CabinHeight", 11),
+		DoorZ = numberOf(rig, "DoorZ", -6),
+		Area = area,
+		AreaSize = areaSize,
+		Cables = {},
+		Parts = {},
+		Fade = 0,
+		Layers = {},
+		At = 1, -- (the server leaves it on the ground floor)
+		Busy = false,
+		Motion = nil,
+		NextWander = os.clock() + math.random(WAIT_AT_FLOOR[1], WAIT_AT_FLOOR[2]),
+		Prompts = {},
+	}
+	for _, part in rig:GetDescendants() do
+		if part:IsA("BasePart") then
+			table.insert(lift.Parts, part)
+		end
+	end
+	for _, part in rig:GetChildren() do
+		if part:IsA("BasePart") and (part.Name == "CabinCable" or part.Name == "WeightCable") then
+			local at = base:PointToObjectSpace(part.Position)
+			table.insert(lift.Cables, { Part = part, X = at.X, Z = at.Z, Weight = part.Name == "WeightCable" })
+		end
+	end
+	-- the prompts, in the cabin's middle (they ride along)
+	local floor = lift.Cabin and lift.Cabin:FindFirstChild("CabinFloor")
+	if storeys > 1 and floor and floor:IsA("BasePart") then
+		local spot = Instance.new("Attachment")
+		spot.Name = "LiftPromptSpot"
+		spot.Position = Vector3.new(0, 3.3, 0)
+		spot.Parent = floor
+		for _, way in { "Up", "Down" } do
+			local prompt = Instance.new("ProximityPrompt")
+			prompt.Name = `Lift{way}`
+			prompt.ActionText = if way == "Up" then "Go up" else "Go down"
+			prompt.ObjectText = "Lift"
+			prompt.HoldDuration = 0
+			prompt.MaxActivationDistance = 8
+			prompt.RequiresLineOfSight = false
+			prompt.Enabled = false -- (on while you're inside and it waits: see below)
+			prompt.Parent = spot
+			prompt.Triggered:Connect(function()
+				local target = lift.At + (if way == "Up" then 1 else -1)
+				if target >= 1 and target <= lift.Storeys and lift.At == math.floor(lift.At) then
+					ride(lift, target)
+				end
+			end)
+			lift.Prompts[way] = prompt
+		end
+	end
+	lifts[rig] = lift
+	for _, door in doorsOf(lift) do
+		setDoor(door, waitsAt(lift, door:GetAttribute("Storey") :: number), 0)
+	end
+end
+
+local function watchLater(rig: Instance)
+	-- (an atomic model arrives whole, but give its children a moment anyway)
+	task.spawn(function()
+		rig:WaitForChild("Cabin", 5)
+		watch(rig)
+	end)
+end
+
+for _, rig in CollectionService:GetTagged("Lift") do
+	watchLater(rig)
+end
+CollectionService:GetInstanceAddedSignal("Lift"):Connect(watchLater)
+CollectionService:GetInstanceRemovedSignal("Lift"):Connect(function(rig)
+	lifts[rig :: Model] = nil
 end)
 
--- A lift's prompts are on only while you stand inside its cabin.
+-- A door that streams in takes its place: open only where the cabin waits.
+CollectionService:GetInstanceAddedSignal("LiftDoor"):Connect(function(door)
+	if not door:IsA("BasePart") then
+		return
+	end
+	for _, lift in lifts do
+		if door:IsDescendantOf(lift.Building) then
+			setDoor(door, waitsAt(lift, door:GetAttribute("Storey") :: number), 0)
+		end
+	end
+end)
+
+-- Every frame (before the camera), the moving cabins, and you in yours; and the cutaway.
+RunService:BindToRenderStep("Elevator", Enum.RenderPriority.Camera.Value - 1, function()
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	for _, lift in lifts do
+		local motion = lift.Motion
+		if motion then
+			local a = math.min((os.clock() - motion.Start) / motion.Time, 1)
+			lift.At = motion.From + (motion.To - motion.From) * TweenService:GetValue(a, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			if a >= 1 then
+				lift.At = motion.To
+				lift.Motion = nil
+			end
+			pose(lift)
+			if motion.Rider and motion.Offset and motion.Rider.Parent then
+				motion.Rider.CFrame = cabinFrame(lift, lift.At) * motion.Offset
+			end
+		end
+		cutaway(lift, root)
+	end
+end)
+
+-- A few times a second: the prompts (on while you stand in a waiting cabin), the cabin
+-- coming to your floor while you're at the lift or in the building, and wandering
+-- while you're away.
 local elapsed = 0
 RunService.Heartbeat:Connect(function(dt)
 	elapsed += dt
-	if elapsed < INSIDE_CHECK then
+	if elapsed < CHECK_EVERY then
 		return
 	end
 	elapsed = 0
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local camera = workspace.CurrentCamera
 	for _, lift in lifts do
-		local inside = false
-		if root and not riding then
-			local at = lift.Cabin:PointToObjectSpace(root.Position)
-			inside = math.abs(at.X) <= lift.Half and math.abs(at.Z) <= lift.Half and at.Y > 0 and at.Y < CABIN_HEIGHT
+		local idle = not lift.Busy and not riding and lift.Storeys > 1
+		local inside = root ~= nil and idle and inCabin(lift, root.Position)
+		local both = lift.At > 1 and lift.At < lift.Storeys
+		for way, prompt in lift.Prompts do
+			prompt.Enabled = inside and (if way == "Up" then lift.At < lift.Storeys else lift.At > 1)
+			-- (E / X for the only way it goes, F / Y for down when it goes both ways)
+			local second = way == "Down" and both
+			prompt.KeyboardKeyCode = if second then Enum.KeyCode.F else Enum.KeyCode.E
+			prompt.GamepadKeyCode = if second then Enum.KeyCode.ButtonY else Enum.KeyCode.ButtonX
 		end
-		for _, prompt in lift.Prompts do
-			prompt.Enabled = inside
+		if not idle or inside then
+			continue
+		end
+		local near = false
+		local storey = 1
+		if root then
+			local tower = lift.Base:PointToObjectSpace(root.Position)
+			local inArea = lift.Area:PointToObjectSpace(root.Position)
+			near = Vector2.new(tower.X, tower.Z).Magnitude < NEAR_TOWER
+				or (math.abs(inArea.X) <= lift.AreaSize.X / 2 and math.abs(inArea.Z) <= lift.AreaSize.Z / 2 and inArea.Y < lift.AreaSize.Y + 5)
+			storey = math.clamp(math.floor(tower.Y / lift.Rise) + 1, 1, lift.Storeys)
+		end
+		if near then
+			if lift.At ~= storey then
+				task.spawn(travel, lift, storey)
+			end
+		elseif os.clock() >= lift.NextWander and camera and (camera.CFrame.Position - lift.Base.Position).Magnitude < SEEN_FROM then
+			local target = math.random(1, lift.Storeys - 1)
+			task.spawn(travel, lift, if target >= lift.At then target + 1 else target)
 		end
 	end
 end)

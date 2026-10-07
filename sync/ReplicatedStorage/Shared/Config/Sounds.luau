@@ -27,6 +27,12 @@ return {
 	Whistle = "rbxassetid://9119628055", -- the toy train's steam whistle
 	Shutter = "rbxassetid://17208312548", -- a camera shutter: the Clay Studio's stop-motion frames and snaps
 
+	-- The lift (Elevator.client)
+	LiftDing = "rbxassetid://18192219147", -- an elevator bell: the cabin arrives
+	LiftRun = "rbxassetid://136891586602336", -- an elevator running (8.6 s, looped while the cabin moves)
+	LiftDoors = "rbxassetid://139444721219064", -- automatic sliding doors (cut short)
+	LiftMusic = "rbxassetid://1841647742", -- APM's "Life in an Elevator" (60 s): elevator music while you ride
+
 	-- The NUKE (Config/Nuke)
 	Siren = "rbxassetid://9125718896", -- an old air-raid siren wailing up and down
 	Bomber = "rbxassetid://86789153907970", -- a propeller plane flying by
