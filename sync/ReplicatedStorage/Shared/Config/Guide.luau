@@ -40,7 +40,7 @@ Guide.Steps = {
 -- What Tralalero says while the arrow points somewhere else first (GuideManager's
 -- "GuideSay"): the line, while the Cash Pad waits for its first Coins.
 Guide.Hints = {
-	Watch = { Id = "Watch", Say = "Watch it build!", Icon = "Eye" },
+	Watch = { Id = "Watch", Say = "Watch it build!", Icon = "Hammer" },
 } :: { [string]: Step }
 
 Guide.ById = {} :: { [string]: Step }

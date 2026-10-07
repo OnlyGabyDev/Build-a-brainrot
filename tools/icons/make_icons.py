@@ -652,14 +652,17 @@ def Trophy():
 
 
 @icon
-def Eye():
-    lens = inter(circle(50, 92, 56), circle(50, 8, 56))
+def Preview():
+    """A magnifier over a green up arrow: see the next upgrade."""
+    cx, cy, r, a = 42, 42, 28, 0.7071
+    arrow = poly([(cx, cy - 18), (cx + 16, cy - 1), (cx + 6.5, cy - 1), (cx + 6.5, cy + 16), (cx - 6.5, cy + 16), (cx - 6.5, cy - 1), (cx - 16, cy - 1)])
     return paint([
-        L(lens, WHITE, gloss=0.2),
-        L(circle(50, 50, 15), BLUE, line_width=1.6, gloss=0),
-        Layer(circle(50, 50, 7), (40, 34, 55), (20, 16, 30), line=False, gloss=0, shade=0),
-        Layer(circle(55, 45, 3.6), (255, 255, 255), (255, 255, 255), line=False, gloss=0, shade=0),
-    ], outer=3.2)
+        L(line([(cx + (r + 4) * a, cy + (r + 4) * a), (86, 86)], 14), RED),
+        L(line([(cx + (r + 3) * a, cy + (r + 3) * a), (cx + (r + 11) * a, cy + (r + 11) * a)], 19), GOLD_DARK, line_width=1.6, gloss=0.2),
+        L(ring(cx, cy, r + 7, r - 1), GOLD),
+        Layer(circle(cx, cy, r - 1), (235, 252, 255), (130, 205, 250), line_width=1.4, gloss=0.45, shade=0.12),
+        L(rounded(arrow, 1.2), GREEN, line_width=1.6, gloss=0.35, shade=0.15),
+    ])
 
 
 @icon

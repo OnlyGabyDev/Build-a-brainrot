@@ -28,8 +28,8 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
    a. [x] **The mascot, first version** (2026-10-07): built part by part out front, 1 level per rebirth (a growing stand, a neon sign with its bonuses, a menu from its prompt); the Rebirth Shop and Rebirth Points are gone (docs/history.md, "The user's new-player review").
    a2. [x] **The mascot, more visual** (2026-10-07): parts picked from big cards like the Line menu; it grows from a small crate into a giant statue (~43 studs at LV 10, ~53 at LV 20) with a new look every level or two (gold stand, bulbs, fountain, searchlights, columns, a monument with the owner's name, crown, rings, rainbow); `/dev MascotLevel <n>` previews a level (docs/history.md, "The user's new-player review").
    b. [x] **Line upgrades faster** (2026-10-07): x1 / x5 / MAX pills on the Line menu's upgrade cards; MAX buys as many levels as the Coins pay for, the cards follow the Coins (docs/history.md, "The user's new-player review").
-   c. **A new icon for "see the upgrade"** (next; the eye is weird and ugly).
-   d. **Tralalero's guide goes on to the Plushie room**: teach upgrading the line (a track level), then buying the Plushie room; the mascot as a stop.
+   c. [x] **A new icon for "see the upgrade"** (2026-10-07): a gold magnifier over a green up arrow (`Preview`) replaces the eye (docs/history.md, "The user's new-player review").
+   d. **Tralalero's guide goes on to the Plushie room** (next): teach upgrading the line (a track level), then buying the Plushie room; the mascot as a stop.
 
 ### Then (backlog, roughly by value)
 - **The 2026-10-03 cloud work is seen** (2026-10-06; details in docs/history.md, "Road to Kids/Select"): everything works; fixed the elevator, the box storm's label clutter and the start's warnings. Left for the user: the streaming radius (Workspace properties in Studio; scripts can't read it) and FPS on a real phone (Studio's 30 FPS / 4.2 GB include the editor and the server).

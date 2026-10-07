@@ -527,7 +527,7 @@ local function previewUpgrade(line: LineView, track: LineUpgrades.Track, level: 
 	if not started then
 		previewing = false
 		menu.Visible = true
-		Kit.toast("Can't preview that now!", BAD_COLOR, "Eye")
+		Kit.toast("Can't preview that now!", BAD_COLOR, "Preview")
 	end
 end
 
@@ -665,7 +665,7 @@ local function renderUpgrades(parent: Frame, line: LineView)
 				Kit.gradient(tag, Kit.Colors.Coins)
 				Kit.text({ Text = `+{count}`, Size = UDim2.fromScale(1, 1), ZIndex = 6, Parent = tag })
 			end
-			-- the eye: fly over to the line and see the next level there
+			-- the magnifier: fly over to the line and see the next level there
 			Kit.button({
 				AnchorPoint = Vector2.new(1, 0),
 				Position = UDim2.new(1, -14, 0, 156),
@@ -673,7 +673,7 @@ local function renderUpgrades(parent: Frame, line: LineView)
 				Parent = card,
 			}, Kit.Colors.Gems, nil, function()
 				previewUpgrade(line, track, nextLevel)
-			end, "Eye")
+			end, "Preview")
 		end
 	end
 end
