@@ -1,7 +1,8 @@
 --[[
 	StarterPack
 	The newcomer's bundle (Config/Gamepasses, any pass with a `Starter` reward; GDD §12):
-	its parts, Coins, Rolls and a rain of loot boxes, once. It's a DataManager claim
+	its parts, Coins, Rolls, a rain of loot boxes and boxes of its own (a Legendary one in
+	the Starter Pack) in the buyer's front yard, once. It's a DataManager claim
 	("Pass_<Key>"), so nothing is given twice.
 	  * Sold as a developer product (`Product`, the Starter Pack now): granted in the
 	    purchase's receipt, and the claim is what says it's owned on later joins.
@@ -36,7 +37,12 @@ local function give(player: Player, reward: Gamepasses.StarterReward): string
 	DataManager.AddCurrency(player, "Coins", reward.Coins)
 	DataManager.AddRolls(player, reward.Rolls)
 	LootManager.Drop(player, reward.Boxes)
-	return `STARTER PACK! +{Format.Number(reward.Coins)} Coins, +{reward.Rolls} Rolls, {reward.Boxes} boxes!`
+	local ownBoxes: { string } = reward.OwnBoxes or {}
+	for _, rarityId in ownBoxes do
+		LootManager.GiftBox(player, rarityId)
+	end
+	local own = if reward.OwnBoxes and #reward.OwnBoxes > 0 then `a {string.upper(reward.OwnBoxes[1])} box in your yard, ` else ""
+	return `STARTER PACK! +{Format.Number(reward.Coins)} Coins, {own}{reward.Boxes} boxes!`
 end
 
 local function giveOnce(player: Player, key: string, reward: Gamepasses.StarterReward)

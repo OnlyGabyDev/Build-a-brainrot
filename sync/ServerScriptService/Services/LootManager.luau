@@ -472,10 +472,11 @@ function LootManager.DevSpawnBoxes(player: Player, rarityName: string, count: nu
 	return true
 end
 
--- Tralalero's guide: a box of the player's own (only they can open it for a while)
--- lands in their front yard, without a banner. Returns its id and where it is.
-function LootManager.GiftBox(player: Player): (number?, Vector3?)
-	local home = homeOf(player)
+-- A box of the player's own (only they can open it for a while) lands in their front
+-- yard (or by them, off a plot), without a banner: Tralalero's guide gift box (Common),
+-- the Starter Pack's Legendary box. Returns its id and where it is.
+function LootManager.GiftBox(player: Player, rarityId: string?): (number?, Vector3?)
+	local home = homeOf(player) or aroundPlayer(player)
 	if not home then
 		return nil, nil
 	end
@@ -483,7 +484,7 @@ function LootManager.GiftBox(player: Player): (number?, Vector3?)
 	local box: Box = {
 		Id = nextBoxId,
 		Position = randomBoxPosition(home, GIFT_SPREAD),
-		Rarity = Rarities.List[1].Id,
+		Rarity = if rarityId and Rarities.ById[rarityId] then rarityId else Rarities.List[1].Id,
 		PartType = rollPartType(),
 		Bought = true,
 		Owner = player.UserId,

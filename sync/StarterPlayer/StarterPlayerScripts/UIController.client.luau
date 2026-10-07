@@ -545,7 +545,7 @@ task.spawn(function()
 	Upsell.Featured("StarterPack") -- the big popup, once a session
 	task.wait(STARTER_EVERY)
 	while true do
-		Upsell.Offer("StarterPack", "A Mythic Bombardiro, 250K Coins, 3 Rolls + 10 boxes!")
+		Upsell.Offer("StarterPack", "A Mythic Bombardiro, a Legendary box + 250K Coins!")
 		task.wait(STARTER_EVERY)
 	end
 end)

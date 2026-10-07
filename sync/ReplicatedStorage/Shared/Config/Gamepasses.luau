@@ -30,13 +30,14 @@ export type Pass = {
 	Ribbon: string?, -- a corner ribbon ("BEST VALUE")
 }
 
--- What the Starter Pack gives, once: parts ({ brainrotId, partType }), Coins, Rolls and
--- boxes raining round you.
+-- What the Starter Pack gives, once: parts ({ brainrotId, partType }), Coins, Rolls,
+-- boxes raining round you, and boxes of given rarities of your own in your front yard.
 export type StarterReward = {
 	Parts: { { string } },
 	Coins: number,
 	Rolls: number,
 	Boxes: number,
+	OwnBoxes: { string }?, -- rarity ids (LootManager.GiftBox)
 }
 
 local Gamepasses: { [string]: Pass } = {
@@ -50,21 +51,22 @@ local Gamepasses: { [string]: Pass } = {
 		Order = 0,
 		Name = "Starter Pack",
 		Icon = "Party",
-		Description = "A full Bombardiro Crocodilo, Tung Tung Tung Sahur's arms, 250K Coins, 3 Rolls and 10 random loot boxes.",
+		Description = "A full Bombardiro Crocodilo, a Legendary box, 250K Coins, 3 Rolls and 10 random loot boxes.",
 		Starter = {
 			Parts = {
 				{ "BombardiroCrocodilo", "Legs" },
 				{ "BombardiroCrocodilo", "Body" },
 				{ "BombardiroCrocodilo", "Arms" },
 				{ "BombardiroCrocodilo", "Head" },
-				{ "TungTungTungSahur", "Arms" },
 			},
+			-- (was Tung Tung Tung Sahur's arms: the user, 2026-10-06, a Legendary box instead)
+			OwnBoxes = { "Legendary" },
 			Coins = 250000,
 			Rolls = 3,
 			Boxes = 10,
 		},
 		OfferHours = 24,
-		Perks = { "Mythic Bombardiro!", "Tung Sahur's arms", "250K Coins + 10 boxes", "3 Rolls" },
+		Perks = { "Mythic Bombardiro!", "A Legendary box!", "250K Coins + 10 boxes", "3 Rolls" },
 		Colors = { Color3.fromRGB(255, 120, 200), Color3.fromRGB(140, 60, 255) },
 		Ribbon = "LIMITED!", -- the shop shows the offer's countdown on it
 	},

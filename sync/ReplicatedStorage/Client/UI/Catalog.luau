@@ -583,17 +583,19 @@ local function renderSpread(sheet: Frame, brainrot: Brainrots.Brainrot)
 		-- what claiming gets you, then CLAIM! over a sunburst
 		local rewards = Kit.new("Frame", { Position = UDim2.fromOffset(RIGHT, top), Size = UDim2.fromOffset(width, 50), BackgroundTransparency = 1, ZIndex = 4, Parent = sheet })
 		Kit.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, Parent = rewards })
-		local chips = { { "Mask", "MORPH" } }
+		local chips: { { any } } = { { "Mask", "MORPH", Kit.Colors.Purple } }
 		if gadget then
-			table.insert(chips, { gadget.Icon or "Gift", "GADGET" })
+			table.insert(chips, { gadget.Icon or "Gift", "GADGET", Kit.Colors.Green })
 		end
-		table.insert(chips, { "Gem", `+{Format.Number(rarity.CompletionGems)}` })
+		table.insert(chips, { "Gem", `+{Format.Number(rarity.CompletionGems)}`, Kit.Colors.Gems })
 		for order, chip in chips do
 			local box = Kit.new("Frame", { LayoutOrder = order, Size = UDim2.fromOffset((width - 20) / 3, 50), BackgroundColor3 = Kit.White, ZIndex = 4, Parent = rewards })
 			Kit.corner(box, 14)
 			Kit.stroke(box, 3)
-			Kit.gradient(box, { Kit.White, Color3.fromRGB(225, 230, 245) })
-			Kit.iconText({ Position = UDim2.fromOffset(4, 9), Size = UDim2.new(1, -8, 0, 32), ZIndex = 5, Parent = box }, chip[1], chip[2], Color3.fromRGB(60, 50, 80))
+			Kit.gradient(box, chip[3])
+			Kit.stripes(box, 0.82, 14, 4)
+			Kit.shine(box, 10)
+			Kit.iconText({ Position = UDim2.fromOffset(4, 9), Size = UDim2.new(1, -8, 0, 32), ZIndex = 5, Parent = box }, chip[1], chip[2])
 		end
 		local glow = Kit.new("Frame", { Position = UDim2.fromOffset(RIGHT + width / 2, top + 120), Size = UDim2.fromOffset(1, 1), BackgroundTransparency = 1, ZIndex = 3, Parent = sheet })
 		table.insert(cleanups, Kit.rays(glow, GOLD, 520, 3))
