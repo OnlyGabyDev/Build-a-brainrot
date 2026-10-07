@@ -510,21 +510,32 @@ end
 -- Public API -----------------------------------------------------------------
 
 -- Coins per second across all of a player's lines (before the Cash Pad).
-function ProductionManager.GetIncome(player: Player): number
+-- What the player's lines make a second right now: Coins, brainrots built and PERFECTs
+-- (a line ships at most once a tick).
+function ProductionManager.GetRates(player: Player): (number, number, number)
 	local data = DataManager.GetData(player)
 	if not data then
-		return 0
+		return 0, 0, 0
 	end
-	local income = 0
+	local income, built, perfects = 0, 0, 0
 	for _, line in TycoonItems.Lines do
 		local stats = getLineStats(player, data, line)
 		local config = data.Tycoon.Lines[line.Id]
 		if stats and config then
-			local _, value = evaluate(line, stats, config)
+			local _, value, matchId = evaluate(line, stats, config)
 			income += value / stats.CycleTime
+			if value > 0 then
+				local ships = 1 / math.max(stats.CycleTime, TICK)
+				built += ships
+				perfects += if matchId then ships else 0
+			end
 		end
 	end
-	return income
+	return income, built, perfects
+end
+
+function ProductionManager.GetIncome(player: Player): number
+	return (ProductionManager.GetRates(player))
 end
 
 -- Tralalero's guide: makes sure a line builds a full brainrot (its PERFECT step): if

@@ -4,8 +4,13 @@
 	third hard (each quest's Goals, in that order), each paying its slot's reward, and a
 	bonus once all three are claimed. A quest counts from the day's start: what its
 	Source read then is its base (the same counters as the achievements:
-	Services/AchievementManager.SourceValue). Coins goals are seconds of the income the
-	player had when the day's quests were picked (never under MinGoal).
+	Services/AchievementManager.SourceValue).
+	Goals scale with the player (the user, 2026-10-07), so a quest takes about as long
+	for a big factory as for a newcomer: Coins, brainrots built and PERFECTs ask seconds
+	of what the player's lines make when the day's quests are picked (never under the
+	slot's MinGoals: a newcomer's goals), line upgrades ask more per line owned (never
+	more than the levels left to buy). Boxes, minutes played and spins don't depend on
+	the factory and stay the same for everyone.
 	Services/DailyMissions picks and pays them; the QUESTS menu's DAILY tab shows them.
 ]]
 
@@ -23,8 +28,11 @@ export type Mission = {
 	Source: string, -- what it counts (Services/AchievementManager.SourceValue)
 	Goals: { number }, -- easy, medium, hard
 	Time: boolean?, -- the amount is seconds
-	Income: boolean?, -- Goals are seconds of income (Coins), at least MinGoal
-	MinGoal: number?,
+	-- Goals are seconds of what the player's lines make of this a second (ProductionManager.GetRates),
+	-- each at least its slot's MinGoals
+	Rate: ("Coins" | "Built" | "Perfects")?,
+	MinGoals: { number }?,
+	PerLine: number?, -- the goal grows by this share of itself for every line owned past the first
 }
 
 local MINUTE = 60
@@ -35,11 +43,11 @@ DailyMissions.Count = 3
 DailyMissions.SecondsPerDay = 86400 -- UTC days
 DailyMissions.Pool = {
 	{ Id = "Boxes", Icon = "Gift", Text = "Open {n} boxes", Source = "Counters.Boxes", Goals = { 4, 8, 15 } },
-	{ Id = "Built", Icon = "Hammer", Text = "Build {n} brainrots", Source = "Counters.Built", Goals = { 40, 100, 250 } },
-	{ Id = "Perfects", Icon = "Star", Text = "Make {n} PERFECTs", One = "Make a PERFECT", Source = "Stats.Perfects", Goals = { 5, 15, 40 } },
-	{ Id = "Upgrades", Icon = "ArrowUp", Text = "Buy {n} line upgrades", One = "Buy a line upgrade", Source = "Counters.Upgrades", Goals = { 2, 5, 10 } },
+	{ Id = "Built", Icon = "Hammer", Text = "Build {n} brainrots", Source = "Counters.Built", Rate = "Built", MinGoals = { 40, 100, 250 }, Goals = { 3 * MINUTE, 7 * MINUTE, 15 * MINUTE } },
+	{ Id = "Perfects", Icon = "Star", Text = "Make {n} PERFECTs", One = "Make a PERFECT", Source = "Stats.Perfects", Rate = "Perfects", MinGoals = { 5, 15, 40 }, Goals = { 2 * MINUTE, 5 * MINUTE, 10 * MINUTE } },
+	{ Id = "Upgrades", Icon = "ArrowUp", Text = "Buy {n} line upgrades", One = "Buy a line upgrade", Source = "Counters.Upgrades", PerLine = 0.5, Goals = { 2, 5, 10 } },
 	{ Id = "Playtime", Icon = "Clock", Text = "Play for {n} min", Source = "Stats.Playtime", Time = true, Goals = { 10 * MINUTE, 20 * MINUTE, 40 * MINUTE } },
-	{ Id = "Coins", Icon = "Coin", Text = "Earn {n} Coins", Source = "Stats.TotalCoinsEarned", Income = true, MinGoal = 5000, Goals = { 5 * MINUTE, 10 * MINUTE, 20 * MINUTE } },
+	{ Id = "Coins", Icon = "Coin", Text = "Earn {n} Coins", Source = "Stats.TotalCoinsEarned", Rate = "Coins", MinGoals = { 5000, 10000, 20000 }, Goals = { 5 * MINUTE, 10 * MINUTE, 20 * MINUTE } },
 	{ Id = "Spins", Icon = "Wheel", Text = "Spin the wheel {n} times", One = "Spin the wheel", Source = "Counters.Spins", Goals = { 1, 1, 1 } },
 } :: { Mission }
 -- what each slot pays: easy, medium, hard

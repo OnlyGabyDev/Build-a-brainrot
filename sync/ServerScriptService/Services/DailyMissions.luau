@@ -14,6 +14,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Config = require(Shared.Config.DailyMissions)
+local LineUpgrades = require(Shared.Config.LineUpgrades)
+local TycoonItems = require(Shared.Config.TycoonItems)
 local Remotes = require(Shared.Remotes)
 
 local AchievementManager = require(script.Parent.AchievementManager)
@@ -33,6 +35,49 @@ local function today(): number
 	return os.time() // Config.SecondsPerDay
 end
 
+-- A goal as a round number: two digits, then zeros (1,437 -> 1,400).
+local function round(goal: number): number
+	if goal < 100 then
+		return math.max(1, math.floor(goal + 0.5))
+	end
+	local unit = 10 ^ (math.floor(math.log10(goal)) - 1)
+	return math.floor(goal / unit + 0.5) * unit
+end
+
+-- The lines the player owns, and the upgrade levels left to buy on them.
+local function linesOwned(data: DataManager.PlayerData): (number, number)
+	local purchased = data.Tycoon.Purchased
+	local lines, left = 0, 0
+	for _, line in TycoonItems.Lines do
+		if purchased[line.UnlockItemId] then
+			lines += 1
+			for _, track in LineUpgrades.Tracks do
+				left += track.Levels - TycoonItems.TrackLevel(purchased, line.Id, track.Key)
+			end
+		end
+	end
+	return lines, left
+end
+
+-- What a quest asks of this player in `slot` (1 easy .. 3 hard), or nil when they can't do it today.
+local function goalOf(player: Player, data: DataManager.PlayerData, mission: Config.Mission, slot: number): number?
+	local goal = mission.Goals[math.min(slot, #mission.Goals)]
+	if mission.Rate then
+		local income, built, perfects = ProductionManager.GetRates(player)
+		local rate = if mission.Rate == "Coins" then income elseif mission.Rate == "Built" then built else perfects
+		local least = if mission.MinGoals then mission.MinGoals[math.min(slot, #mission.MinGoals)] else 1
+		return math.max(least, round(rate * goal))
+	elseif mission.PerLine then
+		local lines, left = linesOwned(data)
+		if lines == 0 then
+			return goal -- a newcomer's first line isn't up yet
+		end
+		goal = math.min(math.floor(goal * (1 + (lines - 1) * mission.PerLine) + 0.5), left)
+		return if goal >= 1 then goal else nil -- every owned line maxed out
+	end
+	return goal
+end
+
 -- Picks today's quests: three different ones from the pool, the nth asking its nth goal.
 local function pick(player: Player, data: DataManager.PlayerData)
 	local pool = table.clone(Config.Pool)
@@ -40,15 +85,15 @@ local function pick(player: Player, data: DataManager.PlayerData)
 		local other = random:NextInteger(1, index)
 		pool[index], pool[other] = pool[other], pool[index]
 	end
-	local income = ProductionManager.GetIncome(player)
 	local list = {}
-	for slot = 1, math.min(Config.Count, #pool) do
-		local mission = pool[slot]
-		local goal = mission.Goals[math.min(slot, #mission.Goals)]
-		if mission.Income then
-			goal = math.floor(math.max(mission.MinGoal or 0, income * goal))
+	for _, mission in pool do
+		if #list == Config.Count then
+			break
 		end
-		table.insert(list, { Id = mission.Id, Goal = goal, Base = AchievementManager.SourceValue(data, mission.Source), Claimed = false })
+		local goal = goalOf(player, data, mission, #list + 1)
+		if goal then
+			table.insert(list, { Id = mission.Id, Goal = goal, Base = AchievementManager.SourceValue(data, mission.Source), Claimed = false })
+		end
 	end
 	DataManager.SetDailyMissions(player, today(), list)
 end

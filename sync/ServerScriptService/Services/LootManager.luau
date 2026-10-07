@@ -173,7 +173,7 @@ local function grant(player: Player, source: string, brainrotId: string, partTyp
 	if status == "Duplicate" then
 		local amount = rarity.DuplicateValue
 		if rarity.DuplicateCurrency == "Coins" then
-			amount += ProductionManager.GetIncome(player) * Loot.DuplicateIncomeSeconds
+			amount += ProductionManager.GetIncome(player) * (Loot.DuplicateIncomeSeconds[rarity.Id] or 0)
 		end
 		amount = math.floor(amount)
 		DataManager.AddCurrency(player, rarity.DuplicateCurrency, amount)

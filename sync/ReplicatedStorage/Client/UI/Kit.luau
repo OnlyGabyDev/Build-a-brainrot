@@ -492,6 +492,52 @@ local function viewFrom(angle: number): Vector3
 	return Vector3.new(math.sin(angle), VIEW_LIFT, -math.cos(angle)).Unit
 end
 
+-- A loot box like the map's (LootBoxes), for a ViewportFrame: its rarity's color and rank
+-- (1 Common .. 6 Godly), a white ribbon and bow, a neon band under the lid, glowing edges
+-- from Rare up and a halo of lights from Legendary up (no beam: it would spoil the framing).
+function Kit.boxModel(color: Color3, rank: number): Model
+	local model = Instance.new("Model")
+	local light = color:Lerp(WHITE, 0.35)
+	local function block(size: Vector3, at: Vector3, tint: Color3, material: Enum.Material?, ball: boolean?): Part
+		local part = Instance.new("Part")
+		part.Anchored = true
+		part.Size = size
+		part.CFrame = CFrame.new(at)
+		part.Color = tint
+		part.Material = material or Enum.Material.SmoothPlastic
+		if ball then
+			part.Shape = Enum.PartType.Ball
+		end
+		part.Parent = model
+		return part
+	end
+	local metal = if rank == 4 then Enum.Material.Metal else nil
+	block(Vector3.new(3, 2.4, 3), Vector3.zero, color, metal)
+	block(Vector3.new(3.3, 0.7, 3.3), Vector3.new(0, 1.5, 0), light, metal)
+	block(Vector3.new(3.1, 3.2, 0.35), Vector3.new(0, 0.2, 0), Color3.fromRGB(250, 250, 255))
+	block(Vector3.new(0.35, 3.2, 3.1), Vector3.new(0, 0.2, 0), Color3.fromRGB(250, 250, 255))
+	for _, side in { -1, 1 } do
+		local loop = block(Vector3.new(1, 0.65, 0.35), Vector3.new(side * 0.5, 2.1, 0), Color3.fromRGB(250, 250, 255))
+		loop.CFrame *= CFrame.Angles(0, 0, side * math.rad(-30))
+	end
+	block(Vector3.one * 0.5, Vector3.new(0, 2, 0), Color3.fromRGB(250, 250, 255), nil, true)
+	block(Vector3.new(3.2, 0.3, 3.2), Vector3.new(0, 1, 0), color, Enum.Material.Neon)
+	if rank >= 3 then
+		for _, x in { -1.5, 1.5 } do
+			for _, z in { -1.5, 1.5 } do
+				block(Vector3.new(0.25, 2.5, 0.25), Vector3.new(x, 0, z), light, Enum.Material.Neon)
+			end
+		end
+	end
+	if rank >= 4 then
+		for index = 0, 9 do
+			local a = index / 10 * math.pi * 2
+			block(Vector3.one * 0.45, Vector3.new(math.cos(a) * 1.8, 3.3, math.sin(a) * 1.8), light, Enum.Material.Neon, true)
+		end
+	end
+	return model
+end
+
 -- A ViewportFrame showing `model` at three quarters.
 function Kit.viewport(props: { [string]: any }, model: Model): ViewportFrame
 	local frame = Kit.new("ViewportFrame", {

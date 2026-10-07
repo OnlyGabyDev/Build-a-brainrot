@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local DailyLogin = require(Config:WaitForChild("DailyLogin"))
+local Rarities = require(Config:WaitForChild("Rarities"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
@@ -105,11 +106,13 @@ local function claim()
 	end
 end
 
--- One day's card: its reward's icon and name on its colors; ticked once claimed in this
--- streak, gold and pulsing over a sunburst when it's today's.
+-- One day's card: its reward's icon and name on its colors (a box day: the box itself
+-- turning, on its rarity's colors; day 7's glows); ticked once claimed in this streak,
+-- gold and pulsing over a sunburst when it's today's.
 local function renderCard(parent: Frame, index: number, x: number, claimed: boolean, today: boolean)
 	local reward = DAYS[index]
 	local size = if index == #DAYS then BIG_CARD else CARD
+	local rarity = if reward.Kind == "Box" then Rarities.ById[reward.Rarity or ""] else nil
 	local card = Kit.new("Frame", {
 		Position = UDim2.fromOffset(x, 64 + (if today then -8 else 0)),
 		Size = UDim2.fromOffset(size.X, size.Y),
@@ -119,9 +122,13 @@ local function renderCard(parent: Frame, index: number, x: number, claimed: bool
 	})
 	Kit.corner(card, 18)
 	Kit.stroke(card, if today then 6 else 4, if today then GOLD else nil)
-	Kit.gradient(card, KIND_COLORS[reward.Kind] or Kit.Colors.Purple)
+	Kit.gradient(card, if rarity then { rarity.Color:Lerp(Kit.White, 0.45), rarity.Color:Lerp(Color3.new(0, 0, 0), 0.2) } else KIND_COLORS[reward.Kind] or Kit.Colors.Purple)
 	Kit.stripes(card, 0.8, 18, 3)
 	Kit.shine(card, 14)
+	if rarity and index == #DAYS and not today then
+		Kit.neonRim(card, rarity.Color:Lerp(Kit.White, 0.4), 18, 5)
+		table.insert(stops, Kit.rays(card, rarity.Color:Lerp(Kit.White, 0.6), size.X * 1.6, 3))
+	end
 	if today then
 		Kit.neonRim(card, GOLD, 18, 5)
 		table.insert(stops, Kit.rays(card, Color3.fromRGB(255, 250, 210), size.X * 1.6, 3))
@@ -130,7 +137,13 @@ local function renderCard(parent: Frame, index: number, x: number, claimed: bool
 	end
 	Kit.text({ Text = if index == #DAYS then "DAY 7!" else `DAY {index}`, Position = UDim2.fromOffset(6, 8), Size = UDim2.new(1, -12, 0, 28), StrokeThickness = 3, ZIndex = 5, Parent = card })
 	local iconSize = if index == #DAYS then 96 else 70
-	Kit.icon(reward.Icon, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 92), Size = UDim2.fromOffset(iconSize, iconSize), ZIndex = 5, Parent = card })
+	if rarity then
+		local model = Kit.boxModel(rarity.Color, rarity.Rank)
+		local view = Kit.viewport({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 92), Size = UDim2.fromOffset(iconSize * 1.3, iconSize * 1.3), ZIndex = 5, Parent = card }, model)
+		table.insert(stops, Kit.orbit(view, model, nil, Kit.fitDistance(model, 1, (view.CurrentCamera :: Camera).FieldOfView) * 1.05))
+	else
+		Kit.icon(reward.Icon, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 92), Size = UDim2.fromOffset(iconSize, iconSize), ZIndex = 5, Parent = card })
+	end
 	Kit.text({ Text = reward.Label, Position = UDim2.fromOffset(6, 140), Size = UDim2.new(1, -12, 0, 48), TextWrapped = true, StrokeThickness = 2.5, ZIndex = 5, Parent = card })
 	if claimed then
 		local done = Kit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(30, 25, 45), BackgroundTransparency = 0.45, ZIndex = 6, Parent = card })

@@ -35,6 +35,7 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 13. [x] **Achievements** (2026-10-07): 13 achievements in tiers on a QUESTS button (cards in each tier's rarity colors, dressed up more every tier, a CLAIM! that pays Gems and/or Coins); lifetime `Counters` in the data (docs/history.md, "Retention").
 14. [x] **Daily quests** (2026-10-07): 3 a day (EASY/MEDIUM/HARD) + a bonus, the DAILY tab of the QUESTS menu; a shared `RewardManager`; the join popups wait for an open menu (docs/history.md, "Retention").
 15. [x] **Free gifts** (2026-10-07): 9 gifts a day for time played that day (1 to 60 min), a gift button with a countdown on the HUD's right column (docs/history.md, "Retention").
+16. [x] **Quests scale, duplicates by rarity, a MYTHIC day 7** (2026-10-07): daily quest goals in minutes of what your lines make (built, PERFECTs, Coins) or per line owned (upgrades), never under a newcomer's; Coin duplicates 15/30/60 s of income by rarity; the login's day 7 is a Mythic box shown turning on its card (docs/history.md, "Retention").
 
 ### Then (backlog, roughly by value)
 - **The 2026-10-03 cloud work is seen** (2026-10-06; details in docs/history.md, "Road to Kids/Select"): everything works; fixed the elevator, the box storm's label clutter and the start's warnings. Left for the user: the streaming radius (Workspace properties in Studio; scripts can't read it) and FPS on a real phone (Studio's 30 FPS / 4.2 GB include the editor and the server).
@@ -45,6 +46,7 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 ### Open questions for the user
 - Achievements could award Roblox badges for the big tiers (GDD §16.25): each badge is made on the Creator Hub (a name, an icon; a few free a day). Want some? Which ones?
 - The VIP lounge (GDD §12) isn't built: still wanted? (proposal: a roped-off golden deck on the plaza.)
+- The game page shows Roblox's default thumbnail: no media item is approved for the page (`games.roblox.com/v2/games/10768667846/media` is empty). Upload the 16:9 thumbnails on the experience's **detail page** (Thumbnails & videos), not only the Home page ones, then wait for review.
 - Every sound was picked by its description: listen in a playtest and name any to swap (`Config/Sounds`; a thunder for the Mythic box's lightning would be better).
 
 ## Testing in Studio (MCP)

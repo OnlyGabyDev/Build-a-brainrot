@@ -38,8 +38,9 @@ local Loot = {
 	SureNew = { Roll = 3, Box = 1 },
 
 	-- Coin duplicates also pay this many seconds of the player's current income, so
-	-- they stay worth something as the factory grows.
-	DuplicateIncomeSeconds = 15,
+	-- they stay worth something as the factory grows; more for a rarer part (was 15 s for
+	-- all three, 2026-10-07: with a big income a Common duplicate paid about what a Rare did).
+	DuplicateIncomeSeconds = { Common = 15, Uncommon = 30, Rare = 60 } :: { [string]: number },
 
 	-- Every box opened also pays Coins by the box's own rarity (the user, 2026-10-06: a
 	-- rarer box is worth the run): `Base` plus `Seconds` of the player's income, so it
