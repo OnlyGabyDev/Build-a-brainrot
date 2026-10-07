@@ -42,9 +42,15 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 ### Map fixes (the user, 2026-10-07)
 17. [x] **The front yard's walks connected** (2026-10-07): the stairs' stepping stones go on along the front into an opening in the path's curb, a walk of stones from the path to the mascot (docs/history.md, "Map fixes").
 
+### Next: the user's roadmap (2026-10-07), in order
+18. [ ] **Funnel analytics: where players drop.** Roblox's `AnalyticsService` (Creator Hub → Analytics): an onboarding funnel (`LogOnboardingFunnelStepEvent`, each step once per player, in order: loaded, each of Tralalero's guide steps, then milestones such as the Clay Studio and the first rebirth) and economy events (`LogEconomyEvent`: where Coins and Gems come from and go) to feed task 19. Server only, one small service; check the API's current limits first.
+19. [ ] **Economy study and fixes:** inflation; the numbers grow exponentially far too fast. Start from `tools/economy_sim.py` and the economy events of task 18.
+20. [ ] **A much bigger collection of real brainrots** (for new and old players alike): real memes only; the invented one (Supremo Brainrotto) goes. Ask first: how many, the rarity spread, and whether our block-style art stays.
+21. [ ] **New rooms** (after the collection).
+
 ### Then (backlog, roughly by value)
 - **The 2026-10-03 cloud work is seen** (2026-10-06; details in docs/history.md, "Road to Kids/Select"): everything works; fixed the elevator, the box storm's label clutter and the start's warnings. Left for the user: the streaming radius (Workspace properties in Studio; scripts can't read it) and FPS on a real phone (Studio's 30 FPS / 4.2 GB include the editor and the server).
-- **The Loot Rain** (§16.6), **Album milestones** (§16.5), **codes, group rewards, like goals** (§16.10), **new brainrots** Moranguete, Abacatudo, "67" (§16.24), **room upgrades for the Clay Studio and Vinyl** (prices in docs/history.md), **gadgets** fun per brainrot, **map bosses** (§11), **the Candy Factory** (§16.21), Paint Booth options, a Photobooth, rebirth unlocks (§16.22), more map life. Parked: a 4th line per room.
+- **The Loot Rain** (§16.6), **Album milestones** (§16.5), **codes, group rewards, like goals** (§16.10), **room upgrades for the Clay Studio and Vinyl** (prices in docs/history.md), **gadgets** fun per brainrot, **map bosses** (§11), **the Candy Factory** (§16.21), Paint Booth options, a Photobooth, rebirth unlocks (§16.22), more map life. Parked: a 4th line per room.
 - The rooms' decor still has emoji art (posters, some neon signs in `RoomDecor`): redraw it in our own style when the rooms get a pass.
 - Tech debt (only when it gets in the way): `ProductionVisuals` (3.6K lines) and `TycoonManager` sit at Luau's 200-locals limit; `isDeveloper` is copied in DevTools, MonetizationManager and UIController.
 

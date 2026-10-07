@@ -32,6 +32,7 @@ The user opens a new chat per task to save tokens. Take the first unchecked task
 - Keep it simple first. Propose ideas (log them in GDD §16) instead of building them unasked.
 - Players are mostly foreign (English text, no Portuguese-only wordplay) and many are young: few words, big icons.
 - Assembly animations matter most: every room builds brainrots part by part (Legs → Body → Arms → Head) with its own themed machines and lots of sound, particles and light.
+- Brainrots are real memes, never invented ones.
 - Art: build it ourselves first (block-style brainrots referencing *Steal a Brainrot*); Creator Store textures, skyboxes and models are fine for polish; avoid Roblox AI generation.
 - Colors: one hue family per factory building, lively through saturation, white stripes, neon and motion. In-world labels are **neon signs**, never plain text on parts.
 - **Check visuals up close** from a player's angle before calling anything good, and say what wasn't verified. References: *Pet Simulator 99*, *Adopt Me!*, *Steal a Brainrot*.
