@@ -33,7 +33,7 @@
 	  /dev SpawnBox Legendary 3
 	  /dev GrantPass Sprint
 
-	On live servers they run for developers only (isDeveloper), from the 🛠️ DEV menu
+	On live servers they run for developers only (isDeveloper), from the DEV menu
 	(Client/UI/DevMenu, remote DevMenu) or /dev in the chat. They write real saves there:
 	AddCoins and the like also reach the global leaderboards, and Nuke kills everyone.
 ]]

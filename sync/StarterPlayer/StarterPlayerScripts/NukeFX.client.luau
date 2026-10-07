@@ -20,6 +20,7 @@ local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("E
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
+local Icons = require(Config:WaitForChild("Icons"))
 local Nuke = require(Config:WaitForChild("Nuke"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
@@ -147,7 +148,7 @@ local function banner(gui: ScreenGui, buyer: string): Frame
 	label.Font = Enum.Font.FredokaOne
 	label.TextScaled = true
 	label.TextColor3 = Color3.new(1, 1, 1)
-	label.Text = `⚠️ {string.upper(buyer)} BOUGHT A NUKE! ⚠️`
+	label.Text = `{string.upper(buyer)} BOUGHT A NUKE!`
 	label.Parent = frame
 	local outline = Instance.new("UIStroke")
 	outline.Thickness = 3
@@ -205,12 +206,12 @@ local function makeNuke(folder: Folder): Model
 		gui.Face = face
 		gui.LightInfluence = 0
 		gui.Parent = body
-		local label = Instance.new("TextLabel")
+		local label = Instance.new("ImageLabel")
 		label.BackgroundTransparency = 1
 		label.Size = UDim2.fromScale(1, 0.5)
 		label.Position = UDim2.fromScale(0, 0.25)
-		label.TextScaled = true
-		label.Text = "☢️"
+		label.ScaleType = Enum.ScaleType.Fit
+		label.Image = Icons.Nuke
 		label.Parent = gui
 	end
 	model.WorldPivot = CFrame.new(0, 0, 0)
@@ -311,7 +312,7 @@ local function play(buyer: string, start: number)
 	pcall(function()
 		local general = TextChatService:FindFirstChild("TextChannels") and TextChatService.TextChannels:FindFirstChild("RBXGeneral")
 		if general then
-			(general :: TextChannel):DisplaySystemMessage(`<font color="#FF4040">⚠️ {buyer} bought a NUKE! ⚠️</font>`)
+			(general :: TextChannel):DisplaySystemMessage(`<font color="#FF4040">{buyer} bought a NUKE!</font>`)
 		end
 	end)
 	playFor(Sounds.Siren, 0.6, Nuke.Impact - 1)

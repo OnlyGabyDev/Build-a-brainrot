@@ -91,6 +91,7 @@ local panel = Kit.new("Frame", {
 Kit.corner(panel, 26)
 Kit.stroke(panel, 4)
 Kit.gradient(panel, Kit.Colors.Panel)
+Kit.stripes(panel, 0.93, 26, BUBBLE_Z)
 local tail = Kit.new("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.new(0, 0, 0.5, 0),
@@ -102,13 +103,11 @@ local tail = Kit.new("Frame", {
 })
 Kit.stroke(tail, 4)
 
-local icon = Kit.text({
+local icon = Kit.icon("Star", {
 	Name = "Icon",
 	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 22, 0.5, 0),
-	Size = UDim2.fromOffset(84, 84),
-	Text = "",
-	StrokeThickness = 0,
+	Position = UDim2.new(0, 18, 0.5, 0),
+	Size = UDim2.fromOffset(92, 92),
 	ZIndex = BUBBLE_Z + 1,
 	Parent = panel,
 })
@@ -176,13 +175,13 @@ RunService.RenderStepped:Connect(function()
 end)
 
 local shownText = ""
-local function say(text: string, symbol: string)
+local function say(text: string, symbol: string) -- (symbol: one of our icons)
 	if text == shownText and bubble.Visible then
 		return
 	end
 	shownText = text
 	line.Text = text
-	icon.Text = symbol
+	icon.Image = Kit.iconId(symbol)
 	if not bubble.Visible then
 		bubble.Visible = true
 		bubble.Position = BUBBLE_HIDDEN
@@ -405,7 +404,7 @@ local function playIntro(plotCFrame: CFrame)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.2),
 		Size = UDim2.fromScale(0.7, 0.13),
-		Text = "⭐ YOUR FACTORY! ⭐",
+		Text = "YOUR FACTORY!",
 		TextColor3 = Color3.fromRGB(255, 225, 60),
 		StrokeThickness = 5,
 		Visible = false,
@@ -507,7 +506,7 @@ end
 player:GetAttributeChangedSignal("Guide"):Connect(function()
 	if player:GetAttribute("Guide") == Guide.Done then
 		rewardUntil = os.clock() + 4
-		say("You did it!", "🏆")
+		say("You did it!", "Trophy")
 		task.delay(4, function()
 			if not bubble:GetAttribute("Gifting") then
 				hideBubble()
@@ -525,13 +524,13 @@ guideRemote.OnClientEvent:Connect(function(action: string, ...)
 		local _stepId, coins, rolls = ...
 		local parts = {}
 		if coins > 0 then
-			table.insert(parts, `+{coins} 💰`)
+			table.insert(parts, `+{coins} Coins`)
 		end
 		if rolls > 0 then
-			table.insert(parts, `+{rolls} 🎲`)
+			table.insert(parts, `+{rolls} {if rolls == 1 then "Roll" else "Rolls"}`)
 		end
 		rewardUntil = os.clock() + 1.4
-		say(if #parts > 0 then table.concat(parts, "  ") else "Nice!", "✅")
+		say(if #parts > 0 then table.concat(parts, "  ") else "Nice!", if rolls > 0 then "Roll" elseif coins > 0 then "Coin" else "Check")
 		Kit.confetti(bubble, { ARROW_COLOR, Color3.fromRGB(120, 245, 110), Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 140, 230) }, 14, BUBBLE_Z + 5)
 		Kit.playSound(Sounds.Cash, 0.5)
 		task.delay(1.45, showStep)
@@ -545,7 +544,7 @@ guideRemote.OnClientEvent:Connect(function(action: string, ...)
 			task.wait(0.2)
 		end
 		rewardUntil = os.clock() + 2
-		say("A gift for you!", "🎁")
+		say("A gift for you!", "Gift")
 		task.wait(1.6)
 		Loot.Show(result)
 		task.wait(1)
@@ -553,7 +552,7 @@ guideRemote.OnClientEvent:Connect(function(action: string, ...)
 			task.wait(0.2)
 		end
 		rewardUntil = os.clock() + 3.5
-		say("Keep building!", "🚀")
+		say("Keep building!", "Rocket")
 		task.wait(3.5)
 		bubble:SetAttribute("Gifting", nil)
 		if Guide.Running(player:GetAttribute("Guide")) then

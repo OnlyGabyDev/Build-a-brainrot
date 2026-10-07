@@ -23,6 +23,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Format = require(Shared:WaitForChild("Format"))
 local Guide = require(Shared:WaitForChild("Config"):WaitForChild("Guide"))
+local Icons = require(Shared:WaitForChild("Config"):WaitForChild("Icons"))
 local Sounds = require(Shared:WaitForChild("Config"):WaitForChild("Sounds"))
 local TycoonItems = require(Shared:WaitForChild("Config"):WaitForChild("TycoonItems"))
 local DropIn = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("DropIn"))
@@ -291,13 +292,12 @@ local function flyToCounter(from: Vector3, count: number)
 	local target = counter.AbsolutePosition + Vector2.new(34, counter.AbsoluteSize.Y / 2)
 	for index = 1, count do
 		task.delay((index - 1) * 0.05, function()
-			local label = Instance.new("TextLabel")
+			local label = Instance.new("ImageLabel")
 			label.AnchorPoint = Vector2.new(0.5, 0.5)
 			label.Size = UDim2.fromOffset(44, 44)
 			label.BackgroundTransparency = 1
-			label.TextScaled = true
-			label.Font = Enum.Font.FredokaOne
-			label.Text = "💰"
+			label.ScaleType = Enum.ScaleType.Fit
+			label.Image = Icons.Coin
 			label.Position = UDim2.fromOffset(point.X + math.random(-40, 40), point.Y + math.random(-30, 30))
 			label.Parent = flyGui
 			local tween = TweenService:Create(label, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
@@ -371,7 +371,7 @@ local function watchCashPad(plot: Instance, pad: BasePart)
 		Effects.sparkle(top, COIN_COLOR, 30, 18)
 		Effects.ring(top - Vector3.new(0, 0.4, 0), COIN_COLOR, 7)
 		Effects.flash(top + Vector3.new(0, 2, 0), COIN_COLOR, 3, 20)
-		Effects.popup(top + Vector3.new(0, 3, 0), `+{Format.Number(amount)} 💰`, COIN_COLOR, 2.4, 1.4)
+		Effects.popup(top + Vector3.new(0, 3, 0), `+{Format.Number(amount)}`, COIN_COLOR, 2.4, 1.4)
 		for _ = 1, 8 do
 			local angle = math.random() * math.pi * 2
 			local landing = top + Vector3.new(math.cos(angle), 0, math.sin(angle)) * (2 + math.random() * 3)
@@ -614,7 +614,7 @@ local function watchBuilding(building: Instance)
 			DropIn.play(layer, byLayer[layer], {
 				Delay = (index - 1) * FLOOR_LAYER_GAP,
 				Light = index < #layers,
-				Title = if index == #layers then "🏗️ NEW FLOOR!" else nil,
+				Title = if index == #layers then "NEW FLOOR!" else nil,
 			})
 		end
 	end)

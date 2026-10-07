@@ -68,7 +68,7 @@ end
 
 -- "+39%" for a room upgrade's bonus (its Bonus attribute: 1.39).
 local function bonusText(model: Instance): string
-	return `+{math.floor((numberOf(model, "Bonus", 1) - 1) * 100 + 0.5)}% 💰`
+	return `+{math.floor((numberOf(model, "Bonus", 1) - 1) * 100 + 0.5)}% Coins`
 end
 
 -- Bubble wrap -----------------------------------------------------------------------

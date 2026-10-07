@@ -26,7 +26,7 @@ local Kit = require(script.Parent:WaitForChild("Kit"))
 local Passes = require(script.Parent:WaitForChild("Passes"))
 
 local SIZE = Vector2.new(340, 132)
-local SHOWN_AT = UDim2.new(1, -104, 0, 84) -- left of the 🎵 / ⚙️ buttons
+local SHOWN_AT = UDim2.new(1, -104, 0, 84) -- left of the music and settings buttons
 local HIDDEN_AT = UDim2.new(1, SIZE.X + 20, 0, 84)
 local HOLD = 9 -- seconds an ad stays up
 local GAP = 45 -- seconds between any two ads
@@ -89,23 +89,21 @@ local function show(key: string, pitch: string?)
 	Kit.corner(card, 20)
 	Kit.stroke(card, 4)
 	Kit.gradient(card, pass.Colors)
+	Kit.stripes(card, 0.84, 20, Z)
 	Kit.shine(card, 16).ZIndex = Z
+	Kit.neonRim(card, pass.Colors[1]:Lerp(Kit.White, 0.5), 20, 5)
 
-	local bubble = Kit.new("Frame", {
-		Position = UDim2.fromOffset(12, 12),
-		Size = UDim2.fromOffset(64, 64),
-		BackgroundColor3 = Kit.White,
-		ZIndex = Z + 1,
+	local bubble = Kit.icon(pass.Icon, {
+		Position = UDim2.fromOffset(4, 2),
+		Size = UDim2.fromOffset(80, 80),
+		ZIndex = Z + 2,
 		Parent = card,
 	})
-	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = bubble })
-	Kit.stroke(bubble, 4)
-	Kit.gradient(bubble, { Kit.White, pass.Colors[1] })
-	Kit.text({ Text = pass.Icon, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.72, 0.72), StrokeThickness = 0, ZIndex = Z + 2, Parent = bubble })
+	TweenService:Create(bubble, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Rotation = 8 }):Play()
 
 	local left = Passes.OfferLeft(key)
 	Kit.text({
-		Text = if left then `{pass.Name} · LIMITED!` else pass.Name,
+		Text = if left then `{pass.Name}: LIMITED!` else pass.Name,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Position = UDim2.fromOffset(86, 10),
 		Size = UDim2.new(1, -124, 0, 28),
@@ -130,9 +128,9 @@ local function show(key: string, pitch: string?)
 		Size = UDim2.fromOffset(30, 30),
 		ZIndex = Z + 2,
 		Parent = card,
-	}, Kit.Colors.Grey, "✕", function()
+	}, Kit.Colors.Grey, nil, function()
 		hide(card)
-	end)
+	end, "Close")
 	local buy = Kit.button({
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -10),
@@ -141,7 +139,7 @@ local function show(key: string, pitch: string?)
 		Parent = card,
 	}, Kit.Colors.Green, "GET IT!", function()
 		if not Passes.Prompt(key) then
-			Kit.toast("Coming soon!", Color3.fromRGB(255, 215, 60))
+			Kit.toast("Coming soon!", Color3.fromRGB(255, 215, 60), "Clock")
 		end
 		hide(card)
 	end)
@@ -161,7 +159,7 @@ local function show(key: string, pitch: string?)
 	task.spawn(function()
 		while card.Parent and current == card and os.clock() < deadline do
 			if left then
-				line.Text = `⏰ Ends in {Passes.Clock(Passes.OfferLeft(key) or 0)}! {pitch or pass.Perks[1]}`
+				line.Text = `Ends in {Passes.Clock(Passes.OfferLeft(key) or 0)}! {pitch or pass.Perks[1]}`
 			end
 			task.wait(0.5)
 		end
@@ -179,7 +177,7 @@ function Upsell.Featured(key: string)
 	if not (pass and Passes.OnSale(key)) or (pass.Id <= 0 and not RunService:IsStudio()) then
 		return
 	end
-	local panel, content = Kit.modal("FeaturedOffer", `{pass.Icon} {string.upper(pass.Name)}`, pass.Colors, Vector2.new(640, 520))
+	local panel, content = Kit.modal("FeaturedOffer", string.upper(pass.Name), pass.Colors, Vector2.new(640, 520), pass.Icon)
 	panel.ZIndex = Z
 	local stopRays = Kit.rays(content, pass.Colors[1], 520, 1)
 	local clock = Kit.text({
@@ -191,9 +189,11 @@ function Upsell.Featured(key: string)
 		ZIndex = 3,
 		Parent = content,
 	})
-	Kit.text({ Text = "⚡ ONE-TIME OFFER: ONLY FOR NEW PLAYERS! ⚡", TextColor3 = Color3.fromRGB(255, 225, 90), Position = UDim2.fromOffset(20, 62), Size = UDim2.new(1, -40, 0, 28), StrokeThickness = 3, ZIndex = 3, Parent = content })
+	Kit.text({ Text = "NEW PLAYERS ONLY!", TextColor3 = Color3.fromRGB(255, 225, 90), Position = UDim2.fromOffset(20, 62), Size = UDim2.new(1, -40, 0, 28), StrokeThickness = 3, ZIndex = 3, Parent = content })
 	for index, perk in pass.Perks do
-		Kit.text({ Text = `✔ {perk}`, Position = UDim2.fromOffset(60, 100 + (index - 1) * 50), Size = UDim2.new(1, -120, 0, 42), StrokeThickness = 3, ZIndex = 3, Parent = content })
+		local top = 100 + (index - 1) * 50
+		Kit.icon("Check", { Position = UDim2.fromOffset(70, top), Size = UDim2.fromOffset(42, 42), ZIndex = 3, Parent = content })
+		Kit.text({ Text = perk, Position = UDim2.fromOffset(122, top), Size = UDim2.new(1, -192, 0, 42), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 3, ZIndex = 3, Parent = content })
 	end
 	local buy = Kit.button({
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -203,7 +203,7 @@ function Upsell.Featured(key: string)
 		Parent = content,
 	}, Kit.Colors.Green, "GET IT NOW!", function()
 		if not Passes.Prompt(key) then
-			Kit.toast("Coming soon!", Color3.fromRGB(255, 215, 60))
+			Kit.toast("Coming soon!", Color3.fromRGB(255, 215, 60), "Clock")
 		end
 	end)
 	task.spawn(function()
@@ -221,7 +221,7 @@ function Upsell.Featured(key: string)
 			if left <= 0 or Passes.Owns(key) then
 				break
 			end
-			clock.Text = `⏰ ENDS IN {Passes.Clock(left)} ⏰`
+			clock.Text = `ENDS IN {Passes.Clock(left)}`
 			Kit.pop(clock, 0.04)
 			task.wait(1)
 		end

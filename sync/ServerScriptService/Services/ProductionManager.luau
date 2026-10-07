@@ -597,7 +597,7 @@ function ProductionManager.Init()
 	MonetizationManager.HandleProduct("Coins", function(player, product)
 		local amount = math.floor(math.max(ProductionManager.GetIncome(player) * product.Amount, product.MinCoins or 0))
 		DataManager.AddCurrency(player, "Coins", amount)
-		return `Thanks! +{Format.Number(amount)} 💰`
+		return `+{Format.Number(amount)} COINS!`
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)

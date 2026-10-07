@@ -27,6 +27,8 @@ local Passes = require(script.Parent:WaitForChild("Passes"))
 
 local SIZE = Vector2.new(1040, 690)
 local TABS = { "PASSES", "GEMS", "COINS", "BOXES", "SPINS" }
+local TAB_ICONS = { PASSES = "Crown", GEMS = "Gem", COINS = "Coin", BOXES = "Gift", SPINS = "Wheel" }
+local KIND_WORDS = { Gems = "Gems", WheelSpins = "Spins", Rolls = "Rolls" }
 local TAB_KINDS = { GEMS = "Gems", COINS = "Coins", BOXES = "BoxDrop", SPINS = "WheelSpins" }
 local KIND_COLORS = {
 	Gems = Kit.Colors.Gems,
@@ -61,12 +63,12 @@ end
 -- What a product's card lists.
 local function perksOf(product: Products.Product): { string }
 	if product.Kind == "Coins" then
-		return { `{duration(product.Amount)} of your income`, `At least 💰 {Format.Number(product.MinCoins or 0)}` }
+		return { `{duration(product.Amount)} of your income`, `At least {Format.Number(product.MinCoins or 0)} Coins` }
 	elseif product.Kind == "BoxDrop" then
 		local reserved = duration(LootConfig.Drops.ReservedSeconds)
 		return { if product.Amount == 1 then "A box drops by you" else `{product.Amount} boxes rain round you`, `Only yours for {reserved}` }
 	end
-	return { `+{product.Amount} {product.Icon}` }
+	return { `+{Format.Number(product.Amount)} {KIND_WORDS[product.Kind] or ""}` }
 end
 
 local function items(): { Item }
@@ -108,11 +110,11 @@ local function buy(item: Item)
 			local remote = Remotes.Function("BuyWithGems")
 			local ok, bought = pcall(remote.InvokeServer, remote, item.Key)
 			if not (ok and bought) then
-				Kit.toast(`Not enough Gems! You need 💎 {item.GemPrice}.`, Color3.fromRGB(255, 90, 90))
+				Kit.toast(`Need {item.GemPrice} Gems!`, Color3.fromRGB(255, 90, 90), "Gem")
 			end
 		end)
 	elseif item.Id <= 0 then
-		Kit.toast("Coming soon!", GOLD_COLOR)
+		Kit.toast("Coming soon!", GOLD_COLOR, "Clock")
 	elseif item.Kind == "Pass" then
 		Passes.Prompt(item.Key)
 	else
@@ -122,40 +124,39 @@ end
 
 -- Rendering --------------------------------------------------------------------
 
--- A glossy card in the pass's own colors: its icon bobbing in a bubble, a ribbon in the
--- corner for the best deals, what you get as a list of ticks, and the buy button with
--- its Robux price.
+-- A glossy striped card in the pass's own colors: its icon big and bobbing, a ribbon in
+-- the corner for the best deals, what you get as a list of ticks, and the buy button
+-- with its Robux price.
 local function renderCard(parent: Instance, item: Item)
 	local owned = item.Kind == "Pass" and Passes.Owns(item.Key)
 	local card = Kit.new("Frame", { LayoutOrder = item.Order, BackgroundColor3 = Kit.White, Parent = parent })
 	Kit.corner(card, 20)
 	Kit.stroke(card, 4)
 	Kit.gradient(card, item.Colors)
+	Kit.stripes(card, 0.84, 20)
 	Kit.shine(card, 16)
-	local bubble = Kit.new("Frame", {
+	local bubble = Kit.icon(item.Icon, {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 6),
-		Size = UDim2.fromOffset(76, 76),
-		BackgroundColor3 = Kit.White,
-		ZIndex = 2,
+		Position = UDim2.new(0.5, 0, 0, 2),
+		Size = UDim2.fromOffset(86, 86),
+		ZIndex = 3,
 		Parent = card,
 	})
-	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = bubble })
-	Kit.stroke(bubble, 4)
-	Kit.gradient(bubble, { Kit.White, item.Colors[1] })
-	Kit.text({ Text = item.Icon, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.72, 0.72), StrokeThickness = 0, ZIndex = 3, Parent = bubble })
 	table.insert(bubbles, bubble)
-	if owned then
-		Kit.text({ Text = "✓", TextColor3 = Color3.fromRGB(120, 245, 110), AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(1, -18, 1, 6), Size = UDim2.fromOffset(34, 34), StrokeThickness = 3, ZIndex = 4, Parent = bubble })
-	end
 	Kit.text({ Text = item.Name, Position = UDim2.fromOffset(10, 86), Size = UDim2.new(1, -20, 0, 32), StrokeThickness = 3, Parent = card })
+	local tight = #item.Perks > 3 -- (four lines pack tighter, so the last stays clear of the buy button)
 	for index, perk in item.Perks do
+		local top = 120 + (index - 1) * (if tight then 18 else 24)
+		local height = if tight then 17 else 21
+		local centered = #item.Perks == 1
+		if not centered then
+			Kit.icon("Check", { Position = UDim2.fromOffset(10, top - 1), Size = UDim2.fromOffset(height + 2, height + 2), Parent = card })
+		end
 		Kit.text({
-			Text = `✔ {perk}`,
-			-- (four lines pack tighter, so the last stays clear of the buy button)
-			Position = UDim2.fromOffset(12, 120 + (index - 1) * (if #item.Perks > 3 then 18 else 24)),
-			Size = UDim2.new(1, -24, 0, if #item.Perks > 3 then 17 else 21),
-			TextXAlignment = if #item.Perks > 1 then Enum.TextXAlignment.Left else Enum.TextXAlignment.Center,
+			Text = perk,
+			Position = UDim2.fromOffset(if centered then 12 else 14 + height, top),
+			Size = UDim2.new(1, if centered then -24 else -26 - height, 0, height),
+			TextXAlignment = if centered then Enum.TextXAlignment.Center else Enum.TextXAlignment.Left,
 			StrokeThickness = 1.5,
 			Parent = card,
 		})
@@ -173,7 +174,7 @@ local function renderCard(parent: Instance, item: Item)
 		Kit.corner(ribbon, 10)
 		Kit.stroke(ribbon, 3)
 		Kit.gradient(ribbon, Kit.Colors.Red)
-		local label = Kit.text({ Text = `⭐ {item.Ribbon}`, Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 1, -8), StrokeThickness = 2, ZIndex = 6, Parent = ribbon })
+		local label = Kit.text({ Text = item.Ribbon, Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 1, -8), StrokeThickness = 2, ZIndex = 6, Parent = ribbon })
 		if item.Limited then
 			countdowns[label] = item.Key
 		end
@@ -183,9 +184,9 @@ local function renderCard(parent: Instance, item: Item)
 		Position = UDim2.new(0.5, 0, 1, -10),
 		Size = UDim2.new(1, -24, 0, 52),
 		Parent = card,
-	}, if owned then Kit.Colors.Grey elseif item.GemPrice then Kit.Colors.Gems else Kit.Colors.Green, if owned then "OWNED ✓" elseif item.GemPrice then `💎 {item.GemPrice}` elseif item.Id <= 0 then "SOON" else "...", function()
+	}, if owned then Kit.Colors.Grey elseif item.GemPrice then Kit.Colors.Gems else Kit.Colors.Green, if owned then "OWNED" elseif item.GemPrice then Format.Number(item.GemPrice) elseif item.Id <= 0 then "SOON" else "...", function()
 		buy(item)
-	end)
+	end, if owned then "Check" elseif item.GemPrice then "Gem" else nil)
 	if not owned and not item.GemPrice and item.Id > 0 then
 		task.spawn(function()
 			local price = if item.Kind == "Pass" then Passes.PassPrice(item.Key) else Passes.PriceOf(item.Kind, item.Id)
@@ -204,10 +205,11 @@ RunService.RenderStepped:Connect(function()
 	end
 	local t = os.clock()
 	for index, bubble in bubbles do
-		bubble.Position = UDim2.new(0.5, 0, 0, 6 + math.sin(t * 2.4 + index) * 3)
+		bubble.Position = UDim2.new(0.5, 0, 0, 2 + math.sin(t * 2.4 + index) * 3)
+		bubble.Rotation = math.sin(t * 1.7 + index) * 5
 	end
 	for label, key in countdowns do
-		label.Text = `⏰ {Passes.Clock(Passes.OfferLeft(key) or 0)}`
+		label.Text = Passes.Clock(Passes.OfferLeft(key) or 0)
 	end
 end)
 
@@ -251,7 +253,7 @@ local function dropOddsLines(): { { Text: string, Color: Color3 } }
 		end
 	end
 	table.insert(lines, { Text = "Part type: 25% each", Color = Kit.White })
-	table.insert(lines, { Text = "Duplicates turn into 💰 or 💎", Color = Kit.White })
+	table.insert(lines, { Text = "Duplicates: Coins or Gems", Color = Kit.White })
 	return lines
 end
 
@@ -262,7 +264,7 @@ local function wheelOddsLines(): { { Text: string, Color: Color3 } }
 	end
 	local lines = {}
 	for _, prize in DailyWheel.Prizes do
-		table.insert(lines, { Text = `{prize.Icon} {prize.Label}: {percent(prize.Weight, total)}`, Color = Kit.White })
+		table.insert(lines, { Text = `{prize.Label}: {percent(prize.Weight, total)}`, Color = Kit.White })
 	end
 	return lines
 end
@@ -286,19 +288,28 @@ render = function()
 		}, if tab == name then Kit.Colors.Coins else Kit.Colors.Grey, name, function()
 			tab = name
 			render()
-		end)
+		end, TAB_ICONS[name])
 	end
 
 	local hasOdds = tab == "SPINS" or tab == "BOXES"
-	local grid = Kit.new("Frame", {
-		Position = UDim2.fromOffset(20, 74),
-		Size = UDim2.new(0, if hasOdds then 616 else 1000, 1, -84),
+	-- (it scrolls: the passes and the NUKE take three rows)
+	local grid = Kit.new("ScrollingFrame", {
+		Position = UDim2.fromOffset(20, 66),
+		Size = UDim2.new(0, if hasOdds then 620 else 1004, 1, -70),
 		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 8,
+		ScrollBarImageColor3 = Kit.Hues.Green.Dark,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
 		Parent = frame,
 	})
+	-- (room above and right for the corner ribbons)
+	Kit.new("UIPadding", { PaddingTop = UDim.new(0, 14), PaddingRight = UDim.new(0, 16), PaddingBottom = UDim.new(0, 10), Parent = grid })
 	Kit.new("UIGridLayout", {
 		-- three a row beside the odds (the five box drops take two rows), four without
-		CellSize = if hasOdds then UDim2.fromOffset(194, 256) else UDim2.fromOffset(236, 256),
+		CellSize = if hasOdds then UDim2.fromOffset(190, 256) else UDim2.fromOffset(232, 256),
 		CellPadding = UDim2.fromOffset(12, 12),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Parent = grid,
@@ -319,7 +330,7 @@ end
 -- Opens the shop, optionally on a tab ("PASSES", "GEMS", "COINS", "BOXES", "SPINS").
 function Shop.Open(openTab: string?)
 	if not panel then
-		local newPanel, newContent = Kit.modal("Shop", "🛒 SHOP", Kit.Colors.Coins, SIZE)
+		local newPanel, newContent = Kit.modal("Shop", "SHOP", Kit.Hues.Green, SIZE, "Cart")
 		panel, content = newPanel, newContent
 		-- Show new passes as owned as soon as they're granted.
 		player.AttributeChanged:Connect(function(name)
@@ -337,7 +348,7 @@ end
 
 -- The thank-you after a Robux purchase (sent by the server once it's granted).
 function Shop.Thanks(text: string)
-	Kit.toast(text, GOOD_COLOR)
+	Kit.toast(text, GOOD_COLOR, "Party")
 	Kit.confetti(Kit.getGui() :: any, { GOLD_COLOR, GOOD_COLOR, Color3.fromRGB(120, 220, 255) }, 50, 70)
 end
 

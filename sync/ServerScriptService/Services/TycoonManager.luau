@@ -125,6 +125,7 @@ export type Plot = {
 	SignLabel: TextLabel,
 	CashPad: BasePart,
 	CashLabel: TextLabel,
+	CashAmount: TextLabel, -- the Cash Pad's coin row
 	Doorways: { [string]: FactoryBuilder.Doorway }, -- into every room but the first, by zone id
 	Owner: Player?,
 	Collected: number, -- Coins waiting on the Cash Pad
@@ -165,7 +166,10 @@ local function makePart(
 end
 
 -- Floating text above `adornee`. `size` and `height` are in studs.
-local function makeBillboard(adornee: BasePart, text: string, size: Vector2, height: number, maxDistance: number): TextLabel
+-- A label floating over a part. With `rowIcon` (one of our icons, Config/Icons) a row
+-- goes under the text: the icon and `rowText` beside it, centered (a price with its
+-- coin, a lock with the rebirth it needs). Returns the text's label and the row's.
+local function makeBillboard(adornee: BasePart, text: string, size: Vector2, height: number, maxDistance: number, rowIcon: string?, rowText: string?): (TextLabel, TextLabel?)
 	local gui = Instance.new("BillboardGui")
 	gui.Size = UDim2.fromScale(size.X, size.Y)
 	gui.StudsOffset = Vector3.new(0, height, 0)
@@ -173,19 +177,63 @@ local function makeBillboard(adornee: BasePart, text: string, size: Vector2, hei
 	gui.LightInfluence = 0
 	gui.Parent = adornee
 
+	local lines = if text == "" then 0 else #string.split(text, "\n")
+	local rowShare = if rowIcon then 1.15 / (lines + 1.15) else 0
 	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
+	label.Size = UDim2.fromScale(1, 1 - rowShare)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.FredokaOne
 	label.TextScaled = true
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.Text = text
 	label.Parent = gui
-
 	local stroke = Instance.new("UIStroke")
 	stroke.Thickness = 2
 	stroke.Parent = label
-	return label
+	if not rowIcon then
+		return label, nil
+	end
+
+	local row = Instance.new("Frame")
+	row.BackgroundTransparency = 1
+	row.Position = UDim2.fromScale(0, 1 - rowShare)
+	row.Size = UDim2.fromScale(1, rowShare)
+	row.Parent = gui
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0.01, 0)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = row
+	local icon = Instance.new("ImageLabel")
+	icon.BackgroundTransparency = 1
+	icon.ScaleType = Enum.ScaleType.Fit
+	icon.Image = require(Shared.Config.Icons)[rowIcon] or ""
+	icon.SizeConstraint = Enum.SizeConstraint.RelativeYY
+	icon.Size = UDim2.fromScale(1.1, 1.1)
+	icon.LayoutOrder = 1
+	icon.Parent = row
+	local value = Instance.new("TextLabel")
+	value.BackgroundTransparency = 1
+	value.Font = Enum.Font.FredokaOne
+	value.TextScaled = true
+	value.TextColor3 = if rowIcon == "Coin" then Color3.fromRGB(255, 225, 90) else Color3.new(1, 1, 1)
+	value.SizeConstraint = Enum.SizeConstraint.RelativeYY
+	value.LayoutOrder = 2
+	value.Parent = row
+	local valueStroke = Instance.new("UIStroke")
+	valueStroke.Thickness = 2
+	valueStroke.Parent = value
+	-- as wide as its text (measured at size 100), so the icon and text center together
+	local function fit()
+		local bounds = game:GetService("TextService"):GetTextSize(value.Text, 100, Enum.Font.FredokaOne, Vector2.new(100000, 1000))
+		value.Size = UDim2.fromScale(bounds.X / 100 * 0.95 + 0.06, 0.95)
+	end
+	value.Text = rowText or ""
+	fit()
+	value:GetPropertyChangedSignal("Text"):Connect(fit)
+	return label, value
 end
 
 local function getPlayerFromHit(hit: BasePart): Player?
@@ -1096,7 +1144,7 @@ local function tabletScreen(screen: BasePart, lineIndex: number, color: Color3)
 	label.Font = Enum.Font.FredokaOne
 	label.TextScaled = true
 	label.TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.6)
-	label.Text = `⚙️\nLINE {lineIndex}`
+	label.Text = `LINE {lineIndex}`
 	label.Parent = gui
 	local glow = Instance.new("UIStroke")
 	glow.Thickness = 3
@@ -1511,7 +1559,7 @@ local function buildItem(plot: Plot, item: TycoonItems.Item, bought: boolean?, a
 		model:SetAttribute("Bonus", bonus)
 		local anchor = makeDecor(model, "BonusTag", Vector3.one, floor * CFrame.new(RoomUpgradeBuilder.TagSpot(item.Key)), WHITE)
 		anchor.Transparency = 1
-		local tag = makeBillboard(anchor, `{item.Name} Lv{item.Level}\n+{math.floor((bonus - 1) * 100 + 0.5)}% room 💰`, Vector2.new(9, 2.4), 0, 70)
+		local tag = makeBillboard(anchor, `{item.Name} Lv{item.Level}\n+{math.floor((bonus - 1) * 100 + 0.5)}% room income`, Vector2.new(9, 2.4), 0, 70)
 		tag.TextColor3 = Color3.fromRGB(255, 225, 90)
 	elseif item.Kind == "Track" then
 		buildTrackLook(model, plot, item)
@@ -1552,7 +1600,7 @@ end
 -- Buttons --------------------------------------------------------------------
 
 local function priceText(price: number): string
-	return if price == 0 then "FREE" else `💰 {Format.Number(price)}`
+	return if price == 0 then "FREE" else Format.Number(price)
 end
 
 -- A room upgrade level the owner hasn't the rebirths for yet: its button shows, gray,
@@ -1616,37 +1664,39 @@ end
 local function createButton(plot: Plot, item: TycoonItems.Item)
 	local cframe: CFrame
 	local text: string
+	-- the row under the name: a coin and the price, or a lock and the rebirth it needs
+	-- (FREE goes on the name's lines)
+	local rowIcon: string? = if item.Price > 0 then "Coin" else nil
+	local rowText: string? = if item.Price > 0 then priceText(item.Price) else nil
+	local free = if item.Price > 0 then "" else "\nFREE"
+	if isLocked(plot, item) then
+		rowIcon, rowText, free = "Lock", `REBIRTH {item.Rebirths}`, ""
+	end
 	if item.Kind == "Room" then
 		local spot = ROOM_BUTTONS[item.Zone] or ROOM_BUTTONS.PlushieRoom
 		cframe = plot.CFrame * CFrame.new(spot.X, spot.Y + 0.2, spot.Z)
-		text = if TycoonItems.BuildsStorey(item.Id)
-			then `🏗️ NEW FLOOR: {Zones.ById[item.Zone].Name}\n{priceText(item.Price)}` -- (it brings its storey)
-			else `🔓 {item.Name}\n{priceText(item.Price)}`
+		text = (if TycoonItems.BuildsStorey(item.Id) then `NEW FLOOR: {Zones.ById[item.Zone].Name}` else item.Name) .. free -- (it brings its storey)
 	elseif item.Kind == "Floor" then
 		-- the next floor's button, on the lawn in front of the factory
 		cframe = plot.CFrame * CFrame.new(FLOOR_BUTTON.X, 0.2, FLOOR_BUTTON.Z)
-		text = if isLocked(plot, item)
-			then `🏗️ {item.Name}\n🔒 REBIRTH {item.Rebirths}`
-			else `🏗️ {item.Name}\n{priceText(item.Price)}`
+		text = item.Name .. free
 	elseif item.Kind == "Decor" then
 		-- a room upgrade's button sits by its spot in the room
 		local spot = RoomUpgradeBuilder.ButtonSpot(item.Key)
 		cframe = roomFloor(plot, item.Zone) * CFrame.new(spot.X, 0.2, spot.Z)
 		local title = `{item.Name} Lv{item.Level}`
-		text = if isLocked(plot, item)
-			then `{title}\n🔒 REBIRTH {item.Rebirths}`
-			else `{title}\n{priceText(item.Price)}\nx{item.Multiplier} room income`
+		text = if isLocked(plot, item) then title else `{title}\nx{item.Multiplier} room income{free}`
 	else
 		local offset = LineLayouts.For(item.Zone).Buttons[item.Key]
 		cframe = lineOrigin(plot, item.LineId :: string) * CFrame.new(offset.X, 0.2, offset.Z)
-		text = `{item.Name}\n{priceText(item.Price)}`
+		text = item.Name .. free
 	end
 	local big = item.Kind == "Floor" or item.Kind == "Room"
 	local size = if item.Kind == "Floor" then 8 elseif item.Kind == "Room" then 6 else 5
 	local button = makePart(plot.ButtonsFolder, item.Id, Vector3.new(size, 0.4, size), cframe, AFFORDABLE_COLOR, Enum.Material.Neon)
 	-- (a room's label floats higher, over the line buttons' labels around it)
 	local lift = if item.Kind == "Room" then 6 elseif big then 4 else 3
-	makeBillboard(button, text, if big then Vector2.new(12, 3.6) elseif item.Kind == "Decor" then Vector2.new(7.5, 3.4) else Vector2.new(7, 2.5), lift, if big then 150 else 60)
+	makeBillboard(button, text, if big then Vector2.new(12, 3.6) elseif item.Kind == "Decor" then Vector2.new(7.5, 3.4) else Vector2.new(7, 2.5), lift, if big then 150 else 60, rowIcon, rowText)
 	button.Touched:Connect(function(hit)
 		onButtonTouched(plot, item, hit)
 	end)
@@ -1688,9 +1738,8 @@ end
 -- (`banked`: Coins that just went straight to an Auto-Collect owner's balance: the pad
 -- shows them instead, or it would sit at 0 forever)
 local function updateCashLabel(plot: Plot, banked: number?)
-	plot.CashLabel.Text = if banked
-		then `🧲 AUTO-COLLECT\n+{Format.Number(banked)} 💰`
-		else `💰 {Format.Number(plot.Collected)}\nStep here to collect!`
+	plot.CashLabel.Text = if banked then "AUTO-COLLECT" else "COLLECT!"
+	plot.CashAmount.Text = if banked then `+{Format.Number(banked)}` else Format.Number(plot.Collected)
 	plot.CashPad:SetAttribute("Collected", plot.Collected)
 end
 
@@ -1710,13 +1759,13 @@ updateZoneLabels = function(plot: Plot)
 		local zone = Zones.ById[zoneId]
 		local rebirths = if data then data.Rebirths else 0
 		if rebirths < zone.UnlockRebirths then
-			FactoryBuilder.SetLocked(doorway, `🔒 REBIRTH {zone.UnlockRebirths}`)
+			FactoryBuilder.SetLocked(doorway, `REBIRTH {zone.UnlockRebirths}`)
 		elseif not zone.Available then
-			FactoryBuilder.SetLocked(doorway, "🚧 COMING SOON")
+			FactoryBuilder.SetLocked(doorway, "COMING SOON")
 		elseif data and isZoneUnlocked(data, zoneId) then
 			FactoryBuilder.SetLocked(doorway, nil)
 		else
-			FactoryBuilder.SetLocked(doorway, `🔓 💰 {Format.Number(zone.UnlockPrice or 0)}`)
+			FactoryBuilder.SetLocked(doorway, `{Format.Number(zone.UnlockPrice or 0)} COINS`)
 		end
 	end
 end
@@ -1780,7 +1829,7 @@ local function buildPlot(index: number, parent: Instance): Plot
 	building.Parent = model
 
 	local cashPad = makePart(model, "CashPad", Vector3.new(8, 0.6, 8), cframe * CASH_PAD_OFFSET, Color3.fromRGB(255, 215, 0), Enum.Material.Neon)
-	local cashLabel = makeBillboard(cashPad, "", Vector2.new(8, 3), 4, 100)
+	local cashLabel, cashAmount = makeBillboard(cashPad, "COLLECT!", Vector2.new(8, 3), 4, 100, "Coin", "0")
 
 	local linesFolder = Instance.new("Folder")
 	linesFolder.Name = "Lines"
@@ -1801,6 +1850,7 @@ local function buildPlot(index: number, parent: Instance): Plot
 		SignLabel = factory.SignLabel,
 		CashPad = cashPad,
 		CashLabel = cashLabel,
+		CashAmount = cashAmount :: TextLabel,
 		Doorways = factory.Doorways,
 		Owner = nil,
 		Collected = 0,

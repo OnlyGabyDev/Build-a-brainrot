@@ -1016,12 +1016,12 @@ local function makeToyBox(base: CFrame): ToyBox
 		gui.LightInfluence = 0
 		gui.PixelsPerStud = 20
 		gui.Parent = body
-		local star = Instance.new("TextLabel")
+		local star = Instance.new("ImageLabel")
 		star.Size = UDim2.fromScale(0.6, 0.6)
 		star.Position = UDim2.fromScale(0.2, 0.22)
 		star.BackgroundTransparency = 1
-		star.TextScaled = true
-		star.Text = "⭐"
+		star.ScaleType = Enum.ScaleType.Fit
+		star.Image = require(Shared:WaitForChild("Config"):WaitForChild("Icons")).Star
 		star.Parent = gui
 	end
 
@@ -1637,7 +1637,7 @@ local function cameraSpecial(build: Build, brainrot: Model, machine: BasePart, d
 	local photo = newPart(effects, "Photo", Vector3.new(3, 3.6, 0.15), CFrame.new(lens) * pivot.Rotation, Color3.new(1, 1, 1))
 	local gui = canvas(photo, Enum.NormalId.Front, 40)
 	frame(gui, UDim2.fromScale(0.86, 0.66), UDim2.fromScale(0.5, 0.4), Color3.fromRGB(150, 210, 255))
-	words(gui, "📸", UDim2.fromScale(0.5, 0.4), UDim2.fromScale(0.5, 0.4), Color3.new(1, 1, 1))
+	words(gui, "★", UDim2.fromScale(0.5, 0.4), UDim2.fromScale(0.5, 0.4), Color3.new(1, 1, 1))
 	words(gui, string.upper(build.Name), UDim2.fromScale(0.9, 0.18), UDim2.fromScale(0.5, 0.86), Color3.fromRGB(60, 50, 70))
 	local start = photo.CFrame
 	task.spawn(function()
@@ -2360,7 +2360,7 @@ local function makeTag(build: Build, brainrot: Model): BillboardGui
 	tier.Font = Enum.Font.FredokaOne
 	tier.TextScaled = true
 	tier.TextColor3 = if rarity then rarity.Color else Color3.new(1, 1, 1)
-	tier.Text = if build.FullMatch then `⭐ {string.upper(build.Rarity)} ⭐` else string.upper(build.Rarity)
+	tier.Text = if build.FullMatch then `★ {string.upper(build.Rarity)} ★` else string.upper(build.Rarity)
 	tier.Parent = gui
 	local tierStroke = Instance.new("UIStroke")
 	tierStroke.Thickness = 2.5
@@ -3551,7 +3551,7 @@ local function animateCycle(
 		end
 	end
 	local top = if ok then result :: Vector3 else ship.Position + Vector3.new(0, 3, 0)
-	local text = `+{require(Shared:WaitForChild("Format")).Number(value)} 💰` .. (if fullMatch then " x2!" else "")
+	local text = `+{require(Shared:WaitForChild("Format")).Number(value)}` .. (if fullMatch then " x2!" else "")
 	Effects.popup(top + Vector3.new(0, 1, 0), text, if fullMatch then MATCH_COLOR else COIN_COLOR, 2.2, 1.4)
 	Effects.sound(top, Sounds.Whoosh, 0.2, vary(1.2))
 	Effects.sound(top, Sounds.Cash, 0.3, vary(1))

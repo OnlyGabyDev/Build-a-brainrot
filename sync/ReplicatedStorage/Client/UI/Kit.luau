@@ -1,9 +1,11 @@
 --[[
 	UI Kit
-	The shared look and building blocks for every menu (GDD §1, §13), Pet Simulator X
-	style: chunky rounded panels, thick dark outlines, gradients, bouncy buttons and a
-	click on every press. Everything is designed at 1600x900 and scaled to the screen.
-	Client only.
+	The shared look and building blocks for every menu (GDD §1, §13), in the factory's
+	style (UI v3): each menu has its own hue family like each factory building, chunky
+	rounded panels with thick dark outlines, a striped header with a big icon breaking
+	out of its corner, a neon rim, a slow sheen, bouncy buttons and a click on every
+	press. Icons are our own images (`Config/Icons`, `Kit.icon`), never emojis.
+	Everything is designed at 1600x900 and scaled to the screen. Client only.
 ]]
 
 local Players = game:GetService("Players")
@@ -12,7 +14,9 @@ local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
-local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Sounds"))
+local Config = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
+local Icons = require(Config:WaitForChild("Icons"))
+local Sounds = require(Config:WaitForChild("Sounds"))
 
 local DESIGN_SIZE = Vector2.new(1600, 900)
 local UI_BOOST = 1.18
@@ -35,6 +39,37 @@ Kit.Colors = {
 	Grey = { Color3.fromRGB(205, 205, 215), Color3.fromRGB(150, 150, 165) },
 	Panel = { Color3.fromRGB(255, 252, 245), Color3.fromRGB(238, 228, 212) },
 }
+
+-- Hue families, one per menu (like one per factory building): Light for the panel's
+-- tint, Main and Dark for its header, Neon for its rim.
+export type Hue = { Light: Color3, Main: Color3, Dark: Color3, Neon: Color3 }
+Kit.Hues = {
+	Purple = { Light = Color3.fromRGB(215, 180, 255), Main = Color3.fromRGB(150, 90, 245), Dark = Color3.fromRGB(85, 40, 185), Neon = Color3.fromRGB(225, 150, 255) },
+	Blue = { Light = Color3.fromRGB(165, 225, 255), Main = Color3.fromRGB(60, 150, 255), Dark = Color3.fromRGB(25, 80, 200), Neon = Color3.fromRGB(100, 235, 255) },
+	Gold = { Light = Color3.fromRGB(255, 230, 140), Main = Color3.fromRGB(255, 175, 40), Dark = Color3.fromRGB(205, 105, 10), Neon = Color3.fromRGB(255, 230, 80) },
+	Pink = { Light = Color3.fromRGB(255, 185, 235), Main = Color3.fromRGB(240, 90, 195), Dark = Color3.fromRGB(170, 35, 140), Neon = Color3.fromRGB(255, 130, 230) },
+	Green = { Light = Color3.fromRGB(175, 250, 160), Main = Color3.fromRGB(60, 200, 90), Dark = Color3.fromRGB(25, 130, 55), Neon = Color3.fromRGB(130, 255, 150) },
+	Teal = { Light = Color3.fromRGB(160, 240, 235), Main = Color3.fromRGB(35, 185, 200), Dark = Color3.fromRGB(15, 115, 140), Neon = Color3.fromRGB(100, 255, 240) },
+	Red = { Light = Color3.fromRGB(255, 170, 170), Main = Color3.fromRGB(235, 70, 85), Dark = Color3.fromRGB(160, 25, 50), Neon = Color3.fromRGB(255, 110, 125) },
+	Orange = { Light = Color3.fromRGB(255, 205, 150), Main = Color3.fromRGB(255, 130, 45), Dark = Color3.fromRGB(200, 70, 15), Neon = Color3.fromRGB(255, 180, 80) },
+}
+
+-- A hue's gradient pair (top, bottom) for buttons and pills.
+function Kit.pair(hue: Hue): { Color3 }
+	return { hue.Main:Lerp(WHITE, 0.25), hue.Dark:Lerp(hue.Main, 0.3) }
+end
+
+-- A hue family from a gradient pair (top, bottom), for menus colored by data (a
+-- gamepass's own colors).
+function Kit.hue(colors: { Color3 }): Hue
+	local top, bottom = colors[1], colors[2] or colors[1]
+	return {
+		Light = top:Lerp(WHITE, 0.3),
+		Main = top:Lerp(bottom, 0.4),
+		Dark = bottom:Lerp(Color3.new(0, 0, 0), 0.2),
+		Neon = top:Lerp(WHITE, 0.35),
+	}
+end
 
 local gui: Frame? = nil
 local clickSound: Sound? = nil
@@ -100,6 +135,149 @@ function Kit.text(props: { [string]: any }): TextLabel
 	Kit.new("UIStroke", { Thickness = strokeThickness, Color = Kit.Outline, Parent = label })
 	label.Parent = props.Parent
 	return label
+end
+
+-- One of our icons (`Config/Icons`) as an ImageLabel filling its parent unless `props`
+-- says otherwise.
+function Kit.icon(name: string, props: { [string]: any }?): ImageLabel
+	local image = Kit.new("ImageLabel", {
+		Name = "Icon",
+		BackgroundTransparency = 1,
+		Image = (Icons :: any)[name] or "",
+		ScaleType = Enum.ScaleType.Fit,
+		Size = UDim2.fromScale(1, 1),
+	})
+	local properties: { [string]: any } = props or {}
+	for key, value in properties do
+		if key ~= "Parent" then
+			(image :: any)[key] = value
+		end
+	end
+	image.Parent = properties.Parent
+	return image
+end
+
+-- One line of text with one of our icons before it, centered in a frame (`props` sets
+-- its Position, Size, AnchorPoint, ZIndex...): where an emoji sat inside a sentence.
+-- Returns the frame and its label.
+function Kit.iconText(props: { [string]: any }, icon: string, text: string, color: Color3?): (Frame, TextLabel)
+	local holder = Kit.new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(400, 40) })
+	for key, value in props do
+		if key ~= "Parent" then
+			(holder :: any)[key] = value
+		end
+	end
+	local height = holder.Size.Y.Offset
+	Kit.new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = holder,
+	})
+	Kit.icon(icon, { LayoutOrder = 1, Size = UDim2.fromOffset(height * 1.15, height * 1.15), ZIndex = holder.ZIndex, Parent = holder })
+	local label = Kit.text({
+		Text = text,
+		TextColor3 = color or WHITE,
+		TextScaled = false,
+		TextSize = math.floor(height * 0.85),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, height),
+		LayoutOrder = 2,
+		ZIndex = holder.ZIndex,
+		Parent = holder,
+	})
+	holder.Parent = props.Parent
+	return holder, label
+end
+
+-- A row of `count` gold stars (a rarity's rank), centered in a frame (`props` sets its
+-- Position, Size, AnchorPoint, ZIndex...; `align` "Left" or "Right" packs them to a side).
+function Kit.stars(props: { [string]: any }, count: number, align: string?): Frame
+	local holder = Kit.new("Frame", { Name = "Stars", BackgroundTransparency = 1, Size = UDim2.fromOffset(200, 30) })
+	for key, value in props do
+		if key ~= "Parent" then
+			(holder :: any)[key] = value
+		end
+	end
+	local height = holder.Size.Y.Offset
+	Kit.new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = if align == "Left" then Enum.HorizontalAlignment.Left elseif align == "Right" then Enum.HorizontalAlignment.Right else Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, -math.floor(height * 0.12)),
+		Parent = holder,
+	})
+	for _ = 1, count do
+		Kit.icon("Star", { Size = UDim2.fromOffset(height, height), ZIndex = holder.ZIndex, Parent = holder })
+	end
+	holder.Parent = props.Parent
+	return holder
+end
+
+-- An icon's image id, to swap an ImageLabel's icon.
+function Kit.iconId(name: string): string
+	return (Icons :: any)[name] or ""
+end
+
+-- White diagonal stripes over a frame (rounded like it), faint unless `transparency`
+-- says otherwise.
+function Kit.stripes(parent: GuiObject, transparency: number?, radius: number?, zIndex: number?): ImageLabel
+	local stripes = Kit.icon("Stripes", {
+		Name = "Stripes",
+		ScaleType = Enum.ScaleType.Tile,
+		TileSize = UDim2.fromOffset(72, 72),
+		ImageTransparency = transparency or 0.86,
+		ZIndex = zIndex or parent.ZIndex,
+		Parent = parent,
+	})
+	Kit.corner(stripes, radius or 16)
+	return stripes
+end
+
+-- A band of light sweeping across a frame now and then.
+function Kit.sheen(parent: GuiObject, every: number?, zIndex: number?): Frame
+	local sheen = Kit.new("Frame", {
+		Name = "Sheen",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = WHITE,
+		ZIndex = zIndex or parent.ZIndex,
+		Parent = parent,
+	})
+	Kit.corner(sheen, 16)
+	local gradient = Kit.new("UIGradient", {
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.42, 1),
+			NumberSequenceKeypoint.new(0.5, 0.45),
+			NumberSequenceKeypoint.new(0.58, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Rotation = 18,
+		Offset = Vector2.new(-1, 0),
+		Parent = sheen,
+	})
+	TweenService:Create(gradient, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, every or 3), { Offset = Vector2.new(1, 0) }):Play()
+	return sheen
+end
+
+-- A pulsing neon line just inside a frame's outline.
+function Kit.neonRim(parent: GuiObject, color: Color3, radius: number?, inset: number?): Frame
+	local gap = inset or 6
+	local rim = Kit.new("Frame", {
+		Name = "NeonRim",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(1, -gap * 2, 1, -gap * 2),
+		BackgroundTransparency = 1,
+		ZIndex = 1,
+		Parent = parent,
+	})
+	Kit.corner(rim, math.max(4, (radius or 24) - gap))
+	local stroke = Kit.new("UIStroke", { Thickness = 3, Color = color, Parent = rim })
+	TweenService:Create(stroke, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Transparency = 0.55 }):Play()
+	return rim
 end
 
 function Kit.click()
@@ -171,8 +349,9 @@ function Kit.floatText(parent: GuiObject, text: string, color: Color3, position:
 	end)
 end
 
--- A chunky, bouncy button. `colors` is a gradient pair from Kit.Colors.
-function Kit.button(props: { [string]: any }, colors: { Color3 }, text: string?, onClick: () -> ()): TextButton
+-- A chunky, bouncy button. `colors` is a gradient pair from Kit.Colors; `icon` (one of
+-- ours) goes left of the text, or alone in the middle.
+function Kit.button(props: { [string]: any }, colors: { Color3 }, text: string?, onClick: () -> (), icon: string?): TextButton
 	local button = Kit.new("TextButton", {
 		AutoButtonColor = false,
 		Text = "",
@@ -187,13 +366,32 @@ function Kit.button(props: { [string]: any }, colors: { Color3 }, text: string?,
 	Kit.corner(button, 14)
 	Kit.stroke(button, 3.5)
 	Kit.gradient(button, colors)
+	-- a darker bottom, so it stands up like a key
+	local base = Kit.new("Frame", { Name = "Base", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), ZIndex = 0, Parent = button })
+	Kit.corner(base, 14)
+	Kit.new("UIGradient", {
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.68, 1), NumberSequenceKeypoint.new(1, 0.72) }),
+		Rotation = 90,
+		Parent = base,
+	})
 	Kit.shine(button, 10)
+	local height = if button.Size.Y.Offset > 0 then button.Size.Y.Offset else 56
+	if icon then
+		Kit.icon(icon, {
+			AnchorPoint = Vector2.new(if text then 0 else 0.5, 0.5),
+			Position = if text then UDim2.new(0, 4, 0.5, 0) else UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(if text then 0.92 else 0.8, if text then 0.92 else 0.8),
+			SizeConstraint = Enum.SizeConstraint.RelativeYY,
+			Parent = button,
+		})
+	end
 	if text then
+		local iconWidth = if icon then height * 0.92 + 4 else 0
 		Kit.text({
 			Text = text,
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(0.88, 0.68),
+			Position = UDim2.new(0.5, iconWidth / 2, 0.5, 0),
+			Size = UDim2.new(0.88, -iconWidth, 0.68, 0),
 			Parent = button,
 		})
 	end
@@ -356,9 +554,12 @@ function Kit.getGui(): Frame
 	return canvas
 end
 
--- A centered menu panel with a colored title bar and a close button. Returns the
--- panel (hidden) and its content area (below the title bar).
-function Kit.modal(name: string, title: string, colors: { Color3 }, size: Vector2): (Frame, Frame)
+-- A centered menu panel in a hue family (Kit.Hues; a gradient pair works too): a tinted
+-- panel with faint stripes and a neon rim, a striped header with a sheen, `icon` big
+-- and tilted over its top-left corner, a red close button on its top-right corner.
+-- Returns the panel (hidden) and its content area (below the header).
+function Kit.modal(name: string, title: string, colors: any, size: Vector2, icon: string?): (Frame, Frame)
+	local hue: Hue = if colors.Main then colors else Kit.hue(colors)
 	local panel = Kit.new("Frame", {
 		Name = name,
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -369,41 +570,70 @@ function Kit.modal(name: string, title: string, colors: { Color3 }, size: Vector
 		ZIndex = 10,
 		Parent = Kit.getGui(),
 	})
-	Kit.corner(panel, 24)
-	Kit.stroke(panel, 5)
-	Kit.gradient(panel, Kit.Colors.Panel)
+	Kit.corner(panel, 26)
+	Kit.stroke(panel, 6)
+	Kit.gradient(panel, { hue.Light:Lerp(WHITE, 0.8), hue.Light:Lerp(WHITE, 0.5) })
+	Kit.stripes(panel, 0.9, 26, 1)
+	Kit.neonRim(panel, hue.Neon, 26)
 	Kit.new("UIScale", { Name = "OpenScale", Parent = panel })
 
 	local header = Kit.new("Frame", {
 		Name = "Header",
-		Size = UDim2.new(1, 0, 0, 72),
+		Position = UDim2.fromOffset(10, 8),
+		Size = UDim2.new(1, -20, 0, 58),
 		BackgroundColor3 = WHITE,
+		ZIndex = 2,
 		Parent = panel,
 	})
-	Kit.corner(header, 24)
-	Kit.gradient(header, colors)
+	Kit.corner(header, 18)
+	Kit.stroke(header, 4)
+	Kit.gradient(header, { hue.Main, hue.Dark })
+	Kit.stripes(header, 0.78, 18)
+	Kit.shine(header, 14)
+	Kit.sheen(header, 3.5)
+	local left = 22
+	if icon then
+		-- the menu's icon, big, tilted and bobbing over the panel's corner
+		local badge = Kit.icon(icon, {
+			Name = "TitleIcon",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(30, 26),
+			Size = UDim2.fromOffset(108, 108),
+			Rotation = -12,
+			ZIndex = 6,
+			Parent = panel,
+		})
+		local bob = TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+		TweenService:Create(badge, bob, { Rotation = -4, Position = UDim2.fromOffset(30, 20) }):Play()
+		left = 96
+	end
 	Kit.text({
+		Name = "Title",
 		Text = title,
-		Position = UDim2.fromOffset(24, 12),
-		Size = UDim2.new(1, -110, 0, 48),
+		Position = UDim2.fromOffset(left, 7),
+		Size = UDim2.new(1, -left - 70, 0, 44),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		StrokeThickness = 3,
+		StrokeThickness = 3.5,
+		ZIndex = 3,
 		Parent = header,
 	})
 	Kit.button({
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -14, 0, 10),
-		Size = UDim2.fromOffset(52, 52),
-		Parent = header,
-	}, Kit.Colors.Red, "X", function()
+		Name = "Close",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -10, 0, 10),
+		Size = UDim2.fromOffset(62, 62),
+		ZIndex = 6,
+		Parent = panel,
+	}, Kit.Colors.Red, nil, function()
 		Kit.close(panel)
-	end)
+	end, "Close")
 
 	local content = Kit.new("Frame", {
 		Name = "Content",
 		Position = UDim2.fromOffset(0, 72),
 		Size = UDim2.new(1, 0, 1, -72),
 		BackgroundTransparency = 1,
+		ZIndex = 2,
 		Parent = panel,
 	})
 	return panel, content
@@ -583,7 +813,7 @@ local function stackBanners()
 	end
 end
 
--- `hype` 0-3 grows the show: 1+ a sunburst behind it, 2+ a screen flash and confetti,
+-- `icon` is one of ours (`Config/Icons`). `hype` 0-3 grows the show: 1+ a sunburst behind it, 2+ a screen flash and confetti,
 -- 3 a turning rainbow.
 function Kit.banner(icon: string, title: string, subtitle: string, color: Color3, hype: number)
 	local screen = Kit.getGui()
@@ -616,12 +846,11 @@ function Kit.banner(icon: string, title: string, subtitle: string, color: Color3
 		})
 	end
 	Kit.shine(card, 18).ZIndex = 48
-	local badge = Kit.text({
-		Text = icon,
+	Kit.stripes(card, 0.8, 24, 48)
+	local badge = Kit.icon(icon, {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(66, BANNER_SIZE.Y / 2),
-		Size = UDim2.fromOffset(84, 84),
-		StrokeThickness = 0,
+		Size = UDim2.fromOffset(96, 96),
 		ZIndex = 49,
 		Parent = card,
 	})
@@ -646,13 +875,10 @@ function Kit.banner(icon: string, title: string, subtitle: string, color: Color3
 	-- sparkles twinkling along its edges
 	local sparks = {}
 	for index = 1, 4 + hype * 2 do
-		table.insert(sparks, Kit.text({
-			Text = "✦",
+		table.insert(sparks, Kit.icon("Sparkle", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Position = UDim2.fromScale(index / (5 + hype * 2), if index % 2 == 0 then 0.02 else 0.98),
-			Size = UDim2.fromOffset(26, 26),
-			TextColor3 = Color3.fromRGB(255, 252, 220),
-			StrokeThickness = 1.5,
+			Size = UDim2.fromOffset(30, 30),
 			ZIndex = 50,
 			Parent = card,
 		}))
@@ -673,7 +899,7 @@ function Kit.banner(icon: string, title: string, subtitle: string, color: Color3
 		scale.Scale = 1 + math.sin(t * 6) * 0.025
 		badge.Rotation = math.sin(t * 4) * 12
 		for index, spark in sparks do
-			spark.TextTransparency = 1 - (math.sin(t * 5 + index * 1.3) + 1) / 2
+			spark.ImageTransparency = 1 - (math.sin(t * 5 + index * 1.3) + 1) / 2
 			spark.Rotation = t * 90 + index * 40
 		end
 		if hype >= 3 then
@@ -715,24 +941,55 @@ function Kit.orbit(viewport: ViewportFrame, model: Model, focus: Vector3?, dista
 	end
 end
 
--- A short message at the top of the screen that fades out.
-function Kit.toast(text: string, color: Color3?)
-	local label = Kit.text({
-		Text = text,
-		TextColor3 = color or WHITE,
+-- A short message at the top of the screen that fades out: a dark pill with `icon`
+-- (one of ours) at its left and the text in `color`.
+function Kit.toast(text: string, color: Color3?, icon: string?)
+	local tint = color or WHITE
+	local pill = Kit.new("Frame", {
+		Name = "Toast",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 90),
-		Size = UDim2.fromOffset(700, 44),
-		StrokeThickness = 3,
+		Position = UDim2.new(0.5, 0, 0, 10), -- (up in the top bar's middle, clear of the menus' titles)
+		Size = UDim2.fromOffset(0, 54),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = Kit.Outline,
+		BackgroundTransparency = 0.2,
 		ZIndex = 50,
 		Parent = Kit.getGui(),
 	})
-	Kit.pop(label, 0.2)
-	local fade = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 1.5)
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = pill })
+	local rim = Kit.new("UIStroke", { Thickness = 3, Color = tint, Parent = pill })
+	Kit.new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, 8),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = pill,
+	})
+	Kit.new("UIPadding", { PaddingLeft = UDim.new(0, if icon then 8 else 24), PaddingRight = UDim.new(0, 24), Parent = pill })
+	local image = if icon then Kit.icon(icon, { LayoutOrder = 1, Size = UDim2.fromOffset(48, 48), ZIndex = 51, Parent = pill }) else nil
+	local label = Kit.text({
+		Text = text,
+		TextColor3 = tint,
+		TextScaled = false,
+		TextSize = 30,
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, 40),
+		LayoutOrder = 2,
+		StrokeThickness = 2.5,
+		ZIndex = 51,
+		Parent = pill,
+	})
+	Kit.pop(pill, 0.2)
+	local fade = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 1.8)
+	TweenService:Create(pill, fade, { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(rim, fade, { Transparency = 1 }):Play()
 	TweenService:Create(label, fade, { TextTransparency = 1 }):Play()
 	TweenService:Create(label:FindFirstChildOfClass("UIStroke") :: UIStroke, fade, { Transparency = 1 }):Play()
-	task.delay(2.1, function()
-		label:Destroy()
+	if image then
+		TweenService:Create(image, fade, { ImageTransparency = 1 }):Play()
+	end
+	task.delay(2.4, function()
+		pill:Destroy()
 	end)
 end
 

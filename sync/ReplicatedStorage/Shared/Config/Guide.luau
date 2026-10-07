@@ -28,19 +28,19 @@ Guide.FinalRank = 3 -- the last gift: a new part of this rarity rank or better (
 
 Guide.Steps = {
 	{ Id = "Intro", Say = "", Icon = "" }, -- the camera flies onto your factory (no bubble)
-	{ Id = "Free", Say = "Step on FREE!", Icon = "👟", Button = "Head", Coins = 20 },
-	{ Id = "Collect", Say = "Grab your cash!", Icon = "💰", Coins = 20 },
-	{ Id = "Box", Say = "Open your gift box!", Icon = "🎁", Rolls = 1 },
-	{ Id = "Body", Say = "Buy the BODY!", Icon = "👕", Button = "Body", Coins = 60 },
-	{ Id = "Arms", Say = "Buy the ARMS!", Icon = "💪", Button = "Arms", Coins = 150 },
-	{ Id = "Legs", Say = "Buy the LEGS!", Icon = "🦵", Button = "Legs", Rolls = 1 },
-	{ Id = "Perfect", Say = "Watch: a PERFECT build!", Icon = "⭐" },
+	{ Id = "Free", Say = "Step on FREE!", Icon = "Shoe", Button = "Head", Coins = 20 },
+	{ Id = "Collect", Say = "Grab your cash!", Icon = "Coin", Coins = 20 },
+	{ Id = "Box", Say = "Open your gift box!", Icon = "Gift", Rolls = 1 },
+	{ Id = "Body", Say = "Buy the BODY!", Icon = "Puzzle", Button = "Body", Coins = 60 },
+	{ Id = "Arms", Say = "Buy the ARMS!", Icon = "Puzzle", Button = "Arms", Coins = 150 },
+	{ Id = "Legs", Say = "Buy the LEGS!", Icon = "Puzzle", Button = "Legs", Rolls = 1 },
+	{ Id = "Perfect", Say = "Watch: a PERFECT build!", Icon = "Star" },
 } :: { Step }
 
 -- What Tralalero says while the arrow points somewhere else first (GuideManager's
 -- "GuideSay"): the line, while the Cash Pad waits for its first Coins.
 Guide.Hints = {
-	Watch = { Id = "Watch", Say = "Watch it build!", Icon = "👀" },
+	Watch = { Id = "Watch", Say = "Watch it build!", Icon = "Eye" },
 } :: { [string]: Step }
 
 Guide.ById = {} :: { [string]: Step }

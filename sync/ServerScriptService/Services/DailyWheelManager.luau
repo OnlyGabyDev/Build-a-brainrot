@@ -76,16 +76,16 @@ local function grantPrize(player: Player, prize: DailyWheel.Prize): string
 		local income = ProductionManager.GetIncome(player) * (prize.IncomeSeconds or 0)
 		local amount = math.floor(math.max(prize.MinCoins or 0, income))
 		DataManager.AddCurrency(player, "Coins", amount)
-		return `+{Format.Number(amount)} 💰`
+		return `+{Format.Number(amount)} COINS`
 	elseif prize.Kind == "Gems" then
 		DataManager.AddCurrency(player, "Gems", prize.Amount or 0)
-		return `+{Format.Number(prize.Amount or 0)} 💎`
+		return `+{Format.Number(prize.Amount or 0)} GEMS`
 	elseif prize.Kind == "Rolls" then
 		DataManager.AddRolls(player, prize.Amount or 0)
-		return `+{prize.Amount} 🎲`
+		return `+{prize.Amount} ROLLS`
 	elseif prize.Kind == "LuckBoost" then
 		DataManager.AddBoost(player, "Luck", prize.Seconds or 0)
-		return `🍀 LUCK BOOST {math.floor((prize.Seconds or 0) / 60)} min!`
+		return `LUCK BOOST {math.floor((prize.Seconds or 0) / 60)} min!`
 	end
 	return prize.Label
 end

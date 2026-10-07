@@ -1,7 +1,7 @@
 --[[
 	Sprint
 	The Sprint gamepass (GDD §12): hold Shift to run faster (Config/Gamepasses' Sprint ×
-	walk speed). On touch screens a 🏃 button toggles it instead. Your own character's
+	walk speed). On touch screens a shoe button toggles it instead. Your own character's
 	walk speed is yours to set, so this is client-side; whatever the server sets (a
 	gadget's speed) is the speed it runs from.
 ]]
@@ -90,7 +90,7 @@ local function showButton()
 			end
 		end
 	end)
-	Kit.text({ Text = "🏃", Position = UDim2.fromScale(0.15, 0.06), Size = UDim2.fromScale(0.7, 0.56), StrokeThickness = 0, Parent = button })
+	Kit.icon("Shoe", { Position = UDim2.fromScale(0.15, 0.04), Size = UDim2.fromScale(0.7, 0.6), Parent = button })
 	Kit.text({ Name = "Label", Text = "SPRINT", Position = UDim2.fromScale(0.06, 0.64), Size = UDim2.fromScale(0.88, 0.28), Parent = button })
 end
 player:GetAttributeChangedSignal("Pass_Sprint"):Connect(showButton)

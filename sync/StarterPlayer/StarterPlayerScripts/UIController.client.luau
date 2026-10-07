@@ -34,9 +34,9 @@ local Shop = require(UI:WaitForChild("Shop"))
 local Upsell = require(UI:WaitForChild("Upsell"))
 
 local COUNTERS = {
-	{ Stat = "Coins", Icon = "💰", Colors = Kit.Colors.Coins, Float = Color3.fromRGB(255, 235, 110), Gap = 70 },
-	{ Stat = "Gems", Icon = "💎", Colors = Kit.Colors.Gems, Float = Color3.fromRGB(140, 235, 255), Gap = 110 },
-	{ Stat = "Rolls", Icon = "🎲", Colors = Kit.Colors.Rolls, Float = Color3.fromRGB(255, 160, 240), Gap = 160 },
+	{ Stat = "Coins", Icon = "Coin", Colors = Kit.Colors.Coins, Float = Color3.fromRGB(255, 235, 110), Gap = 70 },
+	{ Stat = "Gems", Icon = "Gem", Colors = Kit.Colors.Gems, Float = Color3.fromRGB(140, 235, 255), Gap = 110 },
+	{ Stat = "Rolls", Icon = "Roll", Colors = Kit.Colors.Rolls, Float = Color3.fromRGB(255, 160, 240), Gap = 160 },
 }
 local COIN_BATCH = 0.7 -- Coins come in all the time: their "+N" shows at most this often
 local LINE_REACH = 28 -- a bit under the server's reach, so an open here always works
@@ -115,8 +115,8 @@ task.spawn(function()
 end)
 
 -- Counters -------------------------------------------------------------------
--- A glossy pill per currency with its icon in a bubble sticking out of its left end;
--- it counts up smoothly, pops, and floats a "+N" off its right end when it goes up.
+-- A glossy striped pill per currency with its icon big over its left end; it counts up
+-- smoothly, pops, and floats a "+N" off its right end when it goes up.
 
 local counters = Kit.new("Frame", {
 	Name = "Counters",
@@ -140,20 +140,16 @@ local function makeCounter(order: number, counter: typeof(COUNTERS[1])): Frame
 	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = pill })
 	Kit.stroke(pill, 4)
 	Kit.gradient(pill, counter.Colors)
+	Kit.stripes(pill, 0.8, 30)
 	Kit.shine(pill, 18)
-	-- the icon in its bubble
-	local bubble = Kit.new("Frame", {
+	-- the icon, big, over the pill's left end
+	local bubble = Kit.icon(counter.Icon, {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0, 14, 0.5, 0),
-		Size = UDim2.fromOffset(72, 72),
-		BackgroundColor3 = Kit.White,
-		ZIndex = 2,
+		Position = UDim2.new(0, 12, 0.5, 0),
+		Size = UDim2.fromOffset(84, 84),
+		ZIndex = 3,
 		Parent = pill,
 	})
-	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = bubble })
-	Kit.stroke(bubble, 4)
-	Kit.gradient(bubble, { Kit.White, counter.Colors[1] })
-	Kit.text({ Text = counter.Icon, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.72, 0.72), StrokeThickness = 0, ZIndex = 3, Parent = bubble })
 	local label = Kit.text({
 		Text = "0",
 		Position = UDim2.fromOffset(60, 9),
@@ -218,13 +214,14 @@ Kit.button({
 	Position = UDim2.new(1, 12, 0.5, 0),
 	Size = UDim2.fromOffset(50, 50),
 	Parent = pills.Gems,
-}, Kit.Colors.Green, "+", function()
+}, Kit.Colors.Green, nil, function()
 	Shop.Open("GEMS")
-end)
+end, "Plus")
 
 -- Menu buttons ---------------------------------------------------------------
 
--- Under the counters, two to a row: big glossy squares, their icons bobbing gently.
+-- Under the counters, two to a row: big glossy squares, each in its menu's hue with
+-- faint stripes, their icons bobbing gently.
 local buttons = Kit.new("Frame", {
 	Name = "MenuButtons",
 	Position = UDim2.fromOffset(28, 232),
@@ -240,10 +237,11 @@ Kit.new("UIGridLayout", {
 })
 
 local bobbing: { GuiObject } = {}
-local function menuButton(order: number, icon: string, label: string, colors: { Color3 }, onClick: () -> ()): TextButton
-	local button = Kit.button({ LayoutOrder = order, Parent = buttons }, colors, nil, onClick)
-	local glyph = Kit.text({ Text = icon, Position = UDim2.fromScale(0.12, 0.04), Size = UDim2.fromScale(0.76, 0.58), StrokeThickness = 0, Parent = button })
-	Kit.text({ Text = label, Position = UDim2.fromScale(0.06, 0.64), Size = UDim2.fromScale(0.88, 0.28), Parent = button })
+local function menuButton(order: number, icon: string, label: string, hue: Kit.Hue, onClick: () -> ()): TextButton
+	local button = Kit.button({ LayoutOrder = order, Parent = buttons }, Kit.pair(hue), nil, onClick)
+	Kit.stripes(button, 0.82, 14, 0)
+	local glyph = Kit.icon(icon, { Position = UDim2.fromScale(0.12, 0.04), Size = UDim2.fromScale(0.76, 0.62), Parent = button })
+	Kit.text({ Text = label, Position = UDim2.fromScale(0.06, 0.66), Size = UDim2.fromScale(0.88, 0.27), Parent = button })
 	table.insert(bobbing, glyph)
 	return button
 end
@@ -293,19 +291,19 @@ local function openLines()
 			return
 		end
 	end
-	Kit.toast("Walk up to a line to configure it! Remote config: Auto-Collect pass (soon)", Color3.fromRGB(255, 220, 80))
+	Kit.toast("Walk up to a line!", Color3.fromRGB(255, 220, 80), "Factory")
 end
 
-menuButton(1, "🏭", "LINES", Kit.Colors.Purple, openLines)
+menuButton(1, "Factory", "LINES", Kit.Hues.Purple, openLines)
 -- (the Index's "NEW!" badge: something new to see there, cleared when it's opened)
 local indexBadge: TextLabel
-local indexButton = menuButton(2, "📖", "INDEX", Kit.Colors.Gems, function()
+local indexButton = menuButton(2, "Album", "INDEX", Kit.Hues.Blue, function()
 	indexBadge.Visible = false
 	Catalog.Open()
 end)
-menuButton(3, "🔄", "REBIRTH", Kit.Colors.Coins, RebirthMenu.Open)
-local wheelButton = menuButton(4, "🎡", "WHEEL", Kit.Colors.Rolls, DailyWheelMenu.Open)
-menuButton(5, "🛒", "SHOP", Kit.Colors.Green, function()
+menuButton(3, "Rebirth", "REBIRTH", Kit.Hues.Gold, RebirthMenu.Open)
+local wheelButton = menuButton(4, "Wheel", "WHEEL", Kit.Hues.Pink, DailyWheelMenu.Open)
+menuButton(5, "Cart", "SHOP", Kit.Hues.Green, function()
 	Shop.Open()
 end)
 
@@ -323,11 +321,11 @@ task.spawn(function()
 	end
 	if dev then
 		local DevMenu = require(UI:WaitForChild("DevMenu"))
-		menuButton(6, "🛠️", "DEV", Kit.Colors.Red, DevMenu.Open)
+		menuButton(6, "Wrench", "DEV", Kit.Hues.Red, DevMenu.Open)
 	end
 end)
 
-SettingsMenu.Init() -- the ⚙️ button, top right
+SettingsMenu.Init() -- the gear button, top right
 
 -- A red "!" on the wheel button while a spin is waiting.
 local wheelBadge = Kit.text({
@@ -503,7 +501,7 @@ Remotes.Event("Completion").OnClientEvent:Connect(function(_plot, _lineId, brain
 	indexBadge.Visible = true
 	if firstEver then
 		task.delay(6, function()
-			Kit.toast("🎁 New MORPH + GADGET unlocked! Open the 📖 INDEX to use them!", Color3.fromRGB(255, 220, 80))
+			Kit.toast("New MORPH + GADGET! Open the INDEX", Color3.fromRGB(255, 220, 80), "Gift")
 		end)
 	end
 end)
@@ -511,7 +509,7 @@ end)
 -- Big moments from other players (your own get the full banner instead).
 Remotes.Event("Announce").OnClientEvent:Connect(function(text: string, color: Color3, from: Player?)
 	if from ~= player then
-		Kit.toast(`✨ {text} ✨`, color)
+		Kit.toast(text, color, "Sparkle")
 	end
 end)
 

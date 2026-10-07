@@ -704,7 +704,7 @@ local function refreshOwner(entry: Entry)
 	text.Visible = left > 0
 	if left > 0 then
 		local clock = string.format("%d:%02d", math.floor(left / 60), math.floor(left % 60))
-		text.Text = if entry.Box.Owner == player.UserId then `🎁 YOURS · {clock}` else `🔒 {string.upper(entry.Box.OwnerName or "SOMEONE")}'S · {clock}`
+		text.Text = if entry.Box.Owner == player.UserId then `YOURS · {clock}` else `{string.upper(entry.Box.OwnerName or "SOMEONE")}'S · {clock}`
 	end
 end
 
@@ -1008,9 +1008,8 @@ local function announce(box: any)
 	local rarity = Rarities.ById[box.Rarity]
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local where = if root then `📍 {math.floor((box.Position - root.Position).Magnitude)} studs away` else "📍 somewhere on the map"
-	local article = if string.find(box.PartType, "^[AEIOU]") then "An" else "A" -- (An ARMS box)
-	Kit.banner("🎁", `{string.upper(rarity.Id)} BOX!`, `{article} {string.upper(box.PartType)} box spawned · {where} · go grab it!`, rarity.Color, rarity.Rank - LootConfig.AnnounceRank)
+	local where = if root then `{math.floor((box.Position - root.Position).Magnitude)} studs away` else "on the map"
+	Kit.banner("Gift", `{string.upper(rarity.Id)} BOX!`, `{string.upper(box.PartType)} box · {where} · go grab it!`, rarity.Color, rarity.Rank - LootConfig.AnnounceRank)
 end
 
 Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payload: any, opener: Player?)
@@ -1025,10 +1024,10 @@ Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payloa
 	elseif action == "Drop" then
 		local count = payload.Count :: number
 		local text = if count >= 100
-			then `🌪️ {payload.Name} started a BOX STORM! 🌪️`
-			elseif count == 1 then `🎁 {payload.Name} dropped a loot box!`
-			else `🎁 {payload.Name} dropped {count} loot boxes!`
-		Kit.toast(text, OWNER_COLOR)
+			then `{payload.Name} started a BOX STORM!`
+			elseif count == 1 then `{payload.Name} dropped a box!`
+			else `{payload.Name} dropped {count} boxes!`
+		Kit.toast(text, OWNER_COLOR, if count >= 100 then "Storm" else "Gift")
 		Effects.sound2D(Sounds.Jingle, 0.4)
 	end
 end)
@@ -1203,6 +1202,6 @@ RunService.RenderStepped:Connect(function()
 	;(Radar.Glyph :: TextLabel).TextColor3 = rarity.Color
 	local tag = Radar.Tag :: TextLabel
 	tag.TextColor3 = rarity.Color:Lerp(Color3.new(1, 1, 1), 0.3)
-	tag.Text = `📡 {string.upper(rarity.Id)} · {math.floor(best)}m`
+	tag.Text = `{string.upper(rarity.Id)} · {math.floor(best)}m`
 	plate.Parent = workspace.CurrentCamera
 end)

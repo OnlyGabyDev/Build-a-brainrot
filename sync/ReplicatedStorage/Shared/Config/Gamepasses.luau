@@ -10,7 +10,7 @@ export type Pass = {
 	Id: number,
 	Order: number, -- position in the shop
 	Name: string,
-	Icon: string,
+	Icon: string, -- one of ours (Config/Icons)
 	Description: string,
 	IncomeMultiplier: number?, -- × Coins on every ship (ProductionManager)
 	Luck: number?, -- + luck on boxes and Rolls (LootManager)
@@ -49,7 +49,7 @@ local Gamepasses: { [string]: Pass } = {
 		Product = true,
 		Order = 0,
 		Name = "Starter Pack",
-		Icon = "🎉",
+		Icon = "Party",
 		Description = "A full Bombardiro Crocodilo, Tung Tung Tung Sahur's arms, 250K Coins, 3 Rolls and 10 random loot boxes.",
 		Starter = {
 			Parts = {
@@ -64,7 +64,7 @@ local Gamepasses: { [string]: Pass } = {
 			Boxes = 10,
 		},
 		OfferHours = 24,
-		Perks = { "Mythic Bombardiro!", "Tung Sahur's arms", "💰 250K + 🎁 10 boxes", "🎲 3 Rolls" },
+		Perks = { "Mythic Bombardiro!", "Tung Sahur's arms", "250K Coins + 10 boxes", "3 Rolls" },
 		Colors = { Color3.fromRGB(255, 120, 200), Color3.fromRGB(140, 60, 255) },
 		Ribbon = "LIMITED!", -- the shop shows the offer's countdown on it
 	},
@@ -72,7 +72,7 @@ local Gamepasses: { [string]: Pass } = {
 		Id = 2005406894,
 		Order = 1,
 		Name = "VIP",
-		Icon = "👑",
+		Icon = "Crown",
 		Description = "+25% Coins, a VIP chat tag and +1 free daily spin.",
 		IncomeMultiplier = 1.25,
 		FreeSpins = 1,
@@ -84,7 +84,7 @@ local Gamepasses: { [string]: Pass } = {
 		Id = 2004518950,
 		Order = 2,
 		Name = "2x Coins",
-		Icon = "💰",
+		Icon = "Coin",
 		Description = "Double Coins from every brainrot you ship.",
 		IncomeMultiplier = 2,
 		Perks = { "x2 Coins on every ship", "Stacks with VIP!" },
@@ -95,7 +95,7 @@ local Gamepasses: { [string]: Pass } = {
 		Id = 2006336907,
 		Order = 3,
 		Name = "Auto-Collect",
-		Icon = "🧲",
+		Icon = "Magnet",
 		Description = "Coins bank automatically, and you can configure your lines from anywhere.",
 		RemoteLines = true,
 		AutoCollect = true,
@@ -106,7 +106,7 @@ local Gamepasses: { [string]: Pass } = {
 		Id = 2005994907,
 		Order = 4,
 		Name = "Lucky",
-		Icon = "🍀",
+		Icon = "Clover",
 		Description = "+25% Luck on loot boxes and Rolls.",
 		Luck = 0.25,
 		Perks = { "+25% Luck on boxes", "+25% Luck on Rolls" },
@@ -116,7 +116,7 @@ local Gamepasses: { [string]: Pass } = {
 		Id = 2005940893,
 		Order = 5,
 		Name = "Fast Open",
-		Icon = "⚡",
+		Icon = "Lightning",
 		Description = "Skip the reveal: loot pops straight into a quick feed, so you open box after box.",
 		Perks = { "Loot skips the reveal", "Open boxes back to back" },
 		Colors = { Color3.fromRGB(255, 140, 230), Color3.fromRGB(160, 60, 255) },
@@ -125,7 +125,7 @@ local Gamepasses: { [string]: Pass } = {
 		Id = 2006780929,
 		Order = 6,
 		Name = "Sprint",
-		Icon = "👟",
+		Icon = "Shoe",
 		Description = "Hold Shift to run 60% faster.",
 		Sprint = 1.6,
 		Perks = { "Run 60% faster!", "Hold Shift (a button on mobile)" },
@@ -135,7 +135,7 @@ local Gamepasses: { [string]: Pass } = {
 		Id = 2006924923,
 		Order = 7,
 		Name = "Box Radar",
-		Icon = "📡",
+		Icon = "Radar",
 		Description = "An arrow over your head points to the nearest Rare (or rarer) loot box on the map.",
 		RadarRank = 3, -- Rare
 		Perks = { "Arrow to Rare+ boxes", "See how far away they are" },

@@ -36,7 +36,7 @@ local function give(player: Player, reward: Gamepasses.StarterReward): string
 	DataManager.AddCurrency(player, "Coins", reward.Coins)
 	DataManager.AddRolls(player, reward.Rolls)
 	LootManager.Drop(player, reward.Boxes)
-	return `🎉 Starter Pack! New parts, +{Format.Number(reward.Coins)} 💰, +{reward.Rolls} 🎲 and {reward.Boxes} boxes raining down!`
+	return `STARTER PACK! +{Format.Number(reward.Coins)} Coins, +{reward.Rolls} Rolls, {reward.Boxes} boxes!`
 end
 
 local function giveOnce(player: Player, key: string, reward: Gamepasses.StarterReward)

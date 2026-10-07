@@ -49,9 +49,9 @@ local function statusText(): string
 	local wait = secondsToFree()
 	local spins = player:GetAttribute("WheelSpins") or 0
 	local free = if wait <= 0
-		then "🎁 FREE SPIN READY!"
-		else `Next free spin in {math.floor(wait / 3600)}h {math.floor(wait % 3600 / 60)}m {math.floor(wait % 60)}s`
-	return `{free}   ·   🎡 {spins} bought`
+		then "FREE SPIN READY!"
+		else `Free spin in {math.floor(wait / 3600)}h {math.floor(wait % 3600 / 60)}m {math.floor(wait % 60)}s`
+	return if spins > 0 then `{free}  +{spins} spins` else free
 end
 
 local function spin()
@@ -59,7 +59,7 @@ local function spin()
 		return
 	end
 	if not DailyWheelMenu.CanSpin() then
-		Kit.toast("No spins left! Come back later or grab more in the shop.", BAD_COLOR)
+		Kit.toast("No spins left!", BAD_COLOR, "Wheel")
 		return
 	end
 	spinning = true
@@ -67,7 +67,7 @@ local function spin()
 	local ok, index, text = pcall(remote.InvokeServer, remote)
 	if not (ok and index) then
 		spinning = false
-		Kit.toast("Couldn't spin. Try again!", BAD_COLOR)
+		Kit.toast("Try again!", BAD_COLOR, "Warning")
 		return
 	end
 	if panel then
@@ -78,12 +78,10 @@ local function spin()
 	local color = if prize.Id == "Jackpot" then JACKPOT_COLOR else KIND_COLORS[prize.Kind] or GOLD_COLOR
 	local screen = Loot.Overlay(color)
 	local stopRays = Kit.rays(screen, color, 560, 31)
-	local icon = Kit.text({
-		Text = prize.Icon,
+	local icon = Kit.icon(prize.Icon, {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.4),
-		Size = UDim2.fromOffset(200, 200),
-		StrokeThickness = 0,
+		Size = UDim2.fromOffset(220, 220),
 		ZIndex = 50,
 		Parent = screen,
 	})
@@ -130,7 +128,9 @@ local function render(parent: Frame)
 		})
 		Kit.corner(row, 12)
 		Kit.stroke(row, 3)
-		Kit.text({ Text = `{prize.Icon}  {prize.Label}`, Position = UDim2.fromOffset(14, 5), Size = UDim2.new(0.7, -14, 1, -10), TextXAlignment = Enum.TextXAlignment.Left, Parent = row })
+		Kit.stripes(row, 0.82, 12)
+		Kit.icon(prize.Icon, { Position = UDim2.fromOffset(6, -4), Size = UDim2.fromOffset(46, 46), ZIndex = 2, Parent = row })
+		Kit.text({ Text = prize.Label, Position = UDim2.fromOffset(60, 5), Size = UDim2.new(0.7, -60, 1, -10), TextXAlignment = Enum.TextXAlignment.Left, Parent = row })
 		Kit.text({
 			Text = string.format("%.0f%%", prize.Weight / total * 100),
 			AnchorPoint = Vector2.new(1, 0),
@@ -141,17 +141,17 @@ local function render(parent: Frame)
 		})
 	end
 
-	Kit.button({ Position = UDim2.fromOffset(24, 418), Size = UDim2.fromOffset(280, 64), Parent = parent }, Kit.Colors.Green, "🎡 SPIN!", function()
+	Kit.button({ Position = UDim2.fromOffset(24, 418), Size = UDim2.fromOffset(280, 64), Parent = parent }, Kit.Colors.Green, "SPIN!", function()
 		task.spawn(spin)
-	end)
-	Kit.button({ Position = UDim2.fromOffset(328, 418), Size = UDim2.fromOffset(288, 64), Parent = parent }, Kit.Colors.Coins, "🛒 MORE SPINS", function()
+	end, "Wheel")
+	Kit.button({ Position = UDim2.fromOffset(328, 418), Size = UDim2.fromOffset(288, 64), Parent = parent }, Kit.Colors.Coins, "MORE SPINS", function()
 		Shop.Open("SPINS")
-	end)
+	end, "Cart")
 end
 
 function DailyWheelMenu.Open()
 	if not panel then
-		local newPanel, newContent = Kit.modal("DailyWheel", "🎡 DAILY WHEEL", Kit.Colors.Rolls, SIZE)
+		local newPanel, newContent = Kit.modal("DailyWheel", "DAILY WHEEL", Kit.Hues.Pink, SIZE, "Wheel")
 		panel, content = newPanel, newContent
 		-- Keep the countdown ticking while the menu is open.
 		task.spawn(function()

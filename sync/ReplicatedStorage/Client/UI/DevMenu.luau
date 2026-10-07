@@ -6,7 +6,7 @@ local Kit = require(script.Parent:WaitForChild("Kit"))
 
 local DevMenu = {}
 
-local panel, content = Kit.modal("DevMenu", "DEV MENU", Kit.Colors.Purple, Vector2.new(660, 560))
+local panel, content = Kit.modal("DevMenu", "DEV MENU", Kit.Hues.Red, Vector2.new(660, 560), "Wrench")
 
 local targetBox = Kit.new("TextBox", {
 	PlaceholderText = "Target Username (blank for self)",
@@ -67,16 +67,16 @@ local function addAction(label: string, action: string, args: {any}, colors: {Co
 	end)
 end
 
-addAction("💰 Give 1M Coins", "AddCoins", {1000000}, Kit.Colors.Coins)
-addAction("💎 Give 10K Gems", "AddGems", {10000}, Kit.Colors.Gems)
-addAction("🎲 Give 10 Rolls", "AddRolls", {10}, Kit.Colors.Rolls)
-addAction("🏃 Give Sprint Pass", "GrantPass", {"Sprint"}, Kit.Colors.Green)
-addAction("🚀 Give Auto-Collect Pass", "GrantPass", {"AutoCollect"}, Kit.Colors.Green)
-addAction("🧠 Unlock All Brainrots", "GiveBrainrots", {}, Kit.Colors.Purple)
-addAction("📦 Spawn 3 Godly Boxes", "SpawnBox", {"Godly", 3}, Kit.Colors.Purple)
-addAction("📦 Spawn 3 Common Boxes", "SpawnBox", {"Common", 3}, Kit.Colors.Grey)
-addAction("☢️ Nuke Server", "Nuke", {}, Kit.Colors.Red)
-addAction("📷 Create Thumbnail Stage", "CreateThumb", {}, Kit.Colors.Panel)
+addAction("Give 1M Coins", "AddCoins", {1000000}, Kit.Colors.Coins)
+addAction("Give 10K Gems", "AddGems", {10000}, Kit.Colors.Gems)
+addAction("Give 10 Rolls", "AddRolls", {10}, Kit.Colors.Rolls)
+addAction("Give Sprint Pass", "GrantPass", {"Sprint"}, Kit.Colors.Green)
+addAction("Give Auto-Collect Pass", "GrantPass", {"AutoCollect"}, Kit.Colors.Green)
+addAction("Unlock All Brainrots", "GiveBrainrots", {}, Kit.Colors.Purple)
+addAction("Spawn 3 Godly Boxes", "SpawnBox", {"Godly", 3}, Kit.Colors.Purple)
+addAction("Spawn 3 Common Boxes", "SpawnBox", {"Common", 3}, Kit.Colors.Grey)
+addAction("Nuke Server", "Nuke", {}, Kit.Colors.Red)
+addAction("Create Thumbnail Stage", "CreateThumb", {}, Kit.Colors.Panel)
 
 -- Automatically update canvas size for scrolling
 actionsFrame.ChildAdded:Connect(function()

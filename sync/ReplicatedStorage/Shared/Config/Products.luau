@@ -32,26 +32,26 @@ export type Product = {
 }
 
 local Products: { [string]: Product } = {
-	GemsSmall = { Id = 3716329136, Order = 1, Name = "Handful of Gems", Icon = "💎", Kind = "Gems", Amount = 100 },
-	GemsMedium = { Id = 3716329188, Order = 2, Name = "Bag of Gems", Icon = "💎", Kind = "Gems", Amount = 550 },
-	GemsLarge = { Id = 3716329238, Order = 3, Name = "Chest of Gems", Icon = "💎", Kind = "Gems", Amount = 1200 },
-	GemsHuge = { Id = 3716329278, Order = 4, Name = "Vault of Gems", Icon = "💎", Kind = "Gems", Amount = 3000 },
-	Spin1 = { Id = 0, GemPrice = 40, Order = 7, Name = "1 Wheel Spin", Icon = "🎡", Kind = "WheelSpins", Amount = 1 },
-	Spin5 = { Id = 0, GemPrice = 180, Order = 8, Name = "5 Wheel Spins", Icon = "🎡", Kind = "WheelSpins", Amount = 5 },
+	GemsSmall = { Id = 3716329136, Order = 1, Name = "Handful of Gems", Icon = "Gem", Kind = "Gems", Amount = 100 },
+	GemsMedium = { Id = 3716329188, Order = 2, Name = "Bag of Gems", Icon = "Gem", Kind = "Gems", Amount = 550 },
+	GemsLarge = { Id = 3716329238, Order = 3, Name = "Chest of Gems", Icon = "Gem", Kind = "Gems", Amount = 1200 },
+	GemsHuge = { Id = 3716329278, Order = 4, Name = "Vault of Gems", Icon = "Gem", Kind = "Gems", Amount = 3000 },
+	Spin1 = { Id = 0, GemPrice = 40, Order = 7, Name = "1 Wheel Spin", Icon = "Wheel", Kind = "WheelSpins", Amount = 1 },
+	Spin5 = { Id = 0, GemPrice = 180, Order = 8, Name = "5 Wheel Spins", Icon = "Wheel", Kind = "WheelSpins", Amount = 5 },
 	-- Coins grow with the factory: a pack is minutes of your own income (never less than
 	-- MinCoins, so a brand-new player still gets something worth it)
-	Coins10m = { Id = 3716329472, Order = 9, Name = "Pile of Coins", Icon = "💰", Kind = "Coins", Amount = 600, MinCoins = 5000, SuggestedPrice = 49 },
-	Coins1h = { Id = 3716329557, Order = 10, Name = "Sack of Coins", Icon = "💰", Kind = "Coins", Amount = 3600, MinCoins = 40000, SuggestedPrice = 199 },
-	Coins4h = { Id = 3716329602, Order = 11, Name = "Cart of Coins", Icon = "💰", Kind = "Coins", Amount = 14400, MinCoins = 200000, SuggestedPrice = 599 },
-	Coins12h = { Id = 3716329649, Order = 12, Name = "Vault of Coins", Icon = "💰", Kind = "Coins", Amount = 43200, MinCoins = 800000, Ribbon = "BEST DEAL", SuggestedPrice = 1299 },
+	Coins10m = { Id = 3716329472, Order = 9, Name = "Pile of Coins", Icon = "Coin", Kind = "Coins", Amount = 600, MinCoins = 5000, SuggestedPrice = 49 },
+	Coins1h = { Id = 3716329557, Order = 10, Name = "Sack of Coins", Icon = "Coin", Kind = "Coins", Amount = 3600, MinCoins = 40000, SuggestedPrice = 199 },
+	Coins4h = { Id = 3716329602, Order = 11, Name = "Cart of Coins", Icon = "Coin", Kind = "Coins", Amount = 14400, MinCoins = 200000, SuggestedPrice = 599 },
+	Coins12h = { Id = 3716329649, Order = 12, Name = "Vault of Coins", Icon = "Coin", Kind = "Coins", Amount = 43200, MinCoins = 800000, Ribbon = "BEST DEAL", SuggestedPrice = 1299 },
 	-- loot boxes rain onto the map round the buyer
-	Drop1 = { Id = 0, GemPrice = 50, Order = 13, Name = "1 Box Drop", Icon = "🎁", Kind = "BoxDrop", Amount = 1, SuggestedPrice = 39 },
-	Drop5 = { Id = 0, GemPrice = 225, Order = 14, Name = "5 Box Drop", Icon = "🎁", Kind = "BoxDrop", Amount = 5, SuggestedPrice = 179 },
-	Drop10 = { Id = 0, GemPrice = 400, Order = 15, Name = "10 Box Drop", Icon = "🎁", Kind = "BoxDrop", Amount = 10, SuggestedPrice = 329 },
-	Drop25 = { Id = 0, GemPrice = 900, Order = 16, Name = "25 Box Drop", Icon = "🎁", Kind = "BoxDrop", Amount = 25, SuggestedPrice = 749 },
-	Drop100 = { Id = 0, GemPrice = 3000, Order = 17, Name = "BOX STORM", Icon = "🌪️", Kind = "BoxDrop", Amount = 100, Ribbon = "BEST DEAL", SuggestedPrice = 2499 },
+	Drop1 = { Id = 0, GemPrice = 50, Order = 13, Name = "1 Box Drop", Icon = "Gift", Kind = "BoxDrop", Amount = 1, SuggestedPrice = 39 },
+	Drop5 = { Id = 0, GemPrice = 225, Order = 14, Name = "5 Box Drop", Icon = "Gift", Kind = "BoxDrop", Amount = 5, SuggestedPrice = 179 },
+	Drop10 = { Id = 0, GemPrice = 400, Order = 15, Name = "10 Box Drop", Icon = "Gift", Kind = "BoxDrop", Amount = 10, SuggestedPrice = 329 },
+	Drop25 = { Id = 0, GemPrice = 900, Order = 16, Name = "25 Box Drop", Icon = "Gift", Kind = "BoxDrop", Amount = 25, SuggestedPrice = 749 },
+	Drop100 = { Id = 0, GemPrice = 3000, Order = 17, Name = "BOX STORM", Icon = "Storm", Kind = "BoxDrop", Amount = 100, Ribbon = "BEST DEAL", SuggestedPrice = 2499 },
 	-- a giant Bombardiro drops a nuke on the server: everyone dies (Config/Nuke). 2000 R$.
-	Nuke = { Id = 3716329035, Order = 0, Name = "NUKE", Icon = "☢️", Kind = "Nuke", Amount = 1, SuggestedPrice = 2000 },
+	Nuke = { Id = 3716329035, Order = 0, Name = "NUKE", Icon = "Nuke", Kind = "Nuke", Amount = 1, SuggestedPrice = 2000 },
 }
 
 return Products

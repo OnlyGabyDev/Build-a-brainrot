@@ -109,7 +109,7 @@ local function request(remoteName: string, failMessage: string, ...: any)
 	local ok, success, reason = pcall(remote.InvokeServer, remote, ...)
 	busy = false
 	if not (ok and success) then
-		Kit.toast(if reason == "TooFar" then "Walk up to that line to change it (or get Auto-Collect)!" else failMessage, BAD_COLOR)
+		Kit.toast(if reason == "TooFar" then "Walk up to that line!" else failMessage, BAD_COLOR, if reason == "TooFar" then "Factory" else "Warning")
 	end
 	refresh()
 end
@@ -160,7 +160,7 @@ local function renderTabs(parent: Frame, current: LineView)
 		x += LINE_TAB + TAB_GAP
 	end
 	-- the line's parts, or its upgrades
-	for index, spec in { { "Parts", "🧩 PARTS" }, { "Upgrades", "⚡ UPGRADES" } } do
+	for index, spec in { { "Parts", "PARTS", "Puzzle" }, { "Upgrades", "UPGRADES", "ArrowUp" } } do
 		Kit.button({
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -24 - (2 - index) * 188, 0, 14),
@@ -169,24 +169,25 @@ local function renderTabs(parent: Frame, current: LineView)
 		}, if mode == spec[1] then Kit.Colors.Coins else Kit.Colors.Grey, spec[2], function()
 			mode = spec[1]
 			render()
-		end)
+		end, spec[3])
 	end
 end
 
 local function renderInfo(parent: Frame, line: LineView)
 	local zone = Zones.ById[line.Zone]
 	local zoneName = if zone then zone.Name else line.Zone
-	local text = `🏭 {zoneName}  ·  ships 💰 {Format.Number(line.Value)} every {string.format("%.1f", line.CycleTime)}s`
+	Kit.icon("Factory", { Position = UDim2.fromOffset(20, 64), Size = UDim2.fromOffset(36, 36), Parent = parent })
 	Kit.text({
-		Text = text,
-		Position = UDim2.fromOffset(24, 68),
-		Size = UDim2.fromOffset(560, 28),
+		Text = zoneName,
+		Position = UDim2.fromOffset(62, 68),
+		Size = UDim2.fromOffset(200, 28),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = parent,
 	})
+	Kit.iconText({ Position = UDim2.fromOffset(270, 68), Size = UDim2.fromOffset(300, 28), Parent = parent }, "Coin", `{Format.Number(line.Value)} / {string.format("%.1f", line.CycleTime)}s`)
 	if line.FullMatch then
 		Kit.text({
-			Text = "✨ FULL MATCH x2 ✨",
+			Text = "FULL MATCH x2!",
 			TextColor3 = GOOD_COLOR,
 			AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -24, 0, 68),
@@ -234,9 +235,10 @@ local function renderSlot(parent: Frame, line: LineView, partType: string, index
 		local model = BrainrotModels.CreatePart(brainrotId, partType)
 		Kit.viewport({ Position = UDim2.fromOffset(12, 42), Size = UDim2.new(1, -24, 0, 90), Parent = card }, model)
 		Kit.text({ Text = Brainrots.ById[brainrotId].Name, Position = UDim2.fromOffset(8, 132), Size = UDim2.new(1, -16, 0, 24), StrokeThickness = 3, Parent = card })
-		Kit.text({ Text = `{string.rep("⭐", rarity.Rank)} {string.upper(rarity.Id)}`, TextColor3 = Kit.White, Position = UDim2.fromOffset(8, 155), Size = UDim2.new(1, -16, 0, 17), StrokeThickness = 2, Parent = card })
+		Kit.stars({ Position = UDim2.fromOffset(8, 152), Size = UDim2.new(1, -16, 0, 22), Parent = card }, rarity.Rank)
 	else
-		Kit.text({ Text = "➕\nTAP TO PICK", TextColor3 = Color3.fromRGB(150, 145, 170), Position = UDim2.fromOffset(20, 70), Size = UDim2.new(1, -40, 0, 70), StrokeThickness = 0, Parent = card })
+		Kit.icon("Plus", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 56), Size = UDim2.fromOffset(56, 56), ImageTransparency = 0.3, Parent = card })
+		Kit.text({ Text = "TAP TO PICK", TextColor3 = Color3.fromRGB(150, 145, 170), Position = UDim2.fromOffset(20, 120), Size = UDim2.new(1, -40, 0, 30), StrokeThickness = 0, Parent = card })
 	end
 
 
@@ -249,11 +251,12 @@ local function renderSlot(parent: Frame, line: LineView, partType: string, index
 			Parent = card,
 		})
 		Kit.corner(lock, 20)
+		Kit.icon("Lock", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 40), Size = UDim2.fromOffset(64, 64), ZIndex = 4, Parent = lock })
 		Kit.text({
-			Text = `🔒\nBUY THE {string.upper(partType)} DROPPER`,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(0.85, 0.5),
+			Text = `BUY THE {string.upper(partType)} DROPPER`,
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.new(0.5, 0, 0, 110),
+			Size = UDim2.new(0.85, 0, 0, 44),
 			ZIndex = 4,
 			Parent = lock,
 		})
@@ -288,7 +291,7 @@ local function renderTile(parent: Instance, order: number, text: string?, brainr
 		local model = BrainrotModels.CreatePart(brainrotId, selectedSlot)
 		Kit.viewport({ Position = UDim2.fromOffset(8, 8), Size = UDim2.new(1, -16, 0, 82), Parent = tile }, model)
 		Kit.text({ Text = Brainrots.ById[brainrotId].Name, Position = UDim2.fromOffset(6, 90), Size = UDim2.new(1, -12, 0, 34), StrokeThickness = 2.5, Parent = tile })
-		Kit.text({ Text = string.rep("⭐", rarity.Rank), Position = UDim2.fromOffset(6, 126), Size = UDim2.new(1, -12, 0, 20), StrokeThickness = 0, Parent = tile })
+		Kit.stars({ Position = UDim2.fromOffset(6, 124), Size = UDim2.new(1, -12, 0, 24), Parent = tile }, rarity.Rank)
 		if not option.Usable then
 			local dim = Kit.new("Frame", {
 				Size = UDim2.fromScale(1, 1),
@@ -302,7 +305,8 @@ local function renderTile(parent: Instance, order: number, text: string?, brainr
 			Kit.text({ Text = `IN USE\n{where}`, TextColor3 = BAD_COLOR, Position = UDim2.fromOffset(8, 50), Size = UDim2.new(1, -16, 0, 50), ZIndex = 4, Parent = dim })
 		end
 	else
-		Kit.text({ Text = text or "", TextColor3 = Color3.fromRGB(150, 145, 170), Position = UDim2.fromOffset(10, 50), Size = UDim2.new(1, -20, 0, 66), StrokeThickness = 0, Parent = tile })
+		Kit.icon("Close", { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 30), Size = UDim2.fromOffset(52, 52), ImageColor3 = Color3.fromRGB(200, 195, 215), Parent = tile })
+		Kit.text({ Text = text or "", TextColor3 = Color3.fromRGB(150, 145, 170), Position = UDim2.fromOffset(10, 92), Size = UDim2.new(1, -20, 0, 30), StrokeThickness = 0, Parent = tile })
 	end
 
 	tile.MouseEnter:Connect(function()
@@ -352,7 +356,7 @@ local function renderPicker(parent: Frame, line: LineView)
 	Kit.new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), Parent = scroller })
 
 	local current = line.Parts[selectedSlot]
-	renderTile(scroller, 0, "✖\nEMPTY SLOT", nil, nil, function()
+	renderTile(scroller, 0, "EMPTY SLOT", nil, nil, function()
 		if current then
 			request("SetLinePart", "Couldn't empty that slot!", line.Id, selectedSlot, nil)
 		end
@@ -373,7 +377,7 @@ local function renderPicker(parent: Frame, line: LineView)
 				return
 			end
 			if not option.Usable then
-				Kit.toast("That part is already on another line!", BAD_COLOR)
+				Kit.toast("That part is on another line!", BAD_COLOR, "Puzzle")
 				return
 			end
 			request("SetLinePart", "Couldn't equip that part!", line.Id, selectedSlot, option.Id)
@@ -390,17 +394,18 @@ local function renderPicker(parent: Frame, line: LineView)
 			})
 			Kit.corner(ribbon, 10)
 			Kit.stroke(ribbon, 3)
-			Kit.text({ Text = "✔ EQUIPPED", Position = UDim2.fromOffset(4, 3), Size = UDim2.new(1, -8, 1, -6), StrokeThickness = 2, ZIndex = 6, Parent = ribbon })
+			Kit.text({ Text = "EQUIPPED", Position = UDim2.fromOffset(4, 3), Size = UDim2.new(1, -8, 1, -6), StrokeThickness = 2, ZIndex = 6, Parent = ribbon })
 		end
 	end
 end
 
 local function renderFooter(parent: Frame, line: LineView)
+	Kit.icon("Sparkle", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 22, 1, -18), Size = UDim2.fromOffset(42, 42), Parent = parent })
 	Kit.text({
-		Text = "✨ Full match (all 4 from one brainrot) = 💰 x2 + completion!",
+		Text = "All 4 from one brainrot = Coins x2!",
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 28, 1, -22),
-		Size = UDim2.fromOffset(600, 32),
+		Position = UDim2.new(0, 72, 1, -22),
+		Size = UDim2.fromOffset(560, 32),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = parent,
 	})
@@ -408,9 +413,9 @@ local function renderFooter(parent: Frame, line: LineView)
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -24, 1, -14),
 		Size = UDim2.fromOffset(250, 58),
-	}, Kit.Colors.Green, "⭐ EQUIP BEST", function()
+	}, Kit.Colors.Green, "EQUIP BEST", function()
 		request("EquipBestLine", "Couldn't equip best!", line.Id)
-	end).Parent = parent
+	end, "Star").Parent = parent
 end
 
 -- Upgrades ------------------------------------------------------------------------
@@ -424,7 +429,7 @@ local function buyUpgrade(lineId: string, track: string)
 	local ok, success, reason = pcall(remote.InvokeServer, remote, lineId, track)
 	busy = false
 	if ok and success then
-		Kit.toast("⚡ UPGRADED! Your line lights up!", GOOD_COLOR)
+		Kit.toast("UPGRADED!", GOOD_COLOR, "ArrowUp")
 	else
 		Kit.toast(
 			if reason == "Coins"
@@ -432,7 +437,8 @@ local function buyUpgrade(lineId: string, track: string)
 				elseif reason == "Locked" then "Buy what it needs first!"
 				elseif reason == "Max" then "Already maxed out!"
 				else "Couldn't buy that!",
-			BAD_COLOR
+			BAD_COLOR,
+			"Warning"
 		)
 	end
 	refresh()
@@ -450,8 +456,8 @@ local function previewUpgrade(line: LineView, track: LineUpgrades.Track, level: 
 	end
 	previewing = true -- (the menu still counts as open: the tablet keeps its camera)
 	menu.Visible = false
-	local title = `👀 {string.upper(track.Name)} LV {level}`
-	local subtitle = `{LineUpgrades.Describe(track, level)}` .. (if LineUpgrades.TierStarts[level] then `  ·  ✨ {LineUpgrades.TierStarts[level]}` else "")
+	local title = `{string.upper(track.Name)} LV {level}`
+	local subtitle = `{LineUpgrades.Describe(track, level)}` .. (if LineUpgrades.TierStarts[level] then `  ·  NEW LOOK: {LineUpgrades.TierStarts[level]}` else "")
 	local started = UpgradePreview.Play(line.Id, track.Key, title, subtitle, function()
 		previewing = false
 		Kit.open(menu)
@@ -460,7 +466,7 @@ local function previewUpgrade(line: LineView, track: LineUpgrades.Track, level: 
 	if not started then
 		previewing = false
 		menu.Visible = true
-		Kit.toast("Can't preview that right now!", BAD_COLOR)
+		Kit.toast("Can't preview that now!", BAD_COLOR, "Eye")
 	end
 end
 
@@ -487,10 +493,12 @@ local function renderUpgrades(parent: Frame, line: LineView)
 		local header = Kit.new("Frame", { Size = UDim2.new(1, 0, 0, 44), BackgroundColor3 = Kit.White, Parent = card })
 		Kit.corner(header, 18)
 		Kit.gradient(header, track.Colors)
+		Kit.stripes(header, 0.8, 18)
+		Kit.icon(track.Icon, { Position = UDim2.fromOffset(4, -8), Size = UDim2.fromOffset(56, 56), ZIndex = 2, Parent = header })
 		Kit.text({
-			Text = `{track.Icon} {string.upper(track.Name)}`,
-			Position = UDim2.fromOffset(14, 6),
-			Size = UDim2.new(1, -150, 0, 32),
+			Text = string.upper(track.Name),
+			Position = UDim2.fromOffset(64, 6),
+			Size = UDim2.new(1, -200, 0, 32),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = header,
 		})
@@ -542,7 +550,7 @@ local function renderUpgrades(parent: Frame, line: LineView)
 		end
 		local newLook = not maxed and LineUpgrades.TierStarts[nextLevel]
 		Kit.text({
-			Text = if newLook then `✨ NEW LOOK: {newLook}!` elseif maxed then "⭐ MAXED OUT ⭐" else LineUpgrades.Unit(track),
+			Text = if newLook then `NEW LOOK: {newLook}!` elseif maxed then "MAXED OUT!" else LineUpgrades.Unit(track),
 			Position = UDim2.fromOffset(14, 130),
 			Size = UDim2.new(1, -28, 0, 20),
 			TextColor3 = if newLook or maxed then SELECTED_COLOR else MUTED_COLOR,
@@ -552,32 +560,29 @@ local function renderUpgrades(parent: Frame, line: LineView)
 
 		local price = upgrade.Price
 		if upgrade.Needs then
-			Kit.text({
-				Text = `🔒 Buy the {upgrade.Needs} first`,
-				TextColor3 = BAD_COLOR,
-				Position = UDim2.fromOffset(14, 158),
-				Size = UDim2.new(1, -28, 0, 48),
+			Kit.iconText({
+				Position = UDim2.fromOffset(14, 166),
+				Size = UDim2.new(1, -28, 0, 32),
 				Parent = card,
-			})
+			}, "Lock", `Buy the {upgrade.Needs} first`, BAD_COLOR)
 		elseif price and not maxed then
 			local affordable = typeof(coins) == "number" and coins >= price
 			Kit.button({
 				Position = UDim2.fromOffset(14, 156),
 				Size = UDim2.new(1, -28 - PREVIEW_WIDTH - 10, 0, 54),
 				Parent = card,
-			}, if affordable then Kit.Colors.Green else Kit.Colors.Red, `BUY  💰 {Format.Number(price)}`, function()
+			}, if affordable then Kit.Colors.Green else Kit.Colors.Red, Format.Number(price), function()
 				buyUpgrade(line.Id, track.Key)
-			end)
-			-- 👀: fly over to the line and see the next level there
-			local preview = Kit.button({
+			end, "Coin")
+			-- the eye: fly over to the line and see the next level there
+			Kit.button({
 				AnchorPoint = Vector2.new(1, 0),
 				Position = UDim2.new(1, -14, 0, 156),
 				Size = UDim2.fromOffset(PREVIEW_WIDTH, 54),
 				Parent = card,
 			}, Kit.Colors.Gems, nil, function()
 				previewUpgrade(line, track, nextLevel)
-			end)
-			Kit.text({ Text = "👀", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.7, 0.75), StrokeThickness = 0, Parent = preview })
+			end, "Eye")
 		end
 	end
 end
@@ -625,7 +630,7 @@ end
 
 local function ensurePanel(): Frame
 	if not panel then
-		local newPanel, newContent = Kit.modal("LineMenu", "🏭 ASSEMBLY LINES", Kit.Colors.Purple, SIZE)
+		local newPanel, newContent = Kit.modal("LineMenu", "ASSEMBLY LINES", Kit.Hues.Purple, SIZE, "Factory")
 		panel, content = newPanel, newContent
 	end
 	return panel :: Frame

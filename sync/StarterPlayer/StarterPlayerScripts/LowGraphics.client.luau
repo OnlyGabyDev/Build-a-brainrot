@@ -1,7 +1,7 @@
 --[[
 	LowGraphics
 	Applies the Lower Graphics setting (Client/Performance) to this client's world (its
-	switch is in the ⚙️ Settings menu: Client/UI/SettingsMenu).
+	switch is in the Settings menu: Client/UI/SettingsMenu).
 	On: no shadows, bloom or sun rays; the factories' and the hub's particles and lights
 	off; the hub's small decor (tagged "Detail" by MapBuilder) hidden, including what
 	streams in later. Everything it changes is remembered, so switching it off puts it

@@ -26,7 +26,7 @@ local Rebirths = {
 		{
 			Id = "Income",
 			Name = "Income",
-			Icon = "💰",
+			Icon = "Coin",
 			Description = "+10% Coins",
 			PerLevel = 0.1,
 			MaxLevel = 20,
@@ -35,7 +35,7 @@ local Rebirths = {
 		{
 			Id = "Speed",
 			Name = "Dropper Speed",
-			Icon = "⚡",
+			Icon = "Lightning",
 			Description = "+5% line speed",
 			PerLevel = 0.05,
 			MaxLevel = 10,
@@ -44,7 +44,7 @@ local Rebirths = {
 		{
 			Id = "Luck",
 			Name = "Luck",
-			Icon = "🍀",
+			Icon = "Clover",
 			Description = "+10% Luck (rarer loot)",
 			PerLevel = 0.1,
 			MaxLevel = 10,

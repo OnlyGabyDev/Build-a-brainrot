@@ -127,19 +127,19 @@ type ProductHandler = (player: Player, product: Products.Product) -> string
 local productHandlers: { [string]: ProductHandler } = {
 	Gems = function(player, product)
 		DataManager.AddCurrency(player, "Gems", product.Amount)
-		return `Thanks! +{product.Amount} 💎`
+		return `+{product.Amount} GEMS!`
 	end,
 	Rolls = function(player, product)
 		DataManager.AddRolls(player, product.Amount)
-		return `Thanks! +{product.Amount} 🎲`
+		return `+{product.Amount} ROLLS!`
 	end,
 	WheelSpins = function(player, product)
 		DataManager.AddWheelSpins(player, product.Amount)
-		return `Thanks! +{product.Amount} 🎡`
+		return `+{product.Amount} SPINS!`
 	end,
 	Nuke = function(player)
 		NukeManager.Launch(player)
-		return "☢️ NUKE INCOMING! ☢️"
+		return "NUKE INCOMING!"
 	end,
 }
 

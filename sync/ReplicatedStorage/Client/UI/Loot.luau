@@ -28,7 +28,7 @@ local Upsell = require(script.Parent:WaitForChild("Upsell"))
 
 local AUTO_CLOSE = 8 -- seconds before a reveal closes itself
 local BIG_RANK = 3 -- Rare and up get the bigger reveal
-local CURRENCY_ICONS = { Coins = "💰", Gems = "💎" }
+local CURRENCY_WORDS = { Coins = "Coins", Gems = "Gems" }
 local NEW_COLOR = Color3.fromRGB(120, 245, 110)
 local GHOST_COLOR = Color3.fromRGB(35, 30, 55) -- the rest of the brainrot round a part won
 local GHOST_TRANSPARENCY = 0.3
@@ -86,7 +86,7 @@ local function reveal(parent: Frame, result: Result)
 	local boxRarity = result.BoxRarity and Rarities.ById[result.BoxRarity]
 	if boxRarity and rarity.Rank > boxRarity.Rank then
 		Kit.text({
-			Text = "⬆ RARITY UP! ⬆",
+			Text = "RARITY UP!",
 			TextColor3 = rarity.Color,
 			AnchorPoint = Vector2.new(0.5, 1),
 			Position = UDim2.new(0.5, 0, 0, -12),
@@ -151,15 +151,13 @@ local function reveal(parent: Frame, result: Result)
 	end)
 
 	Kit.text({ Text = brainrot.Name, Position = UDim2.fromOffset(20, 314), Size = UDim2.new(1, -40, 0, 44), ZIndex = 33, Parent = card })
-	Kit.text({
-		Text = string.rep("⭐", rarity.Rank),
+	Kit.stars({
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0, 78),
-		Size = UDim2.fromOffset(240, 34),
-		StrokeThickness = 0,
+		Size = UDim2.fromOffset(240, 38),
 		ZIndex = 35,
 		Parent = card,
-	})
+	}, rarity.Rank)
 	Kit.text({
 		Text = `{string.upper(result.PartType)}  ·  {string.upper(rarity.Id)}`,
 		TextColor3 = rarity.Color,
@@ -168,17 +166,17 @@ local function reveal(parent: Frame, result: Result)
 		ZIndex = 33,
 		Parent = card,
 	})
-	local reward = if result.New
-		then "Equip it on a line!"
-		else `+{Format.Number(result.Amount or 0)} {CURRENCY_ICONS[result.Currency or "Coins"] or ""}`
-	Kit.text({
-		Text = reward,
-		TextColor3 = if result.New then Kit.White else Color3.fromRGB(255, 220, 80),
-		Position = UDim2.fromOffset(20, 394),
-		Size = UDim2.new(1, -40, 0, 36),
-		ZIndex = 33,
-		Parent = card,
-	})
+	if result.New then
+		Kit.text({ Text = "Equip it on a line!", Position = UDim2.fromOffset(20, 394), Size = UDim2.new(1, -40, 0, 36), ZIndex = 33, Parent = card })
+	else
+		-- a duplicate: what it turned into
+		Kit.iconText({
+			Position = UDim2.fromOffset(20, 394),
+			Size = UDim2.new(1, -40, 0, 36),
+			ZIndex = 33,
+			Parent = card,
+		}, if result.Currency == "Gems" then "Gem" else "Coin", `+{Format.Number(result.Amount or 0)}`, Color3.fromRGB(255, 220, 80))
+	end
 
 	local function close()
 		closed = true
@@ -286,7 +284,7 @@ local function quickShow(result: Result)
 	Kit.gradient(card, { rarity.Color:Lerp(Kit.White, 0.3), rarity.Color:Lerp(Color3.new(0, 0, 0), 0.3) })
 	Kit.shine(card, 10)
 	Kit.text({
-		Text = if result.New then "✨ NEW PART!" else `+{Format.Number(result.Amount or 0)} {CURRENCY_ICONS[result.Currency or "Coins"] or ""}`,
+		Text = if result.New then "NEW PART!" else `+{Format.Number(result.Amount or 0)} {CURRENCY_WORDS[result.Currency or "Coins"] or ""}`,
 		TextColor3 = if result.New then NEW_COLOR else Color3.fromRGB(255, 225, 90),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Position = UDim2.fromOffset(12, 5),
@@ -304,15 +302,12 @@ local function quickShow(result: Result)
 		ZIndex = 21,
 		Parent = card,
 	})
-	Kit.text({
-		Text = string.rep("⭐", rarity.Rank),
-		TextXAlignment = Enum.TextXAlignment.Right,
-		Position = UDim2.new(1, -96, 0, 6),
-		Size = UDim2.fromOffset(84, 22),
-		StrokeThickness = 0,
+	Kit.stars({
+		Position = UDim2.new(1, -112, 0, 4),
+		Size = UDim2.fromOffset(100, 24),
 		ZIndex = 21,
 		Parent = card,
-	})
+	}, rarity.Rank, "Right")
 	Kit.pop(card, 0.25)
 	Kit.playSound(if result.New then Sounds.Reveal else Sounds.Coin, 0.3, 1.05 + math.random() * 0.2)
 	-- only the newest FEED_MAX stay
@@ -398,7 +393,7 @@ function Loot.OpenRoll()
 		return
 	end
 	if (player:GetAttribute("Rolls") or 0) < 1 then
-		Kit.toast("No Rolls left! Grab loot boxes around the map.", BAD_COLOR)
+		Kit.toast("No Rolls! Grab boxes on the map", BAD_COLOR, "Roll")
 		return
 	end
 	rolling = true
@@ -409,7 +404,7 @@ function Loot.OpenRoll()
 	if ok and result then
 		Loot.Show(result)
 	else
-		Kit.toast("Couldn't open a Roll. Try again!", BAD_COLOR)
+		Kit.toast("Try again!", BAD_COLOR, "Warning")
 	end
 end
 

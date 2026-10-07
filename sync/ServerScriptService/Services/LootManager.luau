@@ -545,7 +545,7 @@ function LootManager.Init()
 	end)
 	MonetizationManager.HandleProduct("BoxDrop", function(player, product)
 		LootManager.Drop(player, product.Amount)
-		return `🎁 {product.Amount} {if product.Amount == 1 then "box is" else "boxes are"} raining down round you!`
+		return `{product.Amount} {if product.Amount == 1 then "BOX" else "BOXES"} INCOMING!`
 	end)
 
 	-- The loot wheel shows odds with the player's luck, which changes with upgrades,

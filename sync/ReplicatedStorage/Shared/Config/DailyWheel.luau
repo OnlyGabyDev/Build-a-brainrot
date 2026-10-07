@@ -7,7 +7,7 @@
 export type Prize = {
 	Id: string,
 	Label: string,
-	Icon: string,
+	Icon: string, -- one of ours (Config/Icons)
 	Weight: number,
 	Kind: string, -- "Coins" | "Gems" | "Rolls" | "LuckBoost"
 	Amount: number?, -- Gems / Rolls
@@ -22,13 +22,13 @@ local DailyWheel = {
 	LuckBoost = 0.5, -- extra luck while a Luck boost is active
 
 	Prizes = {
-		{ Id = "Coins", Label = "COINS", Icon = "💰", Weight = 30, Kind = "Coins", IncomeSeconds = 120, MinCoins = 1000 },
-		{ Id = "Gems25", Label = "25 GEMS", Icon = "💎", Weight = 22, Kind = "Gems", Amount = 25 },
-		{ Id = "Roll1", Label = "1 ROLL", Icon = "🎲", Weight = 18, Kind = "Rolls", Amount = 1 },
-		{ Id = "Luck", Label = "LUCK 15m", Icon = "🍀", Weight = 12, Kind = "LuckBoost", Seconds = 15 * 60 },
-		{ Id = "Gems100", Label = "100 GEMS", Icon = "💎", Weight = 8, Kind = "Gems", Amount = 100 },
-		{ Id = "Roll3", Label = "3 ROLLS", Icon = "🎲", Weight = 7, Kind = "Rolls", Amount = 3 },
-		{ Id = "Jackpot", Label = "500 GEMS", Icon = "👑", Weight = 3, Kind = "Gems", Amount = 500 },
+		{ Id = "Coins", Label = "COINS", Icon = "Coin", Weight = 30, Kind = "Coins", IncomeSeconds = 120, MinCoins = 1000 },
+		{ Id = "Gems25", Label = "25 GEMS", Icon = "Gem", Weight = 22, Kind = "Gems", Amount = 25 },
+		{ Id = "Roll1", Label = "1 ROLL", Icon = "Roll", Weight = 18, Kind = "Rolls", Amount = 1 },
+		{ Id = "Luck", Label = "LUCK 15m", Icon = "Clover", Weight = 12, Kind = "LuckBoost", Seconds = 15 * 60 },
+		{ Id = "Gems100", Label = "100 GEMS", Icon = "Gem", Weight = 8, Kind = "Gems", Amount = 100 },
+		{ Id = "Roll3", Label = "3 ROLLS", Icon = "Roll", Weight = 7, Kind = "Rolls", Amount = 3 },
+		{ Id = "Jackpot", Label = "500 GEMS", Icon = "Crown", Weight = 3, Kind = "Gems", Amount = 500 },
 	} :: { Prize },
 }
 

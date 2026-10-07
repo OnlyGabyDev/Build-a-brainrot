@@ -15,6 +15,7 @@ local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local Icons = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Icons"))
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Sounds"))
 local Client = ReplicatedStorage:WaitForChild("Client")
 local BulkMover = require(Client:WaitForChild("Mover"))
@@ -473,25 +474,18 @@ end
 music.Ended:Connect(play)
 task.spawn(play)
 
--- The mute button, top right.
+-- The mute button, top right (pink, like the music note).
 local gui = Kit.getGui()
-local icon: TextLabel
+local icon: ImageLabel
 local button = Kit.button({
 	Name = "MusicToggle",
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, -24, 0, 84),
 	Size = UDim2.fromOffset(64, 64),
 	Parent = gui,
-}, Kit.Colors.Purple, nil, function()
+}, Kit.pair(Kit.Hues.Pink), nil, function()
 	muted = not muted
 	Effects.MusicGroup.Volume = if muted then 0 else 1
-	icon.Text = if muted then "🔇" else "🎵"
-end)
-icon = Kit.text({
-	Text = "🎵",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromScale(0.7, 0.7),
-	StrokeThickness = 0,
-	Parent = button,
-})
+	icon.Image = Icons[if muted then "MusicOff" else "Music"]
+end, "Music")
+icon = button:FindFirstChild("Icon") :: ImageLabel

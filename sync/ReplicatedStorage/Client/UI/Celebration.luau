@@ -44,7 +44,7 @@ end
 local function request(remoteName: string, brainrotId: string, success: string)
 	local remote = Remotes.Function(remoteName)
 	local ok, done = pcall(remote.InvokeServer, remote, brainrotId)
-	Kit.toast(if ok and done then success else "Try again in a moment!", if ok and done then GOOD_COLOR else BAD_COLOR)
+	Kit.toast(if ok and done then success else "Try again!", if ok and done then GOOD_COLOR else BAD_COLOR, if ok and done then "Check" else "Warning")
 end
 
 local function play(completion: Completion)
@@ -67,7 +67,7 @@ local function play(completion: Completion)
 		elseif completion.FirstEver then "NEW BRAINROT!"
 		else "NEW EDITION!"
 	local titleLabel = Kit.text({
-		Text = `✨ {title} ✨`,
+		Text = title,
 		TextColor3 = TITLE_COLOR,
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 40),
@@ -93,7 +93,7 @@ local function play(completion: Completion)
 	local editionNames = {}
 	for _, zoneId in completion.Editions do
 		local zone = Zones.ById[zoneId]
-		table.insert(editionNames, (if zone then zone.Edition else zoneId) .. " ✓")
+		table.insert(editionNames, if zone then zone.Edition else zoneId)
 	end
 	Kit.text({
 		Text = brainrot.Name,
@@ -104,15 +104,13 @@ local function play(completion: Completion)
 		ZIndex = 64,
 		Parent = screen,
 	})
-	Kit.text({
-		Text = `+{Format.Number(completion.Gems)} 💎   ·   {table.concat(editionNames, "  ")}`,
-		TextColor3 = GEM_COLOR,
+	Kit.iconText({
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0.5, 232),
 		Size = UDim2.fromOffset(800, 34),
 		ZIndex = 64,
 		Parent = screen,
-	})
+	}, "Gem", `+{Format.Number(completion.Gems)}   {table.concat(editionNames, ", ")}`, GEM_COLOR)
 
 	-- The first completion unlocks the morph and the gadget.
 	local buttons = Kit.new("Frame", {
@@ -130,29 +128,27 @@ local function play(completion: Completion)
 		Parent = buttons,
 	})
 	if completion.FirstEver then
-		Kit.text({
-			Text = "🎁 Unlocked: Morph" .. (if gadget then ` + {gadget.Name}` else ""),
-			TextColor3 = GOOD_COLOR,
+		Kit.iconText({
 			AnchorPoint = Vector2.new(0.5, 0),
 			Position = UDim2.new(0.5, 0, 0.5, 270),
 			Size = UDim2.fromOffset(800, 32),
 			ZIndex = 64,
 			Parent = screen,
-		})
-		Kit.button({ Size = UDim2.fromOffset(200, 56), ZIndex = 65, Parent = buttons }, Kit.Colors.Purple, "MORPH NOW", function()
+		}, "Gift", "Unlocked: Morph" .. (if gadget then ` + {gadget.Name}` else ""), GOOD_COLOR)
+		Kit.button({ Size = UDim2.fromOffset(200, 56), ZIndex = 65, Parent = buttons }, Kit.Colors.Purple, "MORPH", function()
 			closed = true
 			request("SetMorph", completion.BrainrotId, `You're {brainrot.Name} now!`)
-		end)
+		end, "Mask")
 		if gadget then
-			Kit.button({ Size = UDim2.fromOffset(220, 56), ZIndex = 65, Parent = buttons }, Kit.Colors.Gems, "EQUIP GADGET", function()
+			Kit.button({ Size = UDim2.fromOffset(220, 56), ZIndex = 65, Parent = buttons }, Kit.Colors.Gems, "GADGET", function()
 				closed = true
 				request("EquipGadget", completion.BrainrotId, `{gadget.Name} equipped!`)
-			end)
+			end, gadget.Icon)
 		end
 	end
 	Kit.button({ Size = UDim2.fromOffset(200, 56), ZIndex = 65, Parent = buttons }, Kit.Colors.Green, "AWESOME!", function()
 		closed = true
-	end)
+	end, "Check")
 
 	Kit.flash(screen, rarity.Color, 66)
 	Kit.playSound(Sounds.RevealBig, 0.6)

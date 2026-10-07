@@ -34,13 +34,13 @@ local DRIFTERS = 10
 local CORNER_HEIGHT = 0.5 -- a corner brainrot's square, as a share of the screen's height...
 local CORNER_WIDTH = 0.27 -- ...or of its width, whichever is smaller (tablets)
 local TIPS = {
-	"💡 Equip your rarest parts on a line to earn more Coins!",
-	"💡 A full match (4 parts of one brainrot) ships for much more!",
-	"💡 Loot boxes appear all over the map: grab them!",
-	"💡 Every room has its own machines and its own edition to collect.",
-	"💡 Rebirth for +25% income and more luck: rarer parts!",
-	"💡 Spin the Daily Wheel every day for free prizes!",
-	"💡 Line upgrades: tap a line's tablet to make it faster and richer.",
+	"TIP: rare parts earn more Coins!",
+	"TIP: 4 parts of one brainrot = x2 Coins!",
+	"TIP: grab the boxes all over the map!",
+	"TIP: every room builds its own way!",
+	"TIP: Rebirth for more Coins and luck!",
+	"TIP: spin the Daily Wheel every day!",
+	"TIP: upgrade your lines at their tablets!",
 }
 local STATUS = {
 	{ At = 0, Text = "Waking up the brainrots..." },
@@ -155,7 +155,7 @@ local title = label({
 	Parent = middle,
 }, 6)
 new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.new(1, 1, 1), GOLD), Parent = title })
-label({ Text = "🏭 Brainrot Factory Tycoon 🏭", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.49), Size = UDim2.fromScale(0.7, 0.08), ZIndex = 6, Parent = middle }, 3)
+label({ Text = "Brainrot Factory Tycoon", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.49), Size = UDim2.fromScale(0.7, 0.08), ZIndex = 6, Parent = middle }, 3)
 
 local bar = new("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0),
@@ -231,7 +231,7 @@ local function popIn(corner: Corner)
 	show(corner, template, 1.3)
 	local color = template:GetAttribute("Color") or Color3.new(1, 1, 1)
 	corner.Glow.BackgroundColor3 = (color :: Color3):Lerp(Color3.new(1, 1, 1), 0.35)
-	corner.Tag.Text = `{string.rep("⭐", template:GetAttribute("Rank") or 1)}\n{template:GetAttribute("Rarity") or ""}`
+	corner.Tag.Text = `{string.rep("★", template:GetAttribute("Rank") or 1)}\n{template:GetAttribute("Rarity") or ""}`
 	corner.Tag.TextColor3 = color :: Color3
 	corner.Pop.Scale = 0.55
 	TweenService:Create(corner.Pop, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
@@ -457,7 +457,7 @@ while os.clock() < deadline and not (preloaded and os.clock() - started >= MIN_T
 	task.wait(0.1)
 end
 progress = 1
-status.Text = "Let's go! 🚀"
+status.Text = "Let's go!"
 task.wait(0.4)
 
 local fade = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)

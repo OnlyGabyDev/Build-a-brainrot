@@ -32,7 +32,7 @@ LineUpgrades.Tracks = {
 	{
 		Key = "Droppers",
 		Name = "Dropper Power",
-		Icon = "🔩",
+		Icon = "Nut",
 		Effect = "Speed",
 		Step = 0.05, -- speed tracks stay gentle: a fast line hurries the assembly show
 		BasePrice = 600,
@@ -44,7 +44,7 @@ LineUpgrades.Tracks = {
 	{
 		Key = "Belt",
 		Name = "Belt Boost",
-		Icon = "⚡",
+		Icon = "Lightning",
 		Effect = "Speed",
 		Step = 0.03,
 		BasePrice = 500,
@@ -56,7 +56,7 @@ LineUpgrades.Tracks = {
 	{
 		Key = "Upgraders",
 		Name = "Super Upgraders",
-		Icon = "✨",
+		Icon = "Sparkle",
 		Effect = "Flat",
 		Step = 24, -- x4 with the part values (the pacing pass)
 		BasePrice = 800,
@@ -68,7 +68,7 @@ LineUpgrades.Tracks = {
 	{
 		Key = "Shipping",
 		Name = "Premium Shipping",
-		Icon = "📦",
+		Icon = "Gift",
 		Effect = "Percent",
 		Step = 0.1,
 		BasePrice = 1000,
@@ -94,10 +94,10 @@ end
 
 -- What a track's amount is of: "speed", "base 💰 per brainrot", "sale value".
 function LineUpgrades.Unit(track: Track): string
-	return if track.Effect == "Flat" then "base 💰 per brainrot" elseif track.Effect == "Speed" then "speed" else "sale value"
+	return if track.Effect == "Flat" then "base Coins per brainrot" elseif track.Effect == "Speed" then "speed" else "sale value"
 end
 
--- What `level` of `track` gives in all: "+24% speed", "+18 base 💰 per brainrot",
+-- What `level` of `track` gives in all: "+24% speed", "+18 base Coins per brainrot",
 -- "+30% sale value".
 function LineUpgrades.Describe(track: Track, level: number): string
 	return `{LineUpgrades.Amount(track, level)} {LineUpgrades.Unit(track)}`

@@ -1,6 +1,6 @@
 --[[
 	Settings Menu
-	The ⚙️ panel: a row per setting, each with an ON/OFF switch (Kit.toggle). Today:
+	The gear panel (teal): a row per setting, each with an ON/OFF switch (Kit.toggle). Today:
 	Lower Graphics (Client/Performance: saved with the player's data, applied by
 	StarterPlayerScripts/LowGraphics). New settings are one more entry in SETTINGS.
 	Client only.
@@ -15,7 +15,7 @@ local SIZE = Vector2.new(620, 300)
 local MUTED_COLOR = Color3.fromRGB(110, 105, 130)
 
 type Setting = {
-	Icon: string,
+	Icon: string, -- one of ours (Config/Icons)
 	Name: string,
 	About: string,
 	Get: () -> boolean,
@@ -25,9 +25,9 @@ type Setting = {
 
 local SETTINGS: { Setting } = {
 	{
-		Icon = "🐢",
+		Icon = "Lightning",
 		Name = "Lower Graphics",
-		About = "Fewer effects, shadows and decor for more FPS",
+		About = "More FPS, fewer effects",
 		Get = function()
 			return Performance.Low
 		end,
@@ -50,8 +50,8 @@ local function build(content: Frame)
 		})
 		Kit.corner(row, 18)
 		Kit.stroke(row, 3)
-		Kit.gradient(row, { Color3.fromRGB(255, 255, 255), Color3.fromRGB(235, 230, 250) })
-		Kit.text({ Text = setting.Icon, Position = UDim2.fromOffset(12, 14), Size = UDim2.fromOffset(56, 56), StrokeThickness = 0, Parent = row })
+		Kit.gradient(row, { Color3.fromRGB(255, 255, 255), Kit.Hues.Teal.Light:Lerp(Kit.White, 0.6) })
+		Kit.icon(setting.Icon, { Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(64, 64), Parent = row })
 		Kit.text({
 			Text = setting.Name,
 			Position = UDim2.fromOffset(80, 10),
@@ -83,30 +83,22 @@ end
 
 function SettingsMenu.Open()
 	if not panel then
-		local newPanel, content = Kit.modal("Settings", "⚙️ SETTINGS", Kit.Colors.Purple, SIZE)
+		local newPanel, content = Kit.modal("Settings", "SETTINGS", Kit.Hues.Teal, SIZE, "Gear")
 		build(content)
 		panel = newPanel
 	end
 	Kit.open(panel :: Frame)
 end
 
--- The ⚙️ button on the HUD (top right, under the music's).
+-- The gear button on the HUD (top right, under the music's).
 function SettingsMenu.Init()
-	local button = Kit.button({
+	Kit.button({
 		Name = "SettingsButton",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -24, 0, 156),
 		Size = UDim2.fromOffset(64, 64),
 		Parent = Kit.getGui(),
-	}, Kit.Colors.Purple, nil, SettingsMenu.Open)
-	Kit.text({
-		Text = "⚙️",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(0.7, 0.7),
-		StrokeThickness = 0,
-		Parent = button,
-	})
+	}, Kit.pair(Kit.Hues.Teal), nil, SettingsMenu.Open, "Gear")
 end
 
 return SettingsMenu

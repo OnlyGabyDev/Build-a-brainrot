@@ -1,6 +1,6 @@
 --[[
 	UpgradePreview
-	Shows a line upgrade track's next level in place, for the Line menu's 👀 button.
+	Shows a line upgrade track's next level in place, for the Line menu's eye button.
 	The server builds that level's look with the line's own builders
 	(TycoonManager.BuildTrackPreview) into the player's PlayerGui; this clones it into
 	the world on this client only, outlined in gold, hides what it replaces (the
