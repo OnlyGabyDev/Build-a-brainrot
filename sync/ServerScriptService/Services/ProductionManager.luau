@@ -274,6 +274,7 @@ local function ship(player: Player, plot: TycoonManager.Plot, line: TycoonItems.
 			return -- left, or the plot was reset (rebirth, dev Restore) mid-animation
 		end
 		TycoonManager.AddToCollector(player, value)
+		DataManager.AddCounter(player, "Built", 1) -- (the BUILDER achievement)
 		if matchId then
 			DataManager.RecordPerfect(player)
 		end

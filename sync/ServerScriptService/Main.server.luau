@@ -49,6 +49,7 @@ local RebirthManager = require(Services:WaitForChild("RebirthManager"))
 local MascotManager = require(Services:WaitForChild("MascotManager"))
 local DailyWheelManager = require(Services:WaitForChild("DailyWheelManager"))
 local DailyLogin = require(Services:WaitForChild("DailyLogin"))
+local AchievementManager = require(Services:WaitForChild("AchievementManager"))
 local OfflineEarnings = require(Services:WaitForChild("OfflineEarnings"))
 local DevTools = require(Services:WaitForChild("DevTools"))
 local LeaderboardManager = require(Services:WaitForChild("LeaderboardManager"))
@@ -76,5 +77,6 @@ RebirthManager.Init()
 MascotManager.Init() -- the company mascot out front (after TycoonManager: it stands on the plots)
 DailyWheelManager.Init()
 DailyLogin.Init() -- the login streak
+AchievementManager.Init() -- achievements in tiers
 OfflineEarnings.Init() -- what the factory made while you were away
 DevTools.Init() -- developers only (Studio, the owner, group admins)

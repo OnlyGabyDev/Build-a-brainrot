@@ -50,6 +50,7 @@ local Shared = ReplicatedStorage.Shared
 local Remotes = require(Shared.Remotes)
 local BrainrotModels = require(Shared.BrainrotModels)
 local Brainrots = require(Shared.Config.Brainrots)
+local AchievementManager = require(script.Parent.AchievementManager)
 local DailyLogin = require(script.Parent.DailyLogin)
 local DataManager = require(script.Parent.DataManager)
 local GuideManager = require(script.Parent.GuideManager)
@@ -267,6 +268,18 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 		local today = os.time() // 86400
 		local done = DataManager.ClaimDailyLogin(player, math.clamp(tonumber(day) or 0, 0, 7), today - (if missed then 2 else 1))
 		DailyLogin.Refresh(player)
+		return done
+	end,
+	-- Forgets every achievement tier claimed (`counters` true: the counters too). It saves.
+	ResetAchievements = function(player, counters)
+		DataManager.DevResetAchievements(player, counters == true or counters == "true")
+		AchievementManager.Refresh(player)
+		return true
+	end,
+	-- Adds to a lifetime counter (Built, Boxes, Rolls, Spins, Upgrades, Days).
+	AddCounter = function(player, name, amount)
+		local done = DataManager.AddCounter(player, tostring(name), tonumber(amount) or 1)
+		AchievementManager.Refresh(player)
 		return done
 	end,
 	SetAway = function(player, hours)

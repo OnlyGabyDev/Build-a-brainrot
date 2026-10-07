@@ -2050,6 +2050,7 @@ local function onBuyLineUpgrade(player: Player, lineId: unknown, track: unknown,
 	if reached == level then
 		return false, "Coins"
 	end
+	DataManager.AddCounter(player, "Upgrades", reached - level) -- (the UPGRADER achievement)
 	buildItem(plot, levels[reached], true) -- (only the highest level shows: it replaces the one before)
 	return true, reached - level
 end

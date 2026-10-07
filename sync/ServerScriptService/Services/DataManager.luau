@@ -92,6 +92,10 @@ export type PlayerData = {
 	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number, Perfects: number, LastSeen: number, LastIncome: number },
 	Settings: { LowGraphics: boolean }, -- the player's own (Client/Performance)
 	Guide: string, -- the step of Tralalero's guide they're on (Config/Guide), "Done" when finished
+	Achievements: { [string]: number }, -- [achievementId] = tiers claimed (Config/Achievements)
+	-- lifetime counts the achievements read (never reset): Built, Boxes, Rolls, Spins,
+	-- Upgrades, Days (UTC days played; LastDay the last), Room_<zoneId> (1: opened once)
+	Counters: { [string]: number },
 }
 
 export type AddPartResult = "New" | "Duplicate" | "NotLoaded"
@@ -147,6 +151,8 @@ local TEMPLATE: PlayerData = {
 		LowGraphics = false,
 	},
 	Guide = Guide.Steps[1].Id,
+	Achievements = {},
+	Counters = {},
 }
 
 -- What a client may set in its Settings, and the type each takes.
@@ -960,6 +966,9 @@ function DataManager.UseWheelSpin(player: Player, freePerDay: number, cooldown: 
 		wheel.Spins -= 1
 		kind = "Paid"
 	end
+	if kind then
+		profile.Data.Counters.Spins = (profile.Data.Counters.Spins or 0) + 1
+	end
 	replicateExtras(profile)
 	return kind
 end
@@ -984,6 +993,7 @@ function DataManager.UseRoll(player: Player): boolean
 		return false
 	end
 	profile.Data.Rolls -= 1
+	profile.Data.Counters.Rolls = (profile.Data.Counters.Rolls or 0) + 1
 	replicateStat(profile, "Rolls")
 	return true
 end
@@ -1054,6 +1064,59 @@ end
 function DataManager.IsBrainrotClaimed(player: Player, brainrotId: string): boolean
 	local profile = profiles[player]
 	return profile ~= nil and profile.Data.Inventory.Claimed[brainrotId] ~= nil
+end
+
+-- Achievements -------------------------------------------------------------------
+
+-- Adds to one of the player's lifetime counters (Data.Counters: "Built", "Boxes"...).
+function DataManager.AddCounter(player: Player, name: string, amount: number): boolean
+	checkId("counter", name)
+	local profile = profiles[player]
+	if not (profile and type(amount) == "number" and amount == amount and amount > 0 and amount < math.huge) then
+		return false
+	end
+	local counters = profile.Data.Counters
+	counters[name] = (counters[name] or 0) + amount
+	return true
+end
+
+-- Raises a counter to `value` if it's lower. Returns whether it rose.
+function DataManager.SetCounterMax(player: Player, name: string, value: number): boolean
+	checkId("counter", name)
+	local profile = profiles[player]
+	if not (profile and type(value) == "number" and value == value and value < math.huge) then
+		return false
+	end
+	local counters = profile.Data.Counters
+	if (counters[name] or 0) >= value then
+		return false
+	end
+	counters[name] = value
+	return true
+end
+
+-- Records tier `tier` of an achievement as claimed, if it's the next one. The caller
+-- checks the goal and gives the reward. Returns whether it was claimed now.
+function DataManager.ClaimAchievementTier(player: Player, achievementId: string, tier: number): boolean
+	checkId("achievementId", achievementId)
+	local profile = profiles[player]
+	if not profile or (profile.Data.Achievements[achievementId] or 0) ~= tier - 1 then
+		return false
+	end
+	profile.Data.Achievements[achievementId] = tier
+	return true
+end
+
+-- Studio testing: forgets every achievement tier claimed (and, with `counters`, the
+-- counters too).
+function DataManager.DevResetAchievements(player: Player, counters: boolean?)
+	local profile = profiles[player]
+	if profile then
+		profile.Data.Achievements = {}
+		if counters then
+			profile.Data.Counters = {}
+		end
+	end
 end
 
 -- Counts a full match shipped (a PERFECT).

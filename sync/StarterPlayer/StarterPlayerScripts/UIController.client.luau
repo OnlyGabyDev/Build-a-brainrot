@@ -22,6 +22,7 @@ local Format = require(Shared:WaitForChild("Format"))
 local Gamepasses = require(Shared:WaitForChild("Config"):WaitForChild("Gamepasses"))
 local Guide = require(Shared:WaitForChild("Config"):WaitForChild("Guide"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
+local AchievementsMenu = require(UI:WaitForChild("AchievementsMenu"))
 local Catalog = require(UI:WaitForChild("Catalog"))
 local DailyLoginMenu = require(UI:WaitForChild("DailyLoginMenu"))
 local WelcomeBackMenu = require(UI:WaitForChild("WelcomeBackMenu"))
@@ -309,6 +310,8 @@ local wheelButton = menuButton(4, "Wheel", "WHEEL", Kit.Hues.Pink, DailyWheelMen
 menuButton(5, "Cart", "SHOP", Kit.Hues.Green, function()
 	Shop.Open()
 end)
+-- the achievements (a gold CLAIM! while a tier waits)
+AchievementsMenu.Init(menuButton(6, "Trophy", "QUESTS", Kit.Hues.Teal, AchievementsMenu.Open))
 
 task.spawn(function()
 	local dev = false
@@ -324,7 +327,7 @@ task.spawn(function()
 	end
 	if dev then
 		local DevMenu = require(UI:WaitForChild("DevMenu"))
-		menuButton(6, "Wrench", "DEV", Kit.Hues.Red, DevMenu.Open)
+		menuButton(7, "Wrench", "DEV", Kit.Hues.Red, DevMenu.Open)
 	end
 end)
 
