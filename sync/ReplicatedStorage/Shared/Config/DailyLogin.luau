@@ -1,8 +1,8 @@
 --[[
 	DailyLogin
 	The login streak (GDD §5): a reward a day for 7 days, claimed from a calendar that
-	pops up on the first join of each UTC day. Miss a day and it starts over at day 1;
-	after day 7 it goes round again. The rewards grow, day 7 the best: a new Rare+ part.
+	pops up on the first join of each UTC day. A missed day just waits: the next visit
+	gets the next day; after day 7 it goes round again. The rewards grow, day 7 the best: a new Rare+ part.
 	Services/DailyLogin grants them; Client/UI/DailyLoginMenu shows the calendar.
 ]]
 

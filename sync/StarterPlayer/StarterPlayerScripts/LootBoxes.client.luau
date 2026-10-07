@@ -22,7 +22,12 @@
 	    box materializes in a burst of stars.
 	  * Godly: rises out of its black hole.
 	Opening one bursts in sparkles, confetti, a shockwave and a flash, bigger with the
-	rarity.
+	rarity. Before an arrival near you there's a warning (WARNING), long enough to run
+	there: a target closing in on the spot, ticking, with the growing shadow of what
+	falls, or the ground cracking and shaking under what comes up. Boxes float over a
+	glow on the ground; a Rare+ box that turns up shows a small alert with an arrow to it
+	and its distance (Alert); the Box Radar pass lays chevrons at your feet toward the
+	best one (Radar).
 
 	Performance: a box storm can put ~150 boxes on the map, so only boxes near the
 	camera bob and spin (ANIMATE_RANGE), only Rare+ boxes carry a light, and effects
@@ -32,12 +37,14 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Format = require(Shared:WaitForChild("Format"))
 local Gamepasses = require(Config:WaitForChild("Gamepasses"))
+local Icons = require(Config:WaitForChild("Icons"))
 local LootConfig = require(Config:WaitForChild("Loot"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
@@ -67,6 +74,23 @@ local SCORCH_COLOR = Color3.fromRGB(45, 35, 35)
 local BOLT_COLOR = Color3.fromRGB(150, 220, 255)
 local VOID_COLOR = Color3.fromRGB(190, 120, 255)
 local OWNER_COLOR = Color3.fromRGB(255, 225, 90)
+local HOVER = Vector3.new(0, 1.2, 0) -- boxes float this high over their spot (tall grass hid them)
+-- The warning before a box lands near you, long enough to run there (the user,
+-- 2026-10-06): a target ring closing in on the spot, with the shadow of what falls
+-- (Shadow) or the ground cracking and shaking under what comes up (Cracks). Never in a
+-- box storm: more than StormCount arrivals within StormWindow seconds, or a big drop.
+local WARNING = {
+	Time = 2.6,
+	StormCount = 4,
+	StormWindow = 3,
+	StormDrop = 5, -- a bought drop of this many boxes or more rains down unwarned
+	Shadow = { Common = true, Uncommon = true, Legendary = true },
+	Cracks = { Rare = true, Godly = true },
+	Lift = 1.3, -- its marks float this high: on top of the tall grass, which hid them
+	Recent = {} :: { number }, -- when the last arrivals turned up
+	StormUntil = 0,
+}
+local GLOW_LIFT = 0.9 -- the glowing pad under a box, over the grass too
 
 type Box = {
 	Id: number,
@@ -108,6 +132,9 @@ type Entry = {
 	Stars: { BasePart }, -- Mythic: orbiting stars
 	Rainbow: { BasePart }, -- Godly: parts that cycle through the rainbow
 	Portal: Model?, -- Godly: the black hole under it
+	Warning: Model?, -- the warning on the ground before it arrives (until it lands)
+	WarnStart: number?, -- when that warning began
+	Glow: BasePart?, -- the glow on the ground under it, once it's there
 }
 
 local loaded = false -- (boxes there when you join just sit there)
@@ -693,6 +720,139 @@ local ARRIVALS: { [string]: Arrival } = {
 	},
 }
 
+-- Warnings ---------------------------------------------------------------------------
+
+-- Whether boxes are pouring in (a storm, a big drop): they come unwarned then.
+local function stormy(now: number): boolean
+	local recent = WARNING.Recent
+	while recent[1] and recent[1] < now - WARNING.StormWindow do
+		table.remove(recent, 1)
+	end
+	table.insert(recent, now)
+	return now < WARNING.StormUntil or #recent > WARNING.StormCount
+end
+
+-- The target where `entry` will land (a ring of neon dashes, an inner ring, four ticks
+-- pointing in), a pillar of light over it and a "V" turning high on it (seen from afar),
+-- the soft shadow of what falls or the cracks of what comes up.
+local function startWarning(entry: Entry, now: number)
+	local box = entry.Box
+	local rarity = Rarities.ById[box.Rarity]
+	local ground = groundOf(box)
+	local radius = 3 + rarity.Rank * 0.4
+	local model = Instance.new("Model")
+	model.Name = "Warning"
+	local dashes = {}
+	for index = 0, 17 do
+		local angle = index / 18 * math.pi * 2
+		local dash = makePart(model, Vector3.new(1.15, 0.2, 0.45), Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius), rarity.Color, Enum.Material.Neon)
+		dash.CFrame = CFrame.new(dash.Position) * CFrame.Angles(0, math.pi / 2 - angle, 0)
+		table.insert(dashes, dash)
+	end
+	for index = 0, 9 do
+		local angle = index / 10 * math.pi * 2
+		local dash = makePart(model, Vector3.new(0.65, 0.2, 0.35), Vector3.new(math.cos(angle) * radius * 0.42, 0, math.sin(angle) * radius * 0.42), WHITE, Enum.Material.Neon)
+		dash.CFrame = CFrame.new(dash.Position) * CFrame.Angles(0, math.pi / 2 - angle, 0)
+		table.insert(dashes, dash)
+	end
+	for index = 0, 3 do
+		local angle = index / 4 * math.pi * 2 + math.pi / 4
+		local tick = makePart(model, Vector3.new(radius * 0.32, 0.2, 0.45), Vector3.new(math.cos(angle), 0, math.sin(angle)) * radius * 0.72, WHITE, Enum.Material.Neon)
+		tick.CFrame = CFrame.new(tick.Position) * CFrame.Angles(0, -angle, 0)
+		table.insert(dashes, tick)
+	end
+	-- the "V" over the spot, pointing down at it
+	for _, sign in { -1, 1 } do
+		local arm = makePart(model, Vector3.new(0.55, 2.4, 0.55), Vector3.new(sign * 0.6, 8, 0), rarity.Color:Lerp(WHITE, 0.2), Enum.Material.Neon)
+		arm.CFrame = CFrame.new(arm.Position) * CFrame.Angles(0, 0, -sign * math.rad(30))
+		table.insert(dashes, arm)
+	end
+	for _, dash in dashes do
+		dash.CastShadow = false
+	end
+	local pillar = makePart(model, Vector3.new(44, 0.8, 0.8), Vector3.new(0, 22, 0), rarity.Color:Lerp(WHITE, 0.3), Enum.Material.Neon)
+	pillar.Shape = Enum.PartType.Cylinder
+	pillar.CFrame = CFrame.new(0, 22, 0) * CFrame.Angles(0, 0, math.pi / 2)
+	pillar.CastShadow = false
+	model.WorldPivot = CFrame.identity
+	local state = entry.State
+	state.Dashes, state.Pillar = dashes, pillar
+	if WARNING.Shadow[box.Rarity] then
+		local shadow = makePart(model, Vector3.new(1, 0.05, 1), Vector3.new(0, -0.1, 0), WHITE)
+		shadow.Transparency = 1
+		local decal = Instance.new("Decal")
+		decal.Texture = Icons.Glow
+		decal.Face = Enum.NormalId.Top
+		decal.Color3 = Color3.new(0, 0, 0)
+		decal.Parent = shadow
+		state.Shadow, state.ShadowDecal = shadow, decal
+		-- a shell whistling down (3.5 s, sped up to the warning), louder the rarer
+		Effects.sound(ground + Vector3.new(0, 12, 0), Sounds.BombFall, 0.15 + rarity.Rank * 0.06, 3.5 / (WARNING.Time + 0.3))
+	end
+	if WARNING.Cracks[box.Rarity] then
+		local cracks = {}
+		for index = 1, 7 do
+			local crack = makePart(model, Vector3.new(0.1, 0.08, 0.45), Vector3.zero, SCORCH_COLOR)
+			table.insert(cracks, { Part = crack, Angle = index / 7 * math.pi * 2 + math.random() * 0.6, Length = radius * (0.75 + math.random() * 0.5) })
+		end
+		state.Cracks = cracks
+		rumble(ground, WARNING.Time, 0.18)
+		Effects.sound(ground, Sounds.Clunk, 0.5, 0.45)
+	elseif box.Rarity == "Mythic" then
+		Effects.sound(ground, Sounds.Reveal, 0.35, 0.5)
+	end
+	model.Parent = folder
+	entry.Warning = model
+	entry.WarnStart = now
+end
+
+-- The warning each frame (until the box lands): the target closes in, turning and
+-- blinking faster; the shadow grows darker and bigger as it falls; the cracks spread.
+local function stepWarning(entry: Entry, now: number)
+	local model = entry.Warning :: Model
+	local state = entry.State
+	local ground = groundOf(entry.Box) + Vector3.new(0, WARNING.Lift, 0)
+	local w = math.clamp((now - (entry.WarnStart :: number)) / WARNING.Time, 0, 1)
+	model:ScaleTo(1.5 - 0.5 * w * w)
+	model:PivotTo(CFrame.new(ground) * CFrame.Angles(0, now * (1 + w * 2), 0))
+	local blink = 0.5 + 0.5 * math.sin(now * (7 + w * 16))
+	for _, dash in state.Dashes do
+		dash.Transparency = 0.45 * blink * (1 - w * 0.5)
+	end
+	;(state.Pillar :: BasePart).Transparency = 0.8 - 0.4 * w + 0.1 * blink
+	local rarity = Rarities.ById[entry.Box.Rarity]
+	local k = 1.1 + (rarity.Rank - 1) * 0.12
+	local shadow = state.Shadow :: BasePart?
+	if shadow then
+		local arrival = entry.Arrival
+		local fall = math.clamp((now - (entry.WarnStart :: number)) / (WARNING.Time + (if arrival then arrival.Duration * 0.7 else 0)), 0, 1)
+		shadow.Size = Vector3.new(1, 0.05, 1) * (1 + 5.5 * fall ^ 1.5) * k
+		shadow.CFrame = CFrame.new(ground - Vector3.new(0, 0.1, 0))
+		;(state.ShadowDecal :: Decal).Transparency = 0.85 - 0.45 * fall
+	end
+	local cracks = state.Cracks
+	if cracks then
+		local spread = math.min(w * 1.25, 1)
+		for _, crack in cracks do
+			local length = math.max(crack.Length * spread, 0.1)
+			crack.Part.Size = Vector3.new(length, 0.08, 0.45 - 0.15 * spread)
+			crack.Part.CFrame = CFrame.new(ground) * CFrame.Angles(0, -crack.Angle, 0) * CFrame.new(length / 2 + 0.3, 0, 0)
+		end
+	end
+	-- a tick, faster and higher toward the end; dust from cracks, sparks for a Mythic
+	if w < 1 and now >= (state.NextTick or 0) then
+		state.NextTick = now + 0.55 - w * 0.35
+		if Effects.near(ground, EFFECTS_RANGE) then
+			Effects.sound(ground, Sounds.Click, 0.3, 1 + w * 0.8)
+			if cracks then
+				Effects.puff(ground, DUST_COLOR, 4, 0.9)
+			elseif entry.Box.Rarity == "Mythic" then
+				Effects.sparkle(ground + Vector3.new(0, 0.5, 0), rarity.Color, 8, 8)
+			end
+		end
+	end
+end
+
 -- Building ---------------------------------------------------------------------------
 
 local function refreshOwner(entry: Entry)
@@ -719,12 +879,24 @@ local function buildLabel(entry: Entry, base: BasePart, k: number)
 	label.LightInfluence = 0
 	label.Enabled = entry.Born == nil
 	label.Parent = base
-	Kit.text({ Text = string.upper(box.PartType), Size = UDim2.fromScale(1, 0.4), Parent = label })
+	-- a dark pill behind the two lines, so they read on grass and sky alike
+	local pill = Kit.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.fromScale(0.5, 0.02),
+		Size = UDim2.fromScale(0.82, 0.72),
+		BackgroundColor3 = Kit.Outline,
+		BackgroundTransparency = 0.35,
+		Parent = label,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.35, 0), Parent = pill })
+	Kit.new("UIStroke", { Thickness = 2, Color = rarity.Color, Transparency = 0.2, Parent = pill })
+	Kit.text({ Text = string.upper(box.PartType), Position = UDim2.fromScale(0, 0.04), Size = UDim2.fromScale(1, 0.36), ZIndex = 2, Parent = label })
 	Kit.text({
 		Text = string.upper(rarity.Id),
-		TextColor3 = rarity.Color,
+		TextColor3 = rarity.Color:Lerp(WHITE, 0.25),
 		Position = UDim2.fromScale(0, 0.4),
-		Size = UDim2.fromScale(1, 0.33),
+		Size = UDim2.fromScale(1, 0.3),
+		ZIndex = 2,
 		Parent = label,
 	})
 	entry.OwnerText = Kit.text({
@@ -745,7 +917,7 @@ local function buildBox(entry: Entry)
 	local box = entry.Box
 	local rarity = Rarities.ById[box.Rarity]
 	local rank = rarity.Rank
-	local k = 1 + (rank - 1) * 0.12 -- its size
+	local k = 1.1 + (rank - 1) * 0.12 -- its size
 	local godly = rarity.Id == "Godly"
 	local model = Instance.new("Model")
 	model.Name = `LootBox{box.Id}`
@@ -766,6 +938,16 @@ local function buildBox(entry: Entry)
 	makeBall(model, 0.5 * k, Vector3.new(0, 2 * k, 0), RIBBON_COLOR)
 	local band = makePart(model, Vector3.new(3.2, 0.3, 3.2) * k, Vector3.new(0, 1 * k, 0), rarity.Color, Enum.Material.Neon)
 	band.CastShadow = false
+	-- white candy stripes round its sides (the factory look: color, white stripes, neon)
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right } do
+		local stripes = Instance.new("Texture")
+		stripes.Texture = Icons.Stripes
+		stripes.Face = face
+		stripes.StudsPerTileU = 1.8 * k
+		stripes.StudsPerTileV = 1.8 * k
+		stripes.Transparency = 0.55
+		stripes.Parent = base
+	end
 	model.PrimaryPart = base
 	model.WorldPivot = CFrame.identity
 	if godly then
@@ -774,17 +956,23 @@ local function buildBox(entry: Entry)
 		table.insert(entry.Rainbow, band)
 	end
 
-	-- Rare and up: glowing edges
-	if rank >= 3 then
-		for _, x in { -1.5, 1.5 } do
-			for _, z in { -1.5, 1.5 } do
-				local edge = makePart(model, Vector3.new(0.25, 2.5, 0.25) * k, Vector3.new(x, 0, z) * k, light, Enum.Material.Neon)
-				edge.CastShadow = false
-				if godly then
-					table.insert(entry.Rainbow, edge)
-				end
+	-- its edges: white trims, glowing from Rare up (a clear outline on grass)
+	for _, x in { -1.5, 1.5 } do
+		for _, z in { -1.5, 1.5 } do
+			local edge = makePart(model, Vector3.new(0.25, 2.5, 0.25) * k, Vector3.new(x, 0, z) * k, if rank >= 3 then light else WHITE, if rank >= 3 then Enum.Material.Neon else nil)
+			edge.CastShadow = false
+			if godly then
+				table.insert(entry.Rainbow, edge)
 			end
 		end
+	end
+	-- Rare: a soft beam to spot it from afar (Legendary and up have a bright one)
+	if rank == 3 then
+		local beam = makePart(model, Vector3.new(24, 1.4 * k, 1.4 * k), Vector3.new(0, 13, 0), light, Enum.Material.Neon)
+		beam.Shape = Enum.PartType.Cylinder
+		beam.CFrame = CFrame.new(0, 13, 0) * CFrame.Angles(0, 0, math.pi / 2)
+		beam.Transparency = 0.86
+		beam.CastShadow = false
 	end
 	-- Legendary and up: a beam of light and a halo of lights over it
 	if rank >= 4 then
@@ -821,6 +1009,7 @@ local function buildBox(entry: Entry)
 	emitter(base, if godly then RAINBOW else ColorSequence.new(rarity.Color), 1 + rank * rank, 0.4 + rank * 0.1, 1 + rank * 0.4)
 
 	buildLabel(entry, base, k)
+	model:PivotTo(CFrame.new(box.Position + HOVER)) -- (far boxes hold still where they're built)
 	model.Parent = folder
 	entry.Model = model
 	entry.Scale = 1
@@ -844,6 +1033,33 @@ end
 
 -- Arriving and leaving ----------------------------------------------------------------
 
+-- A glowing pad of its color under it, once it's there (a soft glow decal barely
+-- showed on the bright grass).
+local function addGlow(entry: Entry)
+	if entry.Glow then
+		return
+	end
+	local rarity = Rarities.ById[entry.Box.Rarity]
+	local size = (4.2 + rarity.Rank * 0.4) * (1.1 + (rarity.Rank - 1) * 0.12)
+	local glow = makeDisc(folder, size, 0.12, groundOf(entry.Box) + Vector3.new(0, GLOW_LIFT, 0), rarity.Color:Lerp(WHITE, 0.2), Enum.Material.Neon)
+	glow.Name = `BoxGlow{entry.Box.Id}`
+	glow.Transparency = 0.55
+	glow.CastShadow = false
+	entry.Glow = glow
+end
+
+-- The warning's over: the box shows up and its arrival starts.
+local function arrive(entry: Entry)
+	entry.Model.Parent = folder
+	if entry.Portal then
+		entry.Portal.Parent = folder
+	end
+	local arrival = entry.Arrival
+	if arrival and arrival.Start then
+		arrival.Start(entry)
+	end
+end
+
 local function addBox(box: Box)
 	if entries[box.Id] then
 		return
@@ -851,12 +1067,14 @@ local function addBox(box: Box)
 	-- it arrives only if it turned up while you're here and in sight (a box storm across
 	-- the map isn't worth animating)
 	local arriving = loaded and Effects.near(box.Position, EFFECTS_RANGE)
+	local now = os.clock()
+	local warned = arriving and not stormy(now)
 	local entry: Entry = {
 		Box = box,
 		Model = nil :: any,
 		Opening = false,
 		RetryAt = 0,
-		Born = if arriving then os.clock() else nil,
+		Born = if arriving then now + (if warned then WARNING.Time else 0) else nil, -- (its arrival starts after the warning)
 		State = {},
 		Scale = 1,
 		Stars = {},
@@ -867,9 +1085,16 @@ local function addBox(box: Box)
 	end
 	buildBox(entry)
 	entries[box.Id] = entry
-	local arrival = entry.Arrival
-	if arrival and arrival.Start then
-		arrival.Start(entry)
+	if warned then
+		entry.Model.Parent = nil -- (not here yet)
+		if entry.Portal then
+			entry.Portal.Parent = nil
+		end
+		startWarning(entry, now)
+	elseif arriving then
+		arrive(entry)
+	else
+		addGlow(entry)
 	end
 end
 
@@ -908,6 +1133,11 @@ local function land(entry: Entry)
 		entry.Scale = 1
 	end
 	refreshLabels()
+	addGlow(entry)
+	if entry.Warning then
+		fadeAway(entry.Warning, 0.35)
+		entry.Warning = nil
+	end
 	local props = entry.Props
 	entry.Props = nil
 	if arrival.Land then
@@ -938,10 +1168,12 @@ local function removeBox(boxId: number, opener: Player?)
 		end
 	end
 	entry.Model:Destroy()
-	if entry.Props then
-		entry.Props:Destroy()
-		entry.Props = nil
+	for _, extra: Instance? in { entry.Props, entry.Warning, entry.Glow } :: { any } do
+		if extra then
+			extra:Destroy()
+		end
 	end
+	entry.Props, entry.Warning, entry.Glow = nil, nil, nil
 	if entry.Portal then
 		local portal = entry.Portal
 		entry.Portal = nil
@@ -1002,14 +1234,144 @@ local function tryOpen(entry: Entry)
 	end)
 end
 
--- A rare box spawned on the map: a banner for everyone, bigger the rarer it is, with
--- how far away it landed.
-local function announce(box: any)
-	local rarity = Rarities.ById[box.Rarity]
+-- A Rare+ box turned up on the map: a small card under the top bar for everyone (the
+-- user, 2026-10-06: the big banner was too much): the rarity's colors with stripes and
+-- a neon rim, a gift, "LEGENDARY BOX" and its part, and an arrow pointing at the box from
+-- where you look, with how far it is. One at a time; it goes after Time seconds, or as
+-- soon as the box is gone.
+local Alert = {
+	Time = 8,
+	Top = 74, -- under the toasts
+	Card = nil :: Frame?,
+	Box = nil :: Box?,
+	Until = 0,
+	Arrow = nil :: ImageLabel?,
+	Distance = nil :: TextLabel?,
+}
+
+function Alert.hide()
+	local card = Alert.Card
+	Alert.Card, Alert.Box, Alert.Arrow, Alert.Distance = nil, nil, nil, nil
+	if card then
+		local tween = TweenService:Create(card, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Position = UDim2.new(0.5, 0, 0, -110) })
+		tween.Completed:Once(function()
+			card:Destroy()
+		end)
+		tween:Play()
+	end
+end
+
+-- Turns the arrow toward the box (straight up: ahead of the camera) and updates the
+-- distance; hides the card when its time is up or the box has gone.
+function Alert.step()
+	local box = Alert.Box
+	if not box then
+		return
+	end
+	if os.clock() > Alert.Until or not entries[box.Id] then
+		Alert.hide()
+		return
+	end
+	local camera = workspace.CurrentCamera
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local where = if root then `{math.floor((box.Position - root.Position).Magnitude)} studs away` else "on the map"
-	Kit.banner("Gift", `{string.upper(rarity.Id)} BOX!`, `{string.upper(box.PartType)} box · {where} · go grab it!`, rarity.Color, rarity.Rank - LootConfig.AnnounceRank)
+	if not (camera and root) then
+		return
+	end
+	local look = camera.CFrame.LookVector
+	local forward = Vector3.new(look.X, 0, look.Z)
+	local toBox = Vector3.new(box.Position.X - root.Position.X, 0, box.Position.Z - root.Position.Z)
+	if forward.Magnitude > 0.01 and toBox.Magnitude > 0.01 then
+		forward = forward.Unit
+		local right = Vector3.new(-forward.Z, 0, forward.X)
+		-- (the Arrow icon points right: turned -90 it points up the screen)
+		;(Alert.Arrow :: ImageLabel).Rotation = math.deg(math.atan2(toBox:Dot(right), toBox:Dot(forward))) - 90
+	end
+	;(Alert.Distance :: TextLabel).Text = `{math.floor(toBox.Magnitude)}m`
+end
+
+function Alert.show(box: Box)
+	if Alert.Card then
+		Alert.Card:Destroy()
+	end
+	local rarity = Rarities.ById[box.Rarity]
+	local color = rarity.Color
+	local card = Kit.new("Frame", {
+		Name = "BoxAlert",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, -110),
+		Size = UDim2.fromOffset(470, 84),
+		BackgroundColor3 = WHITE,
+		ZIndex = 46,
+		Parent = Kit.getGui(),
+	})
+	Kit.corner(card, 22)
+	Kit.stroke(card, 4)
+	Kit.gradient(card, { color:Lerp(WHITE, 0.3), color:Lerp(Color3.new(0, 0, 0), 0.25) })
+	Kit.stripes(card, 0.8, 22, 46)
+	Kit.shine(card, 16).ZIndex = 46
+	Kit.neonRim(card, color:Lerp(WHITE, 0.4), 22, 5).ZIndex = 47
+	local gift = Kit.icon("Gift", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(46, 42),
+		Size = UDim2.fromOffset(78, 78),
+		Rotation = -8,
+		ZIndex = 48,
+		Parent = card,
+	})
+	TweenService:Create(gift, TweenInfo.new(0.45, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Rotation = 8 }):Play()
+	Kit.text({
+		Text = `{string.upper(rarity.Id)} BOX`,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Position = UDim2.fromOffset(92, 8),
+		Size = UDim2.fromOffset(212, 40),
+		StrokeThickness = 3,
+		ZIndex = 48,
+		Parent = card,
+	})
+	Kit.text({
+		Text = string.upper(box.PartType),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Position = UDim2.fromOffset(94, 48),
+		Size = UDim2.fromOffset(200, 26),
+		StrokeThickness = 2.5,
+		ZIndex = 48,
+		Parent = card,
+	})
+	local dial = Kit.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(344, 42),
+		Size = UDim2.fromOffset(64, 64),
+		BackgroundColor3 = Kit.Outline,
+		BackgroundTransparency = 0.2,
+		ZIndex = 47,
+		Parent = card,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = dial })
+	Kit.new("UIStroke", { Thickness = 3, Color = WHITE, Parent = dial })
+	local arrow = Kit.icon("Arrow", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(48, 48),
+		ZIndex = 48,
+		Parent = dial,
+	})
+	local distance = Kit.text({
+		Text = "",
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Position = UDim2.fromOffset(382, 20),
+		Size = UDim2.fromOffset(80, 44),
+		StrokeThickness = 3,
+		ZIndex = 48,
+		Parent = card,
+	})
+	Alert.Card, Alert.Box, Alert.Until, Alert.Arrow, Alert.Distance = card, box, os.clock() + Alert.Time, arrow, distance
+	TweenService:Create(card, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, Alert.Top) }):Play()
+	Kit.playSound(Sounds.Jingle, 0.4)
+	if rarity.Rank >= 5 then
+		Kit.playSound(Sounds.RevealBig, 0.35)
+	end
+	Alert.step()
 end
 
 Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payload: any, opener: Player?)
@@ -1020,9 +1382,12 @@ Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payloa
 	elseif action == "Update" then
 		updateBox(payload)
 	elseif action == "Announce" then
-		announce(payload)
+		Alert.show(payload)
 	elseif action == "Drop" then
 		local count = payload.Count :: number
+		if count >= WARNING.StormDrop then -- (they rain down unwarned)
+			WARNING.StormUntil = math.max(WARNING.StormUntil, os.clock() + count * LootConfig.Drops.Interval + 3)
+		end
 		local text = if count >= 100
 			then `{payload.Name} started a BOX STORM!`
 			elseif count == 1 then `{payload.Name} dropped a box!`
@@ -1064,6 +1429,14 @@ RunService.RenderStepped:Connect(function(dt)
 		local spin = CFrame.Angles(0, now * (0.8 + rarity.Rank * 0.15) + id, 0)
 		local offset, turn, scale = Vector3.zero, nil :: CFrame?, 1
 		local a = 1
+		if entry.Warning then
+			stepWarning(entry, now)
+		end
+		if arrival and born and now < born then
+			continue -- (the warning: it isn't here yet)
+		elseif arrival and born and not entry.Model.Parent then
+			arrive(entry)
+		end
 		if arrival and born then
 			a = math.clamp((now - born) / arrival.Duration, 0, 1)
 			local poseOffset, poseTurn, poseScale = arrival.Pose(entry, a, spin)
@@ -1071,7 +1444,7 @@ RunService.RenderStepped:Connect(function(dt)
 		else
 			offset = Vector3.new(0, math.sin(now * 2 + id) * BOB_HEIGHT, 0)
 		end
-		local pivot = CFrame.new(box.Position + offset) * (turn or spin)
+		local pivot = CFrame.new(box.Position + HOVER + offset) * (turn or spin)
 		if scale ~= entry.Scale then
 			entry.Model:ScaleTo(math.max(scale, 0.05))
 			entry.Scale = scale
@@ -1088,7 +1461,7 @@ RunService.RenderStepped:Connect(function(dt)
 		-- Mythic stars orbit; Godly cycles through the rainbow over its black hole
 		for index, star in entry.Stars do
 			local angle = now * 2 + index * math.pi / 2
-			star.CFrame = CFrame.new(box.Position + offset + Vector3.new(math.cos(angle) * 3.6, 1 + math.sin(angle * 1.5) * 1.2, math.sin(angle) * 3.6))
+			star.CFrame = CFrame.new(box.Position + HOVER + offset + Vector3.new(math.cos(angle) * 3.6, 1 + math.sin(angle * 1.5) * 1.2, math.sin(angle) * 3.6))
 		end
 		if #entry.Rainbow > 0 then
 			local color = Color3.fromHSV((now * 0.25 + id * 0.1) % 1, 0.65, 1)
@@ -1117,56 +1490,61 @@ end
 loaded = true
 
 -- Box Radar (the gamepass) ----------------------------------------------------------
--- An arrow floats over your head pointing at the nearest box of RadarRank or rarer that
--- you could open (your rebirths allow its rarity, and it isn't held for someone else),
--- in the box's color, with its rarity and distance under it.
-local Radar = { Rank = Gamepasses.BoxRadar.RadarRank or 3, Plate = nil :: Part?, Glyph = nil :: TextLabel?, Tag = nil :: TextLabel? }
+-- Three chevrons on the floor ahead of you point the way to the nearest box of RadarRank
+-- or rarer that you could open (your rebirths allow its rarity, and it isn't held for
+-- someone else), neon in the box's color over a dark outline, rippling outward; a pill
+-- over your head says its rarity and how far it is. Within Near studs the chevrons give
+-- way to the box itself.
+local Radar = {
+	Rank = Gamepasses.BoxRadar.RadarRank or 3,
+	Near = 10,
+	Model = nil :: Model?,
+	Bars = {} :: { BasePart },
+	Outlines = {} :: { BasePart },
+	Anchor = nil :: BasePart?,
+	Tag = nil :: TextLabel?,
+	Rim = nil :: UIStroke?,
+}
 
-function Radar.build(): Part
-	local plate = Instance.new("Part")
-	plate.Name = "BoxRadar"
-	plate.Size = Vector3.new(4, 0.05, 4)
-	plate.Transparency = 1
-	plate.Anchored, plate.CanCollide, plate.CanQuery, plate.CanTouch, plate.CastShadow = true, false, false, false, false
-	local surface = Instance.new("SurfaceGui")
-	surface.Face = Enum.NormalId.Top
-	surface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	surface.PixelsPerStud = 50
-	surface.LightInfluence = 0
-	surface.AlwaysOnTop = true
-	surface.Parent = plate
-	local glyph = Instance.new("TextLabel")
-	glyph.Size = UDim2.fromScale(1, 1)
-	glyph.BackgroundTransparency = 1
-	glyph.Font = Enum.Font.FredokaOne
-	glyph.TextScaled = true
-	glyph.Text = "➤"
-	glyph.Parent = surface
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 4
-	stroke.Parent = glyph
+function Radar.build(): Model
+	local model = Instance.new("Model")
+	model.Name = "BoxRadar"
+	for _ = 1, 6 do -- (3 chevrons, 2 bars each)
+		local bar = makePart(model, Vector3.new(0.6, 0.18, 2.1), Vector3.zero, WHITE, Enum.Material.Neon)
+		bar.CastShadow = false
+		table.insert(Radar.Bars, bar)
+		local outline = makePart(model, Vector3.new(0.95, 0.1, 2.45), Vector3.zero, Kit.Outline)
+		outline.CastShadow = false
+		table.insert(Radar.Outlines, outline)
+	end
+	local anchor = makePart(model, Vector3.one * 0.2, Vector3.zero, WHITE)
+	anchor.Transparency = 1
 	local board = Instance.new("BillboardGui")
-	board.Size = UDim2.fromOffset(220, 34)
-	board.StudsOffset = Vector3.new(0, 1.4, 0)
+	board.Size = UDim2.fromOffset(200, 40)
+	board.StudsOffset = Vector3.zero
 	board.AlwaysOnTop = true
 	board.LightInfluence = 0
-	board.Parent = plate
-	local tag = Instance.new("TextLabel")
-	tag.Size = UDim2.fromScale(1, 1)
-	tag.BackgroundTransparency = 1
-	tag.Font = Enum.Font.FredokaOne
-	tag.TextScaled = true
-	tag.Parent = board
-	local tagStroke = Instance.new("UIStroke")
-	tagStroke.Thickness = 2.5
-	tagStroke.Parent = tag
-	Radar.Plate, Radar.Glyph, Radar.Tag = plate, glyph, tag
-	return plate
+	board.Parent = anchor
+	local pill = Kit.new("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Kit.Outline,
+		BackgroundTransparency = 0.25,
+		Parent = board,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = pill })
+	Radar.Rim = Kit.new("UIStroke", { Thickness = 2.5, Color = WHITE, Parent = pill })
+	Kit.icon("Radar", { Position = UDim2.fromOffset(4, 4), Size = UDim2.fromOffset(32, 32), ZIndex = 2, Parent = pill })
+	Radar.Tag = Kit.text({ Text = "", Position = UDim2.fromOffset(40, 5), Size = UDim2.fromOffset(152, 30), StrokeThickness = 2, ZIndex = 2, Parent = pill })
+	Radar.Anchor = anchor
+	Radar.Model = model
+	return model
 end
 
 RunService.RenderStepped:Connect(function()
+	Alert.step()
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local target: Entry? = nil
 	local best = math.huge
 	if player:GetAttribute("Pass_BoxRadar") and root and root:IsA("BasePart") then
@@ -1183,25 +1561,42 @@ RunService.RenderStepped:Connect(function()
 			end
 		end
 	end
-	if not (target and root and root:IsA("BasePart")) then
-		if Radar.Plate then
-			Radar.Plate.Parent = nil
+	if not (target and root and root:IsA("BasePart") and humanoid) then
+		if Radar.Model then
+			Radar.Model.Parent = nil
 		end
 		return
 	end
-	local plate = Radar.Plate or Radar.build()
+	local model = Radar.Model or Radar.build()
 	local rarity = Rarities.ById[target.Box.Rarity]
 	local flat = Vector3.new(target.Box.Position.X - root.Position.X, 0, target.Box.Position.Z - root.Position.Z)
-	local at = root.Position + Vector3.new(0, 5 + math.sin(os.clock() * 3) * 0.25, 0)
-	-- the glyph points along the plate's +X: turn the plate so +X faces the box
-	if flat.Magnitude > 0.1 then
-		plate.CFrame = CFrame.lookAt(at, at + flat.Unit) * CFrame.Angles(0, math.pi / 2, 0)
-	else
-		plate.CFrame = CFrame.new(at)
+	local ahead = if flat.Magnitude > 0.1 then flat.Unit else Vector3.new(0, 0, -1)
+	local side = Vector3.new(-ahead.Z, 0, ahead.X)
+	local feet = root.Position - Vector3.new(0, root.Size.Y / 2 + humanoid.HipHeight - 0.25, 0)
+	local now = os.clock()
+	local color = rarity.Color
+	local bend = math.rad(40)
+	for index = 1, 3 do
+		local tip = feet + ahead * (3 + index * 1.7)
+		-- the ripple runs outward: each chevron lights up a moment after the one before
+		local fade = if best < Radar.Near then 1 else 0.6 * ((now * 1.6 - index / 3) % 1)
+		for half, sign in { -1, 1 } do
+			local slot = (index - 1) * 2 + half
+			local bar, outline = Radar.Bars[slot], Radar.Outlines[slot]
+			local back = -ahead * math.cos(bend) + side * sign * math.sin(bend)
+			local center = tip + back * 1.05
+			bar.CFrame = CFrame.lookAt(center, center + back)
+			bar.Color = color
+			bar.Transparency = fade
+			outline.CFrame = bar.CFrame - Vector3.new(0, 0.07, 0)
+			outline.Transparency = if fade >= 1 then 1 else 0.15 + fade * 0.6
+		end
 	end
-	;(Radar.Glyph :: TextLabel).TextColor3 = rarity.Color
+	local anchor = Radar.Anchor :: BasePart
+	anchor.CFrame = CFrame.new(root.Position + Vector3.new(0, 4.2, 0)) -- (over the floor it hid the chevrons)
 	local tag = Radar.Tag :: TextLabel
-	tag.TextColor3 = rarity.Color:Lerp(Color3.new(1, 1, 1), 0.3)
+	tag.TextColor3 = rarity.Color:Lerp(WHITE, 0.3)
 	tag.Text = `{string.upper(rarity.Id)} · {math.floor(best)}m`
-	plate.Parent = workspace.CurrentCamera
+	;(Radar.Rim :: UIStroke).Color = rarity.Color
+	model.Parent = workspace.CurrentCamera
 end)

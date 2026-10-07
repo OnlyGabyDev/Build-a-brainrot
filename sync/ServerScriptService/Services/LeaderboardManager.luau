@@ -55,7 +55,7 @@ local BOARDS: { Board } = {
 	{ Key = "RobuxSpent", Title = "TOP ROBUX SPENT", Color = Color3.fromRGB(90, 220, 110), Value = function(data)
 		return data.Stats.RobuxSpent
 	end, Show = function(value)
-		return `R$ {Format.Number(value)}`
+		return `{Format.Number(value)} {Format.ROBUX}`
 	end, Rows = {}, Top = {} },
 	{ Key = "Playtime", Title = "TOP PLAYTIME", Color = Color3.fromRGB(90, 180, 255), Value = function(data)
 		return data.Stats.Playtime

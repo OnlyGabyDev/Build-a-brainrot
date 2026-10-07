@@ -1,8 +1,9 @@
 --[[
 	DailyLogin
 	The login streak (GDD §5, Config/DailyLogin): a reward each UTC day, claimed from
-	the calendar (Client/UI/DailyLoginMenu). Day N+1 if yesterday's was claimed, day 1
-	again after a missed day, round to day 1 after day 7. Mirrored for the client as
+	the calendar (Client/UI/DailyLoginMenu). The next day of the 7 on each new UTC day
+	you play, however many days you missed (the user, 2026-10-07: starting over could be
+	farmed), round to day 1 after day 7. Mirrored for the client as
 	"DailyDay" (the day to claim, or claimed today), "DailyReady" (it can be claimed)
 	and "DailyNext" (os.time() when the next day starts).
 ]]
@@ -37,10 +38,8 @@ local function status(data: DataManager.PlayerData): (number, boolean)
 	local today = utcDay()
 	if streak.LastDay == today then
 		return math.max(streak.Day, 1), false
-	elseif streak.LastDay == today - 1 then
-		return streak.Day % #DAYS + 1, true
 	end
-	return 1, true -- a first visit, or a day missed
+	return streak.Day % #DAYS + 1, true -- (a first visit: day 1)
 end
 
 local function update(player: Player)

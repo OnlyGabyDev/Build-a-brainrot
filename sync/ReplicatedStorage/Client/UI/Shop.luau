@@ -192,7 +192,7 @@ local function renderCard(parent: Instance, item: Item)
 			local price = if item.Kind == "Pass" then Passes.PassPrice(item.Key) else Passes.PriceOf(item.Kind, item.Id)
 			local label = button:FindFirstChildOfClass("TextLabel")
 			if label then
-				label.Text = if price then `R$ {price}` else "BUY"
+				label.Text = if price then Format.Robux(price) else "BUY"
 			end
 		end)
 	end

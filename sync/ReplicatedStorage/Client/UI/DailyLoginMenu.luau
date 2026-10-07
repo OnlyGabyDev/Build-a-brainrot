@@ -196,7 +196,7 @@ render = function()
 		Size = UDim2.fromOffset(760, 30),
 		ZIndex = 3,
 		Parent = frame,
-	}, "Calendar", "Come back every day! Miss one and it starts over.")
+	}, "Calendar", "Come back every day for the next reward!")
 end
 
 -- Today's card and the CLAIM! button pulse, the countdown ticks.

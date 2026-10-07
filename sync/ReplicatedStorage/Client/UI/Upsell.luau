@@ -151,7 +151,7 @@ local function show(key: string, pitch: string?)
 		local price = Passes.PassPrice(key)
 		local label = buy:FindFirstChildOfClass("TextLabel")
 		if price and label and card.Parent then
-			label.Text = `GET IT!  R$ {price}`
+			label.Text = `GET IT!  {Format.Robux(price)}`
 		end
 	end)
 
@@ -343,7 +343,7 @@ function Upsell.Featured(key: string)
 		local price = Passes.PassPrice(key)
 		local label = buy:FindFirstChildOfClass("TextLabel")
 		if price and label and buy.Parent then
-			label.Text = `GET IT NOW!  R$ {price}`
+			label.Text = `GET IT NOW!  {Format.Robux(price)}`
 		end
 	end)
 	Kit.open(panel)
