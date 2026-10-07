@@ -6,7 +6,7 @@
 	mirrors each achievement for the client as attributes ("AchTier_<id>": tiers claimed,
 	"Ach_<id>": its progress toward the next tier) with the player's income ("Income",
 	Coins a second: the menu shows the Coins a tier pays), and pays a tier when the
-	client claims it (ClaimAchievement).
+	client claims it (ClaimAchievement), or every one that's done (ClaimAllAchievements).
 ]]
 
 local Players = game:GetService("Players")
@@ -101,27 +101,14 @@ local function update(player: Player)
 	setAttribute(player, "Income", math.floor(ProductionManager.GetIncome(player)))
 end
 
--- Claims an achievement's next tier: { Id, Tier, Gems, Coins } or nil.
-local function onClaim(player: Player, achievementId: unknown): any
-	if typeof(achievementId) ~= "string" then
-		return nil
-	end
-	local now = os.clock()
-	if (lastRequest[player] or 0) + REQUEST_COOLDOWN > now then
-		return nil
-	end
-	lastRequest[player] = now
-	local achievement = Achievements.ById[achievementId]
-	local data = DataManager.GetData(player)
-	if not (achievement and data) then
-		return nil
-	end
-	local tier = (data.Achievements[achievementId] or 0) + 1
+-- Pays an achievement's next tier if it's done: its tier, Gems and Coins, or nil.
+local function claimNext(player: Player, data: DataManager.PlayerData, achievement: Achievements.Achievement): (number?, number, number)
+	local tier = (data.Achievements[achievement.Id] or 0) + 1
 	if tier > Achievements.Tiers(achievement) or progress(data, achievement, tier) < Achievements.Goal(achievement, tier) then
-		return nil
+		return nil, 0, 0
 	end
-	if not DataManager.ClaimAchievementTier(player, achievementId, tier) then
-		return nil
+	if not DataManager.ClaimAchievementTier(player, achievement.Id, tier) then
+		return nil, 0, 0
 	end
 	local gems, coins = Achievements.Reward(achievement, tier, ProductionManager.GetIncome(player))
 	if gems > 0 then
@@ -130,8 +117,61 @@ local function onClaim(player: Player, achievementId: unknown): any
 	if coins > 0 then
 		DataManager.AddCurrency(player, "Coins", coins)
 	end
+	return tier, gems, coins
+end
+
+local function allowed(player: Player): boolean
+	local now = os.clock()
+	if (lastRequest[player] or 0) + REQUEST_COOLDOWN > now then
+		return false
+	end
+	lastRequest[player] = now
+	return true
+end
+
+-- Claims an achievement's next tier: { Id, Tier, Gems, Coins } or nil.
+local function onClaim(player: Player, achievementId: unknown): any
+	if typeof(achievementId) ~= "string" or not allowed(player) then
+		return nil
+	end
+	local achievement = Achievements.ById[achievementId]
+	local data = DataManager.GetData(player)
+	if not (achievement and data) then
+		return nil
+	end
+	local tier, gems, coins = claimNext(player, data, achievement)
+	if not tier then
+		return nil
+	end
 	update(player)
 	return { Id = achievementId, Tier = tier, Gems = gems, Coins = coins }
+end
+
+-- Claims every tier that's done, several of one achievement too:
+-- { Count, Tier (the highest), Gems, Coins } or nil when none was.
+local function onClaimAll(player: Player): any
+	local data = DataManager.GetData(player)
+	if not (data and allowed(player)) then
+		return nil
+	end
+	local count, top, totalGems, totalCoins = 0, 0, 0, 0
+	for _, achievement in Achievements.List do
+		while true do
+			local tier, gems, coins = claimNext(player, data, achievement)
+			if not tier then
+				break
+			end
+			count += 1
+			top = math.max(top, tier)
+			totalGems += gems
+			totalCoins += coins
+		end
+	end
+	if count == 0 then
+		return nil
+	end
+	update(player)
+	return { Count = count, Tier = top, Gems = totalGems, Coins = totalCoins }
 end
 
 -- Re-reads the player's achievements into their attributes (after DevTools changes them).
@@ -140,6 +180,7 @@ AchievementManager.SourceValue = sourceValue
 
 function AchievementManager.Init()
 	Remotes.Function("ClaimAchievement").OnServerInvoke = onClaim
+	Remotes.Function("ClaimAllAchievements").OnServerInvoke = onClaimAll
 	DataManager.OnPlayerLoaded(update)
 	LootManager.BoxOpened.Event:Connect(function(player: Player)
 		DataManager.AddCounter(player, "Boxes", 1)

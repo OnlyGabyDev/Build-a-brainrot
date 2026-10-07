@@ -8,7 +8,8 @@
 	little more (a gloss, a neon rim, a sheen, twinkles, a sunburst) with a star per
 	tier; its goal, a progress bar and what the tier pays (Gems and/or Coins). A finished
 	tier pulses with a big CLAIM!; claiming it pays, bursts into confetti and the card
-	steps up to the next tier's colors. Ready ones come first, maxed ones last.
+	steps up to the next tier's colors. Ready ones come first, maxed ones last; with
+	two or more ready, a CLAIM ALL over the cards claims every done tier at once.
 	Opened from the QUESTS button on the HUD (UIController), which wears a gold CLAIM!
 	while a tier or a quest waits; a toast says when one is done (not during Tralalero's
 	guide, nor while the menu is open). Services/AchievementManager mirrors the progress
@@ -117,23 +118,30 @@ end
 
 local render: () -> ()
 
-local function claim(achievementId: string)
+-- Asks the server to claim (one achievement's next tier, or every done one): its
+-- answer, or nil after a "Try again!".
+local function invoke(remoteName: string, ...: any): any
 	if claiming then
-		return
+		return nil
 	end
 	claiming = true
-	local remote = Remotes.Function("ClaimAchievement")
-	local ok, result = pcall(remote.InvokeServer, remote, achievementId)
+	local remote = Remotes.Function(remoteName)
+	local ok, result = pcall(remote.InvokeServer, remote, ...)
 	claiming = false
 	if not (ok and typeof(result) == "table") then
 		Kit.toast("Try again!", BAD_COLOR, "Warning")
-		return
+		return nil
 	end
+	return result
+end
+
+-- A flash and confetti in the (highest) tier's color, and a toast with what it paid.
+local function celebrate(result: any, confetti: number)
 	local rarity = Achievements.TierRarity(result.Tier)
 	local color = if rarity.Id == "Godly" then GOLD else rarity.Color
 	local gui = Kit.getGui()
 	Kit.flash(gui :: any, color, 70)
-	Kit.confetti(gui :: any, { color, GOLD, Color3.fromRGB(120, 220, 255), Color3.fromRGB(255, 120, 220) }, 60, 70)
+	Kit.confetti(gui :: any, { color, GOLD, Color3.fromRGB(120, 220, 255), Color3.fromRGB(255, 120, 220) }, confetti, 70)
 	Kit.playSound(Sounds.RevealBig, 0.5)
 	if (result.Coins or 0) > 0 then
 		Kit.playSound(Sounds.Coins, 0.4)
@@ -146,12 +154,30 @@ local function claim(achievementId: string)
 		table.insert(rewards, `+{Format.Number(result.Coins)} COINS`)
 	end
 	Kit.toast(table.concat(rewards, "  "), GOLD, if (result.Gems or 0) > 0 then "Gem" else "Coin")
+end
+
+local function claim(achievementId: string)
+	local result = invoke("ClaimAchievement", achievementId)
+	if not result then
+		return
+	end
+	celebrate(result, 60)
 	justClaimed = result.Id
 	task.delay(2, function()
 		if justClaimed == result.Id then
 			justClaimed = nil
 		end
 	end)
+	render()
+end
+
+-- Claims every tier that's done at once (several of one achievement too).
+local function claimAll()
+	local result = invoke("ClaimAllAchievements")
+	if not result then
+		return
+	end
+	celebrate(result, math.min(60 + 15 * (result.Count or 1), 150))
 	render()
 end
 
@@ -452,14 +478,28 @@ render = function()
 		return
 	end
 
+	-- several ready: one CLAIM ALL for them all; else a word on what waits
 	local ready = counts.ACHIEVEMENTS
-	Kit.iconText({
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -30, 0, 16),
-		Size = UDim2.fromOffset(380, 32),
-		ZIndex = 3,
-		Parent = frame,
-	}, "Star", if ready > 0 then `{ready} READY!` else "Every tier pays more!", if ready > 0 then GOLD else Kit.White)
+	if ready >= 2 then
+		local button = Kit.button({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -36, 0, 8),
+			Size = UDim2.fromOffset(250, 50),
+			ZIndex = 3,
+			Parent = frame,
+		}, CLAIM_COLORS, `CLAIM ALL ({ready})`, function()
+			task.spawn(claimAll)
+		end, "Gift")
+		pulse(button, 0.05, 6)
+	else
+		Kit.iconText({
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -30, 0, 16),
+			Size = UDim2.fromOffset(380, 32),
+			ZIndex = 3,
+			Parent = frame,
+		}, "Star", if ready > 0 then `{ready} READY!` else "Every tier pays more!", if ready > 0 then GOLD else Kit.White)
+	end
 
 	local grid = Kit.new("ScrollingFrame", {
 		Position = UDim2.fromOffset(20, TAB_TOP + 4),
