@@ -85,7 +85,7 @@ local function getLineStats(player: Player, data: DataManager.PlayerData, line: 
 	end
 	local stats: LineStats = {
 		Droppers = {},
-		CycleTime = Production.BaseCycleTime / Rebirths.SpeedMultiplier(data.Upgrades),
+		CycleTime = Production.BaseCycleTime / Rebirths.SpeedMultiplier(data.Rebirths, data.Upgrades),
 		ValueMultiplier = Rebirths.IncomeMultiplier(data.Rebirths, data.Upgrades) * MonetizationManager.IncomeMultiplier(player),
 		FlatBonus = 0,
 		Special = false,

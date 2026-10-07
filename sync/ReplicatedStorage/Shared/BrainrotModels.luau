@@ -428,4 +428,22 @@ function BrainrotModels.Layout(parts: { [string]: string }, zoneId: string?): ({
 	return offsets, result.Spread
 end
 
+-- A whole brainrot from `parts` ([partType] = brainrotId; mixes fit like on a line), in
+-- one model standing on its root (pivot = the root, unscaled).
+function BrainrotModels.Build(parts: { [string]: string }, zoneId: string?): Model
+	local brainrot = Instance.new("Model")
+	brainrot.Name = "Brainrot"
+	local homes, spread = BrainrotModels.Layout(parts, zoneId)
+	for _, partType in Brainrots.PartTypes do
+		local part = BrainrotModels.CreatePart(parts[partType], partType, zoneId, spread)
+		part:PivotTo(CFrame.new(homes[partType] or Vector3.zero))
+		for _, child in part:GetChildren() do
+			child.Parent = brainrot
+		end
+		part:Destroy()
+	end
+	brainrot.WorldPivot = CFrame.identity
+	return brainrot
+end
+
 return BrainrotModels

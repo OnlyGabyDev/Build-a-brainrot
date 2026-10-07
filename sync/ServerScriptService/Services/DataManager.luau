@@ -82,7 +82,8 @@ export type PlayerData = {
 		Purchased: { [string]: boolean },
 		Lines: { [string]: { [string]: string } },
 	},
-	Upgrades: { [string]: number }, -- Rebirth Shop levels (Config/Rebirths), kept on rebirth
+	Upgrades: { [string]: number }, -- levels bought in the old Rebirth Shop (Config/Rebirths Legacy): they still count
+	Mascot: { [string]: string }, -- the mascot's parts: [partType] = brainrotId (Config/Mascot)
 	Boosts: { [string]: number }, -- [boostId] = os.time() it expires
 	DailyWheel: { FreeSpins: { number }, Spins: number }, -- free spins used (times), bought spins
 	DailyLogin: { Day: number, LastDay: number }, -- the login streak: the day last claimed (1-7) and its UTC day number (os.time() // 86400)
@@ -121,6 +122,12 @@ local TEMPLATE: PlayerData = {
 		Lines = {}, -- [lineId] = { Head = brainrotId, ... } (kept on rebirth)
 	},
 	Upgrades = {}, -- [upgradeId] = level
+	Mascot = {
+		Head = Brainrots.StarterId,
+		Body = Brainrots.StarterId,
+		Arms = Brainrots.StarterId,
+		Legs = Brainrots.StarterId,
+	},
 	Boosts = {},
 	DailyWheel = { FreeSpins = {}, Spins = 0 },
 	DailyLogin = { Day = 0, LastDay = 0 },
@@ -293,7 +300,8 @@ local function replicateInventory(profile: Profile)
 	inventoryRemote:FireClient(profile.Player, profile.Data.Inventory)
 end
 
--- Rebirth Shop levels, as "Upgrade_<Id>" attributes for the UI.
+-- The old Rebirth Shop's levels, as "Upgrade_<Id>" attributes for the UI (the mascot
+-- shows their bonuses).
 local function replicateUpgrades(profile: Profile)
 	local player = profile.Player
 	for name in player:GetAttributes() do
@@ -804,12 +812,11 @@ function DataManager.SetLastSeen(player: Player, income: number): boolean
 	return true
 end
 
--- Spends `cost` Coins to rebirth: Coins and tycoon purchases reset, the rebirth count
--- goes up and `points` Rebirth Points are added. Everything else is kept (GDD §10).
--- Returns false (changing nothing) if the player can't afford it.
-function DataManager.Rebirth(player: Player, cost: number, points: number): boolean
+-- Spends `cost` Coins to rebirth: Coins and tycoon purchases reset and the rebirth count
+-- (the mascot's level) goes up. Everything else is kept (GDD §10). Returns false
+-- (changing nothing) if the player can't afford it.
+function DataManager.Rebirth(player: Player, cost: number): boolean
 	cost = checkAmount(cost)
-	points = checkAmount(points)
 	local profile = profiles[player]
 	if not profile or profile.Data.Coins < cost then
 		return false
@@ -818,31 +825,21 @@ function DataManager.Rebirth(player: Player, cost: number, points: number): bool
 	data.Coins = 0
 	data.Tycoon.Purchased = {}
 	data.Rebirths += 1
-	data.RebirthPoints += points
-	for _, stat in { "Coins", "Rebirths", "RebirthPoints" } do
+	for _, stat in { "Coins", "Rebirths" } do
 		replicateStat(profile, stat)
 	end
 	return true
 end
 
--- Buys the next level of a Rebirth Shop upgrade for `cost` Rebirth Points. The caller
--- checks the upgrade exists; this checks the level cap and the price.
-function DataManager.BuyUpgrade(player: Player, upgradeId: string, cost: number, maxLevel: number): boolean
-	checkId("upgradeId", upgradeId)
-	cost = checkAmount(cost)
+-- Sets one part of the player's mascot to one they own. Returns whether it changed.
+function DataManager.SetMascotPart(player: Player, partType: string, brainrotId: string): boolean
+	checkPartType(partType)
+	checkId("brainrotId", brainrotId)
 	local profile = profiles[player]
-	if not profile then
+	if not (profile and ownsPart(profile, brainrotId, partType)) then
 		return false
 	end
-	local data = profile.Data
-	local level = data.Upgrades[upgradeId] or 0
-	if level >= maxLevel or data.RebirthPoints < cost then
-		return false
-	end
-	data.RebirthPoints -= cost
-	data.Upgrades[upgradeId] = level + 1
-	replicateStat(profile, "RebirthPoints")
-	replicateUpgrades(profile)
+	profile.Data.Mascot[partType] = brainrotId
 	return true
 end
 

@@ -46,6 +46,7 @@ local MapBuilder = require(Services:WaitForChild("MapBuilder"))
 local LootManager = require(Services:WaitForChild("LootManager"))
 local GadgetManager = require(Services:WaitForChild("GadgetManager"))
 local RebirthManager = require(Services:WaitForChild("RebirthManager"))
+local MascotManager = require(Services:WaitForChild("MascotManager"))
 local DailyWheelManager = require(Services:WaitForChild("DailyWheelManager"))
 local DailyLogin = require(Services:WaitForChild("DailyLogin"))
 local OfflineEarnings = require(Services:WaitForChild("OfflineEarnings"))
@@ -72,6 +73,7 @@ StarterPack.Init() -- after LootManager (its boxes) and MonetizationManager (its
 GuideManager.Init() -- Tralalero's guide
 GadgetManager.Init()
 RebirthManager.Init()
+MascotManager.Init() -- the company mascot out front (after TycoonManager: it stands on the plots)
 DailyWheelManager.Init()
 DailyLogin.Init() -- the login streak
 OfflineEarnings.Init() -- what the factory made while you were away

@@ -35,6 +35,7 @@ local FactoryBuilder = require(script.Parent.FactoryBuilder)
 local MapBuilder = require(script.Parent.MapBuilder)
 local MonetizationManager = require(script.Parent.MonetizationManager)
 local ProductionManager = require(script.Parent.ProductionManager)
+local MascotManager = require(script.Parent.MascotManager)
 local TycoonManager = require(script.Parent.TycoonManager)
 
 local PART_TYPES = Brainrots.PartTypes
@@ -42,6 +43,7 @@ local REQUEST_COOLDOWN = 0.25 -- per player, for open requests
 local BOX_HEIGHT = 1.5 -- box center above the ground
 local LUCK_SYNC_INTERVAL = 2 -- seconds between refreshes of the "Luck" attribute
 local BOX_GAP = 7 -- studs kept between boxes (the biggest is ~5 across)
+local MASCOT_CLEARANCE = 14 -- studs kept from a mascot's middle (its fountain is ~9 across the radius)
 local GIFT_SPREAD = 22 -- studs round the front yard's middle: Tralalero's gift box
 local GIFT_RESERVED = 600 -- seconds only its owner may open it
 
@@ -204,7 +206,7 @@ end
 
 -- Whether a box may land on `spot`: `gap` clear of the other boxes and off every factory lot.
 local function boxFits(spot: Vector3, gap: number): boolean
-	return clearOfBoxes(spot, gap) and not TycoonManager.IsInPlot(spot)
+	return clearOfBoxes(spot, gap) and not TycoonManager.IsInPlot(spot) and not MascotManager.IsNear(spot, MASCOT_CLEARANCE)
 end
 
 -- The middle of a player's front yard: just past their factory lot, toward the hub.

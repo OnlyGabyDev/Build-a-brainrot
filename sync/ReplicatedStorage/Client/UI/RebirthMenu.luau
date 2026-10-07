@@ -1,8 +1,9 @@
 --[[
 	Rebirth Menu
-	Rebirthing and the Rebirth Shop (GDD §10). The left side shows the next rebirth:
-	its cost, what you get (points, income, unlocks) and what resets. The right side
-	sells permanent upgrades for Rebirth Points. The server validates everything.
+	Rebirthing (GDD §10). The left side shows the next rebirth: its cost, what you get
+	(a mascot level, unlocks) and what resets. The right side shows the company mascot
+	it levels up (Config/Mascot): what it gives now and after the rebirth, and the look
+	it gets next. (The Rebirth Shop that was there is gone: the mascot replaces it.)
 ]]
 
 local Players = game:GetService("Players")
@@ -11,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Format = require(Shared:WaitForChild("Format"))
+local MascotConfig = require(Config:WaitForChild("Mascot"))
 local Rebirths = require(Config:WaitForChild("Rebirths"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
@@ -36,12 +38,17 @@ local function stat(name: string): number
 	return player:GetAttribute(name) or 0
 end
 
+-- The levels bought in the old Rebirth Shop (they still count).
 local function levels(): Rebirths.Levels
 	local result = {}
-	for _, upgrade in Rebirths.Upgrades do
+	for _, upgrade in Rebirths.Legacy do
 		result[upgrade.Id] = stat(`Upgrade_{upgrade.Id}`)
 	end
 	return result
+end
+
+local function percent(value: number): string
+	return `+{math.floor(value * 100 + 0.5)}%`
 end
 
 -- What unlocks at exactly `rebirths` rebirths: built zones.
@@ -77,7 +84,7 @@ end
 local function rebirth()
 	local reached = stat("Rebirths") + 1
 	local remote = Remotes.Function("Rebirth")
-	local ok, done, points = pcall(remote.InvokeServer, remote)
+	local ok, done = pcall(remote.InvokeServer, remote)
 	if not (ok and done) then
 		Kit.toast("Not enough Coins yet!", BAD_COLOR, "Coin")
 		return
@@ -86,7 +93,7 @@ local function rebirth()
 	Kit.flash(gui :: any, GOLD_COLOR, 70)
 	Kit.confetti(gui :: any, { GOLD_COLOR, GOOD_COLOR, Color3.fromRGB(120, 220, 255), Color3.fromRGB(255, 120, 220) }, 120, 70)
 	Kit.playSound(Sounds.RevealBig, 0.6)
-	Kit.toast(`REBIRTH {reached}! +{points or 1} Points`, GOLD_COLOR, "Party")
+	Kit.toast(`REBIRTH {reached}! Your mascot is LEVEL {reached}!`, GOLD_COLOR, "Party")
 	task.wait(0.2)
 	render()
 end
@@ -134,9 +141,9 @@ local function renderRebirth(parent: Frame)
 	local nextIncome = Rebirths.IncomeMultiplier(rebirths + 1, levels())
 	-- (bigger lines that fill the column down to the button)
 	line(parent, "YOU GET", 124, GOLD_COLOR, 36, "Gift")
-	line(parent, `+{Rebirths.Points(math.max(coins, cost), rebirths)} Rebirth Points`, 166, nil, 34, "Star")
+	line(parent, `+1 MASCOT LEVEL (LV {rebirths + 1})`, 166, nil, 34, "Crown")
 	line(parent, `+{math.floor(Rebirths.IncomeBonus * 100)}% Coins (x{string.format("%.2f", nextIncome)})`, 204, nil, 34, "Coin")
-	line(parent, `+{math.floor(Rebirths.LuckPerRebirth * 100)}% Luck: rarer parts!`, 244, nil, 34, "Clover")
+	line(parent, `+{math.floor(Rebirths.SpeedBonus * 100)}% Speed, +{math.floor(Rebirths.LuckPerRebirth * 100)}% Luck`, 244, nil, 34, "Clover")
 	local y = 284
 	for _, unlock in unlocksAt(rebirths + 1) do
 		line(parent, unlock, y, GOOD_COLOR, 32, "Unlock")
@@ -157,70 +164,66 @@ local function renderRebirth(parent: Frame)
 	end, if ready then "Rebirth" else "Coin")
 end
 
-local function renderShop(parent: Frame)
+-- The right side: the mascot out front that each rebirth levels up, what it gives now
+-- and after this rebirth, and the look it gets next.
+local function renderMascot(parent: Frame)
 	local x = 476
-	Kit.icon("Star", { Position = UDim2.fromOffset(x - 4, 8), Size = UDim2.fromOffset(54, 54), Parent = parent })
+	local level = stat("Rebirths")
+	Kit.icon("Crown", { Position = UDim2.fromOffset(x - 4, 6), Size = UDim2.fromOffset(56, 56), Parent = parent })
 	Kit.text({
-		Text = `{Format.Number(stat("RebirthPoints"))} POINTS`,
+		Text = `YOUR MASCOT: LV {level}`,
 		TextColor3 = GOLD_COLOR,
-		Position = UDim2.fromOffset(x + 56, 14),
-		Size = UDim2.fromOffset(364, 44),
+		Position = UDim2.fromOffset(x + 58, 14),
+		Size = UDim2.fromOffset(362, 44),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		StrokeThickness = 3,
 		Parent = parent,
 	})
-	local current = levels()
-	for index, upgrade in Rebirths.Upgrades do
-		local level = current[upgrade.Id] or 0
-		local maxed = level >= upgrade.MaxLevel
-		local cost = Rebirths.UpgradeCost(upgrade, level)
-		local row = Kit.new("Frame", {
-			Position = UDim2.fromOffset(x, 70 + (index - 1) * 108),
-			Size = UDim2.fromOffset(420, 96),
+	local upgrades = levels()
+	local rows = {
+		{ "Coin", "COINS", Rebirths.IncomeMultiplier(level, upgrades) - 1, Rebirths.IncomeMultiplier(level + 1, upgrades) - 1 },
+		{ "Lightning", "SPEED", Rebirths.SpeedMultiplier(level, upgrades) - 1, Rebirths.SpeedMultiplier(level + 1, upgrades) - 1 },
+		{ "Clover", "LUCK", Rebirths.Luck(level, upgrades), Rebirths.Luck(level + 1, upgrades) },
+	}
+	for index, row in rows do
+		local card = Kit.new("Frame", {
+			Position = UDim2.fromOffset(x, 70 + (index - 1) * 84),
+			Size = UDim2.fromOffset(420, 74),
 			BackgroundColor3 = Kit.White,
 			Parent = parent,
 		})
-		Kit.corner(row, 18)
-		Kit.stroke(row, 4)
-		Kit.gradient(row, Kit.pair(Kit.Hues.Orange))
-		Kit.stripes(row, 0.84, 18)
-		Kit.icon(upgrade.Icon, { Position = UDim2.fromOffset(6, 10), Size = UDim2.fromOffset(74, 74), Parent = row })
-		-- name, level and what it does on their own lines, each capped at one size so
-		-- every row reads the same (a long name used to shrink its whole line)
-		for _, spec in {
-			{ upgrade.Name, 8, 30, 28, Kit.White },
-			{ `LV {level}/{upgrade.MaxLevel}`, 40, 22, 20, GOLD_COLOR },
-			{ `{upgrade.Description} per level`, 64, 22, 17, Color3.fromRGB(255, 240, 215) },
-		} do
-			local label = Kit.text({
-				Text = spec[1],
-				TextColor3 = spec[5],
-				Position = UDim2.fromOffset(84, spec[2]),
-				Size = UDim2.fromOffset(206, spec[3]),
-				TextXAlignment = Enum.TextXAlignment.Left,
-				Parent = row,
-			})
-			Kit.new("UITextSizeConstraint", { MaxTextSize = spec[4], Parent = label })
+		Kit.corner(card, 18)
+		Kit.stroke(card, 4)
+		Kit.gradient(card, Kit.pair(Kit.Hues.Orange))
+		Kit.stripes(card, 0.84, 18)
+		Kit.icon(row[1], { Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(58, 58), Parent = card })
+		Kit.text({ Text = row[2], Position = UDim2.fromOffset(72, 20), Size = UDim2.fromOffset(110, 34), TextXAlignment = Enum.TextXAlignment.Left, Parent = card })
+		Kit.text({ Text = percent(row[3]), Position = UDim2.fromOffset(184, 16), Size = UDim2.fromOffset(100, 42), Parent = card })
+		Kit.icon("Arrow", { Position = UDim2.fromOffset(288, 22), Size = UDim2.fromOffset(30, 30), Parent = card })
+		Kit.text({ Text = percent(row[4]), TextColor3 = GOOD_COLOR, Position = UDim2.fromOffset(320, 16), Size = UDim2.fromOffset(92, 42), Parent = card })
+	end
+	-- the look the next level adds
+	local best = math.huge
+	local named: string? = nil
+	for key, at in MascotConfig.Stages do
+		if at > level and at < best then
+			best, named = at, key
 		end
-		Kit.button({
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -14, 0.5, 0),
-			Size = UDim2.fromOffset(110, 56),
-			Parent = row,
-		}, if maxed then Kit.Colors.Grey else Kit.Colors.Green, if maxed then "MAX" else tostring(cost), function()
-			if maxed then
-				return
-			end
-			local remote = Remotes.Function("BuyUpgrade")
-			local ok, done = pcall(remote.InvokeServer, remote, upgrade.Id)
-			if ok and done then
-				Kit.toast(`{upgrade.Name} Lv {level + 1}!`, GOOD_COLOR, upgrade.Icon)
-			else
-				Kit.toast("Not enough Points!", BAD_COLOR, "Star")
-			end
-			task.wait(0.15)
-			render()
-		end, if maxed then nil else "Star")
+	end
+	local looks = { BigCrate = "a bigger crate", Pedestal = "a marble pedestal", Spotlights = "spotlights", Banners = "banners", Gold = "gold trims", Fountain = "a fountain", Fireworks = "fireworks" }
+	Kit.text({
+		Text = "It stands in front of your factory\nand levels up every rebirth!",
+		TextColor3 = MUTED_COLOR,
+		Position = UDim2.fromOffset(x, 332),
+		Size = UDim2.fromOffset(420, 64),
+		Parent = parent,
+	})
+	if named then
+		Kit.iconText({
+			Position = UDim2.fromOffset(x, 410),
+			Size = UDim2.fromOffset(420, 30),
+			Parent = parent,
+		}, "Sparkle", `At LV {best}: {looks[named]}!`, GOLD_COLOR)
 	end
 end
 
@@ -231,7 +234,7 @@ render = function()
 	local frame = Kit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = content })
 	body = frame
 	renderRebirth(frame)
-	renderShop(frame)
+	renderMascot(frame)
 end
 
 -- Re-renders shortly after stats change while the menu is open.
@@ -248,7 +251,7 @@ local function queueRender()
 	end)
 end
 
-for _, name in { "Coins", "Rebirths", "RebirthPoints" } do
+for _, name in { "Coins", "Rebirths" } do
 	player:GetAttributeChangedSignal(name):Connect(queueRender)
 end
 player.AttributeChanged:Connect(function(name)

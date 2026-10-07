@@ -1,9 +1,9 @@
 --[[
 	RebirthManager
-	Rebirths and the Rebirth Shop (GDD §10). Rebirthing costs Coins (Config/Rebirths),
-	resets Coins and the tycoon, and gives Rebirth Points, a permanent income boost,
-	rarity unlocks and new zones. Rebirth Points buy permanent shop upgrades, which
-	ProductionManager (income, speed) and LootManager (luck) apply.
+	Rebirths (GDD §10). Rebirthing costs Coins (Config/Rebirths), resets Coins and the
+	tycoon, and levels up the company mascot (Services/MascotManager): more Coins, line
+	speed and luck forever (ProductionManager and LootManager apply them), and new zones.
+	The Rebirth Shop is gone: the mascot replaces it.
 ]]
 
 local Players = game:GetService("Players")
@@ -33,8 +33,8 @@ local function allowRequest(player: Player): boolean
 	return true
 end
 
--- Returns whether it worked and the Rebirth Points gained.
-local function onRebirth(player: Player): (boolean, number?)
+-- Returns whether it worked.
+local function onRebirth(player: Player): boolean
 	if not allowRequest(player) then
 		return false
 	end
@@ -43,32 +43,17 @@ local function onRebirth(player: Player): (boolean, number?)
 		return false
 	end
 	local cost = Rebirths.Cost(data.Rebirths)
-	local points = Rebirths.Points(data.Coins, data.Rebirths)
-	if data.Coins < cost or not DataManager.Rebirth(player, cost, points) then
+	if data.Coins < cost or not DataManager.Rebirth(player, cost) then
 		return false
 	end
 	TycoonManager.ResetPlot(player)
 	announceRemote:FireAllClients(`{player.DisplayName} reached Rebirth {data.Rebirths}!`, ANNOUNCE_COLOR, player)
-	return true, points
-end
-
-local function onBuyUpgrade(player: Player, upgradeId: unknown): boolean
-	if typeof(upgradeId) ~= "string" or not allowRequest(player) then
-		return false
-	end
-	local upgrade = Rebirths.UpgradesById[upgradeId]
-	local data = DataManager.GetData(player)
-	if not (upgrade and data) then
-		return false
-	end
-	local level = data.Upgrades[upgradeId] or 0
-	return DataManager.BuyUpgrade(player, upgradeId, Rebirths.UpgradeCost(upgrade, level), upgrade.MaxLevel)
+	return true
 end
 
 function RebirthManager.Init()
 	announceRemote = Remotes.Event("Announce")
 	Remotes.Function("Rebirth").OnServerInvoke = onRebirth
-	Remotes.Function("BuyUpgrade").OnServerInvoke = onBuyUpgrade
 	Players.PlayerRemoving:Connect(function(player)
 		lastRequest[player] = nil
 	end)

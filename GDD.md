@@ -230,7 +230,7 @@ The HUD's ALBUM button wears a pulsing gold **CLAIM!** while a brainrot waits to
 |---|---|---|---|
 | **Coins** | Shipping brainrots, low-tier duplicates, daily wheel | Lines, droppers, upgrades, stations, decorations | ✅ Yes |
 | **Gems** (premium) | Claiming brainrots in the Album, high-tier duplicates, daily wheel, Robux packs, bosses 🟡 | Loot boosts, extra Rolls, premium boxes, cosmetics | ❌ No |
-| **Rebirth Points** | Rebirthing (more points for more Coins at rebirth time) | Rebirth Shop permanent upgrades | ❌ No |
+| ~~**Rebirth Points**~~ | (v4.5: gone with the Rebirth Shop; the mascot levels up by itself) | | |
 
 We also track the **Rebirths** count (not a currency), which gates zones and rarities, and **Rolls** (an item count).
 
@@ -241,11 +241,14 @@ We also track the **Rebirths** count (not a currency), which gates zones and rar
 - Rebirthing requires a Coin threshold that grows each rebirth.
 - **Resets:** Coins (including those waiting on the Cash Pad), purchased tycoon items. Brainrots still on the belts are dropped and don't pay out.
 - **Keeps:** Gems, Rebirth Points, Rolls, unlocked parts, claimed brainrots (their morphs and gadgets), line configurations, and gamepass perks.
-- **Grants:** Rebirth Points, a permanent income multiplier, +0.1 luck (§4; v3.4, was rarity unlocks), and new zones.
+- **Grants:** a level of the **company mascot** (v4.5): +25% Coins, +5% line speed and +0.1 luck, forever (§4; v3.4, was rarity unlocks), and new zones.
 
-**Rebirth Shop** (spend Rebirth Points): Income %, Luck %, Walk Speed, Loot Box cap +1, Faster box respawn, Dropper speed %.
+### The company mascot ✅ (v4.5, the user, 2026-10-07; it replaces the Rebirth Shop)
+Every factory has a **mascot** out front, beside the path to the hub: a brainrot its owner **builds part by part** (head, body, arms, legs: any part they own, mixes allowed; it starts as the starter, Tralalero). **Its level is your rebirth count**: each rebirth levels it up, and each level is +25% Coins, +5% line speed and +0.1 luck, forever. It grows with its level: a wooden crate (LV 0), a bigger crate wrapped in the factory's color (1), a marble pedestal with a neon trim (2), two spotlights with beams (3), banners on poles (4), gold trims and sparkles (5), a fountain (7), fireworks over it now and then (10); the brainrot gets bigger every level up to 15. A **neon sign** over it says whose it is, its level and its bonuses ("+125% COINS · +25% SPEED · +50% LUCK"; at LV 0 "REBIRTH TO LEVEL ME UP!"). Its **prompt** opens its menu for anyone: the brainrot turning, LEVEL n, "Levels up every time you REBIRTH!", what it gives now and at the next rebirth, the look it gets next; its owner also gets the part pickers (< and > per part) and a REBIRTH button. A level-up plays a fanfare round it (confetti, sparkles, a flash, "LEVEL n!"). Map boxes keep 14 studs off every mascot. The Rebirth menu's right side shows the mascot (now → after this rebirth) instead of the shop. Data: `Mascot = { Head, Body, Arms, Legs }`; Config/Mascot, Services/MascotManager, Client/UI/MascotMenu.
+
+~~**Rebirth Shop**~~ (gone in v4.5: the mascot replaces it; levels bought there still count, shown as part of the mascot's bonuses; Rebirth Points are no longer given).
 - ✅ Built (v0.5), numbers in `Config/Rebirths`:
-  - Rebirth costs 60B Coins ×3 per rebirth (v3.4: ~1 h of play to the first one; v2.3: 100B, ~5 h), gives +25% Coins forever, and 1 Rebirth Point per full cost's worth of Coins (saving up pays).
+  - Rebirth costs 60B Coins ×3 per rebirth (v3.4: ~1 h of play to the first one; v2.3: 100B, ~5 h) and gives a mascot level.
   - Shop: **Income** (+10%/lv), **Dropper Speed** (+5%/lv), **Luck** (+10%/lv: rarer tiers weigh more, boxes upgrade more often).
   - Box cap and box respawn don't fit shared boxes, so they're dropped. Walk Speed comes later.
 - Line setups of lines you haven't bought back since a rebirth are remembered, but don't hold their parts, so those parts are free for your other lines.
@@ -379,7 +382,8 @@ ServerScriptService/
     TycoonManager.luau          -- plots, purchase buttons, collector, Cash Pad, placeholder geometry + Assembler machines
     ProductionManager.luau      -- line config (one part, one line), production timers, shipping, PERFECTs, Line menu view
     LootManager.luau            -- shared loot boxes, Rolls, server rolls, duplicates
-    RebirthManager.luau         -- rebirths and the Rebirth Shop
+    RebirthManager.luau         -- rebirths
+    MascotManager.luau          -- the company mascot out front
     GadgetManager.luau          -- gadgets and morphs
     MonetizationManager.luau    -- gamepasses (perks from config), dev products (ProcessReceipt)
     DailyWheelManager.luau      -- the Daily Wheel (free + bought spins, prizes)
@@ -397,7 +401,8 @@ ReplicatedStorage/
     Loot.luau                   -- Roll opening, prize wheel, reveal card (queued)
     Catalog.luau                -- the Album (claiming brainrots)
     Celebration.luau            -- the claim celebration (queued)
-    RebirthMenu.luau            -- rebirth + Rebirth Shop
+    RebirthMenu.luau            -- rebirth + the mascot it levels up
+    MascotMenu.luau             -- the mascot's menu (its prompt)
     Shop.luau                   -- gamepasses and Robux products, with odds for random items
     DailyWheelMenu.luau         -- the Daily Wheel
   Client/Effects.luau           -- world juice: 3D sounds, sparkles, puffs, rings, flashes, popups, flying coins
@@ -496,7 +501,7 @@ StarterPlayer/StarterPlayerScripts/
 
 25. **Achievements** (the user, 2026-10-02: before the release): an in-game list (first brainrot built, first full match, N completions, a brainrot of each rarity, every room opened, the first rebirth, boxes opened, bosses beaten...) with Gem and Roll rewards, a popup when one is earned, a page in the UI, and Roblox badges for the big ones.
 
-26. **The company mascot** (the user, 2026-10-06; planned, see PROGRESS): a way to show off your favorite creation, like a company's mascot, in front of your factory where everyone walks past. It starts small (a sign with your mascot's name and a little figure on it) and grows into a statue: **Rebirth Points level it up** (each level bigger and more eye-catching: a sign, a figure on a crate, a stone pedestal, a spotlight, then gold, fountains and fireworks at the top), and each level gives **+Coins**; later levels add **luck** and **line speed** too. You build the mascot right there (pick any unlocked part for each slot, mixes allowed) or copy one of your lines. It **replaces the Rebirth Shop** (Income, Dropper Speed, Luck): the points already spent there are refunded. Proposal, to confirm when built: the stand appears with your first PERFECT (Tralalero's guide shows it), so every new player has one.
+26. ✅ (v4.5, §10 "The company mascot": it levels up by itself, 1 level per rebirth; built part by part) **The company mascot** (the user, 2026-10-06): a way to show off your favorite creation, like a company's mascot, in front of your factory where everyone walks past. It starts small (a sign with your mascot's name and a little figure on it) and grows into a statue: **Rebirth Points level it up** (each level bigger and more eye-catching: a sign, a figure on a crate, a stone pedestal, a spotlight, then gold, fountains and fireworks at the top), and each level gives **+Coins**; later levels add **luck** and **line speed** too. You build the mascot right there (pick any unlocked part for each slot, mixes allowed) or copy one of your lines. It **replaces the Rebirth Shop** (Income, Dropper Speed, Luck): the points already spent there are refunded. Proposal, to confirm when built: the stand appears with your first PERFECT (Tralalero's guide shows it), so every new player has one.
 
 ---
 

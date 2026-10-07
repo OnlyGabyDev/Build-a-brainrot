@@ -1,61 +1,40 @@
 --[[
-	Rebirths and the Rebirth Shop (GDD §10). Placeholders to tune in playtests.
-	Rebirthing resets Coins and the tycoon, and keeps everything else. Each rebirth
-	gives Rebirth Points, a permanent income boost and luck, and unlocks zones.
+	Rebirths (GDD §10). Placeholders to tune in playtests.
+	Rebirthing resets Coins and the tycoon, and keeps everything else. Each rebirth is a
+	level of the company mascot (Config/Mascot, Services/MascotManager): more Coins,
+	line speed and luck, forever, and it unlocks zones.
+
+	The Rebirth Shop is gone (the user, 2026-10-07: the mascot replaces it), and so are
+	Rebirth Points. Levels bought there before still count (data.Upgrades, `Legacy`):
+	the mascot shows them as part of its bonuses.
 ]]
 
-export type Upgrade = {
+export type Legacy = {
 	Id: string,
-	Name: string,
-	Icon: string,
-	Description: string, -- per level
 	PerLevel: number,
-	MaxLevel: number,
-	BaseCost: number, -- Rebirth Points for level 1; each level costs BaseCost more
 }
 
-export type Levels = { [string]: number } -- [upgradeId] = level
+export type Levels = { [string]: number } -- [upgradeId] = level (the old shop's)
 
 local Rebirths = {
 	BaseCost = 60000000000, -- Coins needed for the first rebirth (~1 h of play: the pacing pass, tools/economy_sim.py)...
 	CostGrowth = 3, -- ...and each next one costs this much more
-	IncomeBonus = 0.25, -- +25% ship value per rebirth, forever
-	LuckPerRebirth = 0.1, -- +10% luck per rebirth, forever (rarer loot: Config/Loot)
+	-- per rebirth (a mascot level), forever:
+	IncomeBonus = 0.25, -- +25% ship value
+	SpeedBonus = 0.05, -- +5% line speed (the old shop's Dropper Speed, now free)
+	LuckPerRebirth = 0.1, -- +10% luck (rarer loot: Config/Loot)
 
-	Upgrades = {
-		{
-			Id = "Income",
-			Name = "Income",
-			Icon = "Coin",
-			Description = "+10% Coins",
-			PerLevel = 0.1,
-			MaxLevel = 20,
-			BaseCost = 1,
-		},
-		{
-			Id = "Speed",
-			Name = "Dropper Speed",
-			Icon = "Lightning",
-			Description = "+5% line speed",
-			PerLevel = 0.05,
-			MaxLevel = 10,
-			BaseCost = 1,
-		},
-		{
-			Id = "Luck",
-			Name = "Luck",
-			Icon = "Clover",
-			Description = "+10% Luck (rarer loot)",
-			PerLevel = 0.1,
-			MaxLevel = 10,
-			BaseCost = 2,
-		},
-	} :: { Upgrade },
+	-- the old Rebirth Shop's upgrades, for the levels bought there
+	Legacy = {
+		{ Id = "Income", PerLevel = 0.1 },
+		{ Id = "Speed", PerLevel = 0.05 },
+		{ Id = "Luck", PerLevel = 0.1 },
+	} :: { Legacy },
 }
 
-Rebirths.UpgradesById = {} :: { [string]: Upgrade }
-for _, upgrade in Rebirths.Upgrades do
-	Rebirths.UpgradesById[upgrade.Id] = upgrade
+Rebirths.LegacyById = {} :: { [string]: Legacy }
+for _, upgrade in Rebirths.Legacy do
+	Rebirths.LegacyById[upgrade.Id] = upgrade
 end
 
 -- Coins needed to rebirth from `rebirths` to `rebirths + 1`.
@@ -63,35 +42,23 @@ function Rebirths.Cost(rebirths: number): number
 	return math.floor(Rebirths.BaseCost * Rebirths.CostGrowth ^ rebirths)
 end
 
--- Rebirth Points for rebirthing with `coins`: one per full cost's worth, so saving
--- up past the cost pays off.
-function Rebirths.Points(coins: number, rebirths: number): number
-	return math.max(1, math.floor(coins / Rebirths.Cost(rebirths)))
+local function legacy(levels: Levels?, id: string): number
+	return ((levels and levels[id]) or 0) * Rebirths.LegacyById[id].PerLevel
 end
 
--- Rebirth Points for the next level of an upgrade.
-function Rebirths.UpgradeCost(upgrade: Upgrade, level: number): number
-	return upgrade.BaseCost * (level + 1)
-end
-
-local function bonus(levels: Levels, id: string): number
-	return (levels[id] or 0) * Rebirths.UpgradesById[id].PerLevel
-end
-
--- × Coins on every ship: rebirths plus the Income upgrade.
-function Rebirths.IncomeMultiplier(rebirths: number, levels: Levels): number
-	return (1 + Rebirths.IncomeBonus * rebirths) * (1 + bonus(levels, "Income"))
+-- × Coins on every ship.
+function Rebirths.IncomeMultiplier(rebirths: number, levels: Levels?): number
+	return (1 + Rebirths.IncomeBonus * rebirths) * (1 + legacy(levels, "Income"))
 end
 
 -- × line speed (divides the cycle time).
-function Rebirths.SpeedMultiplier(levels: Levels): number
-	return 1 + bonus(levels, "Speed")
+function Rebirths.SpeedMultiplier(rebirths: number, levels: Levels?): number
+	return 1 + Rebirths.SpeedBonus * rebirths + legacy(levels, "Speed")
 end
 
--- Extra luck: rarer loot tiers get this much more weight (see Config/Loot). Rebirths
--- plus the Luck upgrade.
-function Rebirths.Luck(rebirths: number, levels: Levels): number
-	return Rebirths.LuckPerRebirth * rebirths + bonus(levels, "Luck")
+-- Extra luck: rarer loot tiers get this much more weight (see Config/Loot).
+function Rebirths.Luck(rebirths: number, levels: Levels?): number
+	return Rebirths.LuckPerRebirth * rebirths + legacy(levels, "Luck")
 end
 
 return Rebirths

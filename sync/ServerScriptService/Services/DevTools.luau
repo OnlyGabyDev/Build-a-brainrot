@@ -106,18 +106,7 @@ end
 -- A brainrot from `parts` ([partType] = brainrotId; mixes fit like on a line), `scale`
 -- times its size, standing on `root`.
 local function thumbBrainrot(parts: { [string]: string }, scale: number, root: CFrame): Model
-	local brainrot = Instance.new("Model")
-	brainrot.Name = "Brainrot"
-	local homes, spread = BrainrotModels.Layout(parts)
-	for _, partType in Brainrots.PartTypes do
-		local part = BrainrotModels.CreatePart(parts[partType], partType, nil, spread)
-		part:PivotTo(CFrame.new(homes[partType] or Vector3.zero))
-		for _, child in part:GetChildren() do
-			child.Parent = brainrot
-		end
-		part:Destroy()
-	end
-	brainrot.WorldPivot = CFrame.identity
+	local brainrot = BrainrotModels.Build(parts)
 	brainrot:ScaleTo(scale)
 	brainrot:PivotTo(root)
 	return brainrot

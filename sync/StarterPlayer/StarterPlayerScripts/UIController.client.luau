@@ -30,6 +30,7 @@ local Kit = require(UI:WaitForChild("Kit"))
 local LineMenu = require(UI:WaitForChild("LineMenu"))
 local Loot = require(UI:WaitForChild("Loot"))
 local RebirthMenu = require(UI:WaitForChild("RebirthMenu"))
+local MascotMenu = require(UI:WaitForChild("MascotMenu"))
 local SettingsMenu = require(UI:WaitForChild("SettingsMenu"))
 local Shop = require(UI:WaitForChild("Shop"))
 local Upsell = require(UI:WaitForChild("Upsell"))
@@ -330,6 +331,7 @@ end)
 SettingsMenu.Init() -- the gear button, top right
 DailyLoginMenu.Init() -- the calendar button, under it
 WelcomeBackMenu.Init()
+MascotMenu.Init() -- opened from the mascot out front
 
 -- A red "!" on the wheel button while a spin is waiting.
 local wheelBadge = Kit.text({
