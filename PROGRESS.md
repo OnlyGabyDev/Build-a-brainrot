@@ -33,7 +33,7 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 
 ### Next: retention (the user, 2026-10-07), in order
 13. [x] **Achievements** (2026-10-07): 13 achievements in tiers on a QUESTS button (cards in each tier's rarity colors, dressed up more every tier, a CLAIM! that pays Gems and/or Coins); lifetime `Counters` in the data (docs/history.md, "Retention").
-14. [ ] **Daily missions**: 3 small tasks a day (open boxes, make PERFECTs...) with rewards, on the same counters.
+14. [x] **Daily quests** (2026-10-07): 3 a day (EASY/MEDIUM/HARD) + a bonus, the DAILY tab of the QUESTS menu; a shared `RewardManager`; the join popups wait for an open menu (docs/history.md, "Retention").
 15. [ ] **Playtime gifts** (Pet Sim's "Free Gifts"): gifts at 5, 10, 20, 30 min... in one session.
 
 ### Then (backlog, roughly by value)
@@ -49,7 +49,7 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 
 ## Testing in Studio (MCP)
 - **Before editing:** Azul must run (`Get-Process node`); stop any playtest (`get_studio_state`). The user often plays while Claude works.
-- **Reach the live game:** the MCP's own code can't require modules, but a Script it creates in ServerScriptService with `Source` set can (probes: `DataManager.OnBeforeSave`, then `player:Kick()` tests a leaving save; the playtest may end soon after). On the Server: `workspace:SetAttribute("DevRequest", '["AddCoins", 50000]')`, then read `DevResult`. Commands (`Services/DevTools`): SetAway (hours), DailyStreak (day, missed), AddCoins, AddGems, AddRolls, AddRebirths, Snapshot, Restore, ShowOnLine (id, lineId), SetPurchased (id, bool), SetPurchasedList, BuildUpgrade, ResetPlot, GrantPass, GrantProduct, SpawnBox (rarity, n), Nuke, CreateThumb, GiveBrainrots, MascotLevel (n; none: the real one), ResetAchievements (counters too: true), AddCounter (name, n). In game: `/dev <Command> <args>` in the chat, or the 🛠️ DEV menu (also on live servers, for developers only).
+- **Reach the live game:** the MCP's own code can't require modules, but a Script it creates in ServerScriptService with `Source` set can (probes: `DataManager.OnBeforeSave`, then `player:Kick()` tests a leaving save; the playtest may end soon after). On the Server: `workspace:SetAttribute("DevRequest", '["AddCoins", 50000]')`, then read `DevResult`. Commands (`Services/DevTools`): SetAway (hours), DailyStreak (day, missed), AddCoins, AddGems, AddRolls, AddRebirths, Snapshot, Restore, ShowOnLine (id, lineId), SetPurchased (id, bool), SetPurchasedList, BuildUpgrade, ResetPlot, GrantPass, GrantProduct, SpawnBox (rarity, n), Nuke, CreateThumb, GiveBrainrots, MascotLevel (n; none: the real one), ResetAchievements (counters too: true), AddCounter (name, n), NewQuests. In game: `/dev <Command> <args>` in the chat, or the 🛠️ DEV menu (also on live servers, for developers only).
 - **As a brand-new player:** in Edit, `workspace:SetAttribute("DevFreshStart", true)`, then Play (nothing loaded or saved, no passes, no leaderboard writes). **Clear it after** (`nil`), or every playtest starts fresh.
 - **Tralalero's guide:** a fresh start plays it from the intro; `["Guide", "Box"]` through DevRequest (or `/dev Guide Box`) puts you on any step ("Intro" starts over, "Done" ends it; it saves).
 - **The user's own profile** (`PlayerData_Studio`, Rebirth 5, ~25.8B Coins, every pass) saves: Snapshot before spending and Restore **before** stopping. Recovery from the DataStore's version history: docs/history.md ("Destructive tests").

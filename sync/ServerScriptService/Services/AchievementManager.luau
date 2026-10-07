@@ -30,8 +30,8 @@ local lastRequest: { [Player]: number } = {}
 
 local AchievementManager = {}
 
--- What a Counter achievement reads: "Rebirths", "Parts" (parts owned), or
--- "Counters.<name>" / "Stats.<name>".
+-- What a Counter achievement (or a daily quest) reads: "Rebirths", "Parts" (parts
+-- owned), or "Counters.<name>" / "Stats.<name>".
 local function sourceValue(data: DataManager.PlayerData, source: string): number
 	if source == "Rebirths" then
 		return data.Rebirths
@@ -136,6 +136,7 @@ end
 
 -- Re-reads the player's achievements into their attributes (after DevTools changes them).
 AchievementManager.Refresh = update
+AchievementManager.SourceValue = sourceValue
 
 function AchievementManager.Init()
 	Remotes.Function("ClaimAchievement").OnServerInvoke = onClaim

@@ -689,6 +689,11 @@ function Kit.close(panel: Frame)
 	end)
 end
 
+-- Whether a menu is open (the join popups wait until it's closed).
+function Kit.menuOpen(): boolean
+	return openModal ~= nil and openModal.Visible
+end
+
 -- Hype effects ---------------------------------------------------------------
 
 -- A full-screen flash that fades out.

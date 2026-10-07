@@ -1,5 +1,7 @@
 --[[
 	AchievementsMenu
+	The QUESTS menu: two tabs, DAILY (today's three quests: Client/UI/QuestsDaily) and
+	ACHIEVEMENTS, each with a gold count while something there waits to be claimed.
 	The achievements (GDD §5 "Achievements", Config/Achievements): a card per
 	achievement, in the colors of the tier it's on (Common silver, Uncommon green, Rare
 	blue, Legendary gold, Mythic pink, Godly a turning rainbow), each tier dressed up a
@@ -8,8 +10,9 @@
 	tier pulses with a big CLAIM!; claiming it pays, bursts into confetti and the card
 	steps up to the next tier's colors. Ready ones come first, maxed ones last.
 	Opened from the QUESTS button on the HUD (UIController), which wears a gold CLAIM!
-	while a tier waits; a toast says when one is done (not during Tralalero's guide).
-	Services/AchievementManager mirrors the progress as attributes. Client only.
+	while a tier or a quest waits; a toast says when one is done (not during Tralalero's
+	guide, nor while the menu is open). Services/AchievementManager mirrors the progress
+	as attributes. Client only.
 ]]
 
 local Players = game:GetService("Players")
@@ -24,6 +27,7 @@ local Guide = require(Config:WaitForChild("Guide"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
+local QuestsDaily = require(script.Parent:WaitForChild("QuestsDaily"))
 
 local SIZE = Vector2.new(1000, 640)
 local CARD = Vector2.new(300, 206)
@@ -52,6 +56,8 @@ local stops: { () -> () } = {}
 local animators: { (t: number, dt: number) -> () } = {}
 local updaters: { () -> () } = {}
 local shownKey = "" -- (the tiers and ready ones the cards were drawn with)
+local tab = "DAILY" -- "DAILY" | "ACHIEVEMENTS"
+local TAB_TOP = 64 -- (the tabs above it)
 
 local AchievementsMenu = {}
 
@@ -104,7 +110,7 @@ local function stateKey(): string
 		local state = stateOf(achievement)
 		table.insert(parts, `{state.Claimed}{if state.Ready then "!" else ""}`)
 	end
-	return table.concat(parts, ",")
+	return tab .. table.concat(parts, ",") .. QuestsDaily.Key()
 end
 
 -- Claiming -----------------------------------------------------------------------
@@ -409,18 +415,55 @@ render = function()
 	body = frame
 	shownKey = stateKey()
 
-	local ready = AchievementsMenu.ReadyCount() or 0
+	-- the tabs, each with a gold count of what waits there
+	local counts = { DAILY = QuestsDaily.ReadyCount(), ACHIEVEMENTS = AchievementsMenu.ReadyCount() or 0 }
+	for index, name in { "DAILY", "ACHIEVEMENTS" } do
+		local button = Kit.button({
+			Position = UDim2.fromOffset(30 + (index - 1) * 290, 8),
+			Size = UDim2.fromOffset(276, 50),
+			ZIndex = 3,
+			Parent = frame,
+		}, if tab == name then Kit.pair(Kit.Hues.Teal) else Kit.Colors.Grey, name, function()
+			if tab ~= name then
+				tab = name
+				render()
+			end
+		end, if name == "DAILY" then "Calendar" else "Trophy")
+		if counts[name] > 0 then
+			local count = Kit.text({
+				Text = tostring(counts[name]),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(1, -4, 0, 4),
+				Size = UDim2.fromOffset(34, 34),
+				BackgroundTransparency = 0,
+				BackgroundColor3 = Color3.fromRGB(255, 185, 30),
+				StrokeThickness = 2,
+				ZIndex = 7,
+				Parent = button,
+			})
+			Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = count })
+			Kit.stroke(count, 3)
+			pulse(count, 0.08, 6)
+		end
+	end
+
+	if tab == "DAILY" then
+		QuestsDaily.Render(frame, TAB_TOP, { Animators = animators, Updaters = updaters, Pulse = pulse, Rerender = render })
+		return
+	end
+
+	local ready = counts.ACHIEVEMENTS
 	Kit.iconText({
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 8),
-		Size = UDim2.fromOffset(900, 34),
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -30, 0, 16),
+		Size = UDim2.fromOffset(380, 32),
 		ZIndex = 3,
 		Parent = frame,
-	}, "Trophy", if ready > 0 then `{ready} READY TO CLAIM!` else "Every tier pays more!", if ready > 0 then GOLD else Kit.White)
+	}, "Star", if ready > 0 then `{ready} READY!` else "Every tier pays more!", if ready > 0 then GOLD else Kit.White)
 
 	local grid = Kit.new("ScrollingFrame", {
-		Position = UDim2.fromOffset(20, 50),
-		Size = UDim2.new(1, -40, 1, -60),
+		Position = UDim2.fromOffset(20, TAB_TOP + 4),
+		Size = UDim2.new(1, -40, 1, -TAB_TOP - 12),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 8,
@@ -476,10 +519,19 @@ local function onChanged()
 	end
 end
 
+-- Opens on the tab with something to claim (DAILY first), else on DAILY until today's
+-- quests are all claimed.
 function AchievementsMenu.Open()
 	if not panel then
-		local newPanel, newContent = Kit.modal("Achievements", "ACHIEVEMENTS", Kit.Hues.Teal, SIZE, "Trophy")
+		local newPanel, newContent = Kit.modal("Achievements", "QUESTS", Kit.Hues.Teal, SIZE, "Trophy")
 		panel, content = newPanel, newContent
+	end
+	if QuestsDaily.ReadyCount() > 0 then
+		tab = "DAILY"
+	elseif (AchievementsMenu.ReadyCount() or 0) > 0 or QuestsDaily.AllDone() then
+		tab = "ACHIEVEMENTS"
+	else
+		tab = "DAILY"
 	end
 	Kit.open(panel :: Frame)
 	render()
@@ -505,7 +557,8 @@ function AchievementsMenu.Init(button: GuiObject)
 	Kit.stroke(badge, 3)
 
 	local known: { [string]: boolean }? = nil -- (which were ready; nil until the data comes)
-	local pending: { Achievements.Achievement } = {} -- (done in the last moment: one toast for all)
+	-- (done in the last moment, a name and a color each: one toast for all)
+	local pending: { { Name: string, Color: Color3 } } = {}
 	local function quiet(): boolean -- (during the guide, and while the menu shows them)
 		local step = player:GetAttribute("Guide")
 		return step == nil or Guide.Focused(step :: string) or (panel ~= nil and panel.Visible)
@@ -517,33 +570,41 @@ function AchievementsMenu.Init(button: GuiObject)
 			return
 		end
 		if #done == 1 then
-			local rarity = Achievements.TierRarity(stateOf(done[1]).Tier)
-			Kit.toast(`{done[1].Name} done! Claim it!`, if rarity.Id == "Godly" then GOLD else rarity.Color:Lerp(Kit.White, 0.3), "Trophy")
+			Kit.toast(`{done[1].Name} done! Claim it!`, done[1].Color, "Trophy")
 		else
-			Kit.toast(`{#done} achievements done! Claim them!`, GOLD, "Trophy")
+			Kit.toast(`{#done} quests done! Claim them!`, GOLD, "Trophy")
 		end
 		Kit.playSound(Sounds.Jingle, 0.35)
 	end
 	local function check()
 		local count = AchievementsMenu.ReadyCount()
-		if not count then
+		local quests = QuestsDaily.State()
+		if not (count and quests) then
 			return
 		end
-		badge.Visible = count > 0
-		local now = {}
-		for _, achievement in Achievements.List do
-			now[achievement.Id] = stateOf(achievement).Ready
-			if now[achievement.Id] and known and not known[achievement.Id] then
+		badge.Visible = count + QuestsDaily.ReadyCount() > 0
+		local now: { [string]: boolean } = {}
+		local function seen(key: string, ready: boolean, name: string, color: Color3)
+			now[key] = ready
+			if ready and known and not known[key] then
 				if #pending == 0 then
 					task.delay(1, announce)
 				end
-				table.insert(pending, achievement)
+				table.insert(pending, { Name = name, Color = color })
 			end
+		end
+		for _, achievement in Achievements.List do
+			local state = stateOf(achievement)
+			local rarity = Achievements.TierRarity(state.Tier)
+			seen(achievement.Id, state.Ready, achievement.Name, if rarity.Id == "Godly" then GOLD else rarity.Color:Lerp(Kit.White, 0.3))
+		end
+		for _, index in (QuestsDaily.Ready()) do
+			seen(`Quest_{quests.Day}_{index}`, true, "DAILY QUEST", Color3.fromRGB(140, 245, 120))
 		end
 		known = now
 	end
 	player.AttributeChanged:Connect(function(name: string)
-		if string.sub(name, 1, 4) == "Ach_" or string.sub(name, 1, 8) == "AchTier_" or name == "Income" then
+		if string.sub(name, 1, 4) == "Ach_" or string.sub(name, 1, 8) == "AchTier_" or name == "Income" or name == "Missions" then
 			check()
 			onChanged()
 		end

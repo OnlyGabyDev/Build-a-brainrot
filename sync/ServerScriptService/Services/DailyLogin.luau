@@ -14,12 +14,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local DailyLoginConfig = require(Shared.Config.DailyLogin)
-local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local DataManager = require(script.Parent.DataManager)
-local LootManager = require(script.Parent.LootManager)
-local ProductionManager = require(script.Parent.ProductionManager)
+local RewardManager = require(script.Parent.RewardManager)
 
 local DAYS = DailyLoginConfig.Days
 local REQUEST_COOLDOWN = 1
@@ -54,31 +52,6 @@ local function update(player: Player)
 	player:SetAttribute("DailyNext", (utcDay() + 1) * DailyLoginConfig.SecondsPerDay)
 end
 
--- Gives a day's reward. Returns the line the client shows, and a part to reveal.
-local function grant(player: Player, reward: DailyLoginConfig.Reward): (string, any?)
-	if reward.Kind == "Coins" then
-		local amount = math.floor(math.max(reward.MinCoins or 0, ProductionManager.GetIncome(player) * (reward.IncomeSeconds or 0)))
-		DataManager.AddCurrency(player, "Coins", amount)
-		return `+{Format.Number(amount)} COINS!`
-	elseif reward.Kind == "Gems" then
-		DataManager.AddCurrency(player, "Gems", reward.Amount or 0)
-		return `+{reward.Amount} GEMS!`
-	elseif reward.Kind == "Rolls" then
-		DataManager.AddRolls(player, reward.Amount or 0)
-		return `+{reward.Amount} {if reward.Amount == 1 then "ROLL" else "ROLLS"}!`
-	elseif reward.Kind == "Box" then
-		LootManager.GiftBox(player, reward.Rarity)
-		return `A {string.upper(reward.Rarity or "")} BOX in your yard!`
-	elseif reward.Kind == "RarePart" then
-		if reward.Gems then
-			DataManager.AddCurrency(player, "Gems", reward.Gems)
-		end
-		local result = LootManager.GrantRarePart(player, reward.MinRank or 3, "DailyLogin")
-		return `A NEW PART + {reward.Gems or 0} GEMS!`, result
-	end
-	return reward.Label
-end
-
 -- Claims today's reward: { Day, Text, Result? } or nil.
 local function onClaim(player: Player): any
 	local now = os.clock()
@@ -94,7 +67,7 @@ local function onClaim(player: Player): any
 	if not ready or not DataManager.ClaimDailyLogin(player, day, utcDay()) then
 		return nil
 	end
-	local text, result = grant(player, DAYS[day])
+	local text, result = RewardManager.Grant(player, DAYS[day], "DailyLogin")
 	update(player)
 	return { Day = day, Text = text, Result = result }
 end

@@ -52,6 +52,7 @@ local BrainrotModels = require(Shared.BrainrotModels)
 local Brainrots = require(Shared.Config.Brainrots)
 local AchievementManager = require(script.Parent.AchievementManager)
 local DailyLogin = require(script.Parent.DailyLogin)
+local DailyMissions = require(script.Parent.DailyMissions)
 local DataManager = require(script.Parent.DataManager)
 local GuideManager = require(script.Parent.GuideManager)
 local LootManager = require(script.Parent.LootManager)
@@ -281,6 +282,10 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 		local done = DataManager.AddCounter(player, tostring(name), tonumber(amount) or 1)
 		AchievementManager.Refresh(player)
 		return done
+	end,
+	-- New daily quests now, as if a new day began.
+	NewQuests = function(player)
+		return DailyMissions.DevNewDay(player)
 	end,
 	SetAway = function(player, hours)
 		return OfflineEarnings.DevSetAway(player, tonumber(hours) or 1)

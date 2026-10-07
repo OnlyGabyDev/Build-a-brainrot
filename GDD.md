@@ -153,6 +153,10 @@ Long goals in **tiers** (§16.25): claiming a tier opens the next, which asks mo
 - **Rewards:** Gems from a ladder (5, 10, 20, 30, 50, 75, 100, 150, 200, 300 by tier; ×2 for rooms, rarities, rebirths and days) and/or Coins as seconds of your income (2, 5, 10, 15, 20, 30, 45, 60, 90, 120 min by tier; at least 10 Coins a second of it). Builder, Tycoon and Upgrader pay Coins; Collector, Rarity, Rebirths, Days and Rolls Gems; the rest both.
 - Old saves start with what the stats already knew (Coins earned, PERFECTs, time played, rebirths, parts, claims): many tiers wait for them. Saved as `Achievements = { [id] = tiers claimed }` and lifetime `Counters` (Built, Boxes, Rolls, Spins, Upgrades, Days, Room_<zone>).
 
+### Daily quests ✅ (v5.0, the user, 2026-10-07)
+Three quests a UTC day, so there's a reason to play today (`Config/DailyMissions`): picked at random from a pool on your first moment in the game that day, the first **EASY** (green), the second **MEDIUM** (blue), the third **HARD** (purple), each counting from that moment. The pool: open boxes (4 / 8 / 15), build brainrots (40 / 100 / 250), make PERFECTs (5 / 15 / 40), buy line upgrades (2 / 5 / 10), play (10 / 20 / 40 min), earn Coins (5 / 10 / 20 min of your income then, at least 5K), spin the wheel (1). **Rewards:** EASY Coins (5 min of income, at least 2K), MEDIUM 25 Gems, HARD 1 Roll; claiming all three opens a gold bonus row: **2 Rolls**. They're the **DAILY** tab of the QUESTS menu (the other tab: ACHIEVEMENTS; each tab shows a gold count of what waits; the menu opens on DAILY while something there waits or isn't claimed): a wide row per quest with its icon, its difficulty pill, its goal, a progress bar and its reward on a white chip, a pulsing CLAIM! once done, a big tick once claimed; the bonus row with a tick per quest claimed; "NEW QUESTS IN 5h 12m". A quest done gets the toast ("DAILY QUEST done! Claim it!"). New quests replace the old at the next UTC day, claimed or not. Saved as `Missions = { Day, List = { { Id, Goal, Base, Claimed } }, Bonus }`.
+- **The join popups wait for an open menu** (v5.0): the welcome back, the calendar and the Starter Pack offer never cover a menu you're using; they come once it's closed.
+
 ---
 
 ## 6. Assembly Lines 🟢
@@ -464,6 +468,7 @@ StarterPlayer/StarterPlayerScripts/
     Playtime = 0,
   },
   Achievements = {}, -- [achievementId] = tiers claimed (v4.9)
+  Missions = { Day = 0, List = {}, Bonus = false }, -- today's daily quests (v5.0): { Id, Goal, Base, Claimed } each
   Counters = {},     -- lifetime counts for the achievements: Built, Boxes, Rolls, Spins, Upgrades, Days, LastDay, Room_<zoneId>
   Settings = {
     LowGraphics = false, -- the player's own (v2.9), set through the SetSetting remote

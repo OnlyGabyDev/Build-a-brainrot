@@ -310,7 +310,7 @@ local wheelButton = menuButton(4, "Wheel", "WHEEL", Kit.Hues.Pink, DailyWheelMen
 menuButton(5, "Cart", "SHOP", Kit.Hues.Green, function()
 	Shop.Open()
 end)
--- the achievements (a gold CLAIM! while a tier waits)
+-- the daily quests and achievements (a gold CLAIM! while one waits)
 AchievementsMenu.Init(menuButton(6, "Trophy", "QUESTS", Kit.Hues.Teal, AchievementsMenu.Open))
 
 task.spawn(function()
@@ -546,9 +546,9 @@ end)
 -- PERFECT, the guide's gift and its favorite prompt ("GuideTalking"), the line upgrade
 -- and the mascot (once it's on a long goal: the Plushie room).
 local POPUPS_FIRST, AFTER_GUIDE, AFTER_OFFLINE, AFTER_DAILY, STARTER_EVERY = 6, 6, 2, 20, 300
-local function waitForQuiet() -- (no loot reveal or celebration on screen)
+local function waitForQuiet() -- (no loot reveal or celebration on screen, no menu open)
 	local deadline = os.clock() + 30
-	while (gui:FindFirstChild("LootOverlay") or gui:FindFirstChild("Celebration")) and os.clock() < deadline do
+	while ((gui:FindFirstChild("LootOverlay") or gui:FindFirstChild("Celebration")) and os.clock() < deadline) or Kit.menuOpen() do
 		task.wait(0.5)
 	end
 end

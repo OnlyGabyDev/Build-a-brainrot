@@ -11,12 +11,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local DailyWheel = require(Shared.Config.DailyWheel)
-local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local DataManager = require(script.Parent.DataManager)
 local MonetizationManager = require(script.Parent.MonetizationManager)
-local ProductionManager = require(script.Parent.ProductionManager)
+local RewardManager = require(script.Parent.RewardManager)
 
 local REQUEST_COOLDOWN = 1
 local REFRESH_INTERVAL = 30 -- seconds between "WheelNextFree" refreshes
@@ -70,26 +69,6 @@ local function rollPrize(): (number, DailyWheel.Prize)
 	return #DailyWheel.Prizes, DailyWheel.Prizes[#DailyWheel.Prizes]
 end
 
--- Grants a prize and returns the text the reveal shows.
-local function grantPrize(player: Player, prize: DailyWheel.Prize): string
-	if prize.Kind == "Coins" then
-		local income = ProductionManager.GetIncome(player) * (prize.IncomeSeconds or 0)
-		local amount = math.floor(math.max(prize.MinCoins or 0, income))
-		DataManager.AddCurrency(player, "Coins", amount)
-		return `+{Format.Number(amount)} COINS`
-	elseif prize.Kind == "Gems" then
-		DataManager.AddCurrency(player, "Gems", prize.Amount or 0)
-		return `+{Format.Number(prize.Amount or 0)} GEMS`
-	elseif prize.Kind == "Rolls" then
-		DataManager.AddRolls(player, prize.Amount or 0)
-		return `+{prize.Amount} ROLLS`
-	elseif prize.Kind == "LuckBoost" then
-		DataManager.AddBoost(player, "Luck", prize.Seconds or 0)
-		return `LUCK BOOST {math.floor((prize.Seconds or 0) / 60)} min!`
-	end
-	return prize.Label
-end
-
 -- Returns the prize's index (for the wheel) and its reveal text, or nil when the
 -- player has no spin.
 local function onSpin(player: Player): (number?, string?)
@@ -102,7 +81,7 @@ local function onSpin(player: Player): (number?, string?)
 		return nil
 	end
 	local index, prize = rollPrize()
-	return index, grantPrize(player, prize)
+	return index, (RewardManager.Grant(player, prize, "Wheel"))
 end
 
 function DailyWheelManager.Init()

@@ -96,7 +96,12 @@ export type PlayerData = {
 	-- lifetime counts the achievements read (never reset): Built, Boxes, Rolls, Spins,
 	-- Upgrades, Days (UTC days played; LastDay the last), Room_<zoneId> (1: opened once)
 	Counters: { [string]: number },
+	-- today's three daily quests (Services/DailyMissions): the UTC day they were picked,
+	-- each one's goal and its source's value then, whether it was claimed, and the bonus
+	Missions: { Day: number, List: { DailyMission }, Bonus: boolean },
 }
+
+export type DailyMission = { Id: string, Goal: number, Base: number, Claimed: boolean }
 
 export type AddPartResult = "New" | "Duplicate" | "NotLoaded"
 
@@ -153,6 +158,7 @@ local TEMPLATE: PlayerData = {
 	Guide = Guide.Steps[1].Id,
 	Achievements = {},
 	Counters = {},
+	Missions = { Day = 0, List = {}, Bonus = false },
 }
 
 -- What a client may set in its Settings, and the type each takes.
@@ -1104,6 +1110,41 @@ function DataManager.ClaimAchievementTier(player: Player, achievementId: string,
 		return false
 	end
 	profile.Data.Achievements[achievementId] = tier
+	return true
+end
+
+-- Sets the day's daily quests (Services/DailyMissions picks them).
+function DataManager.SetDailyMissions(player: Player, day: number, list: { DailyMission })
+	local profile = profiles[player]
+	if profile then
+		profile.Data.Missions = { Day = day, List = list, Bonus = false }
+	end
+end
+
+-- Marks today's quest `index` claimed. The caller checks it's done and pays it.
+-- Returns whether it was claimed now.
+function DataManager.ClaimDailyMission(player: Player, index: number): boolean
+	local profile = profiles[player]
+	local mission = profile and profile.Data.Missions.List[index]
+	if not mission or mission.Claimed then
+		return false
+	end
+	mission.Claimed = true
+	return true
+end
+
+-- Marks the bonus for all of today's quests claimed. Returns whether it was claimed now.
+function DataManager.ClaimDailyMissionBonus(player: Player): boolean
+	local profile = profiles[player]
+	if not profile or profile.Data.Missions.Bonus or #profile.Data.Missions.List == 0 then
+		return false
+	end
+	for _, mission in profile.Data.Missions.List do
+		if not mission.Claimed then
+			return false
+		end
+	end
+	profile.Data.Missions.Bonus = true
 	return true
 end
 
