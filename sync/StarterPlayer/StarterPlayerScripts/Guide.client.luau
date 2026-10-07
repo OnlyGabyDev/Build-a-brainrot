@@ -367,7 +367,7 @@ end
 local function playIntro(plotCFrame: CFrame)
 	introPlaying = true
 	local playerGui = player:WaitForChild("PlayerGui")
-	local waitUntil = os.clock() + 12
+	local waitUntil = os.clock() + 70 -- (the loading screen waits for downloads: 60 s at most)
 	while playerGui:FindFirstChild("LoadingScreen") and os.clock() < waitUntil do
 		task.wait(0.1)
 	end

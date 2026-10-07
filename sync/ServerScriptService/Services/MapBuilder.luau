@@ -1570,12 +1570,13 @@ function MapBuilder.Init()
 	buildTerrain(streamAngles, hillSpots)
 	task.wait() -- fresh terrain only answers raycasts from the next frame on
 
-	-- A trimmed lawn under every factory, so the animated grass doesn't poke through its
-	-- floors. Then the paths: everything else checks it stays off them.
+	-- A trimmed lawn under every factory (and its garden path), so the animated grass
+	-- doesn't poke through its floors. Then the paths: everything else checks it stays off them.
 	local lot = FactoryBuilder.Lot
 	for _, plot in plots do
 		local lawn = Vector2.new(lot.HalfWidth * 2 + 4, lot.Back - lot.Front + 4)
 		paint(plot.CFrame * CFrame.new(0, 0, (lot.Front + lot.Back) / 2), lawn, Enum.Material.LeafyGrass)
+		paint(plot.CFrame * CFrame.new(FactoryBuilder.GardenLawn.Center), FactoryBuilder.GardenLawn.Size, Enum.Material.LeafyGrass)
 		WorkBudget.Step()
 	end
 	for index, plot in plots do

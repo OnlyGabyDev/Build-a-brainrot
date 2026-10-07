@@ -60,6 +60,9 @@ FactoryBuilder.ElevatorButton = Vector3.new(61, 0, -50)
 
 -- The building with its stairs, overhangs and lift tower, in plot space ("in the plot").
 FactoryBuilder.Lot = { HalfWidth = 90, Front = -68, Back = 186 }
+-- The garden path from the outside stairs round the lift tower runs a little past the
+-- lot's +X side: MapBuilder trims the lawn under it too (its middle and size, plot space).
+FactoryBuilder.GardenLawn = { Center = Vector3.new(93, 0, -52), Size = Vector2.new(18, 48) }
 
 local ROOM_SIZE = FactoryBuilder.RoomSize
 local FLOOR_TOP = FactoryBuilder.FloorTop
@@ -836,33 +839,35 @@ local function buildChimney(parent: Instance, base: CFrame, height: number)
 	addSmoke(cap, 1)
 end
 
--- One flight of the outside stairs, rising toward +Z from (zFrom, yFrom) to a landing
--- at `yTo` (1-stud risers, 2-stud treads), with stringers and a railing outside. Plot
--- space; returns where its top step ends.
+-- One flight of the outside stairs (`base`: its foot at its -X edge; it climbs toward
+-- +Z, STAIR_WIDTH across along +X) up `rise` studs to a landing (1-stud risers, 2-stud
+-- treads), with stringers and a railing along each edge in `rails` (-1: its -X edge,
+-- 1: its +X edge). Returns how far it runs along Z.
 local STAIR_X = HALF_X + 1.6 -- clear of the plinth and the trim bands
 local STAIR_WIDTH = 8
-local function buildFlight(parent: Instance, cframe: CFrame, zFrom: number, yFrom: number, yTo: number): number
-	local x = STAIR_X + STAIR_WIDTH / 2
-	local steps = math.floor(yTo - yFrom) - 1 -- the landing is the last step
+local STAIR_TURN = 5 -- the bottom landing's height, where the stairs turn away from the lift tower
+local function buildFlight(parent: Instance, base: CFrame, rise: number, rails: { number }): number
+	local steps = math.floor(rise) - 1 -- the landing is the last step
 	local run = 2
 	for index = 1, steps do
 		-- (a hair narrower than the stringers' span, so its ends hide inside them)
-		makePart(parent, "Step", Vector3.new(STAIR_WIDTH - 0.1, 1, run), cframe * CFrame.new(x, yFrom + index - 0.5, zFrom + (index - 0.5) * run), WOOD_COLOR, Enum.Material.WoodPlanks)
+		makePart(parent, "Step", Vector3.new(STAIR_WIDTH - 0.1, 1, run), base * CFrame.new(STAIR_WIDTH / 2, index - 0.5, (index - 0.5) * run), WOOD_COLOR, Enum.Material.WoodPlanks)
 	end
-	local zTo = zFrom + steps * run
-	local rise = yTo - yFrom
-	local length = math.sqrt((steps * run) ^ 2 + rise ^ 2)
-	local angle = math.atan2(rise, steps * run)
-	local middle = cframe * CFrame.new(0, yFrom + rise / 2 - 1, (zFrom + zTo) / 2)
-	for _, sx in { STAIR_X + 0.4, STAIR_X + STAIR_WIDTH - 0.4 } do
-		makeDecor(parent, "Stringer", Vector3.new(0.8, 2.4, length), middle * CFrame.new(sx, 0, 0) * CFrame.Angles(-angle, 0, 0), WOOD_DARK)
+	local length = steps * run
+	local slope = math.sqrt(length ^ 2 + rise ^ 2)
+	local angle = math.atan2(rise, length)
+	local middle = base * CFrame.new(0, rise / 2 - 1, length / 2)
+	for _, x in { 0.4, STAIR_WIDTH - 0.4 } do
+		makeDecor(parent, "Stringer", Vector3.new(0.8, 2.4, slope), middle * CFrame.new(x, 0, 0) * CFrame.Angles(-angle, 0, 0), WOOD_DARK)
 	end
-	local railX = STAIR_X + STAIR_WIDTH - 0.4
-	for index = 1, steps, 5 do
-		makeDecor(parent, "RailPost", Vector3.new(0.6, 3.6, 0.6), cframe * CFrame.new(railX, yFrom + index + 1.8, zFrom + (index - 0.5) * run), WHITE)
+	for _, side in rails do
+		local x = if side > 0 then STAIR_WIDTH - 0.4 else 0.4
+		for index = 1, steps, 5 do
+			makeDecor(parent, "RailPost", Vector3.new(0.6, 3.6, 0.6), base * CFrame.new(x, index + 1.8, (index - 0.5) * run), WHITE)
+		end
+		makeDecor(parent, "Rail", Vector3.new(0.7, 0.5, slope), middle * CFrame.new(x, 4.6, 0) * CFrame.Angles(-angle, 0, 0), WHITE)
 	end
-	makeDecor(parent, "Rail", Vector3.new(0.7, 0.5, length), middle * CFrame.new(railX, 4.6, 0) * CFrame.Angles(-angle, 0, 0), WHITE)
-	return zTo
+	return length
 end
 
 -- A landing at `y` from `zFrom` to `zTo`, flush with the floor there (and the trim band
@@ -889,20 +894,78 @@ local function buildLanding(parent: Instance, cframe: CFrame, zFrom: number, zTo
 	end
 end
 
+-- The bottom landing (`zFrom`..`zTo`, at `y`), where the stairs turn: they come down
+-- its back (+Z) and leave by its outer side (+X); a railing along its front (toward the
+-- lift tower).
+local function buildTurn(parent: Instance, cframe: CFrame, zFrom: number, zTo: number, y: number)
+	local x = LANDING_X0 + LANDING_WIDTH / 2
+	makePart(parent, "Landing", Vector3.new(LANDING_WIDTH, 1.2, zTo - zFrom), cframe * CFrame.new(x, y - 0.6, (zFrom + zTo) / 2), WOOD_COLOR, Enum.Material.WoodPlanks)
+	for _, postZ in { zFrom + 0.6, zTo - 0.6 } do
+		makePart(parent, "LandingPost", Vector3.new(1.2, y - 1.2, 1.2), cframe * CFrame.new(LANDING_OUTER, (y - 1.2) / 2, postZ), WOOD_DARK, Enum.Material.Wood)
+	end
+	makeDecor(parent, "RailPost", Vector3.new(0.6, 3.6, 0.6), cframe * CFrame.new(LANDING_X0 + 0.6, y + 1.8, zFrom + 0.6), WHITE)
+	makeDecor(parent, "Rail", Vector3.new(LANDING_WIDTH, 0.5, 0.7), cframe * CFrame.new(x, y + 3.6, zFrom + 0.6), WHITE)
+	local guard = makePart(parent, "Guard", Vector3.new(LANDING_WIDTH, 6, 0.4), cframe * CFrame.new(x, y + 3, zFrom), WHITE)
+	guard.Transparency = 1
+end
+
+-- Stepping stones from the foot of the outside stairs (`from`, on the ground) curving
+-- round the lift tower's outer side to the front yard, flowers beside them and a
+-- little lamp post at each end (plot space).
+local PATH_STONE = Color3.fromRGB(232, 226, 240)
+local function buildGardenPath(parent: Instance, cframe: CFrame, from: Vector3)
+	local p0, p1, p2, p3 = from, from + Vector3.new(7, 0, -1), Vector3.new(97, 0, -62), Vector3.new(83, 0, -72)
+	local function at(t: number): Vector3
+		local u = 1 - t
+		return p0 * u ^ 3 + p1 * 3 * u ^ 2 * t + p2 * 3 * u * t ^ 2 + p3 * t ^ 3
+	end
+	local last, travelled, count = p0, 3.4, 0
+	for sample = 0, 80 do
+		local point = at(sample / 80)
+		travelled += (point - last).Magnitude
+		last = point
+		if travelled >= 3.4 then
+			travelled = 0
+			count += 1
+			local ahead = (at(math.min(1, sample / 80 + 0.01)) - at(math.max(0, sample / 80 - 0.01))).Unit
+			local side = Vector3.new(-ahead.Z, 0, ahead.X)
+			local zig = if count % 2 == 0 then 0.5 else -0.5
+			makeCylinder(parent, "SteppingStone", if count % 3 == 0 then 2.7 else 3.2, 0.35, cframe * CFrame.new(point + side * zig), PATH_STONE)
+			if count % 2 == 0 then
+				local flower = cframe * CFrame.new(point - side * zig * 5.5)
+				makeDecor(parent, "FlowerStem", Vector3.new(0.25, 1.6, 0.25), flower * CFrame.new(0, 0.8, 0), LEAF_COLORS[3])
+				makeBall(parent, "Flower", 1.6, flower * CFrame.new(0, 1.8, 0), FLOWER_COLORS[count // 2 % #FLOWER_COLORS + 1])
+			end
+		end
+	end
+	for _, spot in { p0 + Vector3.new(1.5, 0, -5), p3 + Vector3.new(0, 0, 3.5) } do
+		local base = cframe * CFrame.new(spot)
+		makeCylinder(parent, "PathLampPost", 0.5, 4.2, base, WOOD_DARK)
+		makeBall(parent, "PathLamp", 1.4, base * CFrame.new(0, 4.6, 0), LAMP_COLOR).Material = Enum.Material.Neon
+		makeCylinder(parent, "PathLampCap", 1.6, 0.4, base * CFrame.new(0, 5.2, 0), WOOD_DARK)
+	end
+end
+
 -- The outside stairs up the +X wall: a flight to the 2nd floor's side door (under a
 -- crooked little porch roof, in `upper`: it goes with the 2nd floor in the cutaway),
 -- then, `toTerrace`, another on to the terrace over the back half (the 2nd floor's
--- landing is the top one without it). Plot space. Returns where the top landing is
--- along Z.
+-- landing is the top one without it). At the bottom they turn on a landing away from
+-- the lift tower and run out to a path round it. Plot space. Returns where the top
+-- landing is along Z.
 local function buildStairs(parent: Instance, upper: Instance, cframe: CFrame, palette: Palette, toTerrace: boolean): (number, number)
 	local doorFrom, doorTo = SIDE_DOOR_Z - 9, SIDE_DOOR_Z + 9
 	local top2, top3 = floorY(2), floorY(3)
-	local steps = math.floor(top2) - 1
-	buildFlight(parent, cframe, doorFrom - steps * 2, 0, top2)
+	local turnTo = doorFrom - (math.floor(top2 - STAIR_TURN) - 1) * 2
+	buildFlight(parent, cframe * CFrame.new(STAIR_X, STAIR_TURN, turnTo), top2 - STAIR_TURN, { 1 })
+	buildTurn(parent, cframe, turnTo - LANDING_WIDTH, turnTo, STAIR_TURN)
+	local edge = LANDING_X0 + LANDING_WIDTH
+	local sideZ = turnTo - LANDING_WIDTH + 0.3
+	local run = buildFlight(parent, cframe * CFrame.new(edge + (math.floor(STAIR_TURN) - 1) * 2, 0, sideZ) * CFrame.Angles(0, -math.pi / 2, 0), STAIR_TURN, { -1, 1 })
+	buildGardenPath(parent, cframe, Vector3.new(edge + run + 1.8, 0, sideZ + STAIR_WIDTH / 2))
 	buildLanding(parent, cframe, doorFrom, doorTo, top2, not toTerrace)
 	local terraceFrom, terraceTo = doorFrom, doorTo
 	if toTerrace then
-		terraceFrom = buildFlight(parent, cframe, doorTo, top2, top3)
+		terraceFrom = doorTo + buildFlight(parent, cframe * CFrame.new(STAIR_X, top2, doorTo), top3 - top2, { 1 })
 		terraceTo = terraceFrom + 18
 		buildLanding(parent, cframe, terraceFrom, terraceTo, top3, true)
 	end
@@ -1268,8 +1331,7 @@ end
 -- which the client's Elevator script moves (the server leaves the cabin on the ground
 -- floor). Its attributes: Base (the tower on the ground floor's floor), Storeys, Rise,
 -- the heights of the pulley and of the cables' hitches, the cabin's box, where the
--- doors are, the building's box (Area, AreaSize), and each storey's front room's name
--- (Floors: "Toy Workshop|Clay Studio|...").
+-- doors are and the building's box (Area, AreaSize).
 -- Tower space (towerAt): its middle on a storey's floor, -Z toward the building (the
 -- door side), +X toward the front (the hub), +Z out.
 local LIFT_DOOR = Vector2.new(6.4, 13) -- the wall's door, and the neck's inside
@@ -1336,26 +1398,60 @@ local function buildLiftDoor(layer: Instance, wallBase: CFrame, palette: Palette
 	RoomDecor.NeonSign(layer, inside, Vector2.new(8, 2.8), "LIFT", palette.CandyDeep)
 end
 
--- On the ground floor, a neon sign hanging from the ceiling where you see it from the
--- entrance and the Cash Pad, "LIFT" on both faces and a neon arrow pointing to its door
--- (plot space).
+-- On the ground floor, a sign hanging from the ceiling between the entrance and the
+-- lift's door, turned a little toward the entrance and the Cash Pad: "LIFT" in white
+-- letters on a dark panel inside one thin neon frame, and beside them a neon arrow
+-- pointing to the door, on both faces (plot space). Only the frame and the arrow are
+-- neon, and the letters barely glow, so it reads from across the room. Clear of the
+-- Jack (its head pops up over x < 29), the walkway's lamps (x 24.4) and the Box
+-- Conveyor's crates (z -50).
+local POINTER = { Spot = Vector3.new(36, 19.5, -42), Turn = math.rad(20), Size = Vector2.new(11, 3.4) }
 local function buildLiftPointer(layer: Instance, cframe: CFrame, palette: Palette)
-	local at = cframe * CFrame.new(21, floorY(1) + 21, -30)
+	local size = POINTER.Size
+	local at = cframe * CFrame.new(POINTER.Spot + Vector3.new(0, floorY(1), 0)) * CFrame.Angles(0, POINTER.Turn, 0)
 	local glow = palette.CandyDeep:Lerp(WHITE, 0.25)
-	for _, turn in { 0, math.pi } do
-		RoomDecor.NeonSign(layer, at * CFrame.new(-3, 0, 0) * CFrame.Angles(0, turn, 0), Vector2.new(9, 3.6), "LIFT", palette.CandyDeep)
+	local panel = makeDecor(layer, "LiftSign", Vector3.new(size.X, size.Y, 0.5), at, Color3.fromRGB(40, 28, 60))
+	-- the words take the -X side of each face, the arrow the +X side (a face's left is
+	-- its +X seen from the front, its -X seen from the back)
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = face
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 24
+		gui.LightInfluence = 0
+		gui.Brightness = 1.3
+		gui.Parent = panel
+		local text = Instance.new("TextLabel")
+		text.Size = UDim2.fromScale(0.6, 0.82)
+		text.Position = UDim2.fromScale(if face == Enum.NormalId.Front then 0.36 else 0.04, 0.09)
+		text.BackgroundTransparency = 1
+		text.Font = Enum.Font.FredokaOne
+		text.TextScaled = true
+		text.TextColor3 = WHITE
+		text.Text = "LIFT"
+		text.Parent = gui
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = 4
+		stroke.Color = palette.CandyDeep
+		stroke.Parent = text
 	end
-	-- the arrow, toward +X (the lift's wall)
-	local tip = at * CFrame.new(8.2, 0, 0)
-	makeDecor(layer, "LiftArrow", Vector3.new(5.6, 0.9, 0.9), at * CFrame.new(5, 0, 0), glow, Enum.Material.Neon).CastShadow = false
+	for _, y in { -1, 1 } do
+		makeDecor(layer, "LiftSignNeon", Vector3.new(size.X + 0.6, 0.3, 0.3), at * CFrame.new(0, y * (size.Y / 2 + 0.15), 0), glow, Enum.Material.Neon).CastShadow = false
+	end
+	for _, x in { -1, 1 } do
+		makeDecor(layer, "LiftSignNeon", Vector3.new(0.3, size.Y, 0.3), at * CFrame.new(x * (size.X / 2 + 0.15), 0, 0), glow, Enum.Material.Neon).CastShadow = false
+	end
+	-- the arrow, toward +X (the lift's door), through the panel so both faces show it
+	local tip = at * CFrame.new(4.8, 0, 0)
+	makeDecor(layer, "LiftArrow", Vector3.new(2.7, 0.7, 0.8), at * CFrame.new(3.3, 0, 0), glow, Enum.Material.Neon).CastShadow = false
 	for _, side in { -1, 1 } do
 		local angle = math.rad(40)
-		local bar = tip * CFrame.new(-math.cos(angle) * 1.5, side * math.sin(angle) * 1.5, 0) * CFrame.Angles(0, 0, -side * angle)
-		makeDecor(layer, "LiftArrow", Vector3.new(3.2, 0.9, 0.9), bar, glow, Enum.Material.Neon).CastShadow = false
+		local bar = tip * CFrame.new(-math.cos(angle) * 0.85, side * math.sin(angle) * 0.85, 0) * CFrame.Angles(0, 0, -side * angle)
+		makeDecor(layer, "LiftArrow", Vector3.new(1.9, 0.7, 0.8), bar, glow, Enum.Material.Neon).CastShadow = false
 	end
-	for _, x in { -7, 1 } do
-		local rod = CEILING - 21 - 2
-		makeDecor(layer, "LiftSignRod", Vector3.new(0.25, rod, 0.25), at * CFrame.new(x, 2 + rod / 2, 0), WHITE)
+	local rod = CEILING - POINTER.Spot.Y - size.Y / 2
+	for _, x in { -4, 4 } do
+		makeDecor(layer, "LiftSignRod", Vector3.new(0.25, rod, 0.25), at * CFrame.new(x, size.Y / 2 + rod / 2, 0), WHITE)
 	end
 end
 
@@ -1568,7 +1664,7 @@ local function buildLiftRig(model: Model, cframe: CFrame, palette: Palette)
 	for _, x in { -halfX, halfX } do
 		makePart(cabin, "CabinPanel", Vector3.new(0.3, panel, CABIN.Z - 0.6), floor * CFrame.new(x, panel / 2, 0), deep)
 		makeGlass(cabin, "CabinGlass", Vector3.new(0.3, glassHeight, CABIN.Z - 0.6), floor * CFrame.new(x, panel + glassHeight / 2, 0), 0.45).Color = tint
-		makeDecor(cabin, "CabinRail", Vector3.new(0.3, 0.3, CABIN.Z - 1), floor * CFrame.new(x * (halfX - 0.35), 3.6, 0), GOLD_COLOR, Enum.Material.Metal)
+		makeDecor(cabin, "CabinRail", Vector3.new(0.3, 0.3, CABIN.Z - 1), floor * CFrame.new(x - math.sign(x) * 0.35, 3.6, 0), GOLD_COLOR, Enum.Material.Metal)
 	end
 	makeDecor(cabin, "CabinRail", Vector3.new(CABIN.X - 1, 0.3, 0.3), floor * CFrame.new(0, 3.6, halfZ - 0.35), GOLD_COLOR, Enum.Material.Metal)
 	makeDecor(cabin, "CabinHeader", Vector3.new(CABIN.X, 1.2, 0.4), floor * CFrame.new(0, CABIN.Y - 0.6, -halfZ), deep)
@@ -1638,13 +1734,6 @@ local function buildLiftRig(model: Model, cframe: CFrame, palette: Palette)
 	rig:SetAttribute("DoorZ", DOOR_LEAF_Z)
 	rig:SetAttribute("Area", cframe * CFrame.new(0, FLOOR_TOP, (FRONT_Z + BACK_Z) / 2))
 	rig:SetAttribute("AreaSize", Vector3.new(ROOM_SIZE.X, topStorey * STOREY, BACK_Z - FRONT_Z))
-	local floors = {}
-	for index, spot in FactoryBuilder.Layout do
-		if spot.Storey <= topStorey and not floors[spot.Storey] then
-			floors[spot.Storey] = Zones.List[index].Name -- (the Layout lists each storey's front room first)
-		end
-	end
-	rig:SetAttribute("Floors", table.concat(floors, "|"))
 	CollectionService:AddTag(rig, "Lift")
 	rig.WorldPivot = base
 	rig.Parent = model

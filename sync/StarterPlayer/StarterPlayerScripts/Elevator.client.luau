@@ -6,8 +6,8 @@
 	  * the cabin is always waiting on the floor you're on (you never wait for it): it
 	    hurries there whenever you change floors in the building or by the tower, and
 	    back to the ground floor while you're out;
-	  * standing in it, you get a prompt per other floor (named after its room, stacked
-	    so they don't overlap: E / X for the top one, F / Y for the next); a ride holds
+	  * standing in it, you get "Up" and "Down" (one floor each; stacked so they don't
+	    overlap: E / X for the top one, F / Y for the other); a ride holds
 	    you in place (anchored), slides the doors shut, glides the cabin straight there
 	    with you in it (the pulley turning, the counterweight going the other way, the
 	    cables paying out, a motor hum), then a ding and the doors slide open;
@@ -68,8 +68,7 @@ type Lift = {
 	At: number, -- where the cabin is, in storeys (1 = ground); between two while moving
 	Busy: boolean,
 	Motion: Motion?,
-	Floors: { string }, -- each storey's front room's name
-	Prompts: { [number]: ProximityPrompt }, -- by the floor each one goes to
+	Prompts: { [number]: ProximityPrompt }, -- Up (1) and Down (-1): by how many floors
 }
 local lifts: { [Model]: Lift } = {}
 
@@ -306,7 +305,6 @@ local function watch(rig: Instance)
 		return
 	end
 	local cabin, weight, pulley = rig:FindFirstChild("Cabin"), rig:FindFirstChild("Weight"), rig:FindFirstChild("Pulley")
-	local floors = rig:GetAttribute("Floors")
 	local lift: Lift = {
 		Rig = rig,
 		Building = building,
@@ -334,7 +332,6 @@ local function watch(rig: Instance)
 		At = 1, -- (the server leaves it on the ground floor)
 		Busy = false,
 		Motion = nil,
-		Floors = if typeof(floors) == "string" then string.split(floors, "|") else {},
 		Prompts = {},
 	}
 	for _, part in rig:GetDescendants() do
@@ -348,28 +345,29 @@ local function watch(rig: Instance)
 			table.insert(lift.Cables, { Part = part, X = at.X, Z = at.Z, Weight = part.Name == "WeightCable" })
 		end
 	end
-	-- the prompts, one per floor, in the cabin's middle (they ride along)
+	-- the prompts, Up and Down a floor, in the cabin's middle (they ride along)
 	local floor = lift.Cabin and lift.Cabin:FindFirstChild("CabinFloor")
 	if storeys > 1 and floor and floor:IsA("BasePart") then
 		local spot = Instance.new("Attachment")
 		spot.Name = "LiftPromptSpot"
 		spot.Position = Vector3.new(0, 3.3, 0)
 		spot.Parent = floor
-		for target = 1, storeys do
+		for _, step in { 1, -1 } do
 			local prompt = Instance.new("ProximityPrompt")
-			prompt.Name = `LiftTo{target}`
-			prompt.ObjectText = lift.Floors[target] or `Floor {target}`
+			prompt.Name = if step > 0 then "LiftUp" else "LiftDown"
+			prompt.ActionText = if step > 0 then "Up" else "Down"
 			prompt.HoldDuration = 0
 			prompt.MaxActivationDistance = 8
 			prompt.RequiresLineOfSight = false
 			prompt.Enabled = false -- (on while you're inside and it waits: see below)
 			prompt.Parent = spot
 			prompt.Triggered:Connect(function()
-				if lift.At ~= target and lift.At == math.floor(lift.At) then
+				local target = lift.At + step
+				if lift.At == math.floor(lift.At) and target >= 1 and target <= lift.Storeys then
 					ride(lift, target)
 				end
 			end)
-			lift.Prompts[target] = prompt
+			lift.Prompts[step] = prompt
 		end
 	end
 	lifts[rig] = lift
@@ -428,9 +426,9 @@ RunService:BindToRenderStep("Elevator", Enum.RenderPriority.Camera.Value - 1, fu
 	end
 end)
 
--- A few times a second: the prompts (on while you stand in a waiting cabin: one per
--- other floor, the higher on top), and the cabin hurrying to the floor you're on (the
--- ground floor while you're out).
+-- A few times a second: the prompts (on while you stand in a waiting cabin: Up on top,
+-- Down under it, each only where there's a floor to go to), and the cabin hurrying to
+-- the floor you're on (the ground floor while you're out).
 local elapsed = 0
 RunService.Heartbeat:Connect(function(dt)
 	elapsed += dt
@@ -444,14 +442,14 @@ RunService.Heartbeat:Connect(function(dt)
 		local idle = not lift.Busy and not riding and lift.Storeys > 1
 		local inside = root ~= nil and idle and inCabin(lift, root.Position)
 		local shown = 0
-		for target = lift.Storeys, 1, -1 do
-			local prompt = lift.Prompts[target]
+		for _, step in { 1, -1 } do
+			local prompt = lift.Prompts[step]
 			if prompt then
-				local on = inside and target ~= lift.At
+				local target = lift.At + step
+				local on = inside and target >= 1 and target <= lift.Storeys
 				prompt.Enabled = on
 				if on then
 					shown += 1
-					prompt.ActionText = if target > lift.At then `Up to floor {target}` else `Down to floor {target}`
 					prompt.KeyboardKeyCode = if shown == 1 then Enum.KeyCode.E else Enum.KeyCode.F
 					prompt.GamepadKeyCode = if shown == 1 then Enum.KeyCode.ButtonX else Enum.KeyCode.ButtonY
 				end
@@ -461,8 +459,8 @@ RunService.Heartbeat:Connect(function(dt)
 		-- UIOffset.Y lifts a prompt)
 		local count = shown
 		shown = 0
-		for target = lift.Storeys, 1, -1 do
-			local prompt = lift.Prompts[target]
+		for _, step in { 1, -1 } do
+			local prompt = lift.Prompts[step]
 			if prompt and prompt.Enabled then
 				shown += 1
 				prompt.UIOffset = Vector2.new(0, ((count + 1) / 2 - shown) * PROMPT_GAP)

@@ -2,8 +2,10 @@
 	LoadingScreen
 	Our own loading screen (the user, 2026-10-03; v2 with the real brainrots, 2026-10-06):
 	it replaces Roblox's default as soon as the client starts and stays until the game
-	has loaded and your character is in the world (the server holds characters until the
-	map is built: Main.server), then fades away. A pink-to-purple backdrop with turning
+	has loaded, your character is in the world (the server holds characters until the
+	map is built: Main.server), the world round you has streamed in and its textures,
+	the menus' images and the sound effects have downloaded (at most PRELOAD_TIME), then
+	fades away. A pink-to-purple backdrop with turning
 	rays; Tralalero bouncing over the title; a big brainrot in each bottom corner, turned
 	toward the middle at three quarters, popping in a new one every few seconds with its
 	rarity; small brainrots drifting up behind; a progress bar and rotating tips.
@@ -14,8 +16,10 @@
 	until they arrive (or if they never do) the screen is the title and the bar alone.
 ]]
 
+local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
@@ -24,6 +28,7 @@ local INK = Color3.fromRGB(30, 25, 45)
 local GOLD = Color3.fromRGB(255, 215, 60)
 local TIMEOUT = 60 -- seconds: whatever happens, the screen goes by then
 local MIN_TIME = 3 -- seconds: long enough to read the title and see a few brainrots
+local PRELOAD_TIME = 25 -- seconds at most for the downloads, once your character is in
 local SWAP_TIME = 3 -- seconds each corner brainrot stays before the next pops in
 local DRIFTERS = 10
 local CORNER_HEIGHT = 0.5 -- a corner brainrot's square, as a share of the screen's height...
@@ -343,15 +348,68 @@ task.spawn(function()
 	end
 end)
 
--- Progress is an estimate: it creeps toward each stage's cap (the game loaded, then the
--- character in the world) and never reaches 1 before both are done.
+-- Once the game and your character are in: the world round you streamed in, then the
+-- textures in it, the menus' images and the sound effects downloaded, so they don't pop
+-- in after the screen goes (the music streams on its own). Shared modules have
+-- replicated by then.
 local started = os.clock()
+local deadline = started + TIMEOUT
+local preloaded = false
+-- (a Sound per effect: PreloadAsync fails audio ids given as bare strings)
+local function soundsToLoad(): { Sound }
+	local list = {}
+	local ok, sounds = pcall(function()
+		return require(ReplicatedStorage:WaitForChild("Shared", 5):WaitForChild("Config", 5):WaitForChild("Sounds", 5)) :: any
+	end)
+	if ok and typeof(sounds) == "table" then
+		for _, id in sounds do
+			if typeof(id) == "string" then -- (the music is a list: left out)
+				table.insert(list, new("Sound", { SoundId = id }))
+			end
+		end
+	end
+	return list
+end
+task.spawn(function()
+	while not (game:IsLoaded() and player.Character) and os.clock() < deadline do
+		task.wait(0.1)
+	end
+	local stop = os.clock() + PRELOAD_TIME
+	task.spawn(function()
+		local character = player.Character
+		local root = character and character:WaitForChild("HumanoidRootPart", 5)
+		if root and root:IsA("BasePart") then
+			pcall(player.RequestStreamAroundAsync, player, root.Position, 8)
+		end
+		local list: { any } = { workspace }
+		local playerGui = player:FindFirstChild("PlayerGui")
+		if playerGui then
+			table.insert(list, playerGui)
+		end
+		local sounds = soundsToLoad()
+		table.move(sounds, 1, #sounds, #list + 1, list)
+		pcall(ContentProvider.PreloadAsync, ContentProvider, list)
+		for _, sound in sounds do
+			sound:Destroy()
+		end
+		preloaded = true
+	end)
+	while not preloaded and os.clock() < stop do
+		task.wait(0.1)
+	end
+	preloaded = true
+end)
+
+-- Progress is an estimate: it creeps toward each stage's cap (the game loaded, the
+-- character in the world, the downloads) and never reaches 1 before all are done.
 local progress = 0
 local function target(): number
 	if not game:IsLoaded() then
-		return 0.6
+		return 0.5
 	elseif not player.Character then
-		return 0.95
+		return 0.7
+	elseif not preloaded then
+		return 0.97
 	end
 	return 1
 end
@@ -394,9 +452,8 @@ local connection = RunService.RenderStepped:Connect(function(dt)
 	end
 end)
 
--- Wait for the game and the character (or the timeout), then fade out.
-local deadline = os.clock() + TIMEOUT
-while os.clock() < deadline and not (game:IsLoaded() and player.Character and os.clock() - started >= MIN_TIME) do
+-- Wait for all that (or the timeout), then fade out.
+while os.clock() < deadline and not (preloaded and os.clock() - started >= MIN_TIME) do
 	task.wait(0.1)
 end
 progress = 1
