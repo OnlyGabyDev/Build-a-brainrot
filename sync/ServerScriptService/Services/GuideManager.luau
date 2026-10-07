@@ -19,7 +19,8 @@
 	  * Perfect: any brainrot completed; the first line gets the starter's 4 parts first
 	    if it isn't building a full one (Rolls opened before the first dropper).
 	At the end: a new Rare+ part (Guide.FinalRank, once: the "GuideGift" claim), which
-	the client reveals after the completion banner.
+	the client reveals after the completion banner, then Tralalero asks for a favorite
+	(once ever: the "FavoritePrompt" claim).
 ]]
 
 local Players = game:GetService("Players")
@@ -184,6 +185,9 @@ local function finish(player: Player, state: State, step: Guide.Step)
 			states[player] = nil
 			TycoonManager.RefreshButtons(player) -- every button shows again
 			giveGift(player)
+			if DataManager.Claim(player, "FavoritePrompt") then
+				guideRemote:FireClient(player, "Favorite")
+			end
 		end
 	end)
 end
@@ -277,6 +281,7 @@ function GuideManager.DevSetStep(player: Player, step: string): boolean
 		return false
 	end
 	DataManager.DevUnclaim(player, "GuideGift")
+	DataManager.DevUnclaim(player, "FavoritePrompt")
 	states[player] = nil
 	onLoaded(player)
 	TycoonManager.RefreshButtons(player)

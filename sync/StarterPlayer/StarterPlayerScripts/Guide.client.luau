@@ -13,8 +13,13 @@
 	    a big 3D arrow bouncing over it (turned to you, seen through walls), a ring round
 	    it, and a short trail of moving chevrons on the floor from your feet toward it.
 	  * Each step's reward pops out of the bubble; the last gift (a new Rare+ part) is
-	    revealed by Loot once any celebration on screen has gone.
+	    revealed by Loot once any celebration on screen has gone. Then, once ever,
+	    Tralalero asks for a favorite and Roblox's favorite prompt opens (no reward for
+	    it: Roblox's rules). Meanwhile "GuideTalking" (a local Player attribute) holds
+	    UIController's join popups back.
 ]]
+
+local AvatarEditorService = game:GetService("AvatarEditorService")
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -508,7 +513,7 @@ player:GetAttributeChangedSignal("Guide"):Connect(function()
 		rewardUntil = os.clock() + 4
 		say("You did it!", "Trophy")
 		task.delay(4, function()
-			if not bubble:GetAttribute("Gifting") then
+			if not (bubble:GetAttribute("Gifting") or player:GetAttribute("GuideTalking")) then
 				hideBubble()
 			end
 		end)
@@ -559,8 +564,42 @@ guideRemote.OnClientEvent:Connect(function(action: string, ...)
 		bubble:SetAttribute("Gifting", nil)
 		if Guide.Running(player:GetAttribute("Guide")) then
 			showStep() -- (started over: DevTools' Guide)
-		else
+		elseif not player:GetAttribute("GuideTalking") then
 			hideBubble()
 		end
+	elseif action == "Favorite" then
+		-- after the gift (once ever): a favorite brings them back
+		player:SetAttribute("GuideTalking", true)
+		task.wait(4) -- ("You did it!", and the gift starts)
+		while bubble:GetAttribute("Gifting") or gui:FindFirstChild("LootOverlay") or gui:FindFirstChild("Celebration") do
+			task.wait(0.25)
+		end
+		local known, favorited = pcall(AvatarEditorService.GetFavorite, AvatarEditorService, game.PlaceId, Enum.AvatarItemType.Asset)
+		if not (known and favorited) and not Guide.Running(player:GetAttribute("Guide")) then
+			rewardUntil = os.clock() + 3
+			say("Like it? Favorite the game!", "Star")
+			task.wait(1.2)
+			local answered = false
+			local connection = AvatarEditorService.PromptSetFavoriteCompleted:Connect(function(result)
+				answered = true
+				if result == Enum.AvatarPromptResult.Success then
+					rewardUntil = os.clock() + 2
+					say("Thank you!", "Star")
+					Kit.confetti(bubble, { ARROW_COLOR, Color3.fromRGB(255, 215, 60), Color3.fromRGB(255, 140, 230) }, 14, BUBBLE_Z + 5)
+				end
+			end)
+			if pcall(AvatarEditorService.PromptSetFavorite, AvatarEditorService, game.PlaceId, Enum.AvatarItemType.Asset, true) then
+				local deadline = os.clock() + 30
+				while not answered and os.clock() < deadline do
+					task.wait(0.25)
+				end
+			end
+			connection:Disconnect()
+			task.wait(2)
+			if not Guide.Running(player:GetAttribute("Guide")) then
+				hideBubble()
+			end
+		end
+		player:SetAttribute("GuideTalking", nil)
 	end
 end)

@@ -35,7 +35,7 @@ A joyful, colorful **brainrot factory tycoon**. The factory *is* the brainrot bu
    - **3 free Rolls**, so they get new parts in their first minute.
    - **Tralalero's guide** (newcomers only; players from before it skip it): a short camera flight onto YOUR factory (your name on its sign; any press skips it), then Tralalero says each goal in a speech bubble at the bottom (a few words and a big icon), a big 3D arrow bounces over it (seen through walls) with a ring round it, and a trail of chevrons at your feet points the way. The goals: step on FREE (+20 💰) → grab your cash (+20 💰; "Watch it build!" at the line until the first Coins land) → open your gift box (a box of your own in your front yard; +1 🎲) → buy the Body (+60 💰), the Arms (+150 💰), the Legs (+1 🎲) → watch the first PERFECT → a gift: a new **Rare+ part**. Short of Coins with enough on the Cash Pad, it sends you there first. Every goal is walked to (nothing to press), so it plays the same on PC, phones and consoles. Meanwhile only the first line's buttons show (no rooms, floors, room upgrades or more lines), no ads show, and the Starter Pack waits until ~25 s after the guide ends (the first PERFECT and the gift). ~1 min for a quick player. The company mascot's stand will be its last stop (§16.26).
 2. They build **assembly lines** in the **Toy Workshop** with Coins. Each line has 4 part droppers, an Assembler, upgrade stations and a shipping chute.
-3. The Assembler combines the parts into a brainrot and ships it. Coins go into the **collector**. The player steps on the **Cash Pad** to bank them (Coins that land while they stand on it go straight in; the Auto-Collect gamepass skips the pad).
+3. The Assembler combines the parts into a brainrot and ships it. Coins go into the **collector**. The player steps on the **Cash Pad** to bank them (Coins that land while they stand on it go straight in; the Auto-Collect gamepass skips the pad). Coins still on the pad when you leave are banked (v4.3).
 4. **Loot boxes** spawn around the map. Opening one (or using a Roll) spins a **wheel** that unlocks a new part.
 5. Owning all **4 parts** of a brainrot lets you **claim** it in the **Album** (v4.1): its Gems, its gadget and its morph. Shipping one whose 4 parts all match is a **PERFECT** (×2 Coins).
 6. **Rebirth** resets the tycoon but slowly unlocks new **zones**, more luck (rarer loot), and permanent multipliers.
@@ -141,6 +141,10 @@ All numbers are **placeholders**. Tune them in playtests.
 
 ### Daily login streak ✅ (v4.2, the user)
 A reward a day, so newcomers come back on day 2 (the 500-engaged-players goal). A **7-day calendar** (`Config/DailyLogin`) pops up on the first join of each UTC day (after Tralalero's guide for a newcomer; the Starter Pack offer waits for it) and opens from a calendar button on the HUD (top right, under the gear, a "!" while today's waits). Each day's card shows its reward's icon; the ones claimed in this streak are ticked, today's is gold and pulsing over a sunburst, day 7 is the big one; a huge **CLAIM!**, then a countdown to the next. **Rewards:** day 1 Coins (5 min of income, at least 1K), day 2 1 Roll, day 3 25 Gems, day 4 Coins (20 min of income, at least 10K), day 5 a **Rare box** of your own in your front yard, day 6 3 Rolls, day 7 a **new Rare+ part** (revealed) + 100 Gems. Miss a day and it starts over at day 1; after day 7 it goes round again. Saved as `DailyLogin = { Day, LastDay }`.
+
+### Coming back ✅ (v4.3)
+- **Offline earnings** (§16.7): the factory keeps working while you're away. On joining you get **25% of your income for the time away, up to 2 h** (nothing under 2 min: a quick rejoin). A gold **WELCOME BACK!** popup shows it: "Your factory kept working!", the time away, a big coin over a sunburst with the amount counting up, and a huge **COLLECT!** that sends the coins flying into the counter (closing it collects too; leaving without collecting banks it). It's the first join popup, before the daily calendar. Every save stamps the time and the income then (`Stats.LastSeen`, `Stats.LastIncome`).
+- **Favorite prompt:** once ever, right after Tralalero's guide ends (its gift revealed), Tralalero says "Like it? Favorite the game!" and Roblox's favorite prompt opens (skipped if it's already a favorite). No reward for it: Roblox's rules forbid paying for favorites. The join popups wait for it.
 
 ---
 
@@ -463,7 +467,7 @@ StarterPlayer/StarterPlayerScripts/
 4. **Gold / Rainbow part variants:** a rare roll on the wheel upgrades a part to Gold or Rainbow for bonus value and flex. No new models needed.
 5. **Index milestones:** completing X brainrots of a rarity grants permanent buffs (the Pet Sim index loop).
 6. **Loot Rain event:** every ~15 min, the map floods with shared boxes for 60 s.
-7. **Offline earnings:** earn a capped % of income while away, with a "Welcome back! +50K" popup.
+7. ✅ **Offline earnings** (v4.3, §5 "Coming back"): 25% of income while away, up to 2 h, with a "Welcome back!" popup. Later: a longer cap or a bigger share as a Rebirth/mascot level, or a "×2 for Robux" button on the popup.
 8. **Weekly brainrot drops:** new brainrots in updates: new stickers to claim bring veterans back.
 9. **Morph edition:** your morph uses the style of your best completed edition (a Candy Sahur, a Cosmic Sahur…).
 10. **Codes, group rewards, like goals, global leaderboards.** A cheap launch-growth toolkit.

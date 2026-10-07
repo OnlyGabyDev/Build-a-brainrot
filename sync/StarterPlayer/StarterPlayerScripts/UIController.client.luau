@@ -538,7 +538,7 @@ end)
 -- login streak's calendar (the first join of each day), then a newcomer's Starter Pack
 -- offer, which also comes back now and then in the corner while it lasts (Upsell keeps
 -- it from nagging). During Tralalero's guide they all wait: they come after the first
--- PERFECT and the guide's gift.
+-- PERFECT, the guide's gift and its favorite prompt ("GuideTalking").
 local POPUPS_FIRST, AFTER_GUIDE, AFTER_OFFLINE, AFTER_DAILY, STARTER_EVERY = 6, 6, 2, 20, 300
 local function waitForQuiet() -- (no loot reveal or celebration on screen)
 	local deadline = os.clock() + 30
@@ -553,10 +553,10 @@ task.spawn(function()
 			player:GetAttributeChangedSignal("Guide"):Wait()
 		until player:GetAttribute("Guide") == Guide.Done
 		task.wait(AFTER_GUIDE)
-		repeat -- (the guide's gift: its line, its reveal, its last line)
+		repeat -- (the guide's gift: its line, its reveal, its last line; the favorite prompt)
 			waitForQuiet()
 			task.wait(4)
-		until not (gui:FindFirstChild("LootOverlay") or gui:FindFirstChild("Celebration"))
+		until not (gui:FindFirstChild("LootOverlay") or gui:FindFirstChild("Celebration") or player:GetAttribute("GuideTalking"))
 	end
 	local deadline = os.clock() + 15 -- (the streak's attributes come with the data)
 	while player:GetAttribute("DailyDay") == nil and os.clock() < deadline do
