@@ -1976,6 +1976,7 @@ local function releasePlot(player: Player)
 	if not plot then
 		return
 	end
+	TycoonManager.BankCashPad(player)
 	plotByPlayer[player] = nil
 	newGeneration(plot)
 
@@ -2100,7 +2101,25 @@ function TycoonManager.Init()
 	Remotes.Function("PreviewLineUpgrade").OnServerInvoke = TycoonManager.BuildTrackPreview
 
 	DataManager.OnPlayerLoaded(claimPlot)
+	-- Coins left on the Cash Pad go in before the last save (DataManager may save
+	-- before or after releasePlot runs, so both bank them)
+	DataManager.OnBeforeSave(function(player, leaving)
+		if leaving then
+			TycoonManager.BankCashPad(player)
+		end
+	end)
 	Players.PlayerRemoving:Connect(releasePlot)
+end
+
+-- Banks the Coins waiting on the player's Cash Pad (they're leaving: none are lost).
+function TycoonManager.BankCashPad(player: Player)
+	local plot = plotByPlayer[player]
+	if plot and plot.Collected > 0 then
+		local amount = plot.Collected
+		plot.Collected = 0
+		DataManager.AddCurrency(player, "Coins", amount)
+		updateCashLabel(plot)
+	end
 end
 
 -- Shows or hides the owner's buttons again (Tralalero's guide moved on).

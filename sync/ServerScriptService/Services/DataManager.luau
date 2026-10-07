@@ -182,6 +182,7 @@ local profiles: { [Player]: Profile } = {}
 -- UserIds with a session in this server (loading, active or releasing).
 local activeSessions: { [number]: boolean } = {}
 local loadedCallbacks: { (Player) -> () } = {}
+local saveCallbacks: { (Player, boolean) -> () } = {}
 
 local dataStore: DataStore? = nil
 local inventoryRemote: RemoteEvent
@@ -485,10 +486,21 @@ local function saveProfile(profile: Profile, release: boolean): boolean
 	return ok and not lostLock
 end
 
+-- The OnBeforeSave callbacks: last changes to the data before it's written.
+local function beforeSave(profile: Profile, leaving: boolean)
+	for _, callback in saveCallbacks do
+		local ok, problem = pcall(callback, profile.Player, leaving)
+		if not ok then
+			warn(`[DataManager] a before-save callback failed for {profile.Key}: {problem}`)
+		end
+	end
+end
+
 local function releaseProfile(profile: Profile)
 	if profiles[profile.Player] ~= profile then
 		return -- already released
 	end
+	beforeSave(profile, true)
 	profiles[profile.Player] = nil
 	saveProfile(profile, true)
 	activeSessions[profile.UserId] = nil
@@ -589,6 +601,7 @@ local function autosaveLoop()
 		local now = os.clock()
 		for _, profile in profiles do
 			if not profile.Saving and now - profile.LastSave >= AUTOSAVE_INTERVAL then
+				beforeSave(profile, false)
 				task.spawn(saveProfile, profile, false)
 			end
 		end
@@ -637,6 +650,14 @@ function DataManager.OnPlayerLoaded(callback: (Player) -> ())
 	for player in profiles do
 		task.spawn(callback, player)
 	end
+end
+
+-- Runs `callback(player, leaving)` just before each save of a player's data, while it
+-- can still change (through this API): every autosave, and once more as they leave or
+-- the server shuts down (`leaving`), whatever order the PlayerRemoving listeners run in.
+-- It must not yield.
+function DataManager.OnBeforeSave(callback: (Player, boolean) -> ())
+	table.insert(saveCallbacks, callback)
 end
 
 -- Sets one of the player's settings (SETTING_TYPES) and mirrors it to their client.
