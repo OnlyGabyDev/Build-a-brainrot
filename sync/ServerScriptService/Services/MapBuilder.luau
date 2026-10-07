@@ -45,6 +45,11 @@ local BRIDGE_RISE = 3
 local PATH_WIDTH = 14
 local PATH_TOP = 0.4
 local PATH_SWAY = 7 -- the outer paths' gentle S-curve
+local PATH_STEPS = 16 -- stretches from the bridge to the factory's door
+local ENTRANCE_Z = -60 -- (plot space) where the path meets the factory's front door
+-- the stretches whose curb opens for a walk of stepping stones (Side 1: the plot's +X)
+local GARDEN_GAP = { Stretch = 14, Side = 1 } -- to the stones from the outside stairs
+local MASCOT_GAP = { Stretch = 7, Side = -1 } -- to the company mascot
 local STREAM_END = 640 -- each stream ends in a pond this far out
 local POND_RADIUS = 50
 local MOUNTAIN_RING = 900
@@ -1408,17 +1413,21 @@ local function buildBridge(parent: Instance, angle: number, color: Color3)
 end
 
 -- A gently winding path in the factory's color, with white curbs, from its bridge to
--- its entrance, with lamps, a bench and flowers along the way.
-local function buildPath(parent: Instance, angle: number, entrance: Vector3, color: Color3, sway: number)
-	local forward = onGround(angle, 1)
-	local side = Vector3.new(forward.Z, 0, -forward.X)
-	local fromRadius, toRadius = BRIDGE_TO, (entrance * Vector3.new(1, 0, 1)).Magnitude
-	local points = {}
-	local steps = 16
-	for step = 0, steps do
-		local t = step / steps
-		local radius = fromRadius + (toRadius - fromRadius) * t
-		table.insert(points, forward * radius + side * sway * math.sin(t * math.pi * 2) + Vector3.new(0, PATH_TOP, 0))
+-- its entrance, with lamps, a bench and flowers along the way. It's laid out in the
+-- plot's space and sways the same way at every factory, so the front yard's walks meet
+-- it at the same spots: the curb opens on the stretch where each joins (GARDEN_GAP,
+-- MASCOT_GAP). Returns the points along its middle (plot space).
+local function buildPath(parent: Instance, plot: TycoonManager.Plot, color: Color3): { Vector3 }
+	local frame = plot.CFrame
+	local forward, side = frame.ZVector, frame.XVector -- away from the hub; the plot's +X
+	local fromZ = frame:PointToObjectSpace(Vector3.zero).Z + BRIDGE_TO -- the bridge's far end
+	local inPlot: { Vector3 } = {}
+	local points: { Vector3 } = {}
+	for step = 0, PATH_STEPS do
+		local t = step / PATH_STEPS
+		local point = Vector3.new(-PATH_SWAY * math.sin(t * math.pi * 2), PATH_TOP, fromZ + (ENTRANCE_Z - fromZ) * t)
+		table.insert(inPlot, point)
+		table.insert(points, frame * point)
 	end
 
 	-- Short stretches that overlap a little at each end (every other one a hair higher,
@@ -1436,11 +1445,14 @@ local function buildPath(parent: Instance, angle: number, entrance: Vector3, col
 		travelled += length
 		local flat = CFrame.lookAt((from + to) / 2 * Vector3.new(1, 0, 1), to * Vector3.new(1, 0, 1))
 		paint(flat, Vector2.new(PATH_WIDTH + 8, length + 8), Enum.Material.LeafyGrass)
-		local across = along:Cross(Vector3.yAxis)
+		local across = Vector3.new(along.Z, 0, -along.X).Unit -- toward the plot's +X
 		for _, s in { -1, 1 } do
 			local offset = across * s * (PATH_WIDTH / 2 + 0.5) + Vector3.new(0, 0.3, 0)
-			makeSlab(parent, "Curb", from + offset, to + offset, 1, 0.9, CURB_COLOR)
 			makeCylinder(parent, "CurbPost", 0.7, 1.1, from + offset - Vector3.new(0, 0.6, 0), CURB_COLOR)
+			-- (no curb where a walk joins: the posts either end frame the opening)
+			if not ((index == GARDEN_GAP.Stretch and s == GARDEN_GAP.Side) or (index == MASCOT_GAP.Stretch and s == MASCOT_GAP.Side)) then
+				makeSlab(parent, "Curb", from + offset, to + offset, 1, 0.9, CURB_COLOR)
+			end
 		end
 	end
 	for _, point in points do -- for the free-space check (the plaza and river are off-limits anyway)
@@ -1455,6 +1467,45 @@ local function buildPath(parent: Instance, angle: number, entrance: Vector3, col
 	buildBench(parent, CFrame.lookAt(seat, seat + side)) -- facing the path
 	buildFlowers(parent, seat + forward * 7)
 	buildFlowers(parent, points[5] * Vector3.new(1, 0, 1) + side * (PATH_WIDTH / 2 + 5))
+	return inPlot
+end
+
+-- Where a walk joining the path at `gap` starts: just past the path's edge, in the
+-- curb's opening, and which way is out (plot space, on the ground).
+local function gapFoot(inPlot: { Vector3 }, gap: { Stretch: number, Side: number }): (Vector3, Vector3)
+	local from, to = inPlot[gap.Stretch] * Vector3.new(1, 0, 1), inPlot[gap.Stretch + 1] * Vector3.new(1, 0, 1)
+	local along = (to - from).Unit
+	local out = Vector3.new(along.Z, 0, -along.X) * gap.Side
+	return (from + to) / 2 + out * (PATH_WIDTH / 2 + 1.8), out
+end
+
+-- Stepping stones across a factory's front yard, from the openings in its path's curbs:
+-- one to the yard's corner, where the stones from the outside stairs round the lift
+-- tower come out (the factory lays those with its stairs), with a lamp there; one to
+-- the mascot's front (its stand covers the last stones). A trimmed lawn under them.
+local function buildWalks(parent: Instance, plot: TycoonManager.Plot, inPlot: { Vector3 })
+	local frame = plot.CFrame
+	local garden = FactoryBuilder.GardenPath
+	local away = ((garden.End - garden.Corner) * Vector3.new(1, 0, 1)).Unit -- the way the stairs' stones come out
+	local foot, out = gapFoot(inPlot, GARDEN_GAP)
+	local start = garden.End + away * 3.4 -- (their last stone is on End)
+	local bow = Vector3.new(0, 0, -6) -- a gentle curve out toward the hub along the front
+	local gardenStones = FactoryBuilder.SteppingStones(parent, frame, start, start + away * 14 + bow, foot + out * 16 + bow, foot)
+	FactoryBuilder.PathLamp(parent, frame * CFrame.new(garden.End + Vector3.new(0, 0, 3.5)))
+
+	local spot, facing = MascotConfig.Spot, MascotConfig.Facing.Unit
+	foot, out = gapFoot(inPlot, MASCOT_GAP)
+	local mascotStones = FactoryBuilder.SteppingStones(parent, frame, foot, foot + out * 8, spot + facing * 12, spot + facing * 2)
+
+	for _, stones in { gardenStones, mascotStones } do
+		for index = 1, #stones - 1 do
+			local a, b = frame * stones[index], frame * stones[index + 1]
+			paint(CFrame.lookAt((a + b) / 2, b), Vector2.new(9, (b - a).Magnitude + 4), Enum.Material.LeafyGrass)
+		end
+		for _, stone in stones do
+			table.insert(paths, (frame * stone) * Vector3.new(1, 0, 1))
+		end
+	end
 end
 
 -- A little plank footbridge across a stream.
@@ -1587,10 +1638,8 @@ function MapBuilder.Init()
 		WorkBudget.Step()
 	end
 	for index, plot in plots do
-		local entrance = (plot.CFrame * CFrame.new(0, 0, -60)).Position
-		local sway = if index % 2 == 0 then PATH_SWAY else -PATH_SWAY
 		local color = FactoryBuilder.Vivid(plot.Color)
-		buildPath(hub, plotAngles[index], entrance, color, sway)
+		buildWalks(hub, plot, buildPath(hub, plot, color))
 		buildBridge(hub, plotAngles[index], color)
 		WorkBudget.Step()
 	end

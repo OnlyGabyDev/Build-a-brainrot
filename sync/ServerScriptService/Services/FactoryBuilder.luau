@@ -63,6 +63,10 @@ FactoryBuilder.Lot = { HalfWidth = 90, Front = -68, Back = 186 }
 -- The garden path from the outside stairs round the lift tower runs a little past the
 -- lot's +X side: MapBuilder trims the lawn under it too (its middle and size, plot space).
 FactoryBuilder.GardenLawn = { Center = Vector3.new(93, 0, -52), Size = Vector2.new(18, 48) }
+-- It bends round the tower's outer corner (`Corner`, a control point) and comes out at
+-- the lot's front corner (`End`, its last stone): MapBuilder's stones go on from there
+-- across the front yard to the path to the hub (plot space).
+FactoryBuilder.GardenPath = { Corner = Vector3.new(97, 0, -62), End = Vector3.new(83, 0, -72) }
 
 local ROOM_SIZE = FactoryBuilder.RoomSize
 local FLOOR_TOP = FactoryBuilder.FloorTop
@@ -909,41 +913,62 @@ local function buildTurn(parent: Instance, cframe: CFrame, zFrom: number, zTo: n
 	guard.Transparency = 1
 end
 
--- Stepping stones from the foot of the outside stairs (`from`, on the ground) curving
--- round the lift tower's outer side to the front yard, flowers beside them and a
--- little lamp post at each end (plot space).
+-- Stepping stones along a curve from `p0` to `p3` (`p1` and `p2` bend it): one on each
+-- end, the rest evenly about 3.4 apart, zigzagging a little, with flowers beside every
+-- other one (plot space; `cframe` is the plot's). The garden path round the lift tower
+-- lays them, and so do MapBuilder's walks across the front yard. Returns the stones'
+-- spots (plot space).
 local PATH_STONE = Color3.fromRGB(232, 226, 240)
-local function buildGardenPath(parent: Instance, cframe: CFrame, from: Vector3)
-	local p0, p1, p2, p3 = from, from + Vector3.new(7, 0, -1), Vector3.new(97, 0, -62), Vector3.new(83, 0, -72)
+function FactoryBuilder.SteppingStones(parent: Instance, cframe: CFrame, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3): { Vector3 }
 	local function at(t: number): Vector3
 		local u = 1 - t
 		return p0 * u ^ 3 + p1 * 3 * u ^ 2 * t + p2 * 3 * u * t ^ 2 + p3 * t ^ 3
 	end
-	local last, travelled, count = p0, 3.4, 0
-	for sample = 0, 80 do
-		local point = at(sample / 80)
-		travelled += (point - last).Magnitude
-		last = point
-		if travelled >= 3.4 then
-			travelled = 0
-			count += 1
-			local ahead = (at(math.min(1, sample / 80 + 0.01)) - at(math.max(0, sample / 80 - 0.01))).Unit
-			local side = Vector3.new(-ahead.Z, 0, ahead.X)
-			local zig = if count % 2 == 0 then 0.5 else -0.5
-			makeCylinder(parent, "SteppingStone", if count % 3 == 0 then 2.7 else 3.2, 0.35, cframe * CFrame.new(point + side * zig), PATH_STONE)
-			if count % 2 == 0 then
-				local flower = cframe * CFrame.new(point - side * zig * 5.5)
-				makeDecor(parent, "FlowerStem", Vector3.new(0.25, 1.6, 0.25), flower * CFrame.new(0, 0.8, 0), LEAF_COLORS[3])
-				makeBall(parent, "Flower", 1.6, flower * CFrame.new(0, 1.8, 0), FLOWER_COLORS[count // 2 % #FLOWER_COLORS + 1])
-			end
+	-- the length along the curve at each sample, to space the stones evenly
+	local samples = math.max(20, math.ceil(((p1 - p0).Magnitude + (p2 - p1).Magnitude + (p3 - p2).Magnitude) * 1.5))
+	local lengths = { 0 } -- [k]: the length up to t = (k - 1) / samples
+	for sample = 1, samples do
+		lengths[sample + 1] = lengths[sample] + (at(sample / samples) - at((sample - 1) / samples)).Magnitude
+	end
+	local total = lengths[samples + 1]
+	local gaps = math.max(1, math.floor(total / 3.4 + 0.5))
+	local spots, sample = {}, 1
+	for count = 1, gaps + 1 do
+		local want = total * (count - 1) / gaps
+		while sample < samples and lengths[sample + 1] < want do
+			sample += 1
 		end
+		local span = lengths[sample + 1] - lengths[sample]
+		local t = (sample - 1 + (if span > 0 then math.clamp((want - lengths[sample]) / span, 0, 1) else 0)) / samples
+		local point = at(t)
+		local ahead = (at(math.min(1, t + 0.01)) - at(math.max(0, t - 0.01))).Unit
+		local side = Vector3.new(-ahead.Z, 0, ahead.X)
+		local zig = if count % 2 == 0 then 0.5 else -0.5
+		makeCylinder(parent, "SteppingStone", if count % 3 == 0 then 2.7 else 3.2, 0.35, cframe * CFrame.new(point + side * zig), PATH_STONE)
+		if count % 2 == 0 then
+			local flower = cframe * CFrame.new(point - side * zig * 5.5)
+			makeDecor(parent, "FlowerStem", Vector3.new(0.25, 1.6, 0.25), flower * CFrame.new(0, 0.8, 0), LEAF_COLORS[3])
+			makeBall(parent, "Flower", 1.6, flower * CFrame.new(0, 1.8, 0), FLOWER_COLORS[count // 2 % #FLOWER_COLORS + 1])
+		end
+		table.insert(spots, point)
 	end
-	for _, spot in { p0 + Vector3.new(1.5, 0, -5), p3 + Vector3.new(0, 0, 3.5) } do
-		local base = cframe * CFrame.new(spot)
-		makeCylinder(parent, "PathLampPost", 0.5, 4.2, base, WOOD_DARK)
-		makeBall(parent, "PathLamp", 1.4, base * CFrame.new(0, 4.6, 0), LAMP_COLOR).Material = Enum.Material.Neon
-		makeCylinder(parent, "PathLampCap", 1.6, 0.4, base * CFrame.new(0, 5.2, 0), WOOD_DARK)
-	end
+	return spots
+end
+
+-- A little lamp post standing on `base` by a garden path.
+function FactoryBuilder.PathLamp(parent: Instance, base: CFrame)
+	makeCylinder(parent, "PathLampPost", 0.5, 4.2, base, WOOD_DARK)
+	makeBall(parent, "PathLamp", 1.4, base * CFrame.new(0, 4.6, 0), LAMP_COLOR).Material = Enum.Material.Neon
+	makeCylinder(parent, "PathLampCap", 1.6, 0.4, base * CFrame.new(0, 5.2, 0), WOOD_DARK)
+end
+
+-- Stepping stones from the foot of the outside stairs (`from`, on the ground) curving
+-- round the lift tower's outer side to the front yard's corner, a little lamp post at
+-- the stairs (MapBuilder's stones go on from the corner, with the other lamp).
+local function buildGardenPath(parent: Instance, cframe: CFrame, from: Vector3)
+	local garden = FactoryBuilder.GardenPath
+	FactoryBuilder.SteppingStones(parent, cframe, from, from + Vector3.new(7, 0, -1), garden.Corner, garden.End)
+	FactoryBuilder.PathLamp(parent, cframe * CFrame.new(from + Vector3.new(1.5, 0, -5)))
 end
 
 -- The outside stairs up the +X wall: a flight to the 2nd floor's side door (under a

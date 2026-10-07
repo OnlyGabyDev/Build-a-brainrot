@@ -37,6 +37,9 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 15. [x] **Free gifts** (2026-10-07): 9 gifts a day for time played that day (1 to 60 min), a gift button with a countdown on the HUD's right column (docs/history.md, "Retention").
 16. [x] **Quests scale, duplicates by rarity, a MYTHIC day 7** (2026-10-07): daily quest goals in minutes of what your lines make (built, PERFECTs, Coins) or per line owned (upgrades), never under a newcomer's; Coin duplicates 15/30/60 s of income by rarity; the login's day 7 is a Mythic box shown turning on its card (docs/history.md, "Retention").
 
+### Map fixes (the user, 2026-10-07)
+17. [x] **The front yard's walks connected** (2026-10-07): the stairs' stepping stones go on along the front into an opening in the path's curb, a walk of stones from the path to the mascot (docs/history.md, "Map fixes").
+
 ### Then (backlog, roughly by value)
 - **The 2026-10-03 cloud work is seen** (2026-10-06; details in docs/history.md, "Road to Kids/Select"): everything works; fixed the elevator, the box storm's label clutter and the start's warnings. Left for the user: the streaming radius (Workspace properties in Studio; scripts can't read it) and FPS on a real phone (Studio's 30 FPS / 4.2 GB include the editor and the server).
 - **The Loot Rain** (§16.6), **Album milestones** (§16.5), **codes, group rewards, like goals** (§16.10), **new brainrots** Moranguete, Abacatudo, "67" (§16.24), **room upgrades for the Clay Studio and Vinyl** (prices in docs/history.md), **gadgets** fun per brainrot, **map bosses** (§11), **the Candy Factory** (§16.21), Paint Booth options, a Photobooth, rebirth unlocks (§16.22), more map life. Parked: a 4th line per room.

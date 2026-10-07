@@ -32,7 +32,6 @@ local RoomDecor = require(script.Parent.RoomDecor)
 local TycoonManager = require(script.Parent.TycoonManager)
 
 local STAGES = MascotConfig.Stages
-local FACING = Vector3.new(0.45, 0, -1) -- (plot space) toward the hub, turned a little to the path
 local WOOD = Color3.fromRGB(205, 150, 92)
 local WOOD_DARK = Color3.fromRGB(128, 84, 46)
 local MARBLE = Color3.fromRGB(242, 238, 232)
@@ -449,7 +448,7 @@ local function build(player: Player, level: number?): Vector3?
 
 	stand.WorldPivot = CFrame.identity
 	local spot = MascotConfig.Spot
-	stand:PivotTo(plot.CFrame * CFrame.lookAt(spot, spot + FACING))
+	stand:PivotTo(plot.CFrame * CFrame.lookAt(spot, spot + MascotConfig.Facing))
 	stand:SetAttribute("Level", shownLevel)
 	stand:SetAttribute("Top", top + figure.Y)
 	if shownLevel >= STAGES.Monument then

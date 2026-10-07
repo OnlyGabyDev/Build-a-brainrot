@@ -16,6 +16,7 @@ export type Look = { Key: string, Level: number, Name: string }
 
 local Mascot = {
 	Spot = Vector3.new(-30, 0, -86), -- in plot space: the front yard, left of the path to the hub
+	Facing = Vector3.new(0.45, 0, -1), -- (plot space) toward the hub, turned a little to the path (a walk of stepping stones comes from there)
 	-- the looks its stand gets at these levels (each keeps the ones before)
 	Looks = {
 		{ Key = "BigCrate", Level = 1, Name = "A BIGGER CRATE" }, -- wrapped in the factory's color
