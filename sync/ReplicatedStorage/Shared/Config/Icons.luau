@@ -11,6 +11,7 @@ local Icons = {
 	Arrow = "rbxassetid://136740733425900",
 	ArrowUp = "rbxassetid://110876607905581",
 	Brain = "rbxassetid://137942352886201",
+	Calendar = "rbxassetid://116984681559821",
 	Cart = "rbxassetid://101237482914224",
 	Check = "rbxassetid://119350422134085",
 	Clock = "rbxassetid://130938591019861",

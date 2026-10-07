@@ -23,6 +23,7 @@ local Gamepasses = require(Shared:WaitForChild("Config"):WaitForChild("Gamepasse
 local Guide = require(Shared:WaitForChild("Config"):WaitForChild("Guide"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Catalog = require(UI:WaitForChild("Catalog"))
+local DailyLoginMenu = require(UI:WaitForChild("DailyLoginMenu"))
 local DailyWheelMenu = require(UI:WaitForChild("DailyWheelMenu"))
 local Kit = require(UI:WaitForChild("Kit"))
 local LineMenu = require(UI:WaitForChild("LineMenu"))
@@ -326,6 +327,7 @@ task.spawn(function()
 end)
 
 SettingsMenu.Init() -- the gear button, top right
+DailyLoginMenu.Init() -- the calendar button, under it
 
 -- A red "!" on the wheel button while a spin is waiting.
 local wheelBadge = Kit.text({
@@ -530,17 +532,37 @@ Remotes.Event("Purchased").OnClientEvent:Connect(function(text: string)
 	Shop.Thanks(text)
 end)
 
--- A newcomer's Starter Pack offer pops up a little after joining, and again now and
--- then in the corner while it lasts (Upsell keeps it from nagging). During Tralalero's
--- guide it waits: it comes after the first PERFECT, its banner and the guide's gift.
-local STARTER_FIRST, STARTER_EVERY, STARTER_AFTER_GUIDE = 12, 300, 25
+-- The join popups, one after the other: the login streak's calendar (the first join of
+-- each day), then a newcomer's Starter Pack offer, which also comes back now and then
+-- in the corner while it lasts (Upsell keeps it from nagging). During Tralalero's guide
+-- both wait: they come after the first PERFECT and the guide's gift.
+local POPUPS_FIRST, AFTER_GUIDE, AFTER_DAILY, STARTER_EVERY = 6, 6, 20, 300
+local function waitForQuiet() -- (no loot reveal or celebration on screen)
+	local deadline = os.clock() + 30
+	while (gui:FindFirstChild("LootOverlay") or gui:FindFirstChild("Celebration")) and os.clock() < deadline do
+		task.wait(0.5)
+	end
+end
 task.spawn(function()
-	task.wait(STARTER_FIRST)
+	task.wait(POPUPS_FIRST)
 	if player:GetAttribute("Guide") ~= Guide.Done then
 		repeat
 			player:GetAttributeChangedSignal("Guide"):Wait()
 		until player:GetAttribute("Guide") == Guide.Done
-		task.wait(STARTER_AFTER_GUIDE)
+		task.wait(AFTER_GUIDE)
+		repeat -- (the guide's gift: its line, its reveal, its last line)
+			waitForQuiet()
+			task.wait(4)
+		until not (gui:FindFirstChild("LootOverlay") or gui:FindFirstChild("Celebration"))
+	end
+	local deadline = os.clock() + 15 -- (the streak's attributes come with the data)
+	while player:GetAttribute("DailyDay") == nil and os.clock() < deadline do
+		task.wait(0.5)
+	end
+	waitForQuiet()
+	if DailyLoginMenu.ShowIfReady() then
+		task.wait(AFTER_DAILY)
+		waitForQuiet()
 	end
 	Upsell.Featured("StarterPack") -- the big popup, once a session
 	task.wait(STARTER_EVERY)

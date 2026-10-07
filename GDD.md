@@ -139,6 +139,9 @@ All numbers are **placeholders**. Tune them in playtests.
 - Common, Uncommon and Rare duplicates give **Coins**. The amount scales with rarity and the player's current income, so it stays relevant.
 - Legendary, Mythic and Godly duplicates give **Gems**.
 
+### Daily login streak ✅ (v4.2, the user)
+A reward a day, so newcomers come back on day 2 (the 500-engaged-players goal). A **7-day calendar** (`Config/DailyLogin`) pops up on the first join of each UTC day (after Tralalero's guide for a newcomer; the Starter Pack offer waits for it) and opens from a calendar button on the HUD (top right, under the gear, a "!" while today's waits). Each day's card shows its reward's icon; the ones claimed in this streak are ticked, today's is gold and pulsing over a sunburst, day 7 is the big one; a huge **CLAIM!**, then a countdown to the next. **Rewards:** day 1 Coins (5 min of income, at least 1K), day 2 1 Roll, day 3 25 Gems, day 4 Coins (20 min of income, at least 10K), day 5 a **Rare box** of your own in your front yard, day 6 3 Rolls, day 7 a **new Rare+ part** (revealed) + 100 Gems. Miss a day and it starts over at day 1; after day 7 it goes round again. Saved as `DailyLogin = { Day, LastDay }`.
+
 ---
 
 ## 6. Assembly Lines 🟢

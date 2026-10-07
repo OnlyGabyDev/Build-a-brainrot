@@ -724,6 +724,18 @@ def Brain():
     ])
 
 
+@icon
+def Calendar():
+    body = rect(10, 16, 90, 92, 10)
+    return paint([
+        L(body, WHITE, gloss=0.25),
+        L(inter(body, rect(10, 16, 90, 40)), RED, line_width=1.8),
+        L(rounded(star(50, 67, 19, 8.5), 1.2), GOLD, line_width=1.8),
+        L(rect(26, 6, 37, 28, 5), STEEL, line_width=1.6),
+        L(rect(63, 6, 74, 28, 5), STEEL, line_width=1.6),
+    ])
+
+
 # Textures ---------------------------------------------------------------------
 
 

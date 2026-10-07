@@ -85,6 +85,7 @@ export type PlayerData = {
 	Upgrades: { [string]: number }, -- Rebirth Shop levels (Config/Rebirths), kept on rebirth
 	Boosts: { [string]: number }, -- [boostId] = os.time() it expires
 	DailyWheel: { FreeSpins: { number }, Spins: number }, -- free spins used (times), bought spins
+	DailyLogin: { Day: number, LastDay: number }, -- the login streak: the day last claimed (1-7) and its UTC day number (os.time() // 86400)
 	Receipts: { string }, -- recent Robux purchase ids, so none is granted twice
 	Claims: { [string]: number }, -- [claim] = os.time() it was last claimed (one-off and daily rewards)
 	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number, Perfects: number },
@@ -122,6 +123,7 @@ local TEMPLATE: PlayerData = {
 	Upgrades = {}, -- [upgradeId] = level
 	Boosts = {},
 	DailyWheel = { FreeSpins = {}, Spins = 0 },
+	DailyLogin = { Day = 0, LastDay = 0 },
 	Receipts = {},
 	Claims = {},
 	Stats = {
@@ -880,6 +882,18 @@ function DataManager.AddBoost(player: Player, boostId: string, seconds: number):
 	local now = os.time()
 	profile.Data.Boosts[boostId] = math.max(profile.Data.Boosts[boostId] or 0, now) + seconds
 	replicateExtras(profile)
+	return true
+end
+
+-- Records the login streak's reward claimed today (DailyLogin: `day` of the 7, on UTC
+-- day `utcDay`). Returns false if today's was already claimed.
+function DataManager.ClaimDailyLogin(player: Player, day: number, utcDay: number): boolean
+	local profile = profiles[player]
+	if not profile or profile.Data.DailyLogin.LastDay == utcDay then
+		return false
+	end
+	profile.Data.DailyLogin.Day = day
+	profile.Data.DailyLogin.LastDay = utcDay
 	return true
 end
 

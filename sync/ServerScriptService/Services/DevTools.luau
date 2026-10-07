@@ -49,6 +49,7 @@ local Shared = ReplicatedStorage.Shared
 local Remotes = require(Shared.Remotes)
 local BrainrotModels = require(Shared.BrainrotModels)
 local Brainrots = require(Shared.Config.Brainrots)
+local DailyLogin = require(script.Parent.DailyLogin)
 local DataManager = require(script.Parent.DataManager)
 local GuideManager = require(script.Parent.GuideManager)
 local LootManager = require(script.Parent.LootManager)
@@ -261,6 +262,14 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	-- It saves, so Snapshot first.
 	Guide = function(player, step)
 		return GuideManager.DevSetStep(player, step or "Intro")
+	end,
+	-- The login streak as if `day` (0-7) was claimed yesterday, so the next claim is the
+	-- day after it (0: day 1); `missed` true: two days ago (it starts over). It saves.
+	DailyStreak = function(player, day, missed)
+		local today = os.time() // 86400
+		local done = DataManager.ClaimDailyLogin(player, math.clamp(tonumber(day) or 0, 0, 7), today - (if missed then 2 else 1))
+		DailyLogin.Refresh(player)
+		return done
 	end,
 	AddCoins = function(player, amount)
 		return DataManager.AddCurrency(player, "Coins", amount)
