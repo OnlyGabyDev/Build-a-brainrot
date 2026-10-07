@@ -20,7 +20,7 @@ local Sounds = require(Config:WaitForChild("Sounds"))
 
 local DESIGN_SIZE = Vector2.new(1600, 900)
 local UI_BOOST = 1.18
-local FIT_PANEL = Vector2.new(1060, 770) -- the Index (1000 x 660) with its title bar and a margin
+local FIT_PANEL = Vector2.new(1060, 770) -- the Album (1000 x 660) with its title bar and a margin
 local WHITE = Color3.new(1, 1, 1)
 
 local Kit = {}
@@ -486,6 +486,7 @@ end
 -- head-on some are just a column, like Tralalero), a little from above.
 local VIEW_ANGLE = math.rad(38)
 local VIEW_LIFT = 0.3
+local VIEW_SWAY = math.rad(18) -- Kit.orbit sways this far either way
 
 local function viewFrom(angle: number): Vector3
 	return Vector3.new(math.sin(angle), VIEW_LIFT, -math.cos(angle)).Unit
@@ -923,6 +924,42 @@ function Kit.banner(icon: string, title: string, subtitle: string, color: Color3
 	end)
 end
 
+-- How far from its model's middle a viewport's camera must be for all of it to fit in
+-- a frame `aspect` wide per 1 tall, at any point of Kit.orbit's sway: every corner of
+-- every part, projected onto the camera, stays inside the field of view (the parts'
+-- corners, not the model's box: a long arm or a staff out to one side leaves the box's
+-- other corners empty).
+function Kit.fitDistance(model: Model, aspect: number, fov: number?): number
+	local box = model:GetBoundingBox()
+	local center = box.Position
+	local corners: { Vector3 } = {}
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") and part.Transparency < 0.99 then
+			local half = part.Size / 2
+			for x = -1, 1, 2 do
+				for y = -1, 1, 2 do
+					for z = -1, 1, 2 do
+						table.insert(corners, part.CFrame:PointToWorldSpace(Vector3.new(x * half.X, y * half.Y, z * half.Z)) - center)
+					end
+				end
+			end
+		end
+	end
+	local tanUp = math.tan(math.rad((fov or 35) / 2))
+	local tanSide = tanUp * aspect
+	local distance = 0
+	for _, sway in { -VIEW_SWAY, -VIEW_SWAY / 2, 0, VIEW_SWAY / 2, VIEW_SWAY } do
+		local toCamera = viewFrom(VIEW_ANGLE + sway)
+		local right = toCamera:Cross(Vector3.yAxis).Unit
+		local up = right:Cross(toCamera).Unit
+		for _, corner in corners do
+			local toward = corner:Dot(toCamera) -- (a corner nearer the camera needs it farther back)
+			distance = math.max(distance, toward + math.abs(corner:Dot(right)) / tanSide, toward + math.abs(corner:Dot(up)) / tanUp)
+		end
+	end
+	return distance
+end
+
 -- Sways a viewport's camera to and fro round its model's three-quarter view (a full
 -- orbit showed it head-on and from behind half the time), looking at `focus` from
 -- `distance` if given (else the whole model). Returns a stop function.
@@ -933,7 +970,7 @@ function Kit.orbit(viewport: ViewportFrame, model: Model, focus: Vector3?, dista
 	local reach = distance or size.Magnitude * 1.5 + 0.5
 	local start = os.clock()
 	local connection = RunService.RenderStepped:Connect(function()
-		local angle = VIEW_ANGLE + math.sin((os.clock() - start) * 0.9) * math.rad(18)
+		local angle = VIEW_ANGLE + math.sin((os.clock() - start) * 0.9) * VIEW_SWAY
 		camera.CFrame = CFrame.lookAt(center + viewFrom(angle) * reach, center)
 	end)
 	return function()

@@ -7,8 +7,8 @@
 	Line rules: a part can be equipped on only one line at a time. When every unlocked
 	part of a type is already in use, a Common part may be reused, so no line sits idle.
 
-	Completions: a full match (all 4 parts from one brainrot) completes it in the zone's
-	edition, and also claims every earlier zone's edition (the edition jackpot).
+	A full match (all 4 parts from one brainrot) ships for FullMatchMultiplier x the
+	Coins (a PERFECT). Brainrots are claimed in the Album, not by shipping (GadgetManager).
 ]]
 
 local Players = game:GetService("Players")
@@ -32,7 +32,6 @@ local TycoonManager = require(script.Parent.TycoonManager)
 local TICK = 0.1
 local REQUEST_COOLDOWN = 0.1 -- per player, for line menu requests
 local LINE_REACH = 30 -- studs from a line's Assembler to configure it without the pass
-local ANNOUNCE_RANK = 3 -- completions of this rarity rank and up (Rare+) are announced to everyone
 local PART_TYPES = Brainrots.PartTypes
 
 type LineConfig = { [string]: string } -- [partType] = brainrotId
@@ -46,8 +45,6 @@ type LineStats = {
 }
 
 local productionRemote: RemoteEvent
-local completionRemote: RemoteEvent
-local announceRemote: RemoteEvent
 
 -- [player][lineId] = seconds into the line's current cycle
 local lineTimers: { [Player]: { [string]: number } } = {}
@@ -233,42 +230,6 @@ end
 
 -- Shipping -------------------------------------------------------------------
 
--- Completes `brainrotId` in this line's zone edition, plus every earlier zone's
--- edition not yet claimed (the edition jackpot, GDD §7). Pays Gems per new edition.
-local function recordCompletion(player: Player, plot: TycoonManager.Plot, line: TycoonItems.Line, brainrotId: string)
-	local rarity = rarityOf(brainrotId)
-	local zone = Zones.ById[line.Zone]
-	if not (rarity and zone) then
-		return
-	end
-
-	local claimed = {}
-	local gems = 0
-	local firstEver = false
-	for index = 1, zone.Index do
-		local edition = Zones.List[index]
-		local isNew, isFirst = DataManager.RecordCompletion(player, brainrotId, edition.Id)
-		if isNew then
-			table.insert(claimed, edition.Id)
-			gems += rarity.CompletionGems * edition.GemMultiplier
-			firstEver = firstEver or isFirst
-		end
-	end
-	if #claimed == 0 then
-		return
-	end
-
-	gems = math.floor(gems)
-	DataManager.AddCurrency(player, "Gems", gems)
-	completionRemote:FireClient(player, plot.Model, line.Id, brainrotId, claimed, gems, firstEver)
-
-	-- Rare+ completions and edition jackpots are announced to the whole server.
-	if rarity.Rank >= ANNOUNCE_RANK or #claimed > 1 then
-		local jackpot = if #claimed > 1 then ` (EDITION JACKPOT x{#claimed})` else ""
-		announceRemote:FireAllClients(`{player.DisplayName} completed {Brainrots.ById[brainrotId].Name}!{jackpot}`, rarity.Color, player)
-	end
-end
-
 -- What a line ships right now: the parts its droppers build, the Coins each brainrot
 -- is worth, and the brainrot id when all 4 parts match.
 local function evaluate(line: TycoonItems.Line, stats: LineStats, config: LineConfig): (LineConfig, number, string?)
@@ -314,7 +275,7 @@ local function ship(player: Player, plot: TycoonManager.Plot, line: TycoonItems.
 		end
 		TycoonManager.AddToCollector(player, value)
 		if matchId then
-			recordCompletion(player, plot, line, matchId)
+			DataManager.RecordPerfect(player)
 		end
 	end)
 end
@@ -585,8 +546,6 @@ end
 
 function ProductionManager.Init()
 	productionRemote = Remotes.Event("Production")
-	completionRemote = Remotes.Event("Completion")
-	announceRemote = Remotes.Event("Announce")
 	Remotes.Function("SetLinePart").OnServerInvoke = onSetLinePart
 	Remotes.Function("EquipBestLine").OnServerInvoke = onEquipBest
 	Remotes.Function("GetLines").OnServerInvoke = onGetLines

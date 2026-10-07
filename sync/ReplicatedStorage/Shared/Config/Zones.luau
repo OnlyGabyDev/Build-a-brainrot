@@ -34,7 +34,7 @@ export type Zone = {
 	UnlockPrice: number?, -- Coins to open its room once the rebirths are met (a button at its door); nil: it opens by itself
 	ValueMultiplier: number, -- × ship value
 	PriceMultiplier: number, -- × tycoon item prices
-	GemMultiplier: number, -- × completion Gems
+	GemMultiplier: number, -- (unused since the Album, v4.1: it multiplied each edition's completion Gems)
 	LineCount: number,
 	Style: Style,
 	SpecialStation: string?, -- the zone's own last upgrade on each line (GDD §6)

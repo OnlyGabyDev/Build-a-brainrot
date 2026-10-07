@@ -1,9 +1,8 @@
 --[[
 	Celebration
-	The big moment when a brainrot is completed (GDD §7): a full-screen banner with the
-	brainrot, the Gems won and the editions claimed, plus its morph and gadget the
-	first time. Edition jackpots get the loudest show. Queued, so back-to-back
-	completions both play.
+	The big moment when a brainrot is claimed in the Album (GDD §7): a full-screen show
+	with the brainrot over a sunburst in its rarity's color, the Gems won, and its morph
+	and gadget ready to use right away. Queued, so back-to-back claims both play.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,7 +16,6 @@ local Gadgets = require(Config:WaitForChild("Gadgets"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
-local Zones = require(Config:WaitForChild("Zones"))
 local Kit = require(script.Parent:WaitForChild("Kit"))
 
 local AUTO_CLOSE = 10
@@ -26,9 +24,9 @@ local GEM_COLOR = Color3.fromRGB(120, 225, 255)
 local GOOD_COLOR = Color3.fromRGB(120, 245, 110)
 local BAD_COLOR = Color3.fromRGB(255, 90, 90)
 
-type Completion = { BrainrotId: string, Editions: { string }, Gems: number, FirstEver: boolean }
+type Claim = { BrainrotId: string, Gems: number }
 
-local queue: { Completion } = {}
+local queue: { Claim } = {}
 local playing = false
 
 local Celebration = {}
@@ -47,10 +45,10 @@ local function request(remoteName: string, brainrotId: string, success: string)
 	Kit.toast(if ok and done then success else "Try again!", if ok and done then GOOD_COLOR else BAD_COLOR, if ok and done then "Check" else "Warning")
 end
 
-local function play(completion: Completion)
-	local brainrot = Brainrots.ById[completion.BrainrotId]
+local function play(claim: Claim)
+	local brainrot = Brainrots.ById[claim.BrainrotId]
 	local rarity = Rarities.ById[brainrot.Rarity]
-	local gadget = Gadgets[completion.BrainrotId]
+	local gadget = Gadgets[claim.BrainrotId]
 	local closed = false
 
 	local screen = Kit.new("Frame", {
@@ -62,12 +60,8 @@ local function play(completion: Completion)
 		ZIndex = 60,
 		Parent = Kit.getGui(),
 	})
-	local title = if #completion.Editions > 1
-		then `EDITION JACKPOT x{#completion.Editions}!`
-		elseif completion.FirstEver then "NEW BRAINROT!"
-		else "NEW EDITION!"
 	local titleLabel = Kit.text({
-		Text = title,
+		Text = "NEW BRAINROT!",
 		TextColor3 = TITLE_COLOR,
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 40),
@@ -79,7 +73,7 @@ local function play(completion: Completion)
 	Kit.pop(titleLabel, 0.5)
 
 	local stopRays = Kit.rays(screen, rarity.Color, 560, 61)
-	local figure = buildFigure(completion.BrainrotId)
+	local figure = buildFigure(claim.BrainrotId)
 	local viewport = Kit.viewport({
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, -30),
@@ -89,12 +83,6 @@ local function play(completion: Completion)
 	}, figure)
 	local stopOrbit = Kit.orbit(viewport, figure)
 
-	-- Name, Gems and the editions claimed.
-	local editionNames = {}
-	for _, zoneId in completion.Editions do
-		local zone = Zones.ById[zoneId]
-		table.insert(editionNames, if zone then zone.Edition else zoneId)
-	end
 	Kit.text({
 		Text = brainrot.Name,
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -110,9 +98,16 @@ local function play(completion: Completion)
 		Size = UDim2.fromOffset(800, 34),
 		ZIndex = 64,
 		Parent = screen,
-	}, "Gem", `+{Format.Number(completion.Gems)}   {table.concat(editionNames, ", ")}`, GEM_COLOR)
+	}, "Gem", `+{Format.Number(claim.Gems)}`, GEM_COLOR)
+	Kit.iconText({
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.5, 270),
+		Size = UDim2.fromOffset(800, 32),
+		ZIndex = 64,
+		Parent = screen,
+	}, "Mask", "Morph" .. (if gadget then ` + {gadget.Name}` else "") .. " unlocked!", GOOD_COLOR)
 
-	-- The first completion unlocks the morph and the gadget.
+	-- use them right away
 	local buttons = Kit.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0.5, 310),
@@ -127,24 +122,15 @@ local function play(completion: Completion)
 		Padding = UDim.new(0, 16),
 		Parent = buttons,
 	})
-	if completion.FirstEver then
-		Kit.iconText({
-			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.new(0.5, 0, 0.5, 270),
-			Size = UDim2.fromOffset(800, 32),
-			ZIndex = 64,
-			Parent = screen,
-		}, "Gift", "Unlocked: Morph" .. (if gadget then ` + {gadget.Name}` else ""), GOOD_COLOR)
-		Kit.button({ Size = UDim2.fromOffset(200, 56), ZIndex = 65, Parent = buttons }, Kit.Colors.Purple, "MORPH", function()
+	Kit.button({ Size = UDim2.fromOffset(200, 56), ZIndex = 65, Parent = buttons }, Kit.Colors.Purple, "MORPH", function()
+		closed = true
+		request("SetMorph", claim.BrainrotId, `You're {brainrot.Name} now!`)
+	end, "Mask")
+	if gadget then
+		Kit.button({ Size = UDim2.fromOffset(220, 56), ZIndex = 65, Parent = buttons }, Kit.Colors.Gems, "GADGET", function()
 			closed = true
-			request("SetMorph", completion.BrainrotId, `You're {brainrot.Name} now!`)
-		end, "Mask")
-		if gadget then
-			Kit.button({ Size = UDim2.fromOffset(220, 56), ZIndex = 65, Parent = buttons }, Kit.Colors.Gems, "GADGET", function()
-				closed = true
-				request("EquipGadget", completion.BrainrotId, `{gadget.Name} equipped!`)
-			end, gadget.Icon)
-		end
+			request("EquipGadget", claim.BrainrotId, `{gadget.Name} equipped!`)
+		end, gadget.Icon)
 	end
 	Kit.button({ Size = UDim2.fromOffset(200, 56), ZIndex = 65, Parent = buttons }, Kit.Colors.Green, "AWESOME!", function()
 		closed = true
@@ -153,7 +139,7 @@ local function play(completion: Completion)
 	Kit.flash(screen, rarity.Color, 66)
 	Kit.playSound(Sounds.RevealBig, 0.6)
 	local colors = { rarity.Color, TITLE_COLOR, GEM_COLOR, Color3.fromRGB(255, 120, 220), GOOD_COLOR }
-	Kit.confetti(screen, colors, if #completion.Editions > 1 then 140 else 80, 63)
+	Kit.confetti(screen, colors, 60 + rarity.Rank * 15, 63)
 
 	local deadline = os.clock() + AUTO_CLOSE
 	while not closed and os.clock() < deadline do
@@ -170,8 +156,8 @@ local function processQueue()
 	end
 	playing = true
 	while #queue > 0 do
-		local completion = table.remove(queue, 1) :: Completion
-		local ok, err = pcall(play, completion)
+		local claim = table.remove(queue, 1) :: Claim
+		local ok, err = pcall(play, claim)
 		if not ok then
 			warn(`[Celebration] {err}`)
 			local leftover = Kit.getGui():FindFirstChild("Celebration")
@@ -183,12 +169,12 @@ local function processQueue()
 	playing = false
 end
 
--- Queues a completion banner. `editions` lists the zone ids claimed by this ship.
-function Celebration.Show(brainrotId: string, editions: { string }, gems: number, firstEver: boolean)
+-- Queues the show for a brainrot just claimed, with the Gems it paid.
+function Celebration.Show(brainrotId: string, gems: number)
 	if not Brainrots.ById[brainrotId] then
 		return
 	end
-	table.insert(queue, { BrainrotId = brainrotId, Editions = editions, Gems = gems, FirstEver = firstEver })
+	table.insert(queue, { BrainrotId = brainrotId, Gems = gems })
 	task.spawn(processQueue)
 end
 

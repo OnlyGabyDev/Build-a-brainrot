@@ -10,11 +10,11 @@
 	  * The Cash Pad piles up coins while money waits on it, glows, and bursts into a
 	    fountain of coins (flying into your Coins counter) when you collect.
 	  * Buttons you can afford get a bouncing arrow.
-	  * The factory's floors above yours (and its roofs) fade away while you're
-	    inside, watching from above: a dollhouse cutaway.
+	(The floors above yours and the roof used to fade away while you were inside, a
+	dollhouse cutaway; the user, 2026-10-06: the roof never disappears. The camera
+	stays under your ceiling like in any building.)
 ]]
 
-local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -28,7 +28,6 @@ local Sounds = require(Shared:WaitForChild("Config"):WaitForChild("Sounds"))
 local TycoonItems = require(Shared:WaitForChild("Config"):WaitForChild("TycoonItems"))
 local DropIn = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("DropIn"))
 local Effects = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Effects"))
-local FactoryView = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("FactoryView"))
 local Upsell = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("UI"):WaitForChild("Upsell"))
 
 local BELT_RIBS = "rbxassetid://17320090479"
@@ -445,114 +444,6 @@ RunService.RenderStepped:Connect(function()
 		gui.Enabled = not guiding and button.Color == AFFORDABLE_COLOR -- only affordable buttons show theirs
 		if gui.Enabled then
 			gui.StudsOffset = Vector3.new(0, 6 + bounce, 0)
-		end
-	end
-end)
-
--- Cutaways ---------------------------------------------------------------------
-
--- Each factory's upper floor and roof (FactoryBuilder: Models tagged "Cutaway",
--- pivoted at the ground floor's center, with Level, Area, StoreyHeight and
--- CeilingHeight attributes). While your character is inside a factory, the ones above
--- your storey stop blocking the camera (their collisions go off, on this client only:
--- you can't reach them from below anyway), and they fade away while the camera is up
--- above your ceiling, so you can watch the lines from above.
-local CUTAWAY_FADE_SPEED = 5 -- full fades per second
-type Cutaway = {
-	Fade: number, -- 0 shown .. 1 gone
-	Below: boolean, -- your character is inside, under it
-	Solid: { BasePart }, -- the parts whose collisions are off meanwhile
-	Hidden: { [Instance]: boolean }?, -- while mostly faded: signs and smoke, and whether each was on
-}
-local cutaways: { [Model]: Cutaway } = {}
-
-local function numberAttribute(model: Model, name: string): number
-	local value = model:GetAttribute(name)
-	return if typeof(value) == "number" then value else 0
-end
-
--- Which storey of the cutaway's building `position` is on (nil: outside it).
-local storeyAt = FactoryView.StoreyAt
-
-local function setBelow(model: Model, cutaway: Cutaway, below: boolean)
-	if cutaway.Below == below then
-		return
-	end
-	cutaway.Below = below
-	if below then
-		for _, part in model:GetDescendants() do
-			if part:IsA("BasePart") and part.CanCollide then
-				part.CanCollide = false
-				table.insert(cutaway.Solid, part)
-			end
-		end
-	else
-		for _, part in cutaway.Solid do
-			part.CanCollide = true
-		end
-		table.clear(cutaway.Solid)
-	end
-end
-
--- Signs and smoke don't fade with their parts: they switch off halfway through.
-local function setExtrasHidden(model: Model, cutaway: Cutaway, hidden: boolean)
-	if hidden and not cutaway.Hidden then
-		local was = {}
-		for _, extra in model:GetDescendants() do
-			if extra:IsA("SurfaceGui") or extra:IsA("ParticleEmitter") then
-				was[extra] = extra.Enabled
-				extra.Enabled = false
-			end
-		end
-		cutaway.Hidden = was
-	elseif not hidden and cutaway.Hidden then
-		for extra, enabled in cutaway.Hidden do
-			(extra :: any).Enabled = enabled
-		end
-		cutaway.Hidden = nil
-	end
-end
-
-local function watchCutaway(model: Instance)
-	if model:IsA("Model") then
-		cutaways[model] = { Fade = 0, Below = false, Solid = {} }
-	end
-end
-
-for _, model in CollectionService:GetTagged("Cutaway") do
-	watchCutaway(model)
-end
-CollectionService:GetInstanceAddedSignal("Cutaway"):Connect(watchCutaway)
-CollectionService:GetInstanceRemovedSignal("Cutaway"):Connect(function(model)
-	cutaways[model :: Model] = nil
-end)
-
-RunService.RenderStepped:Connect(function(dt)
-	local camera = workspace.CurrentCamera
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	for model, cutaway in cutaways do
-		local storey = if root then storeyAt(model, root.Position) else nil
-		local hide = false
-		if storey and storey < numberAttribute(model, "Level") then
-			setBelow(model, cutaway, true)
-			local ceiling = (storey - 1) * numberAttribute(model, "StoreyHeight") + numberAttribute(model, "CeilingHeight")
-			hide = model:GetPivot():PointToObjectSpace(camera.CFrame.Position).Y > ceiling - 1
-		else
-			setBelow(model, cutaway, false)
-		end
-		local target = if hide then 1 else 0
-		if cutaway.Fade ~= target then
-			local fade = cutaway.Fade
-			fade = if hide then math.min(fade + dt * CUTAWAY_FADE_SPEED, 1) else math.max(fade - dt * CUTAWAY_FADE_SPEED, 0)
-			cutaway.Fade = fade
-			for _, part in model:GetDescendants() do
-				-- (textures fade on their own, not with their parts)
-				if part:IsA("BasePart") or part:IsA("Decal") then
-					part.LocalTransparencyModifier = fade
-				end
-			end
-			setExtrasHidden(model, cutaway, fade >= 0.5)
 		end
 	end
 end)

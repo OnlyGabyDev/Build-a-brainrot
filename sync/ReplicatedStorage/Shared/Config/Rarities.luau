@@ -10,7 +10,7 @@ export type Rarity = {
 	Color: Color3,
 	LootWeight: number, -- relative chance on loot boxes and Rolls (nerfed 2026-10-03: the high ones came too easily)
 	PartValue: number, -- Coins each part adds to a shipped brainrot (x4 in the pacing pass, 2026-10-06)
-	CompletionGems: number, -- Gems for completing in Zone 1 (scaled by each zone's GemMultiplier)
+	CompletionGems: number, -- Gems for claiming a brainrot of this rarity in the Album
 	DuplicateCurrency: string, -- what a duplicate part converts into
 	DuplicateValue: number, -- how much of it (Coin duplicates also add some income, see Config/Loot)
 }

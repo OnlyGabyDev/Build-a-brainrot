@@ -63,7 +63,12 @@ local LEADERSTATS = {
 
 export type Inventory = {
 	Parts: { [string]: { [string]: boolean } }, -- [brainrotId] = { Head = true, ... } (unlocked parts)
-	Completed: { [string]: { [string]: number } }, -- [brainrotId] = { [zoneId] = os.time() of first full ship }
+	-- [brainrotId] = os.time() it was claimed in the Album (all 4 parts owned, then CLAIM:
+	-- its morph, its gadget and its Gems)
+	Claimed: { [string]: number },
+	-- from before the Album (editions, by full ship): [brainrotId] = { [zoneId] = os.time() };
+	-- only read once, to claim what an old save had completed
+	Completed: { [string]: { [string]: number } },
 }
 
 export type PlayerData = {
@@ -82,7 +87,7 @@ export type PlayerData = {
 	DailyWheel: { FreeSpins: { number }, Spins: number }, -- free spins used (times), bought spins
 	Receipts: { string }, -- recent Robux purchase ids, so none is granted twice
 	Claims: { [string]: number }, -- [claim] = os.time() it was last claimed (one-off and daily rewards)
-	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number },
+	Stats: { TotalCoinsEarned: number, FirstJoin: number, LastJoin: number, RobuxSpent: number, Playtime: number, Perfects: number },
 	Settings: { LowGraphics: boolean }, -- the player's own (Client/Performance)
 	Guide: string, -- the step of Tralalero's guide they're on (Config/Guide), "Done" when finished
 }
@@ -107,6 +112,7 @@ local TEMPLATE: PlayerData = {
 		Parts = {
 			[Brainrots.StarterId] = allParts(),
 		},
+		Claimed = {},
 		Completed = {},
 	},
 	Tycoon = {
@@ -124,6 +130,7 @@ local TEMPLATE: PlayerData = {
 		LastJoin = 0,
 		RobuxSpent = 0, -- every Robux purchase, for the leaderboards
 		Playtime = 0, -- seconds in game
+		Perfects = 0, -- full matches shipped (Tralalero's guide waits for the first)
 	},
 	Settings = {
 		LowGraphics = false,
@@ -407,6 +414,23 @@ local function buildData(record: any): (PlayerData, number)
 	-- players from before Tralalero's guide skip it
 	if saved.Guide == nil then
 		saved.Guide = Guide.Done
+	end
+	-- saves from before the Album: whatever they completed (in any edition) is claimed,
+	-- and their first PERFECT is behind them
+	local inventory = saved.Inventory
+	if type(inventory) == "table" and inventory.Claimed == nil then
+		local claimed = {}
+		for brainrotId, editions in (if type(inventory.Completed) == "table" then inventory.Completed else {}) :: any do
+			local first = math.huge
+			for _, at in (if type(editions) == "table" then editions else {}) :: any do
+				first = math.min(first, if type(at) == "number" then at else math.huge)
+			end
+			claimed[brainrotId] = if first < math.huge then first else os.time()
+		end
+		inventory.Claimed = claimed
+		if next(claimed) ~= nil and type(saved.Stats) == "table" and saved.Stats.Perfects == nil then
+			saved.Stats.Perfects = 1
+		end
 	end
 	reconcile(saved, TEMPLATE)
 	-- Keep a newer version number if this server runs older code than the one that
@@ -962,50 +986,36 @@ function DataManager.HasPart(player: Player, brainrotId: string, partType: strin
 	return profile ~= nil and ownsPart(profile, brainrotId, partType)
 end
 
--- Records that a full, matching brainrot shipped from `zoneId` (its edition). Returns:
---   isNewEdition: true the first time it completes in this edition (grant edition rewards)
---   isFirstEver: true if it had never been completed in any edition (grant gadget + morph)
--- For the edition jackpot, the caller records each earlier zone too.
-function DataManager.RecordCompletion(player: Player, brainrotId: string, zoneId: string): (boolean, boolean)
+-- Claims a brainrot in the Album (GDD §7): every one of its 4 parts must be owned, and
+-- it's claimed once. The caller gives the rewards. Returns whether it was claimed now.
+function DataManager.ClaimBrainrot(player: Player, brainrotId: string): boolean
 	checkId("brainrotId", brainrotId)
-	checkId("zoneId", zoneId)
 	local profile = profiles[player]
-	if not profile then
-		return false, false
-	end
-
-	-- Completion requires every part unlocked. Guards against a production bug granting rewards.
-	for _, partType in PART_TYPES do
-		if not ownsPart(profile, brainrotId, partType) then
-			warn(`[DataManager] {player.Name} can't complete {brainrotId}: missing {partType}`)
-			return false, false
-		end
-	end
-
-	local completed = profile.Data.Inventory.Completed
-	local editions = completed[brainrotId]
-	local isFirstEver = editions == nil
-	if not editions then
-		editions = {}
-		completed[brainrotId] = editions
-	end
-	if editions[zoneId] then
-		return false, false
-	end
-	editions[zoneId] = os.time()
-
-	replicateInventory(profile)
-	return true, isFirstEver
-end
-
--- With `zoneId`, checks that edition only. Without it, checks for any edition.
-function DataManager.IsBrainrotComplete(player: Player, brainrotId: string, zoneId: string?): boolean
-	local profile = profiles[player]
-	local editions = profile and profile.Data.Inventory.Completed[brainrotId]
-	if not editions then
+	if not profile or profile.Data.Inventory.Claimed[brainrotId] then
 		return false
 	end
-	return if zoneId then editions[zoneId] ~= nil else next(editions) ~= nil
+	for _, partType in PART_TYPES do
+		if not ownsPart(profile, brainrotId, partType) then
+			return false
+		end
+	end
+	profile.Data.Inventory.Claimed[brainrotId] = os.time()
+	replicateInventory(profile)
+	return true
+end
+
+-- Whether it's claimed (its morph and gadget are the player's).
+function DataManager.IsBrainrotClaimed(player: Player, brainrotId: string): boolean
+	local profile = profiles[player]
+	return profile ~= nil and profile.Data.Inventory.Claimed[brainrotId] ~= nil
+end
+
+-- Counts a full match shipped (a PERFECT).
+function DataManager.RecordPerfect(player: Player)
+	local profile = profiles[player]
+	if profile then
+		profile.Data.Stats.Perfects += 1
+	end
 end
 
 -- Tycoon ---------------------------------------------------------------------

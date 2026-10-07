@@ -23,7 +23,6 @@ local Gamepasses = require(Shared:WaitForChild("Config"):WaitForChild("Gamepasse
 local Guide = require(Shared:WaitForChild("Config"):WaitForChild("Guide"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Catalog = require(UI:WaitForChild("Catalog"))
-local Celebration = require(UI:WaitForChild("Celebration"))
 local DailyWheelMenu = require(UI:WaitForChild("DailyWheelMenu"))
 local Kit = require(UI:WaitForChild("Kit"))
 local LineMenu = require(UI:WaitForChild("LineMenu"))
@@ -295,10 +294,11 @@ local function openLines()
 end
 
 menuButton(1, "Factory", "LINES", Kit.Hues.Purple, openLines)
--- (the Index's "NEW!" badge: something new to see there, cleared when it's opened)
-local indexBadge: TextLabel
-local indexButton = menuButton(2, "Album", "INDEX", Kit.Hues.Blue, function()
-	indexBadge.Visible = false
+-- (the Album's badge: CLAIM! while a brainrot can be claimed, else NEW! after a new
+-- part until it's opened)
+local updateAlbumBadge: (seen: boolean?) -> ()
+local indexButton = menuButton(2, "Album", "ALBUM", Kit.Hues.Blue, function()
+	updateAlbumBadge(true)
 	Catalog.Open()
 end)
 menuButton(3, "Rebirth", "REBIRTH", Kit.Hues.Gold, RebirthMenu.Open)
@@ -442,13 +442,14 @@ end
 player:GetAttributeChangedSignal("PlotIndex"):Connect(watchPlot)
 task.spawn(watchPlot)
 
--- A "NEW!" on the Index button while there's something new there (a new part, a
--- brainrot completed: its morph and gadget), pulsing so you notice it.
-indexBadge = Kit.text({
+-- A badge on the Album button, pulsing so you notice it: a gold CLAIM! while a brainrot
+-- has all 4 parts and waits to be claimed (its morph, gadget and Gems), a red NEW!
+-- after a new part until the Album is opened.
+local indexBadge = Kit.text({
 	Text = "NEW!",
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.new(1, -10, 0, 6),
-	Size = UDim2.fromOffset(64, 30),
+	Size = UDim2.fromOffset(76, 30),
 	BackgroundTransparency = 0,
 	BackgroundColor3 = Color3.fromRGB(255, 70, 90),
 	StrokeThickness = 2,
@@ -469,15 +470,36 @@ task.spawn(function()
 	end
 end)
 
--- New parts and completions show up in open menus right away.
-local inventoryLoaded = false -- (the first update is the data loading on join: nothing new)
-Remotes.Event("InventoryUpdated").OnClientEvent:Connect(function()
+local claimable, partsKnown, newParts = 0, -1, false -- (partsKnown -1: the data hasn't loaded yet)
+updateAlbumBadge = function(seen: boolean?)
+	if seen then
+		newParts = false
+	end
+	indexBadge.Visible = claimable > 0 or newParts
+	indexBadge.Text = if claimable > 0 then "CLAIM!" else "NEW!"
+	indexBadge.BackgroundColor3 = if claimable > 0 then Color3.fromRGB(255, 185, 30) else Color3.fromRGB(255, 70, 90)
+	player:SetAttribute("AlbumClaimable", claimable) -- (this client only: Tralalero's last line reads it)
+end
+
+-- New parts and claims show up in open menus right away; a set just finished says so.
+Remotes.Event("InventoryUpdated").OnClientEvent:Connect(function(inventory: any)
 	LineMenu.Refresh()
 	Catalog.Refresh()
-	if inventoryLoaded then
-		indexBadge.Visible = true
+	local parts = 0
+	for _, owned in (if typeof(inventory) == "table" and typeof(inventory.Parts) == "table" then inventory.Parts else {}) :: any do
+		for _ in owned do
+			parts += 1
+		end
 	end
-	inventoryLoaded = true
+	local ready = Catalog.ClaimableCount(inventory)
+	if partsKnown >= 0 then
+		newParts = newParts or parts > partsKnown
+		if ready > claimable then
+			Kit.toast("All 4 parts! CLAIM it in the ALBUM", Color3.fromRGB(255, 220, 80), "Gift")
+		end
+	end
+	partsKnown, claimable = parts, ready
+	updateAlbumBadge()
 end)
 
 -- Studio: /dev CreateThumb sets workspace's ThumbCamera to the icon shot; the camera
@@ -491,18 +513,6 @@ workspace:GetAttributeChangedSignal("ThumbCamera"):Connect(function()
 		camera.CFrame = shot
 	else
 		camera.CameraType = Enum.CameraType.Custom
-	end
-end)
-
--- Completions ----------------------------------------------------------------
-
-Remotes.Event("Completion").OnClientEvent:Connect(function(_plot, _lineId, brainrotId, editions, gems, firstEver)
-	Celebration.Show(brainrotId, editions, gems, firstEver)
-	indexBadge.Visible = true
-	if firstEver then
-		task.delay(6, function()
-			Kit.toast("New MORPH + GADGET! Open the INDEX", Color3.fromRGB(255, 220, 80), "Gift")
-		end)
 	end
 end)
 

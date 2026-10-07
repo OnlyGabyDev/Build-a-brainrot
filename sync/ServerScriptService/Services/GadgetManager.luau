@@ -1,6 +1,7 @@
 --[[
 	GadgetManager
-	Morphs and gadgets (GDD §3, §7). Both unlock with a brainrot's first completion.
+	Morphs and gadgets (GDD §3, §7). Both unlock when the brainrot is claimed in the
+	Album (all 4 of its parts owned, then CLAIM), which also pays its Gems.
 	  * Morph: the brainrot is welded onto your character and your avatar is hidden.
 	  * Gadgets: a Tool per archetype (Config/Gadgets). Movement boosts your speed while
 	    held, Melee knocks other players back (never inside tycoon plots, which are safe
@@ -17,6 +18,7 @@ local Shared = ReplicatedStorage.Shared
 local BrainrotModels = require(Shared.BrainrotModels)
 local Brainrots = require(Shared.Config.Brainrots)
 local Gadgets = require(Shared.Config.Gadgets)
+local Rarities = require(Shared.Config.Rarities)
 local Remotes = require(Shared.Remotes)
 local Sounds = require(Shared.Config.Sounds)
 
@@ -30,6 +32,7 @@ local DEFAULT_JUMP_HEIGHT = 7.2
 local REQUEST_COOLDOWN = 0.5
 local KNOCKBACK_TIME = 0.25
 local SWING_ARC = 0.3 -- targets must be roughly in front (dot product with your facing)
+local ANNOUNCE_RANK = 3 -- claims of this rarity rank and up (Rare+) are announced to everyone
 
 local morphs: { [Player]: string } = {}
 local gadgets: { [Player]: string } = {}
@@ -50,7 +53,7 @@ end
 local function isUnlocked(player: Player, brainrotId: unknown): boolean
 	return typeof(brainrotId) == "string"
 		and Brainrots.ById[brainrotId] ~= nil
-		and DataManager.IsBrainrotComplete(player, brainrotId)
+		and DataManager.IsBrainrotClaimed(player, brainrotId)
 end
 
 -- Morphs ---------------------------------------------------------------------
@@ -264,7 +267,26 @@ end
 
 -- Remotes --------------------------------------------------------------------
 
--- Morphs into a completed brainrot, or back to your avatar with nil.
+-- Claims a brainrot whose 4 parts you own: its morph, its gadget and its Gems (the
+-- rarity's CompletionGems). Returns the Gems paid, or nil.
+local function onClaim(player: Player, brainrotId: unknown): number?
+	if not allowRequest(player) or typeof(brainrotId) ~= "string" then
+		return nil
+	end
+	local brainrot = Brainrots.ById[brainrotId]
+	local rarity = brainrot and Rarities.ById[brainrot.Rarity]
+	if not (brainrot and rarity) or not DataManager.ClaimBrainrot(player, brainrotId) then
+		return nil
+	end
+	local gems = rarity.CompletionGems
+	DataManager.AddCurrency(player, "Gems", gems)
+	if rarity.Rank >= ANNOUNCE_RANK then
+		Remotes.Event("Announce"):FireAllClients(`{player.DisplayName} unlocked {brainrot.Name}!`, rarity.Color, player)
+	end
+	return gems
+end
+
+-- Morphs into a claimed brainrot, or back to your avatar with nil.
 local function onSetMorph(player: Player, brainrotId: unknown): boolean
 	if not allowRequest(player) then
 		return false
@@ -289,7 +311,7 @@ local function onSetMorph(player: Player, brainrotId: unknown): boolean
 	return true
 end
 
--- Equips a completed brainrot's gadget, or none with nil.
+-- Equips a claimed brainrot's gadget, or none with nil.
 local function onEquipGadget(player: Player, brainrotId: unknown): boolean
 	if not allowRequest(player) then
 		return false
@@ -310,6 +332,7 @@ end
 -- Public API -----------------------------------------------------------------
 
 function GadgetManager.Init()
+	Remotes.Function("ClaimBrainrot").OnServerInvoke = onClaim
 	Remotes.Function("SetMorph").OnServerInvoke = onSetMorph
 	Remotes.Function("EquipGadget").OnServerInvoke = onEquipGadget
 

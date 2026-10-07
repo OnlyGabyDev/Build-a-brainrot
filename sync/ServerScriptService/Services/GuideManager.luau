@@ -78,7 +78,7 @@ local function goalMet(player: Player, data: DataManager.PlayerData, state: Stat
 	elseif step.Id == "Box" then
 		return state.BoxOpened
 	elseif step.Id == "Perfect" then
-		return next(data.Inventory.Completed) ~= nil
+		return data.Stats.Perfects > 0
 	elseif step.Id == "Intro" then
 		return os.clock() - state.Since > INTRO_TIMEOUT
 	end

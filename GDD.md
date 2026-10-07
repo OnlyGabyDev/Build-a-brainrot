@@ -11,9 +11,9 @@ A joyful, colorful **brainrot factory tycoon**. The factory *is* the brainrot bu
 
 **Pillars**
 1. **Number goes up.** Constant income, big popups, and satisfying upgrades (money-farming loop).
-2. **Gotta collect 'em all.** The silhouette catalog makes missing parts and editions itch.
+2. **Gotta collect 'em all.** The sticker album makes missing parts itch, and every full brainrot is a sticker to claim.
 3. **Visual candy.** Every zone has its own assembly show, and the rarer the zone, the crazier the animation.
-4. **Hype moments.** Wheel spins, rare pulls, the first full ship, edition jackpots, and rebirths all get loud, flashy feedback.
+4. **Hype moments.** Wheel spins, rare pulls, the first PERFECT, claiming a brainrot, and rebirths all get loud, flashy feedback.
 5. **Simple first.** Ship a tight core loop, then expand zone by zone.
 
 **Aesthetic:** Pet Simulator X–style UI. Bright saturated colors, thick outlines, rounded bouncy buttons, chunky fonts (FredokaOne / LuckiestGuy), rarity-colored glows, confetti, and sound on every click.
@@ -27,7 +27,7 @@ A joyful, colorful **brainrot factory tycoon**. The factory *is* the brainrot bu
               ▲                                                   │
               │                                                   ▼
    Rebirth: new zones,             Coins ◄── Ship brainrots ◄── Droppers → Assembler
-   rarer loot, multipliers                  (full match = COMPLETION → Gems, gadget, morph)
+   rarer loot, multipliers                  (full match = PERFECT, x2 Coins; all 4 parts = CLAIM in the Album → Gems, gadget, morph)
 ```
 
 1. On join, the player gets a **tycoon plot** automatically. New players start with:
@@ -37,7 +37,7 @@ A joyful, colorful **brainrot factory tycoon**. The factory *is* the brainrot bu
 2. They build **assembly lines** in the **Toy Workshop** with Coins. Each line has 4 part droppers, an Assembler, upgrade stations and a shipping chute.
 3. The Assembler combines the parts into a brainrot and ships it. Coins go into the **collector**. The player steps on the **Cash Pad** to bank them (Coins that land while they stand on it go straight in; the Auto-Collect gamepass skips the pad).
 4. **Loot boxes** spawn around the map. Opening one (or using a Roll) spins a **wheel** that unlocks a new part.
-5. Shipping a brainrot whose **4 parts all match** **completes** it in that zone's **edition**: Gems, plus a gadget and morph the first time.
+5. Owning all **4 parts** of a brainrot lets you **claim** it in the **Album** (v4.1): its Gems, its gadget and its morph. Shipping one whose 4 parts all match is a **PERFECT** (×2 Coins).
 6. **Rebirth** resets the tycoon but slowly unlocks new **zones**, more luck (rarer loot), and permanent multipliers.
 
 ---
@@ -51,7 +51,7 @@ A joyful, colorful **brainrot factory tycoon**. The factory *is* the brainrot bu
 
 ### Draft roster (placeholder, tune freely)
 
-| Rarity | Brainrots | Gadget (first completion) |
+| Rarity | Brainrots | Gadget (claimed in the Album) |
 |---|---|---|
 | Common | **Tralalero Tralala** (shark with shoes, *starter*), Brr Brr Patapim, Lirilì Larilà, Trippi Troppi | Tralalero: speed-boost sneakers · others: archetype defaults |
 | Uncommon | Ballerina Cappuccina, Chimpanzini Bananini, Boneca Ambalabu | Ballerina: **dance emote** |
@@ -94,7 +94,7 @@ ReplicatedStorage/Assets/Brainrots/<BrainrotId>   (Model, e.g. "TungTungTungSahu
 
 All numbers are **placeholders**. Tune them in playtests.
 
-| Rarity | Color | Base loot weight | Duplicate reward | Part value (Coins) | Completion Gems (Zone 1) |
+| Rarity | Color | Base loot weight | Duplicate reward | Part value (Coins) | Claim Gems |
 |---|---|---|---|---|---|
 | Common | Light grey `#C8CDD2` | 65% | Coins | 20 | 10 |
 | Uncommon | Green `#5BE35B` | 26% | Coins | 48 | 25 |
@@ -175,7 +175,7 @@ Each **zone** has several assembly lines (**3 in the Toy Workshop**). Players bu
   - **Exception:** when every unlocked part of that type is already in use, a **Common** part can be reused on another line, so no line ever sits idle.
 - **Speed upgrades** shorten the cycle time. **Upgrade stations** multiply the value of passing brainrots.
 - **Shipping value** = sum of the part values × zone multiplier (§7) × upgrade stations × global multipliers (rebirth, gamepasses).
-- **Full-match bonus:** if all 4 parts come from the same brainrot, the ship is worth **×2** and counts as a **completion** (§7).
+- **Full-match bonus:** if all 4 parts come from the same brainrot, the ship is worth **×2**: a **PERFECT**. (Until v4.1 it also completed the brainrot in the zone's edition; now brainrots are claimed in the Album, §7.)
 - Line configurations are **remembered across rebirths**.
 - **Finishing stage** (requested 2026-09-30): every zone ends its line with its own themed, cute last step, past the end of the belt; the payout lands as the brainrot is sent off. ✅ Toy Workshop (v1.2): a toy box pops up out of a trapdoor, flips its lid open, the brainrot jumps in, the lid slams ("PACKED!"), the box wiggles and drops back down the trapdoor. ✅ Plushie room (v1.2): the brainrot hops into a fluff machine's glass dome, fluff swirls around it until it puffs up ("FLUFFY!"), and it sinks into the cushy base. 🟡 Robot Plant: a wind-up key turns and the brainrot starts moving. Each new zone gets one.
 - **Special upgrade per floor** ✅ (v1.3; replaces the "finishing upgrader" idea): the last upgrade on every line is the zone's own, standing over the end of the belt, before the delivery (×2, placeholder price 25,000 × line scale). Toy Workshop: the **Toy Packer** boxes the brainrot up in toy-store packaging (v1.6: a card back printed with a sunburst, a BRAINROT TOYS header with a hanging hole and a NEW! sticker, a name plate with the brainrot's name (a mash-up for mixes), and clear plastic over the front and sides with white glints and a shine that sweeps across) and then it goes into the toy box. Plushie room: the **Bow Tier** ties a big ribbon bow on its head before the fluff machine. v3.0: a special takes 2.6 s (was 1.3): it does its thing in the first half, then the brainrot **shows the result off** (a slow turn with a glint) before the delivery, so the player sees it (the user: the packaged toy went straight into the toy box). **Design rule:** every floor gets a themed delivery (free, cosmetic, always in the same place with the same timing and coin burst, so it reads at once) and a themed special upgrade (bought, ×value).
@@ -190,39 +190,29 @@ Each **zone** has several assembly lines (**3 in the Toy Workshop**). Players bu
 
 ---
 
-## 7. Editions & Completion Rewards 🟢
+## 7. Editions & Claiming Brainrots 🟢
 
-Every zone builds brainrots in its own **edition**: its own size, material and texture (see §10). ✅ The Plushie edition is **knitted** (v1.7): a chunky knit texture (the `PlushKnit` MaterialVariant) tinted by each part's color. ✅ The Clay edition is **play-dough** (v1.9): matte and hand-pressed, with soft lumps, dents and fingerprints (`PlayDough`, with a normal map so the dents catch the light). ✅ The Vinyl edition is **glossy vinyl** (v1.9): saturated colors with crisp highlights (`VinylGloss`, a low roughness; Reflectance washed the colors out). The Toy edition is plain glossy plastic; the Candy edition comes with its room (e.g. a chocolate-bar look). A brainrot is **completed in an edition** the first time a full, matching brainrot ships from that zone. Every brainrot can be completed once **per edition**.
+Every zone builds brainrots in its own **edition**: its own size, material and texture (see §10). ✅ The Plushie edition is **knitted** (v1.7): a chunky knit texture (the `PlushKnit` MaterialVariant) tinted by each part's color. ✅ The Clay edition is **play-dough** (v1.9): matte and hand-pressed, with soft lumps, dents and fingerprints (`PlayDough`, with a normal map so the dents catch the light). ✅ The Vinyl edition is **glossy vinyl** (v1.9): saturated colors with crisp highlights (`VinylGloss`, a low roughness; Reflectance washed the colors out). The Toy edition is plain glossy plastic; the Candy edition comes with its room (e.g. a chocolate-bar look). **Editions are only a look** (v4.1, the user's new-player review): they're no longer collected, and nothing is claimed by shipping.
 
-**Rewards**
-- **Every new edition:** Gems = rarity's base completion Gems (§4) × the zone's Gems multiplier (§10).
-- **First completion in any edition, extra:**
-  1. A **themed gadget** (§3).
-  2. A **Morph** unlock. The player can transform into the brainrot: the model is welded to the character and the default avatar is hidden. They toggle it from the catalog.
-- A big celebration each time: full-screen banner, confetti, and the brainrot's catchphrase SFX. Rarer zones get bigger celebrations.
+**Claiming** ✅ (v4.1): owning all **4 parts** of a brainrot (from Rolls, boxes, the guide's gift...) makes its sticker in the Album (§8) say **CLAIM!**; pressing it, once per brainrot:
+- **Gems:** the rarity's Claim Gems (§4: 10 Common to 1,000 Godly).
+- **Its themed gadget** (§3).
+- **Its Morph:** the player can transform into the brainrot (the model is welded to the character and the default avatar is hidden), toggled from the Album.
+- A big celebration: the brainrot over a sunburst in its rarity's color, confetti, its Gems, and MORPH / GADGET buttons to use them right away. Rare and up are announced to the server.
 
-**Edition jackpot** ✅: shipping a full brainrot in a zone also claims every **earlier zone's edition** not yet claimed. A veteran who unlocks a brand-new Godly and ships it from their best zone collects every edition reward at once, plus a server-wide announcement. This keeps older players chasing every new brainrot, especially the ones added in updates.
+The HUD's ALBUM button wears a pulsing gold **CLAIM!** while a brainrot waits to be claimed (a red NEW! after a new part otherwise), and a toast says so when a part completes a set. Tralalero's guide ends on "Claim it in the ALBUM!" (the first PERFECT's brainrot). **Old saves:** whatever they had completed in any edition is claimed (and their first PERFECT counts as done).
 
-**Full Set bonus** 💡: completing a brainrot in **all** editions grants a golden catalog frame and a permanent income bonus.
+~~**Edition jackpot**~~, ~~per-edition Gems~~ and the ~~Full Set bonus~~ idea left with the edition collection (v4.1).
 
 ---
 
-## 8. UI Catalog (Index) 🟢
+## 8. The Album (was the Index) 🟢
 
-- A grid of cards, one per brainrot, **sortable by rarity** (plus filters: All / Completed / Missing).
-- Each card shows the brainrot's **silhouette**. **Unlocked parts show in color**, locked parts are **blacked out**. The name shows as `???` until at least one part is unlocked.
-- Under the silhouette is an **edition badge row**, one badge per unlocked zone, e.g. Toy ✓ · Plushie ✓ · Clay 🔒.
-- The header shows overall progress, e.g. `Parts 23/72 · Completed 5/18 · Editions 7/…`.
-- Clicking a card opens details: the 4 part slots, rarity, per-edition rewards, and **Morph** / **Equip Gadget** buttons once completed. It also has an **"Equip on a line"** shortcut when every part is unlocked.
-- ✅ A functional version is built (grid, silhouettes, filters, details, equip, morph, gadget).
-- ✅ (v2.5) The sticker book look below: stickers with a white die-cut border on their rarity's colors (sparkles from Rare up, a turning rainbow for Godly), progress bars for parts, completions and editions, edition dots on every sticker and round edition buttons in the details.
-- ✅ (v3.6) It says what you can get: a gold strip in the header ("All 4 parts = 🦸 Morph + 🎁 Gadget + 💎"), a 🔒 MORPH + GADGET pill on every sticker not completed yet (green once it is), and "🎲 Rolls and 📦 boxes drop the missing parts!" in the details.
-
-**Polish target (the look we're going for):** a **sticker book**, very colorful and pretty.
-- Each brainrot is a big, popped-out sticker. Its **rarity is the sticker's background**, with effects that scale with rarity (sparkles, shine, animated rainbow for Godly).
-- Missing parts are empty sticker pieces that fill in as you unlock them. This can be 2D sticker art or 3D models with a nice camera angle, whichever fits the style best.
-- Clicking a sticker shows the big picture with **round edition buttons** underneath: **gray** = zone not unlocked, **blue** = can be collected (ship a full one there), **green** = collected.
-- Reference the famous simulator games (Pet Simulator 99/X, Bee Swarm, Anime Defenders…) for the whole UI: cute, friendly, VERY colorful, lots of effort on every screen.
+✅ (v4.1, the user's new-player review: the Index was cluttered and not special) A **sticker album** in the blue-inventory style (*Pet Simulator 99*), its button on the HUD named **ALBUM**:
+- **A page per rarity**, tabs across the top in the rarity's colors (Godly a turning rainbow) with how many are claimed (e.g. 1/4) and a "!" where something can be claimed; it opens on the first page with a sticker to claim. The title counts every claim (ALBUM 3/15).
+- **Each page has its own scenery:** Common a sunny meadow (sky over a grass horizon, clouds drifting), Uncommon leafy green (leaves floating up), Rare the sea (bubbles rising), Legendary gold under a turning sunburst, Mythic a pink night of twinkles, Godly a turning rainbow with twinkles.
+- **Stickers are big** (up to 4 a page): a white die-cut card with the whole brainrot filling its face (framed to fit whatever its shape, swaying at three quarters), the parts you're missing dark, its name ("???" until you find a part), a dot per part (green with a tick once it's yours), and what's next: **x/4 PARTS**, a pulsing gold **CLAIM!** (the card rimmed in gold neon), or claimed (a tick on the corner, its morph and gadget icons).
+- **A sticker opens its spread:** the big brainrot, its name, its rarity with stars, its **4 part slots** (each part turning, dark if missing, a tick or a lock) and **one button**: missing parts → how many are left and OPEN A ROLL (or a hint about map boxes); all 4 → what claiming gives (morph, gadget, Gems) and a huge **CLAIM!** over a sunburst; claimed → **MORPH / GADGET** (on and off) and **BUILD IT ON A LINE** (a button per line).
 
 ---
 
@@ -231,7 +221,7 @@ Every zone builds brainrots in its own **edition**: its own size, material and t
 | Currency | Source | Spent on | Reset on rebirth? |
 |---|---|---|---|
 | **Coins** | Shipping brainrots, low-tier duplicates, daily wheel | Lines, droppers, upgrades, stations, decorations | ✅ Yes |
-| **Gems** (premium) | Completions (per edition), high-tier duplicates, daily wheel, Robux packs, bosses 🟡 | Loot boosts, extra Rolls, premium boxes, cosmetics | ❌ No |
+| **Gems** (premium) | Claiming brainrots in the Album, high-tier duplicates, daily wheel, Robux packs, bosses 🟡 | Loot boosts, extra Rolls, premium boxes, cosmetics | ❌ No |
 | **Rebirth Points** | Rebirthing (more points for more Coins at rebirth time) | Rebirth Shop permanent upgrades | ❌ No |
 
 We also track the **Rebirths** count (not a currency), which gates zones and rarities, and **Rolls** (an item count).
@@ -242,7 +232,7 @@ We also track the **Rebirths** count (not a currency), which gates zones and rar
 
 - Rebirthing requires a Coin threshold that grows each rebirth.
 - **Resets:** Coins (including those waiting on the Cash Pad), purchased tycoon items. Brainrots still on the belts are dropped and don't pay out.
-- **Keeps:** Gems, Rebirth Points, Rolls, unlocked parts, completions (all editions), morphs, gadgets, line configurations, and gamepass perks.
+- **Keeps:** Gems, Rebirth Points, Rolls, unlocked parts, claimed brainrots (their morphs and gadgets), line configurations, and gamepass perks.
 - **Grants:** Rebirth Points, a permanent income multiplier, +0.1 luck (§4; v3.4, was rarity unlocks), and new zones.
 
 **Rebirth Shop** (spend Rebirth Points): Income %, Luck %, Walk Speed, Loot Box cap +1, Faster box respawn, Dropper speed %.
@@ -259,7 +249,7 @@ Zones aren't only floors. The factory **physically expands**: new floors, annexe
 
 **The crazy building** (the user's direction, 2026-09-30): the factory grows **upward** as zones unlock, and the more it grows, the more it looks like a ramshackle, *Hello Neighbor*–style tower: floors stacked on floors, each in its own style (toy factory, sewing room, lab, bunker…), crooked add-ons bolted on, outside stairs and bridges, pipes and chimneys everywhere. Zones 1–2 are the ground floor (front room and back room); the next zones stack on top (and later sideways and underground, per the table). A late-game plot should be the craziest building on the map.
 - 💡 Proposed: the next locked floor shows on top as scaffolding with a 🔒 REBIRTH N sign, so players see what they're working toward.
-- ✅ Camera: every floor above the one you're on (and the roofs) fades away while the camera is above your ceiling (a dollhouse cutaway), so the lines stay easy to watch.
+- Camera: the roof and the floors above never disappear (v4.1, the user: no reason for it in a tycoon like this; it was a dollhouse cutaway that faded them while the camera was above your ceiling, and the intro's flight faded the roof). The camera stays under your ceiling like in any building.
 - ✅ **The building (v0.9, v1.0):** references *Pet Simulator 99* (colored brick, thick dark trims, chunky window frames, light-blue glass) and *Adopt Me!* (rounded pillars, pastel, shutters, flower boxes). Ground floor: brick in the plot's color with dark trims and a stone plinth. 2nd floor: wood siding in a lighter tint of the plot's color, with shutters. A front gable with a clock faces the hub, a second gabled roof crosses behind it, and the ramshackle bits start: a turret with a crooked cone roof, a crooked smoking chimney, pipes, and outside stairs to the 2nd floor's side door (v3.9: at the bottom they turn away from the lift tower onto a short flight out to the lawn, and a path of stepping stones with flowers and two little lamp posts curves round the tower to the front yard). ✅ **The lift tower** (v3.8): an elevator tower of its own by the front corner (on the side with the outside stairs, mirroring the turret), dressed like the factory: each storey in that storey's skin (brick, siding, candy) with its trims, big windows to watch the cabin go by, a machine room on top where the pulley turns under a neon "LIFT" sign, and a crooked stepped roof with a flag like the turret's. A neon-framed "LIFT" door leads into it from every storey, and on the ground floor a hanging "LIFT" sign with a neon arrow points the way (v3.9: calm white letters, so it reads from the entrance). Its cabin (a box in the plot's deepest color with neon rims) really rides up and down, hung from the pulley with a counterweight going the other way. You never wait for it: it's always on the floor you're on (it hurries there when you change floors, and back down while you're out). Inside, two prompts, **Up** and **Down** (v3.9), each ride one floor (stacked: E the top one, F the other) with a hum and a ding.
   - v1.0: a 3rd floor (the Candy Factory) over the front half, with a terrace on the back half (water tower, chimney, garden, lollipops, bunting). **Colors:** every storey is the plot's own hue at a different strength (the user found mixed hues ugly, and near-white upper floors dead): brick, then lighter siding with bold shutters and flower boxes, then the candy floor, boldest, under white stripes, with a white frosting band full of rainbow sprinkles and drips, candy-cane pillars and a giant **spinning donut** ringed by **chasing marquee bulbs**. A rainbow **pinwheel** spins on the gable, **balloons** bob on the balcony, the terrace and the mailbox. Rainbow colors only on small things.
   - The rooms upstairs are themed inside too: patterned floors and wallpaper (Candy: pink-and-white checker, striped pink walls, mint band; Vinyl: blue checker, gold frames, stars), and props (Candy: gumball machines, cupcakes, spinning lollipops, giant candy canes, gumdrops, a chocolate vat; Clay: paint splats on the walls, pots, wheels, a sculpture).
@@ -297,9 +287,8 @@ Rule of thumb: **the rarer the zone, the cooler the animation.** Every zone foll
 | Zone | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Ship value × (and price ×) | 1 | 15 | 225 | 3,375 | 15^4 | 15^5 | 15^6 | 15^7 | 15^8 | 15^9 |
-| Completion Gems × | 1 | 1.5 | 2 | 3 | 4.5 | 6.5 | 10 | 15 | 22 | 33 |
 
-Jackpot example: shipping a new Godly (1,000 base Gems) in Zone 10 claims all 10 editions for 1,000 × 98.5 = **98,500 Gems**.
+(Until v4.1 each zone also multiplied the completion Gems of its edition, 1 to 33, and the edition jackpot paid them all at once; editions left the collection.)
 
 ---
 
@@ -380,7 +369,7 @@ ServerScriptService/
   Services/
     DataManager.luau            -- profiles, currencies, Rolls, inventory, DataStore saving
     TycoonManager.luau          -- plots, purchase buttons, collector, Cash Pad, placeholder geometry + Assembler machines
-    ProductionManager.luau      -- line config (one part, one line), production timers, shipping, completions, Line menu view
+    ProductionManager.luau      -- line config (one part, one line), production timers, shipping, PERFECTs, Line menu view
     LootManager.luau            -- shared loot boxes, Rolls, server rolls, duplicates
     RebirthManager.luau         -- rebirths and the Rebirth Shop
     GadgetManager.luau          -- gadgets and morphs
@@ -398,8 +387,8 @@ ReplicatedStorage/
     Kit.luau                    -- Pet Sim X style building blocks (panels, bouncy buttons, viewports, toasts)
     LineMenu.luau               -- line menu (server-built view, intents only)
     Loot.luau                   -- Roll opening, prize wheel, reveal card (queued)
-    Catalog.luau                -- the Index
-    Celebration.luau            -- completion banner (queued)
+    Catalog.luau                -- the Album (claiming brainrots)
+    Celebration.luau            -- the claim celebration (queued)
     RebirthMenu.luau            -- rebirth + Rebirth Shop
     Shop.luau                   -- gamepasses and Robux products, with odds for random items
     DailyWheelMenu.luau         -- the Daily Wheel
@@ -441,7 +430,8 @@ StarterPlayer/StarterPlayerScripts/
     Parts = {       -- [brainrotId] = { Head = true, ... } (unlocked parts; starts with the starter brainrot)
       TralaleroTralala = { Head = true, Body = true, Arms = true, Legs = true },
     },
-    Completed = {}, -- [brainrotId] = { [zoneId] = os.time() of first full ship in that zone's edition }
+    Claimed = {},   -- [brainrotId] = os.time() it was claimed in the Album
+    Completed = {}, -- from before the Album (editions): only read to claim what old saves had
   },
   Tycoon = {
     Purchased = {}, -- [itemId] = true (reset on rebirth)
@@ -464,14 +454,14 @@ StarterPlayer/StarterPlayerScripts/
 
 ## 16. Proposed Ideas 💡
 
-1. **Full Set bonus:** all editions completed gives a golden frame and permanent income (§7).
+1. ~~**Full Set bonus**~~ (dropped with the edition collection, v4.1).
 2. **Hybrid brainrots:** mixed-part ships get mashup names ("Tung Tralala": ✅ v1.7, on the name tag and the packaging) and a funny "Hybrid" popup. A Hybrid Index could come later.
 3. ⏸️ **Showcase multiplier (on hold):** completed brainrots stand on pedestals in your tycoon, and each one adds +X% income. Kept on the table, not planned.
 4. **Gold / Rainbow part variants:** a rare roll on the wheel upgrades a part to Gold or Rainbow for bonus value and flex. No new models needed.
 5. **Index milestones:** completing X brainrots of a rarity grants permanent buffs (the Pet Sim index loop).
 6. **Loot Rain event:** every ~15 min, the map floods with shared boxes for 60 s.
 7. **Offline earnings:** earn a capped % of income while away, with a "Welcome back! +50K" popup.
-8. **Weekly brainrot drops:** new brainrots in updates. Paired with the edition jackpot, veterans rush back.
+8. **Weekly brainrot drops:** new brainrots in updates: new stickers to claim bring veterans back.
 9. **Morph edition:** your morph uses the style of your best completed edition (a Candy Sahur, a Cosmic Sahur…).
 10. **Codes, group rewards, like goals, global leaderboards.** A cheap launch-growth toolkit.
 11. **Original Godly brainrot:** our own signature character, for brand identity and thumbnails.
@@ -507,7 +497,7 @@ StarterPlayer/StarterPlayerScripts/
 1. **Zone list and pacing (§10):** does the 10-zone progression feel right? Names, order and rebirth requirements are all easy to change in `Config/Zones`.
 2. ~~Loot boxes: personal or shared?~~ Shared (v0.4, §5).
 4. ~~Remote line config: free or gamepass?~~ Gamepass, bundled with Auto-Collect (§12).
-3. **Rebirth:** keep unlocked parts, completions and line configurations through rebirths (§10). OK?
+3. **Rebirth:** keep unlocked parts, claimed brainrots and line configurations through rebirths (§10). OK?
 
 ---
 

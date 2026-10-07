@@ -3,9 +3,8 @@
 	Where the local player is in the factories, for code that only animates what they can
 	see. A factory building's storeys are measured from its Cutaway models
 	(FactoryBuilder: pivoted on the ground floor's middle, with Area and StoreyHeight).
-	From inside a building you only see your own storey of it: walls and floors hide the
-	others, and the ones above are faded out anyway (TycoonFX's cutaway). From outside,
-	everything counts as in view. Client only.
+	From inside a building you only see your own storey of it: walls, floors and ceilings
+	hide the others. From outside, everything counts as in view. Client only.
 ]]
 
 local Players = game:GetService("Players")

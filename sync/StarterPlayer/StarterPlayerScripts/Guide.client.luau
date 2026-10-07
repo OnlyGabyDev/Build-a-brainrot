@@ -13,7 +13,7 @@
 	    a big 3D arrow bouncing over it (turned to you, seen through walls), a ring round
 	    it, and a short trail of moving chevrons on the floor from your feet toward it.
 	  * Each step's reward pops out of the bubble; the last gift (a new Rare+ part) is
-	    revealed by Loot once the completion banner has gone.
+	    revealed by Loot once any celebration on screen has gone.
 ]]
 
 local Players = game:GetService("Players")
@@ -45,7 +45,7 @@ local TRALALERO_BLUE = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(40, 110, 
 local INK = Color3.fromRGB(40, 32, 60)
 local NEAR = 7 -- studs: the trail hides this close to the goal
 local TRAIL = 16 -- studs: the trail's length at most (a compass at your feet, not a path)
-local CELEBRATION_WAIT = 20 -- seconds at most the gift waits for the completion banner
+local CELEBRATION_WAIT = 20 -- seconds at most the gift waits for a celebration on screen (a claim)
 local SKIP_INPUTS = {
 	[Enum.UserInputType.MouseButton1] = true,
 	[Enum.UserInputType.Touch] = true,
@@ -537,7 +537,7 @@ guideRemote.OnClientEvent:Connect(function(action: string, ...)
 	elseif action == "Gift" then
 		local result = ...
 		bubble:SetAttribute("Gifting", true)
-		-- after the completion banner (it comes with the PERFECT)
+		-- (after a celebration, if one is on screen)
 		local waitUntil = os.clock() + CELEBRATION_WAIT
 		task.wait(1)
 		while gui:FindFirstChild("Celebration") and os.clock() < waitUntil do
@@ -552,7 +552,9 @@ guideRemote.OnClientEvent:Connect(function(action: string, ...)
 			task.wait(0.2)
 		end
 		rewardUntil = os.clock() + 3.5
-		say("Keep building!", "Rocket")
+		-- the PERFECT's brainrot waits in the Album (unless it's been claimed already)
+		local ready = (player:GetAttribute("AlbumClaimable") or 0) > 0
+		say(if ready then "Claim it in the ALBUM!" else "Keep building!", if ready then "Album" else "Rocket")
 		task.wait(3.5)
 		bubble:SetAttribute("Gifting", nil)
 		if Guide.Running(player:GetAttribute("Guide")) then
