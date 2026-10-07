@@ -10,8 +10,8 @@
 	frosting band with rainbow sprinkles and drips, round windows, candy-cane pillars
 	and a giant spinning donut in a ring of chasing marquee bulbs, under a gable with a
 	clock and a pinwheel. The back half's roof is a terrace. Bolted on: outside stairs
-	up to the 2nd floor and on to the terrace, a turret, a glass lift tower beside the
-	entrance (its cabin rides up and down: Elevator.client), a crooked chimney, a water
+	up to the 2nd floor and on to the terrace, a turret, a lift tower dressed like the
+	storeys (its cabin rides up and down: Elevator.client), a crooked chimney, a water
 	tower, pipes and bobbing balloons. The entrance faces the hub under the owner's
 	sign; a glass door leads into each other room, locked until its zone unlocks, so
 	you can peek at its theme (patterned floors and wallpaper here, RoomDecor's props).
@@ -51,15 +51,15 @@ FactoryBuilder.Layout = {
 	{ Storey = 3, Z = 0 }, -- Candy Factory, on top of the front half
 }
 
--- The elevator: a glass tower of its own against the front wall, beside the entrance
--- (its middle on the ground, in plot space), with a door into it from every storey.
--- The room that brings the 2nd floor (the Clay Studio) has its button inside, in front
--- of that door.
-FactoryBuilder.Elevator = Vector3.new(-30, 0, -69.5)
-FactoryBuilder.ElevatorButton = Vector3.new(-30, 0, -51)
+-- The elevator: a tower of its own against the front room's +X wall, by the front
+-- corner (its middle on the ground, in plot space), with a door into it from every
+-- storey. The room that brings the 2nd floor (the Clay Studio) has its button inside,
+-- in front of that door.
+FactoryBuilder.Elevator = Vector3.new(79.1, 0, -50)
+FactoryBuilder.ElevatorButton = Vector3.new(61, 0, -50)
 
 -- The building with its stairs, overhangs and lift tower, in plot space ("in the plot").
-FactoryBuilder.Lot = { HalfWidth = 84, Front = -78, Back = 186 }
+FactoryBuilder.Lot = { HalfWidth = 90, Front = -68, Back = 186 }
 
 local ROOM_SIZE = FactoryBuilder.RoomSize
 local FLOOR_TOP = FactoryBuilder.FloorTop
@@ -350,6 +350,7 @@ type Opening = {
 	X: number, -- center along the wall
 	Width: number,
 	Height: number, -- from the floor
+	Bottom: number?, -- a window: the wall stays up to here (a door when nil)
 }
 
 type Room = {
@@ -592,6 +593,9 @@ local function buildWall(parent: Instance, base: CFrame, length: number, opening
 		if opening then
 			local left, right = opening.X - opening.Width / 2, opening.X + opening.Width / 2
 			slab(left, right, opening.Height, top)
+			if opening.Bottom then
+				slab(left, right, 0, opening.Bottom)
+			end
 		end
 	end
 end
@@ -1248,14 +1252,17 @@ end
 
 -- The elevator ------------------------------------------------------------------------
 
--- A glass tower of its own (FactoryBuilder.Elevator) against the front wall, beside the
--- entrance, as tall as the factory: corner posts in the plot's accent, glass all round,
--- a neon line up its corners facing the hub, a white band with a neon line at every
--- floor, gold guide rails, and on top a machine house with the pulley, a neon sign,
--- chasing bulbs and a beacon. On every storey a short glass neck leads to it from a
--- door in the front wall (LIFT_DOOR, outlined in neon under a neon sign inside), and two
--- glass doors (tagged "LiftDoor", with their Storey and Open/Closed CFrames) slide apart
--- in its front while the cabin waits there.
+-- A tower of its own (FactoryBuilder.Elevator) against the front room's +X wall by the
+-- front corner (mirroring the turret on the other one), dressed like the factory:
+-- each storey's walls in that storey's skin (brick, siding, candy) between corner posts
+-- in its pillar color, big framed windows to watch the cabin go by, the building's
+-- trims at the same heights (a stone plinth, a dark band and a bright strip under it),
+-- and on top a machine room where the pulley turns behind a window under a neon "LIFT"
+-- sign, then a crooked stepped roof with a gold tip and a flag, like the turret's. On
+-- every storey a short covered neck leads to it from a door in the wall (LIFT_DOOR,
+-- outlined in neon under a neon sign inside), and two glass doors (tagged "LiftDoor",
+-- with their Storey and Open/Closed CFrames) slide apart in its front while the cabin
+-- waits there. On the ground floor a hanging neon sign with an arrow points the way.
 -- The cabin rides in it, hung from the pulley, with a counterweight on the back rails:
 -- the "Lift" Model (tagged "Lift"; in the plot's model, so the cutaway never fades it),
 -- which the client's Elevator script moves (the server leaves the cabin on the ground
@@ -1264,34 +1271,34 @@ end
 -- doors are, the building's box (Area, AreaSize), and each storey's front room's name
 -- (Floors: "Toy Workshop|Clay Studio|...").
 -- Tower space (towerAt): its middle on a storey's floor, -Z toward the building (the
--- door side), +Z toward the hub.
-local LIFT_DOOR = Vector2.new(7, 13) -- the wall's door, and the neck's inside
-local LIFT_DOOR_X = FactoryBuilder.Elevator.X -- along the front wall
+-- door side), +X toward the front (the hub), +Z out.
+local LIFT_DOOR = Vector2.new(6.4, 13) -- the wall's door, and the neck's inside
+local LIFT_DOOR_Z = FactoryBuilder.Elevator.Z -- along the front room's +X wall
 local SHAFT = Vector2.new(12.6, 14) -- the tower: across (along the wall), and out from it
-local SHAFT_POST = 0.9
-local LANDING_DOOR = Vector2.new(7, 12) -- the tower's doors, on every storey
-local LANDING_GAP = 4.4 -- between its two leaves when open (they park in front of the side glass)
+local TOWER_WALL = 1
+local TOWER_POST = 1
+local TOWER_WINDOW = { Bottom = 5, Top = 21 } -- each storey's windows, over its floor
+local MACHINE_ROOM = 13.5 -- the top room's height, over the tower's top storey
+local LANDING_DOOR = Vector2.new(6.4, 12) -- the tower's doors, on every storey
+local LANDING_GAP = 4 -- between its two leaves when open
 local CABIN = Vector3.new(9, 11.5, 9) -- the cabin's inside: across, high, deep
 local CABIN_Z = -0.8 -- its middle (toward the doors)
 local CABIN_TOP = CABIN.Y + 1.1 -- its hitch's top, over its floor: its cables hang from there
 local WEIGHT = Vector3.new(5, 4, 1.4)
-local WEIGHT_Z = 5.4 -- the counterweight's middle, behind the cabin
+local WEIGHT_Z = 5.2 -- the counterweight's middle, behind the cabin
 local PULLEY = WEIGHT_Z - CABIN_Z -- across: its rim drops a cable over each
 local PULLEY_Z = (CABIN_Z + WEIGHT_Z) / 2
 local PULLEY_UP = 4.5 -- its middle, over the tower's top
-local HOUSE_HEIGHT = 8 -- the machine house on top
 local CABLE_COLOR = Color3.fromRGB(60, 60, 70)
 local HAZARD_COLOR = Color3.fromRGB(255, 205, 40)
-local TOWER_GLASS = 0.78 -- transparency (the cabin shows through)
-local TOWER_FRONT = -SHAFT.Y / 2 + SHAFT_POST / 2 -- the front glass's middle (tower Z)
-local DOOR_LEAF_Z = TOWER_FRONT + 0.65 -- the doors slide just inside it
+local DOOR_LEAF_Z = -SHAFT.Y / 2 + TOWER_WALL + 0.2 -- the doors slide just inside the front wall
 
 local function towerAt(cframe: CFrame, storey: number): CFrame
 	local spot = FactoryBuilder.Elevator
-	return cframe * CFrame.new(spot.X, floorY(storey), spot.Z) * CFrame.Angles(0, math.pi, 0)
+	return cframe * CFrame.new(spot.X, floorY(storey), spot.Z) * CFrame.Angles(0, math.pi / 2, 0)
 end
 
--- Glass for the tower and its skybridges.
+-- Glass for the tower and its cabin.
 local function makeGlass(parent: Instance, name: string, size: Vector3, cframe: CFrame, transparency: number): Part
 	local glass = makePart(parent, name, size, cframe, GLASS_COLOR)
 	glass.Transparency = transparency
@@ -1313,11 +1320,11 @@ local function neonRim(parent: Instance, top: CFrame, size: Vector2, color: Colo
 	end
 end
 
--- The door in the front wall (`wallBase`: the wall's middle on the floor, -Z out): a
--- frame in the plot's deepest color outlined in neon on the room's side, and a neon
--- sign over it inside.
+-- The door in the front room's +X wall (`wallBase`: the wall's middle on the floor, its
+-- X along the plot's +Z, -Z out): a frame in the plot's deepest color outlined in neon
+-- on the room's side, and a neon sign over it inside.
 local function buildLiftDoor(layer: Instance, wallBase: CFrame, palette: Palette)
-	local at = wallBase * CFrame.new(LIFT_DOOR_X, 0, 0)
+	local at = wallBase * CFrame.new(LIFT_DOOR_Z, 0, 0)
 	buildDoorFrame(layer, at, LIFT_DOOR, palette.CandyDeep)
 	local glow = palette.CandyDeep:Lerp(WHITE, 0.25)
 	local face = WALL / 2 + 0.4 + 0.175 -- (the frame's face on the room's side)
@@ -1329,64 +1336,129 @@ local function buildLiftDoor(layer: Instance, wallBase: CFrame, palette: Palette
 	RoomDecor.NeonSign(layer, inside, Vector2.new(8, 2.8), "LIFT", palette.CandyDeep)
 end
 
--- One storey of the tower (from its floor to the next one's), with its skybridge and its
+-- On the ground floor, a neon sign hanging from the ceiling where you see it from the
+-- entrance and the Cash Pad, "LIFT" on both faces and a neon arrow pointing to its door
+-- (plot space).
+local function buildLiftPointer(layer: Instance, cframe: CFrame, palette: Palette)
+	local at = cframe * CFrame.new(21, floorY(1) + 21, -30)
+	local glow = palette.CandyDeep:Lerp(WHITE, 0.25)
+	for _, turn in { 0, math.pi } do
+		RoomDecor.NeonSign(layer, at * CFrame.new(-3, 0, 0) * CFrame.Angles(0, turn, 0), Vector2.new(9, 3.6), "LIFT", palette.CandyDeep)
+	end
+	-- the arrow, toward +X (the lift's wall)
+	local tip = at * CFrame.new(8.2, 0, 0)
+	makeDecor(layer, "LiftArrow", Vector3.new(5.6, 0.9, 0.9), at * CFrame.new(5, 0, 0), glow, Enum.Material.Neon).CastShadow = false
+	for _, side in { -1, 1 } do
+		local angle = math.rad(40)
+		local bar = tip * CFrame.new(-math.cos(angle) * 1.5, side * math.sin(angle) * 1.5, 0) * CFrame.Angles(0, 0, -side * angle)
+		makeDecor(layer, "LiftArrow", Vector3.new(3.2, 0.9, 0.9), bar, glow, Enum.Material.Neon).CastShadow = false
+	end
+	for _, x in { -7, 1 } do
+		local rod = CEILING - 21 - 2
+		makeDecor(layer, "LiftSignRod", Vector3.new(0.25, rod, 0.25), at * CFrame.new(x, 2 + rod / 2, 0), WHITE)
+	end
+end
+
+-- A window right through one of the tower's walls (`face`: the hole's middle on the
+-- wall's outer face, -Z out): glass in the wall's middle (see-through: the cabin shows),
+-- a chunky frame and a sill.
+local function towerWindow(layer: Instance, face: CFrame, size: Vector2, frame: Color3)
+	local glass = makeGlass(layer, "LiftWindow", Vector3.new(size.X, size.Y, 0.2), face * CFrame.new(0, 0, TOWER_WALL / 2), 0.45)
+	glass.Reflectance = 0.1
+	local border, depth = 1, 1.2
+	for _, side in { -1, 1 } do
+		makeDecor(layer, "WindowFrame", Vector3.new(size.X + border * 2, border, depth), face * CFrame.new(0, side * (size.Y + border) / 2, -0.3), frame)
+		makeDecor(layer, "WindowFrame", Vector3.new(border, size.Y, depth), face * CFrame.new(side * (size.X + border) / 2, 0, -0.3), frame)
+	end
+	makeDecor(layer, "WindowSill", Vector3.new(size.X + 2.6, 0.6, 1.6), face * CFrame.new(0, -size.Y / 2 - border - 0.3, -0.5), frame)
+end
+
+-- The tower's walls for `facade` from `y0` to `y1` over `base` (tower space): its skin
+-- outside, and on the three faces away from the building a window (`window`: its
+-- bottom and top, or none), with the landing door cut in the side toward it on a
+-- storey; then its corner posts.
+local function towerWalls(layer: Instance, base: CFrame, y0: number, y1: number, facade: Facade, palette: Palette, window: { Bottom: number, Top: number }?, door: boolean)
+	local skin: Skin = { Texture = facade.Texture, Tile = facade.Tile, Color = palette[facade.Wall] }
+	local inside = palette.Pastel
+	local acrossX = SHAFT.X - TOWER_POST * 2 -- (between the posts)
+	local acrossZ = SHAFT.Y - TOWER_POST * 2
+	-- each face: where its outer middle is, turned so -Z is out, and its length
+	local faces = {
+		{ CFrame.new(SHAFT.X / 2 - TOWER_WALL / 2, y0, 0) * CFrame.Angles(0, -math.pi / 2, 0), acrossZ, 6 }, -- the front
+		{ CFrame.new(0, y0, SHAFT.Y / 2 - TOWER_WALL / 2) * CFrame.Angles(0, math.pi, 0), acrossX, 5 }, -- out
+		{ CFrame.new(-SHAFT.X / 2 + TOWER_WALL / 2, y0, 0) * CFrame.Angles(0, math.pi / 2, 0), acrossZ, 5 }, -- the back
+	}
+	for _, face in faces do
+		local at, length, width = base * face[1], face[2], face[3]
+		local openings: { Opening } = {}
+		if window then
+			openings = { { X = 0, Width = width, Height = window.Top, Bottom = window.Bottom } }
+		end
+		buildWall(layer, at, length, openings, inside, skin, TOWER_WALL, y1 - y0)
+		if window then
+			towerWindow(layer, at * CFrame.new(0, (window.Bottom + window.Top) / 2, -TOWER_WALL / 2), Vector2.new(width, window.Top - window.Bottom), palette[facade.Frame])
+		end
+	end
+	-- (the doorway starts on the floor, y 0: under it downstairs, the wall is the threshold)
+	local toward = base * CFrame.new(0, y0, -SHAFT.Y / 2 + TOWER_WALL / 2)
+	local openings: { Opening } = if door then { { X = 0, Width = LANDING_DOOR.X, Height = LANDING_DOOR.Y - y0, Bottom = if y0 < 0 then -y0 else nil } } else {}
+	buildWall(layer, toward, acrossX, openings, inside, skin, TOWER_WALL, y1 - y0)
+	-- the corner posts (candy canes on the candy floor)
+	local postX, postZ = SHAFT.X / 2 - TOWER_POST / 2, SHAFT.Y / 2 - TOWER_POST / 2
+	local bands = if facade.CandyPillars then 6 else 1
+	local segment = (y1 - y0) / bands
+	for _, x in { -postX, postX } do
+		for _, z in { -postZ, postZ } do
+			for band = 1, bands do
+				local color = if band % 2 == 0 then WHITE else palette[facade.Pillar]
+				makePart(layer, "LiftPost", Vector3.new(TOWER_POST, segment, TOWER_POST), base * CFrame.new(x, y0 + (band - 0.5) * segment, z), color)
+			end
+		end
+	end
+end
+
+-- A trim round the tower's three outer faces (`y`: its middle over `base`), `out` from
+-- them; along the front and back it runs on to the building's own trims.
+local function towerTrim(layer: Instance, base: CFrame, name: string, height: number, out: number, y: number, color: Color3)
+	local reach = SHAFT.Y / 2 + 0.6 -- (to the building's trims)
+	makeDecor(layer, name, Vector3.new(SHAFT.X + out * 2, height, out), base * CFrame.new(0, y, SHAFT.Y / 2 + out / 2), color)
+	for _, x in { -1, 1 } do
+		makeDecor(layer, name, Vector3.new(out, height, reach + SHAFT.Y / 2), base * CFrame.new(x * (SHAFT.X / 2 + out / 2), y, (SHAFT.Y / 2 - reach) / 2), color)
+	end
+end
+
+-- One storey of the tower (from its floor to the next one's), with its neck and its
 -- doors, in that storey's layer.
 local function buildShaftStorey(layer: Instance, cframe: CFrame, storey: number, palette: Palette)
 	local base = towerAt(cframe, storey)
+	local facade = FACADES[storey]
 	local bottom = if storey == 1 then -FLOOR_TOP else 0
+	local glow = palette.Accent:Lerp(WHITE, 0.3)
+	towerWalls(layer, base, bottom, STOREY, facade, palette, { Bottom = TOWER_WINDOW.Bottom - bottom, Top = TOWER_WINDOW.Top - bottom }, true)
+
+	-- the building's trims, at the same heights: a dark band at the top (the cornice on
+	-- the top storey), a bright strip under it, and the stone plinth downstairs
+	local isTop = storey == topStorey
+	local bandHeight, bandTop = if isTop then 2.5 else 3, if isTop then STOREY - 0.5 else STOREY
+	towerTrim(layer, base, "TrimBand", bandHeight, 0.6, bandTop - bandHeight / 2, palette.Dark)
+	local stripHeight = if facade.Icing then 2 else 0.8
+	towerTrim(layer, base, "TrimStrip", stripHeight, 0.35, bandTop - bandHeight - stripHeight / 2, if facade.Icing or isTop then WHITE else palette[facade.Pop])
+	if storey == 1 then
+		towerTrim(layer, base, "Plinth", 3, 0.4, 1.5 - FLOOR_TOP, palette.Stone)
+		-- the pit: a dark floor under the cabin, on the ground
+		makeDecor(layer, "LiftPit", Vector3.new(SHAFT.X - TOWER_WALL * 2, 0.1, SHAFT.Y - TOWER_WALL * 2), base * CFrame.new(0, -FLOOR_TOP + 0.03, 0), palette.Dark)
+	end
+
+	-- inside: a gold sill flush with the floor up to the cabin, gold guide rails for the
+	-- cabin up its sides, steel ones for the counterweight
 	local height = STOREY - bottom
 	local middleY = bottom + height / 2
-	local glow = palette.Accent:Lerp(WHITE, 0.3)
-	local postX, postZ = SHAFT.X / 2 - SHAFT_POST / 2, SHAFT.Y / 2 - SHAFT_POST / 2
-	for _, x in { -postX, postX } do
-		for _, z in { -postZ, postZ } do
-			makePart(layer, "LiftPost", Vector3.new(SHAFT_POST, height, SHAFT_POST), base * CFrame.new(x, middleY, z), palette.Accent)
-		end
-		-- (a neon line up each corner on the hub's side)
-		makeDecor(layer, "LiftNeon", Vector3.new(0.4, height, 0.3), base * CFrame.new(x, middleY, SHAFT.Y / 2 + 0.2), glow, Enum.Material.Neon).CastShadow = false
-	end
-	-- glass on the back and both sides, and round the doors in front
-	local spanX, spanZ = SHAFT.X - SHAFT_POST * 2, SHAFT.Y - SHAFT_POST * 2
-	makeGlass(layer, "LiftGlass", Vector3.new(spanX, height, 0.3), base * CFrame.new(0, middleY, postZ), TOWER_GLASS)
-	for _, x in { -postX, postX } do
-		makeGlass(layer, "LiftGlass", Vector3.new(0.3, height, spanZ), base * CFrame.new(x, middleY, 0), TOWER_GLASS)
-	end
-	local side = (spanX - LANDING_DOOR.X) / 2
-	for _, x in { -1, 1 } do
-		makeGlass(layer, "LiftGlass", Vector3.new(side, height, 0.3), base * CFrame.new(x * (LANDING_DOOR.X + side) / 2, middleY, TOWER_FRONT), TOWER_GLASS)
-	end
-	local over = STOREY - LANDING_DOOR.Y
-	makeGlass(layer, "LiftGlass", Vector3.new(LANDING_DOOR.X, over, 0.3), base * CFrame.new(0, LANDING_DOOR.Y + over / 2, TOWER_FRONT), TOWER_GLASS)
-	-- the doorway's dark frame, and a gold sill flush with the floor up to the cabin
-	for _, x in { -1, 1 } do
-		makeDecor(layer, "LiftJamb", Vector3.new(0.6, LANDING_DOOR.Y, 0.7), base * CFrame.new(x * (LANDING_DOOR.X / 2 + 0.3), LANDING_DOOR.Y / 2, TOWER_FRONT), palette.Dark)
-	end
-	makeDecor(layer, "LiftHeader", Vector3.new(LANDING_DOOR.X + 1.2, 0.8, 0.7), base * CFrame.new(0, LANDING_DOOR.Y + 0.4, TOWER_FRONT), palette.Dark)
 	local cabinFront = CABIN_Z - CABIN.Z / 2 - 0.3
-	local sillFrom = -SHAFT.Y / 2
+	local sillFrom = -SHAFT.Y / 2 + TOWER_WALL
 	makePart(layer, "LiftSill", Vector3.new(LANDING_DOOR.X, 0.6, cabinFront - 0.05 - sillFrom), base * CFrame.new(0, -0.3, (sillFrom + cabinFront - 0.05) / 2), GOLD_COLOR, Enum.Material.Metal)
-	-- gold guide rails for the cabin up its sides, steel ones for the counterweight
 	for _, x in { -1, 1 } do
-		makeDecor(layer, "LiftRail", Vector3.new(0.4, height, 0.4), base * CFrame.new(x * (CABIN.X / 2 + 0.65), middleY, CABIN_Z), GOLD_COLOR, Enum.Material.Metal)
+		makeDecor(layer, "LiftRail", Vector3.new(0.4, height, 0.4), base * CFrame.new(x * (CABIN.X / 2 + 0.55), middleY, CABIN_Z), GOLD_COLOR, Enum.Material.Metal)
 		makeDecor(layer, "LiftRail", Vector3.new(0.4, height, 0.4), base * CFrame.new(x * (WEIGHT.X / 2 + 0.4), middleY, WEIGHT_Z), Color3.fromRGB(200, 205, 215), Enum.Material.Metal)
-	end
-	if storey == 1 then
-		-- the pit: a dark floor under the cabin, on the ground
-		makeDecor(layer, "LiftPit", Vector3.new(spanX, 0.1, spanZ), base * CFrame.new(0, -FLOOR_TOP + 0.03, 0), palette.Dark)
-	else
-		-- a white band with a neon line round the outside at this floor (the front's
-		-- middle is the skybridge's)
-		local bandY, out = -0.4, 0.3
-		local function band(size: Vector3, at: CFrame)
-			makeDecor(layer, "LiftBand", size, base * at * CFrame.new(0, bandY, 0), WHITE)
-			makeDecor(layer, "LiftNeon", Vector3.new(size.X, 0.3, size.Z), base * at * CFrame.new(0, bandY + 0.75, 0), glow, Enum.Material.Neon).CastShadow = false
-		end
-		band(Vector3.new(SHAFT.X + out * 2, 1.2, out), CFrame.new(0, 0, SHAFT.Y / 2 + out / 2))
-		for _, x in { -1, 1 } do
-			band(Vector3.new(out, 1.2, SHAFT.Y), CFrame.new(x * (SHAFT.X / 2 + out / 2), 0, 0))
-			local stub = SHAFT.X / 2 + out - (LIFT_DOOR.X / 2 + 0.6)
-			band(Vector3.new(stub, 1.2, out), CFrame.new(x * (SHAFT.X / 2 + out - stub / 2), 0, -SHAFT.Y / 2 - out / 2))
-		end
 	end
 
 	-- the doors: two glass leaves that slide apart (open) or meet in the middle (shut);
@@ -1411,58 +1483,33 @@ local function buildShaftStorey(layer: Instance, cframe: CFrame, storey: number,
 		end
 	end
 
-	-- the neck, from the door in the wall (its frame reaches 0.4 out) to the tower;
-	-- upstairs its floor starts past the ledge under the door
+	-- the neck, from the door in the wall (its frame reaches 0.4 out) to the tower:
+	-- walls in the storey's color, a dark roof; upstairs its floor starts past the
+	-- ledge under the door
 	local spot = FactoryBuilder.Elevator
-	local nearZ = spot.Z - (FRONT_Z - 0.4) -- (tower Z runs along the plot's -Z)
-	local floorFrom = spot.Z - (if storey == 1 then FRONT_Z else FRONT_Z - 1.4)
+	local nearZ = HALF_X + 0.4 - spot.X -- (tower Z runs along the plot's X)
+	local floorFrom = (if storey == 1 then HALF_X else HALF_X + 1.4) - spot.X
 	local farZ = -SHAFT.Y / 2
-	local width = LIFT_DOOR.X + 1
-	makePart(layer, "LiftBridgeFloor", Vector3.new(width, 1, farZ - floorFrom), base * CFrame.new(0, -0.5, (floorFrom + farZ) / 2), WHITE)
+	local width = LIFT_DOOR.X + 1.2
+	makePart(layer, "LiftNeckFloor", Vector3.new(width, 1, farZ - floorFrom), base * CFrame.new(0, -0.5, (floorFrom + farZ) / 2), DECK_COLOR, Enum.Material.WoodPlanks)
 	local length, middleZ = farZ - nearZ, (nearZ + farZ) / 2
 	local wallHeight = LIFT_DOOR.Y + 0.5
 	for _, x in { -1, 1 } do
-		makeGlass(layer, "LiftBridgeGlass", Vector3.new(0.3, wallHeight, length), base * CFrame.new(x * (LIFT_DOOR.X / 2 + 0.15), wallHeight / 2, middleZ), 0.55)
-		makeDecor(layer, "LiftBridgeRail", Vector3.new(0.35, 0.35, length), base * CFrame.new(x * (LIFT_DOOR.X / 2 - 0.2), 3.4, middleZ), GOLD_COLOR, Enum.Material.Metal)
+		makePart(layer, "LiftNeckWall", Vector3.new(0.6, wallHeight, length), base * CFrame.new(x * (LIFT_DOOR.X / 2 + 0.3), wallHeight / 2, middleZ), palette[facade.Wall])
 	end
-	local roof = makePart(layer, "LiftBridgeRoof", Vector3.new(width, 0.8, length), base * CFrame.new(0, wallHeight + 0.4, middleZ), palette.Dark)
-	roof.CastShadow = false
-	for _, x in { -1, 1 } do
-		makeDecor(layer, "LiftNeon", Vector3.new(0.35, 0.35, length), base * CFrame.new(x * (width / 2 + 0.175), wallHeight + 0.6, middleZ), glow, Enum.Material.Neon).CastShadow = false
-	end
-	if storey > 1 then
-		-- two struts under it, back to the wall
-		for _, x in { -1, 1 } do
-			local from = (base * CFrame.new(x * 3, -6, nearZ)).Position
-			local to = (base * CFrame.new(x * 3, -1, (nearZ + farZ) / 2)).Position
-			makeDecor(layer, "LiftStrut", Vector3.new(0.6, 0.6, (to - from).Magnitude), CFrame.lookAt((from + to) / 2, to), palette.Dark)
-		end
-	end
+	makePart(layer, "LiftNeckRoof", Vector3.new(width + 0.4, 0.8, length), base * CFrame.new(0, wallHeight + 0.4, middleZ), palette.Dark)
 end
 
--- The tower's top (on the top storey's, in the roof's layer): a cap, and the machine
--- house where the pulley turns (the pulley is the Lift model's), with the sign facing
--- the front, chasing bulbs and a beacon.
+-- The tower's top (on the top storey's, in the roof's layer): a machine room in the top
+-- storey's skin, the pulley turning behind its front window (the pulley is the Lift
+-- model's) under a neon "LIFT" sign, then a crooked stepped roof like the turret's.
 local function buildShaftTop(layer: Instance, cframe: CFrame, palette: Palette)
 	local base = towerAt(cframe, topStorey + 1)
-	local glow = palette.Accent:Lerp(WHITE, 0.3)
-	makePart(layer, "LiftCap", Vector3.new(SHAFT.X + 0.8, 1, SHAFT.Y + 0.8), base * CFrame.new(0, 0.5, 0), palette.Dark)
-	neonRim(layer, base * CFrame.new(0, 0.8, 0), Vector2.new(SHAFT.X + 0.8, SHAFT.Y + 0.8), glow)
-	local house = Vector2.new(SHAFT.X - 1.4, SHAFT.Y - 1.4)
-	local houseY = 1 + HOUSE_HEIGHT / 2
-	for _, x in { -1, 1 } do
-		for _, z in { -1, 1 } do
-			makePart(layer, "LiftPost", Vector3.new(0.8, HOUSE_HEIGHT, 0.8), base * CFrame.new(x * (house.X / 2 - 0.4), houseY, z * (house.Y / 2 - 0.4)), palette.Accent)
-		end
-	end
-	for turn = 0, 3 do
-		local along = if turn % 2 == 0 then house.X else house.Y
-		local out = if turn % 2 == 0 then house.Y / 2 else house.X / 2
-		makeGlass(layer, "LiftGlass", Vector3.new(along - 1.6, HOUSE_HEIGHT, 0.3), base * CFrame.Angles(0, turn * math.pi / 2, 0) * CFrame.new(0, houseY, out - 0.4), 0.5)
-	end
-	local roofY = 1 + HOUSE_HEIGHT
-	makePart(layer, "LiftHouseRoof", Vector3.new(house.X + 1.2, 0.9, house.Y + 1.2), base * CFrame.new(0, roofY + 0.45, 0), palette.Roof)
-	neonRim(layer, base * CFrame.new(0, roofY + 0.7, 0), Vector2.new(house.X + 1.2, house.Y + 1.2), glow)
+	local facade = FACADES[topStorey]
+	makePart(layer, "LiftCap", Vector3.new(SHAFT.X - TOWER_WALL * 2, 1, SHAFT.Y - TOWER_WALL * 2), base * CFrame.new(0, 0.5, 0), palette.Dark)
+	-- the walls: a wide window in front (the wheel shows), small ones on the other faces
+	towerWalls(layer, base, 0, MACHINE_ROOM, facade, palette, { Bottom = 1.2, Top = 7.8 }, false)
+	towerTrim(layer, base, "TrimBand", 1.4, 0.6, MACHINE_ROOM - 0.7, palette.Dark)
 	-- the axle's stands and the motor beside the wheel
 	local wheel = base * CFrame.new(0, PULLEY_UP, PULLEY_Z)
 	for _, x in { -1, 1 } do
@@ -1470,22 +1517,23 @@ local function buildShaftTop(layer: Instance, cframe: CFrame, palette: Palette)
 	end
 	local axle = makeDecor(layer, "LiftAxle", Vector3.new(4.4, 0.7, 0.7), wheel, Color3.fromRGB(200, 205, 215), Enum.Material.Metal)
 	axle.Shape = Enum.PartType.Cylinder
-	makeDecor(layer, "LiftMotor", Vector3.new(2.4, 2.6, 3), base * CFrame.new(-3.6, 1 + 1.3, PULLEY_Z), palette.Accent)
-	makeDecor(layer, "LiftMotorLight", Vector3.new(0.5, 0.5, 0.5), base * CFrame.new(-3.6, 1 + 2.8, PULLEY_Z), Color3.fromRGB(120, 255, 140), Enum.Material.Neon)
-	-- the sign facing the hub (+Z), its bulbs along the roof's edge over it, and a beacon
-	local front = base * CFrame.new(0, houseY + 0.4, house.Y / 2 + 0.1) * CFrame.Angles(0, math.pi, 0)
-	RoomDecor.NeonSign(layer, front, Vector2.new(house.X - 2.4, 3.4), "LIFT", palette.Accent)
-	for k = -2, 2 do
-		makeBulb(layer, base * CFrame.new(k * 2.1, roofY + 1.6, house.Y / 2 + 0.6), k + 3)
+	makeDecor(layer, "LiftMotor", Vector3.new(2.4, 2.6, 3), base * CFrame.new(-3.4, 1 + 1.3, PULLEY_Z), palette.Accent)
+	makeDecor(layer, "LiftMotorLight", Vector3.new(0.5, 0.5, 0.5), base * CFrame.new(-3.4, 1 + 2.8, PULLEY_Z), Color3.fromRGB(120, 255, 140), Enum.Material.Neon)
+	-- the sign over the front window, facing the hub (+X)
+	local front = base * CFrame.new(SHAFT.X / 2 + 0.1, 10.6, 0) * CFrame.Angles(0, -math.pi / 2, 0)
+	RoomDecor.NeonSign(layer, front, Vector2.new(SHAFT.Y - 5, 2.4), "LIFT", palette.Accent)
+	-- the roof: an eave, then tiers, crooked like the turret's, a gold tip and a flag
+	makePart(layer, "LiftEave", Vector3.new(SHAFT.X + 2.4, 1.2, SHAFT.Y + 2.4), base * CFrame.new(0, MACHINE_ROOM + 0.6, 0), palette.Dark)
+	local roof = base * CFrame.new(0, MACHINE_ROOM + 1.2, 0) * CFrame.Angles(math.rad(-4), 0, math.rad(3))
+	local tiers = { 0.95, 0.72, 0.49, 0.26 }
+	for index, scale in tiers do
+		local color = if index % 2 == 1 then palette.Roof else palette.Roof:Lerp(WHITE, 0.3)
+		makeDecor(layer, "LiftRoof", Vector3.new((SHAFT.X + 2) * scale, 3.6, (SHAFT.Y + 2) * scale), roof * CFrame.new(0, (index - 0.5) * 3.6, 0), color)
 	end
-	makeDecor(layer, "LiftBeaconPole", Vector3.new(0.4, 2, 0.4), base * CFrame.new(0, roofY + 1.9, 0), WHITE)
-	local beacon = makeBall(layer, "LiftBeacon", 1.8, base * CFrame.new(0, roofY + 3.4, 0), glow)
-	beacon.Material = Enum.Material.Neon
-	local light = Instance.new("PointLight")
-	light.Color = glow
-	light.Range = 16
-	light.Brightness = 1.5
-	light.Parent = beacon
+	local tip = roof * CFrame.new(0, #tiers * 3.6, 0)
+	makeBall(layer, "LiftTip", 2.4, tip * CFrame.new(0, 0.9, 0), GOLD_COLOR)
+	makeDecor(layer, "FlagPole", Vector3.new(0.3, 6, 0.3), tip * CFrame.new(0, 4, 0), WHITE)
+	makeDecor(layer, "Flag", Vector3.new(4, 2.4, 0.2), tip * CFrame.new(2, 5.6, 0), palette.Accent)
 end
 
 -- The cabin, its counterweight, the pulley and the cables: the "Lift" model (see above),
@@ -1639,17 +1687,27 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 		end
 		RoomDecor.Build(room.ZoneId, layer, center)
 
-		-- side walls
+		-- side walls (the front room's +X one has the lift's door on every storey; this
+		-- wall's X runs along +Z)
 		for _, side in { -1, 1 } do
 			local wallBase = center * CFrame.new(side * (HALF_X - WALL / 2), 0, 0) * CFrame.Angles(0, -side * math.pi / 2, 0)
 			local openings, spots = {}, SIDE_WINDOWS
-			if storey == 2 and isFirst and side == 1 then
-				-- the side door off the outside stairs (this wall's X runs along +Z)
-				openings = { { X = SIDE_DOOR_Z, Width = SIDE_DOOR.X, Height = SIDE_DOOR.Y } }
-				spots = { -36, 0 }
+			local liftWall = isFirst and side == 1
+			local sideDoor = storey == 2 and liftWall
+			if liftWall then
+				table.insert(openings, { X = LIFT_DOOR_Z - room.Z, Width = LIFT_DOOR.X, Height = LIFT_DOOR.Y })
+			end
+			if sideDoor then
+				-- the side door off the outside stairs; the window by the lift moves over
+				-- (its shutters reached the tower)
+				table.insert(openings, { X = SIDE_DOOR_Z, Width = SIDE_DOOR.X, Height = SIDE_DOOR.Y })
+				spots = { -30, 0 }
 			end
 			buildOuterWall(layer, wallBase, ROOM_SIZE.Z, openings, spots, room, storey, palette, false)
-			if #openings > 0 then
+			if liftWall then
+				buildLiftDoor(layer, wallBase * CFrame.new(-room.Z, 0, 0), palette)
+			end
+			if sideDoor then
 				local doorBase = wallBase * CFrame.new(SIDE_DOOR_Z, 0, 0)
 				buildDoorFrame(layer, doorBase, SIDE_DOOR, palette.Dark)
 				local door = makeGlassDoor(layer, `{room.ZoneId}Shutter`, SIDE_DOOR, doorBase, style.Band)
@@ -1661,19 +1719,8 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 		if isFirst then
 			-- the front wall, facing the hub
 			local front = center * CFrame.new(0, 0, -halfZ + WALL / 2)
-			-- (the lift's door on every storey, where a window was: the tower stands there)
-			local openings = { { X = LIFT_DOOR_X, Width = LIFT_DOOR.X, Height = LIFT_DOOR.Y } }
-			if storey == 1 then
-				table.insert(openings, { X = 0, Width = ENTRANCE.X, Height = ENTRANCE.Y })
-			end
-			local windows = {}
-			for _, x in facade.Windows do
-				if math.abs(x - LIFT_DOOR_X) > SHAFT.X then
-					table.insert(windows, x)
-				end
-			end
-			buildOuterWall(layer, front, inner, openings, windows, room, storey, palette, true)
-			buildLiftDoor(layer, front, palette)
+			local openings = if storey == 1 then { { X = 0, Width = ENTRANCE.X, Height = ENTRANCE.Y } } else {}
+			buildOuterWall(layer, front, inner, openings, facade.Windows, room, storey, palette, true)
 			local face = front * CFrame.new(0, 0, -WALL / 2)
 			if storey == 1 then
 				-- the entrance, under an awning and the owner's sign, between two lamps
@@ -1772,20 +1819,21 @@ local function buildStorey(layers: { Instance }, cframe: CFrame, storey: number,
 	local function ring(name: string, height: number, out: number, y: number, color: Color3, skipEntrance: boolean)
 		local at = cframe * CFrame.new(0, base + y, middleZ)
 		for _, side in { -1, 1 } do
-			makeDecor(layer, name, Vector3.new(out, height, depth + out * 2), at * CFrame.new(side * (HALF_X + out / 2), 0, 0), color)
+			-- (the plinth leaves the lift's door clear too)
+			local spans = { { fromZ - out, toZ + out } }
+			if skipEntrance and side == 1 then
+				spans = { { fromZ - out, LIFT_DOOR_Z - LIFT_DOOR.X / 2 }, { LIFT_DOOR_Z + LIFT_DOOR.X / 2, toZ + out } }
+			end
+			for _, span in spans do
+				makeDecor(layer, name, Vector3.new(out, height, span[2] - span[1]), cframe * CFrame.new(side * (HALF_X + out / 2), base + y, (span[1] + span[2]) / 2), color)
+			end
 		end
 		makeDecor(layer, name, Vector3.new(ROOM_SIZE.X, height, out), at * CFrame.new(0, 0, depth / 2 + out / 2), color)
 		local frontZ = -depth / 2 - out / 2
 		if skipEntrance then
-			-- (the plinth: either side of the entrance, leaving the lift's door clear)
-			local edge = ENTRANCE.X / 2 + 1.4
-			local spans = {
-				{ -HALF_X, LIFT_DOOR_X - LIFT_DOOR.X / 2 },
-				{ LIFT_DOOR_X + LIFT_DOOR.X / 2, -edge },
-				{ edge, HALF_X },
-			}
-			for _, span in spans do
-				makeDecor(layer, name, Vector3.new(span[2] - span[1], height, out), at * CFrame.new((span[1] + span[2]) / 2, 0, frontZ), color)
+			local width = HALF_X - ENTRANCE.X / 2 - 1.4
+			for _, side in { -1, 1 } do
+				makeDecor(layer, name, Vector3.new(width, height, out), at * CFrame.new(side * (HALF_X - width / 2), 0, frontZ), color)
 			end
 		else
 			makeDecor(layer, name, Vector3.new(ROOM_SIZE.X, height, out), at * CFrame.new(0, 0, frontZ), color)
@@ -1889,6 +1937,7 @@ function FactoryBuilder.Build(model: Model, cframe: CFrame, color: Color3, heigh
 	end
 	buildShaftTop(layers[topStorey + 1], cframe, palette)
 	buildLiftRig(model, cframe, palette)
+	buildLiftPointer(layers[1], cframe, palette)
 	-- a terrace on every room with nothing above it (below the top storey)
 	for storey = 1, topStorey - 1 do
 		for _, room in storeys[storey] do

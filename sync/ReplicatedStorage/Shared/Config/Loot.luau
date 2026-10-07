@@ -16,7 +16,7 @@ local Loot = {
 	-- 900). MapBuilder.FindSpot keeps them on dry, clear ground, never on a factory lot.
 	SpawnRadius = NumberRange.new(40, 600),
 	HomeShare = 0.5,
-	HomeOffset = 30,
+	HomeOffset = 40,
 	HomeSpread = 130,
 	MapBoxGap = 30, -- studs kept between map boxes (crowded boxes cluttered the screen; bought ones keep 7)
 	OpenDistance = 14, -- studs; the server's reach check (the client opens at ~6)
