@@ -203,14 +203,7 @@ local function renderMascot(parent: Frame)
 		Kit.text({ Text = percent(row[4]), TextColor3 = GOOD_COLOR, Position = UDim2.fromOffset(320, 16), Size = UDim2.fromOffset(92, 42), Parent = card })
 	end
 	-- the look the next level adds
-	local best = math.huge
-	local named: string? = nil
-	for key, at in MascotConfig.Stages do
-		if at > level and at < best then
-			best, named = at, key
-		end
-	end
-	local looks = { BigCrate = "a bigger crate", Pedestal = "a marble pedestal", Spotlights = "spotlights", Banners = "banners", Gold = "gold trims", Fountain = "a fountain", Fireworks = "fireworks" }
+	local look = MascotConfig.NextLook(level)
 	Kit.text({
 		Text = "It stands in front of your factory\nand levels up every rebirth!",
 		TextColor3 = MUTED_COLOR,
@@ -218,13 +211,11 @@ local function renderMascot(parent: Frame)
 		Size = UDim2.fromOffset(420, 64),
 		Parent = parent,
 	})
-	if named then
-		Kit.iconText({
-			Position = UDim2.fromOffset(x, 410),
-			Size = UDim2.fromOffset(420, 30),
-			Parent = parent,
-		}, "Sparkle", `At LV {best}: {looks[named]}!`, GOLD_COLOR)
-	end
+	Kit.iconText({
+		Position = UDim2.fromOffset(x, 410),
+		Size = UDim2.fromOffset(420, 30),
+		Parent = parent,
+	}, "Sparkle", if look then `At LV {look.Level}: {string.lower(look.Name)}!` else "It grows bigger every rebirth!", GOLD_COLOR)
 end
 
 render = function()

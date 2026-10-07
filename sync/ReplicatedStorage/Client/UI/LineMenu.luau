@@ -324,7 +324,7 @@ local function renderPicker(parent: Frame, line: LineView)
 	local top = SLOT_TOP + SLOT_H + 12
 	Kit.text({
 		Text = if hasDropper
-			then `PICK A {string.upper(selectedSlot)}  ·  each part works on one line at a time`
+			then `PICK THE {string.upper(selectedSlot)}  ·  each part works on one line at a time`
 			else `Buy the {string.upper(selectedSlot)} dropper to use this slot`,
 		Position = UDim2.fromOffset(28, top),
 		Size = UDim2.new(1, -56, 0, 28),

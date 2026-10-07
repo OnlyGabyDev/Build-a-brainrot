@@ -19,6 +19,7 @@
 	  dev:Invoke("Nuke", player)          -- drops a nuke on the server (everyone dies)
 	  dev:Invoke("CreateThumb", player)   -- a stage for the game's icon (/dev CreateThumb)
 	  dev:Invoke("Guide", player, "Intro") -- Tralalero's guide from a step ("Done" ends it)
+	  dev:Invoke("MascotLevel", player, 10) -- your mascot as it looks at a level (not saved)
 
 	The Studio MCP's own code can't invoke it any more (since 2026-10-02 its thread lacks
 	the modules' capabilities), but it can set attributes: set workspace's DevRequest to
@@ -53,6 +54,7 @@ local DailyLogin = require(script.Parent.DailyLogin)
 local DataManager = require(script.Parent.DataManager)
 local GuideManager = require(script.Parent.GuideManager)
 local LootManager = require(script.Parent.LootManager)
+local MascotManager = require(script.Parent.MascotManager)
 local MonetizationManager = require(script.Parent.MonetizationManager)
 local NukeManager = require(script.Parent.NukeManager)
 local OfflineEarnings = require(script.Parent.OfflineEarnings)
@@ -244,6 +246,11 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	Nuke = function(player)
 		NukeManager.Launch(player)
 		return true
+	end,
+	-- Shows your mascot at a level (its looks and size; nothing saved): "MascotLevel 10".
+	-- No level puts the real one back.
+	MascotLevel = function(player, level)
+		return MascotManager.DevPreview(player, if typeof(level) == "number" then math.clamp(math.floor(level), 0, 99) else nil)
 	end,
 	CreateThumb = function(player)
 		return createThumb(player)

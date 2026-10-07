@@ -25,6 +25,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Brainrots = require(Shared.Config.Brainrots)
 local Loot = require(Shared.Config.Loot)
+local MascotConfig = require(Shared.Config.Mascot)
 local Rarities = require(Shared.Config.Rarities)
 local Rebirths = require(Shared.Config.Rebirths)
 local Remotes = require(Shared.Remotes)
@@ -43,7 +44,7 @@ local REQUEST_COOLDOWN = 0.25 -- per player, for open requests
 local BOX_HEIGHT = 1.5 -- box center above the ground
 local LUCK_SYNC_INTERVAL = 2 -- seconds between refreshes of the "Luck" attribute
 local BOX_GAP = 7 -- studs kept between boxes (the biggest is ~5 across)
-local MASCOT_CLEARANCE = 14 -- studs kept from a mascot's middle (its fountain is ~9 across the radius)
+local MASCOT_CLEARANCE = MascotConfig.MaxRadius -- studs kept from a mascot's middle (a big one's plaza reaches ~24)
 local GIFT_SPREAD = 22 -- studs round the front yard's middle: Tralalero's gift box
 local GIFT_RESERVED = 600 -- seconds only its owner may open it
 

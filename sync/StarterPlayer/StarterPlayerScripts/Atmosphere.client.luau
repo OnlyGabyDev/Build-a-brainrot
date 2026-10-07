@@ -134,11 +134,13 @@ RunService:BindToRenderStep("AtmosphereView", Enum.RenderPriority.Camera.Value +
 -- The hub: statues, balloons, water -------------------------------------------------
 
 -- The giant statue in the fountain and every showcase statue turn slowly (the ones near
--- the camera, anyway).
-local spinning: { [Model]: CFrame } = {} -- statue → its resting pivot
+-- the camera, anyway); a "SpinSpeed" attribute turns one at its own speed (radians a
+-- second; the mascots' searchlights, crowns and rings).
+local spinning: { [Model]: { Rest: CFrame, Speed: number } } = {}
 local function spin(statue: Instance)
 	if statue:IsA("Model") then
-		spinning[statue] = statue:GetPivot()
+		local speed = statue:GetAttribute("SpinSpeed")
+		spinning[statue] = { Rest = statue:GetPivot(), Speed = if typeof(speed) == "number" then speed else STATUE_SPIN }
 	end
 end
 for _, statue in CollectionService:GetTagged("SpinningStatue") do
@@ -156,10 +158,10 @@ RunService.RenderStepped:Connect(function()
 		return
 	end
 	local camera = workspace.CurrentCamera.CFrame.Position
-	local turn = CFrame.Angles(0, os.clock() * STATUE_SPIN, 0)
-	for statue, rest in spinning do
-		if (rest.Position - camera).Magnitude < SPIN_DISTANCE then
-			BulkMover.PivotTo(statue, rest * turn)
+	local now = os.clock()
+	for statue, turning in spinning do
+		if (turning.Rest.Position - camera).Magnitude < SPIN_DISTANCE then
+			BulkMover.PivotTo(statue, turning.Rest * CFrame.Angles(0, now * turning.Speed, 0))
 		end
 	end
 end)

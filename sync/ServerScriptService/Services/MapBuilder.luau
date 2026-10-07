@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local BrainrotModels = require(Shared.BrainrotModels)
 local Brainrots = require(Shared.Config.Brainrots)
+local MascotConfig = require(Shared.Config.Mascot)
 local Rarities = require(Shared.Config.Rarities)
 
 local FactoryBuilder = require(script.Parent.FactoryBuilder)
@@ -1577,6 +1578,12 @@ function MapBuilder.Init()
 		local lawn = Vector2.new(lot.HalfWidth * 2 + 4, lot.Back - lot.Front + 4)
 		paint(plot.CFrame * CFrame.new(0, 0, (lot.Front + lot.Back) / 2), lawn, Enum.Material.LeafyGrass)
 		paint(plot.CFrame * CFrame.new(FactoryBuilder.GardenLawn.Center), FactoryBuilder.GardenLawn.Size, Enum.Material.LeafyGrass)
+		-- and an eight-sided lawn for the company mascot out front (a big one's steps and
+		-- fountain; two squares, as a cylinder fill raises the ground a voxel)
+		local mascot = plot.CFrame * CFrame.new(MascotConfig.Spot)
+		local lawnSide = Vector2.one * (MascotConfig.MaxRadius + 1) * 2
+		paint(mascot, lawnSide, Enum.Material.LeafyGrass)
+		paint(mascot * CFrame.Angles(0, math.pi / 4, 0), lawnSide, Enum.Material.LeafyGrass)
 		WorkBudget.Step()
 	end
 	for index, plot in plots do
