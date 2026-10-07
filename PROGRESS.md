@@ -37,6 +37,7 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 15. [x] **Free gifts** (2026-10-07): 9 gifts a day for time played that day (1 to 60 min), a gift button with a countdown on the HUD's right column (docs/history.md, "Retention").
 16. [x] **Quests scale, duplicates by rarity, a MYTHIC day 7** (2026-10-07): daily quest goals in minutes of what your lines make (built, PERFECTs, Coins) or per line owned (upgrades), never under a newcomer's; Coin duplicates 15/30/60 s of income by rarity; the login's day 7 is a Mythic box shown turning on its card (docs/history.md, "Retention").
 17b. [x] **CLAIM ALL for achievements** (2026-10-07): with 2+ ready, a gold CLAIM ALL (n) over the cards claims every done tier at once (docs/history.md, "Retention").
+17c. [x] **The mascot came apart after a rebirth** (2026-10-07): streaming; its brainrot and spinners are Atomic now (docs/history.md, "Retention").
 
 ### Map fixes (the user, 2026-10-07)
 17. [x] **The front yard's walks connected** (2026-10-07): the stairs' stepping stones go on along the front into an opening in the path's curb, a walk of stones from the path to the mascot (docs/history.md, "Map fixes").

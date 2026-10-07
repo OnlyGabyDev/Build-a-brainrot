@@ -142,6 +142,7 @@ local function spinner(parent: Instance, name: string, pivot: CFrame, speed: num
 	local model = Instance.new("Model")
 	model.Name = name
 	model.WorldPivot = pivot
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic -- (see the brainrot's)
 	model:SetAttribute("SpinSpeed", speed)
 	model.Parent = parent
 	return model
@@ -418,6 +419,9 @@ local function build(player: Player, level: number?): Vector3?
 	end
 	local brainrot = BrainrotModels.Build(parts)
 	brainrot.Name = "MascotBrainrot"
+	-- (all of it reaches a client at once: a part streamed in while it turns would join
+	-- it where the server has it, off by the angle turned, and stay there)
+	brainrot.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	local box, unscaled = brainrot:GetBoundingBox()
 	local offset = brainrot:GetPivot():PointToObjectSpace(box.Position)
 	local reach = Vector2.new(math.abs(offset.X) + unscaled.X / 2, math.abs(offset.Z) + unscaled.Z / 2).Magnitude -- (as it turns)
