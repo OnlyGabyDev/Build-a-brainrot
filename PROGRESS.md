@@ -50,6 +50,7 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
    b. [x] **Wave 2** (2026-10-08): 12 new (Talpa Di Fero, Svinina Bombardino, Cacto Hipopotamo, Perochello Lemonchello, Mangolini Parrocini, Penguino Cocosino, Strawberrelli Flamingelli, Rhino Toasterino, Zibra Zubra Zibralini, Gorillo Watermelondrillo, Orcalero Orcala, Trenostruzzo Turbo 3000 the second Godly), gadgets; 38 in all; `tools/ArtPreview` checks flicker, not overlap (docs/history.md, "The user's roadmap").
    c. [x] **Wave 3** (2026-10-08): 12 new (Bambini Crostini, Pandaccini Bananini, Tigroligre Frutonni, Spioniro Golubiro, Lionel Cactuseli, Cavallo Virtuoso, Cocosini Mama, 67, Ballerino Lololo, Espresso Signora, Nuclearo Dinossauro, Ketupat Kepat), gadgets; all 50 in; Moranguete/Abacatudo swapped out (the user); 67 after *Steal a Brainrot*'s figure with our changes (the user) (docs/history.md, "The user's roadmap").
 20d. [x] **The Loot Rain** (2026-10-08, the user): every 30 min (:00, :30) 25-50 boxes by the players rain all over the map for 60 s, leftovers gone at 90 s; a HUD countdown, banner, music, 3D coins falling; `/dev LootRain <s>` (docs/history.md, "The user's roadmap").
+20e. [ ] **101 brainrots** (the user, 2026-10-08: before new content): the next 50 are proposed in GDD §3 ("The next 50": creators checked, kid-safe, rarities set, reserves and what's left out); build them in waves of ~12 like 20a-c. The 101st still to pick (open question).
 21. [ ] **New rooms** (after the collection).
 
 ### Then (backlog, roughly by value)
@@ -59,6 +60,9 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 - Tech debt (only when it gets in the way): `ProductionVisuals` (3.6K lines) and `TycoonManager` sit at Luau's 200-locals limit; `isDeveloper` is copied in DevTools, MonetizationManager and UIController.
 
 ### Open questions for the user
+- **101 brainrots:** 50 + the 50 proposed make 100. The 101st: a reserve (GDD §3), or something special?
+- **Tigroligre Frutonni** (in the game since wave 3): playbrainrot.org says @fakebaneimations made it in Sept 2025 as a copy of @alexey_pigeon's Tigrulli Grapefrutunni (2025-03-11); wave 3 credited @alexey_pigeon. Swap it for the original Tigrulli?
+- **Tung Tung Tung Sahur:** a 2026 report says *Steal a Brainrot* took it out again after a European trademark takedown by Noxa's agency (Mementum Lab). It stays by the user's call; a heads-up.
 - The first 14 brainrots were drawn from *Steal a Brainrot*'s figures (as asked then), not from the original memes. They're our own simple blocks, but some copy choices that are only theirs (outfits, colors). Redraw them from the originals? (a task of its own; Tung Tung Tung Sahur stays either way).
 - Achievements could award Roblox badges for the big tiers (GDD §16.25): each badge is made on the Creator Hub (a name, an icon; a few free a day). Want some? Which ones?
 - The VIP lounge (GDD §12) isn't built: still wanted? (proposal: a roped-off golden deck on the plaza.)
