@@ -58,6 +58,19 @@ local Gadgets: { [string]: Gadget } = {
 	OrangutiniAnanassini = { Name = "Jungle Swing", Icon = "Rocket", Description = "Click to swing far!", Archetype = "Launch", Forward = 85, Up = 80, Cooldown = 2.5 },
 	GirafaCelestre = { Name = "Moon Boots", Icon = "Shoe", Description = "Hold it to jump into space!", Archetype = "Movement", JumpHeight = 34 },
 	DragonCannelloni = { Name = "Dragon Wings", Icon = "Rocket", Description = "Click to fly like a dragon!", Archetype = "Launch", Forward = 160, Up = 100, Cooldown = 3 },
+	-- the second wave (2026-10-07)
+	TalpaDiFero = { Name = "Drill Nose", Icon = "Hammer", Description = "Drill players away!", Archetype = "Melee", Range = 7, Knockback = 70, Cooldown = 1 },
+	SvininaBombardino = { Name = "Pig Bomb Blast", Icon = "Rocket", Description = "Click to blast up high!", Archetype = "Launch", Forward = 25, Up = 85, Cooldown = 2.5 },
+	CactoHipopotamo = { Name = "Sandal Stroll", Icon = "Shoe", Description = "Hold it to walk faster.", Archetype = "Movement", WalkSpeed = 24 },
+	PerochelloLemonchello = { Name = "Lemon Wings", Icon = "Rocket", Description = "Click to flap forward!", Archetype = "Launch", Forward = 60, Up = 70, Cooldown = 2 },
+	MangoliniParrocini = { Name = "Parrot Hop", Icon = "Shoe", Description = "Hold it to jump really high!", Archetype = "Movement", JumpHeight = 20 },
+	PenguinoCocosino = { Name = "Penguin Slide", Icon = "Shoe", Description = "Hold it to slide super fast!", Archetype = "Movement", WalkSpeed = 30 },
+	StrawberrelliFlamingelli = { Name = "Flamingo Leap", Icon = "Rocket", Description = "Click to leap up high!", Archetype = "Launch", Forward = 50, Up = 85, Cooldown = 2.5 },
+	RhinoToasterino = { Name = "Rhino Charge", Icon = "Hammer", Description = "Charge players far away!", Archetype = "Melee", Range = 9, Knockback = 110, Cooldown = 1.2 },
+	ZibraZubraZibralini = { Name = "Zebra Gallop", Icon = "Shoe", Description = "Hold it to run super fast!", Archetype = "Movement", WalkSpeed = 34 },
+	GorilloWatermelondrillo = { Name = "Gorilla Smash", Icon = "Hammer", Description = "A huge smash: players fly!", Archetype = "Melee", Range = 10, Knockback = 130, Cooldown = 1.5 },
+	OrcaleroOrcala = { Name = "Orca Splash", Icon = "Rocket", Description = "Click to leap like an orca!", Archetype = "Launch", Forward = 130, Up = 75, Cooldown = 3 },
+	TrenostruzzoTurbo3000 = { Name = "Turbo 3000", Icon = "Rocket", Description = "Click to zoom off like a train!", Archetype = "Launch", Forward = 190, Up = 40, Cooldown = 3 },
 }
 
 return Gadgets

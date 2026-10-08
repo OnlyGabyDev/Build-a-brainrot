@@ -363,7 +363,8 @@ def render(art, path):
     lo = [min(q[i] for q in points) for i in range(3)]
     hi = [max(q[i] for q in points) for i in range(3)]
     center = tuple((lo[i] + hi[i]) / 2 for i in range(3))
-    scale = 380 / max(hi[1] - lo[1], 1)
+    across = math.hypot(hi[0] - lo[0], hi[2] - lo[2])  # (the widest it gets from any side)
+    scale = min(380 / max(hi[1] - lo[1], 1), 360 / max(across, 1))
     size = (380, 440)
     views = [render_view(polygons, az, 18, scale, size, center) for az in (-35, 0, 90, 150)]
     sheet = Image.new("RGB", (size[0] * len(views) + 10 * (len(views) - 1), size[1]), (120, 120, 132))

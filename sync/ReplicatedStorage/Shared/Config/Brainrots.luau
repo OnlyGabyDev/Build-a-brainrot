@@ -32,6 +32,9 @@ Brainrots.List = {
 	{ Id = "TaTaTaTaSahur", Name = "Ta Ta Ta Ta Sahur", Rarity = "Common", Color = Color3.fromRGB(176, 82, 56) },
 	{ Id = "TricTracBaraboom", Name = "Tric Trac Baraboom", Rarity = "Common", Color = Color3.fromRGB(104, 150, 84) },
 	{ Id = "Fluriflura", Name = "Fluriflura", Rarity = "Common", Color = Color3.fromRGB(250, 140, 40) },
+	{ Id = "TalpaDiFero", Name = "Talpa Di Fero", Rarity = "Common", Color = Color3.fromRGB(150, 154, 162) },
+	{ Id = "SvininaBombardino", Name = "Svinina Bombardino", Rarity = "Common", Color = Color3.fromRGB(240, 160, 160) },
+	{ Id = "CactoHipopotamo", Name = "Cacto Hipopotamo", Rarity = "Common", Color = Color3.fromRGB(86, 156, 74) },
 
 	-- Uncommon
 	{ Id = "BallerinaCappuccina", Name = "Ballerina Cappuccina", Rarity = "Uncommon", Color = Color3.fromRGB(255, 170, 200) },
@@ -40,6 +43,9 @@ Brainrots.List = {
 	{ Id = "BanditoBobritto", Name = "Bandito Bobritto", Rarity = "Uncommon", Color = Color3.fromRGB(150, 100, 58) },
 	{ Id = "TrulimeroTrulicina", Name = "Trulimero Trulicina", Rarity = "Uncommon", Color = Color3.fromRGB(225, 80, 60) },
 	{ Id = "BananitaDolphinita", Name = "Bananita Dolphinita", Rarity = "Uncommon", Color = Color3.fromRGB(250, 214, 60) },
+	{ Id = "PerochelloLemonchello", Name = "Perochello Lemonchello", Rarity = "Uncommon", Color = Color3.fromRGB(252, 214, 48) },
+	{ Id = "MangoliniParrocini", Name = "Mangolini Parrocini", Rarity = "Uncommon", Color = Color3.fromRGB(252, 178, 36) },
+	{ Id = "PenguinoCocosino", Name = "Penguino Cocosino", Rarity = "Uncommon", Color = Color3.fromRGB(126, 80, 46) },
 
 	-- Rare
 	{ Id = "CappuccinoAssassino", Name = "Cappuccino Assassino", Rarity = "Rare", Color = Color3.fromRGB(120, 80, 60) },
@@ -47,19 +53,25 @@ Brainrots.List = {
 	{ Id = "FrigoCamelo", Name = "Frigo Camelo", Rarity = "Rare", Color = Color3.fromRGB(200, 170, 110) },
 	{ Id = "BurbaloniLoliloli", Name = "Burbaloni Loliloli", Rarity = "Rare", Color = Color3.fromRGB(128, 84, 50) },
 	{ Id = "BlueberrinniOctopusini", Name = "Blueberrinni Octopusini", Rarity = "Rare", Color = Color3.fromRGB(96, 116, 210) },
+	{ Id = "StrawberrelliFlamingelli", Name = "Strawberrelli Flamingelli", Rarity = "Rare", Color = Color3.fromRGB(222, 40, 56) },
+	{ Id = "RhinoToasterino", Name = "Rhino Toasterino", Rarity = "Rare", Color = Color3.fromRGB(206, 212, 222) },
 
 	-- Legendary
 	{ Id = "TungTungTungSahur", Name = "Tung Tung Tung Sahur", Rarity = "Legendary", Color = Color3.fromRGB(190, 140, 90) },
 	{ Id = "GlorboFruttodrillo", Name = "Glorbo Fruttodrillo", Rarity = "Legendary", Color = Color3.fromRGB(90, 190, 110) },
 	{ Id = "OrangutiniAnanassini", Name = "Orangutini Ananassini", Rarity = "Legendary", Color = Color3.fromRGB(214, 104, 36) },
+	{ Id = "ZibraZubraZibralini", Name = "Zibra Zubra Zibralini", Rarity = "Legendary", Color = Color3.fromRGB(70, 150, 70) },
+	{ Id = "GorilloWatermelondrillo", Name = "Gorillo Watermelondrillo", Rarity = "Legendary", Color = Color3.fromRGB(40, 40, 46) },
 
 	-- Mythic
 	{ Id = "BombardiroCrocodilo", Name = "Bombardiro Crocodilo", Rarity = "Mythic", Color = Color3.fromRGB(70, 120, 60) },
 	{ Id = "LaVacaSaturnoSaturnita", Name = "La Vaca Saturno Saturnita", Rarity = "Mythic", Color = Color3.fromRGB(140, 110, 220) },
 	{ Id = "GirafaCelestre", Name = "Girafa Celestre", Rarity = "Mythic", Color = Color3.fromRGB(234, 64, 70) },
+	{ Id = "OrcaleroOrcala", Name = "Orcalero Orcala", Rarity = "Mythic", Color = Color3.fromRGB(32, 34, 42) },
 
 	-- Godly
 	{ Id = "DragonCannelloni", Name = "Dragon Cannelloni", Rarity = "Godly", Color = Color3.fromRGB(242, 200, 116) },
+	{ Id = "TrenostruzzoTurbo3000", Name = "Trenostruzzo Turbo 3000", Rarity = "Godly", Color = Color3.fromRGB(60, 140, 76) },
 } :: { Brainrot }
 
 Brainrots.ById = {} :: { [string]: Brainrot }

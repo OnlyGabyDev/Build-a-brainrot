@@ -69,7 +69,7 @@ BASE = dict(
         ("Common", 65, 20, 100), ("Uncommon", 26, 48, 250), ("Rare", 6.5, 120, 600),
         ("Legendary", 2, 400, 0), ("Mythic", 0.4, 1400, 0), ("Godly", 0.06, 6000, 0),
     ],
-    brainrots=dict(Common=8, Uncommon=6, Rare=5, Legendary=3, Mythic=3, Godly=1),  # Config/Brainrots
+    brainrots=dict(Common=11, Uncommon=9, Rare=7, Legendary=5, Mythic=4, Godly=2),  # Config/Brainrots
     starter="Common",  # Brainrots.StarterId's rarity: its 4 parts from the start
     starter_rolls=3,  # DataManager STARTER_ROLLS
     sure_new=dict(Roll=3, Box=1),  # Config/Loot.SureNew
