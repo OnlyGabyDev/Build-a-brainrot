@@ -1667,7 +1667,7 @@ local function buildVinyl(parent: Instance, floor: CFrame)
 	pedestal(parent, floor * CFrame.new(62, 0, 52) * CFrame.Angles(0, math.rad(20), 0), "BombardiroCrocodilo", -1)
 	pedestal(parent, floor * CFrame.new(-59, 0, 47) * CFrame.Angles(0, math.rad(-20), 0), "LaVacaSaturnoSaturnita", 1)
 	-- the front corners: THE GRAIL behind its velvet ropes, and the giant gacha machine
-	grail(parent, floor * CFrame.new(-54, 0, -49) * CFrame.Angles(0, math.rad(200), 0), "SupremoBrainrotto")
+	grail(parent, floor * CFrame.new(-54, 0, -49) * CFrame.Angles(0, math.rad(200), 0), "DragonCannelloni")
 	neonSign(parent, wallFace(floor, { -54, 17, -59 }), Vector2.new(14, 3), "👑 THE GRAIL 👑", VINYL_GOLD)
 	giantGacha(parent, floor * CFrame.new(56, 0, -49) * CFrame.Angles(0, math.rad(160), 0))
 end

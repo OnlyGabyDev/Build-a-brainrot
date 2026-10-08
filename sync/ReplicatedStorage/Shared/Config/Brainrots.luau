@@ -1,5 +1,7 @@
 --[[
-	The brainrot roster (GDD §3). Every brainrot has the same 4 parts.
+	The brainrot roster (GDD §3). Every brainrot has the same 4 parts. Real memes only:
+	each one comes from its creator's original post (the 2025 "Italian brainrot" wave on
+	TikTok), never one a game made up; our block art follows that original image.
 	`Color` tints the placeholder blocks until a split model exists in
 	ReplicatedStorage/Assets/Brainrots/<Id>.
 ]]
@@ -26,27 +28,38 @@ Brainrots.List = {
 	{ Id = "BrrBrrPatapim", Name = "Brr Brr Patapim", Rarity = "Common", Color = Color3.fromRGB(110, 170, 70) },
 	{ Id = "LiriliLarila", Name = "Lirilì Larilà", Rarity = "Common", Color = Color3.fromRGB(150, 200, 90) },
 	{ Id = "TrippiTroppi", Name = "Trippi Troppi", Rarity = "Common", Color = Color3.fromRGB(240, 150, 90) },
+	{ Id = "TimCheese", Name = "Tim Cheese", Rarity = "Common", Color = Color3.fromRGB(150, 150, 160) },
+	{ Id = "TaTaTaTaSahur", Name = "Ta Ta Ta Ta Sahur", Rarity = "Common", Color = Color3.fromRGB(176, 82, 56) },
+	{ Id = "TricTracBaraboom", Name = "Tric Trac Baraboom", Rarity = "Common", Color = Color3.fromRGB(104, 150, 84) },
+	{ Id = "Fluriflura", Name = "Fluriflura", Rarity = "Common", Color = Color3.fromRGB(250, 140, 40) },
 
 	-- Uncommon
 	{ Id = "BallerinaCappuccina", Name = "Ballerina Cappuccina", Rarity = "Uncommon", Color = Color3.fromRGB(255, 170, 200) },
 	{ Id = "ChimpanziniBananini", Name = "Chimpanzini Bananini", Rarity = "Uncommon", Color = Color3.fromRGB(255, 220, 60) },
 	{ Id = "BonecaAmbalabu", Name = "Boneca Ambalabu", Rarity = "Uncommon", Color = Color3.fromRGB(170, 120, 90) },
+	{ Id = "BanditoBobritto", Name = "Bandito Bobritto", Rarity = "Uncommon", Color = Color3.fromRGB(150, 100, 58) },
+	{ Id = "TrulimeroTrulicina", Name = "Trulimero Trulicina", Rarity = "Uncommon", Color = Color3.fromRGB(225, 80, 60) },
+	{ Id = "BananitaDolphinita", Name = "Bananita Dolphinita", Rarity = "Uncommon", Color = Color3.fromRGB(250, 214, 60) },
 
 	-- Rare
 	{ Id = "CappuccinoAssassino", Name = "Cappuccino Assassino", Rarity = "Rare", Color = Color3.fromRGB(120, 80, 60) },
 	{ Id = "BombombiniGusini", Name = "Bombombini Gusini", Rarity = "Rare", Color = Color3.fromRGB(235, 235, 235) },
 	{ Id = "FrigoCamelo", Name = "Frigo Camelo", Rarity = "Rare", Color = Color3.fromRGB(200, 170, 110) },
+	{ Id = "BurbaloniLoliloli", Name = "Burbaloni Loliloli", Rarity = "Rare", Color = Color3.fromRGB(128, 84, 50) },
+	{ Id = "BlueberrinniOctopusini", Name = "Blueberrinni Octopusini", Rarity = "Rare", Color = Color3.fromRGB(96, 116, 210) },
 
 	-- Legendary
 	{ Id = "TungTungTungSahur", Name = "Tung Tung Tung Sahur", Rarity = "Legendary", Color = Color3.fromRGB(190, 140, 90) },
 	{ Id = "GlorboFruttodrillo", Name = "Glorbo Fruttodrillo", Rarity = "Legendary", Color = Color3.fromRGB(90, 190, 110) },
+	{ Id = "OrangutiniAnanassini", Name = "Orangutini Ananassini", Rarity = "Legendary", Color = Color3.fromRGB(214, 104, 36) },
 
 	-- Mythic
 	{ Id = "BombardiroCrocodilo", Name = "Bombardiro Crocodilo", Rarity = "Mythic", Color = Color3.fromRGB(70, 120, 60) },
 	{ Id = "LaVacaSaturnoSaturnita", Name = "La Vaca Saturno Saturnita", Rarity = "Mythic", Color = Color3.fromRGB(140, 110, 220) },
+	{ Id = "GirafaCelestre", Name = "Girafa Celestre", Rarity = "Mythic", Color = Color3.fromRGB(234, 64, 70) },
 
-	-- Godly (placeholder for our own original signature brainrot)
-	{ Id = "SupremoBrainrotto", Name = "Supremo Brainrotto", Rarity = "Godly", Color = Color3.fromRGB(255, 90, 90) },
+	-- Godly
+	{ Id = "DragonCannelloni", Name = "Dragon Cannelloni", Rarity = "Godly", Color = Color3.fromRGB(242, 200, 116) },
 } :: { Brainrot }
 
 Brainrots.ById = {} :: { [string]: Brainrot }

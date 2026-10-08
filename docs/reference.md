@@ -5,7 +5,7 @@ How-tos for specific kinds of work. Read only the section your task needs.
 ## Voxel brainrots how-to
 The pipeline works: the voxel Tralalero already runs on the lines in game (60 fps, no errors).
 - Each brainrot gets `sync/ReplicatedStorage/Shared/Art/<BrainrotId>.luau`, which returns `{ VoxelSize, Palette, Parts = { Legs, Body, Arms, Head }, Joints? }`. Each part is a list of shapes from `Shared/VoxelArt.luau`: `box`, `ball`, `cylinder` (upright), `carve`, `paint`, `mirror`.
-- `Materials = { [paletteKey] = Enum.Material.Neon }` makes those colors glow (Supremo's gems and steam). Zone editions with their own material override it.
+- `Materials = { [paletteKey] = Enum.Material.Neon }` makes those colors glow (Dragon Cannelloni's fire, Girafa Celestre's star; in a spec, `"Materials": {"Fire": "Neon"}`). There's no transparency (a space helmet is an open rim). Zone editions with their own material override it.
 - `paint(shape)` only recolors voxels that are already filled: use it for stripes and spots on curved surfaces (cactus ribs, gills, bark), because a plain box there adds stray voxels.
 - `Joints = { Head = Vector3 }` (voxels) overrides a part's socket when its bounding box misleads: a hanging nose or trunk, antennae (Patapim, Lirilì, Trippi). `Legs` is the hip, where the body's bottom sits (Tralalero). Mixed builds use these, so check one in the preview.
 - To end a leg exactly on a curved belly, reach up into the torso and `carve` the torso shapes from the legs (see Tralalero).
@@ -15,10 +15,11 @@ The pipeline works: the voxel Tralalero already runs on the lines in game (60 fp
 - Copy the style of the done ones: a `both(shapes, { ... })` helper adds shapes with their mirrors (`BrrBrrPatapim`, `LiriliLarila`, `TrippiTroppi`); `TralaleroTralala` has a head in front of the body, and `TungTungTungSahur` paints face features onto a cylinder's front.
 - Use whole-number box corners: a voxel is filled when its center (x.5) is inside, so integer bounds fill exactly the cells you expect.
 
-**Reference: *Steal a Brainrot*** (the user asked for this):
-1. Get the render from the fandom wiki's API: `curl -s "https://stealabrainrot.fandom.com/api.php?action=query&titles=<Page_Title>&prop=pageimages&pithumbsize=600&format=json"` gives the image URL.
-2. Download it into the scratchpad with curl **plus browser headers** (`-A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36" -H "Referer: https://stealabrainrot.fandom.com/"`; without them Cloudflare returns an HTML page). It comes as WebP: convert it to PNG with Python's PIL (installed), ideally several side by side on a gray background, and look with the Read tool.
-3. Keep the silhouette and signature colors. Split into Head/Body/Arms/Legs in a way that makes sense for the character (e.g. Tralalero's "arms" are fins, and a bomber's could be its wings).
+**Reference: the original meme image** (the user, 2026-10-07: real memes only, and no copying *Steal a Brainrot*):
+1. `python tools/brainrot_refs.py <scratchpad>/refs.png "<Wiki Page Title>" ...` prints each name's `creator` and `rarity` from the *Steal a Brainrot* fandom wiki and saves the **original meme image** its page or /Gallery keeps ("Origin Images", "the image it is based on") side by side in refs.png. Look with the Read tool.
+2. **Is it a real meme?** A TikTok handle as creator (@alexey_pigeon, @ofuscabreno, @__chenesacc__...) means yes. "BRAZILIAN SPYDER" or "SpyderSammy" (the game's developers) means the game made it up: don't use it. No original image or no creator: find it elsewhere first (a web search), or pick another. The wiki is fan-made, so check a surprising one elsewhere too.
+3. **Draw from the original image**, never from the game's 3D figure (their figures are their work; their outfits and colors that aren't in the meme stay theirs). Keep the original's silhouette and signature colors in our blocks; leave out guns, cigars and the like. Split into Head/Body/Arms/Legs in a way that makes sense for the character (Tralalero's "arms" are fins, a bomber's its wings, a quadruped's front legs or side fins, a teapot's spout and handle).
+4. The renders of the game's own figures still load with `action=query&titles=<Page_Title>&prop=pageimages&pithumbsize=600` (curl with the browser headers in the script; WebP, convert with PIL), only to understand a shape the original hides.
 
 **Previewing in Studio** (edit mode, no playtest needed):
 1. Paste [tools/ArtPreview.luau](tools/ArtPreview.luau) into `execute_luau` (Edit), after setting its `IDS` (and `MIXES` for a mixed build). It builds them side by side from x = 300, and reports part counts and **overlaps between parts** (they must be "none").

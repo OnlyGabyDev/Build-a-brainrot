@@ -8,17 +8,28 @@ local ServerScriptService = game:GetService("ServerScriptService")
 -- it's there (no falling through ground that isn't filled in yet).
 Players.CharacterAutoLoads = false
 
--- The loading screen's brainrots (ReplicatedFirst/LoadingScreen): every brainrot built
--- whole, first thing, into ReplicatedFirst, so a joining player gets them before
--- anything else (~1K parts, ~70 ms).
+-- The loading screen's brainrots (ReplicatedFirst/LoadingScreen): the host (Tralalero) and
+-- 11 others picked at random for this server, built whole, first thing, into
+-- ReplicatedFirst, so a joining player gets them before anything else (~1K parts; the
+-- whole roster would be too many for a phone's first seconds).
 do
 	local Shared = ReplicatedStorage:WaitForChild("Shared")
 	local BrainrotModels = require(Shared:WaitForChild("BrainrotModels"))
 	local Brainrots = require(Shared.Config.Brainrots)
 	local Rarities = require(Shared.Config.Rarities)
+	local LOADING_COUNT = 12
+	local picks = { Brainrots.ById[Brainrots.StarterId] }
+	local others = table.clone(Brainrots.List)
+	local random = Random.new()
+	while #picks < LOADING_COUNT and #others > 0 do
+		local brainrot = table.remove(others, random:NextInteger(1, #others))
+		if brainrot.Id ~= Brainrots.StarterId then
+			table.insert(picks, brainrot)
+		end
+	end
 	local folder = Instance.new("Folder")
 	folder.Name = "LoadingBrainrots"
-	for _, brainrot in Brainrots.List do
+	for _, brainrot in picks do
 		local figure = Instance.new("Model")
 		figure.Name = brainrot.Id
 		for _, partType in Brainrots.PartTypes do
@@ -30,7 +41,7 @@ do
 		figure:SetAttribute("Color", rarity.Color)
 		figure.Parent = folder
 	end
-	folder:SetAttribute("Count", #Brainrots.List)
+	folder:SetAttribute("Count", #picks)
 	folder:SetAttribute("Host", Brainrots.StarterId)
 	folder.Parent = ReplicatedFirst
 end

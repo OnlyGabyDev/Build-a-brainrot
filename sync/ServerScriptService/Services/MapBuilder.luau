@@ -732,7 +732,7 @@ end
 
 -- Between the factories --------------------------------------------------------------
 
-local SHOWCASE = { "TungTungTungSahur", "BallerinaCappuccina", "BombardiroCrocodilo", "ChimpanziniBananini", "LaVacaSaturnoSaturnita", "SupremoBrainrotto" }
+local SHOWCASE = { "TungTungTungSahur", "BallerinaCappuccina", "BombardiroCrocodilo", "ChimpanziniBananini", "LaVacaSaturnoSaturnita", "DragonCannelloni" }
 local BLOCK_COLORS = { Color3.fromRGB(255, 90, 90), Color3.fromRGB(80, 170, 255), Color3.fromRGB(255, 210, 50), Color3.fromRGB(110, 210, 90), Color3.fromRGB(190, 110, 255) }
 local CHECKER_COLORS = { Color3.fromRGB(255, 90, 110), Color3.fromRGB(255, 255, 255) }
 

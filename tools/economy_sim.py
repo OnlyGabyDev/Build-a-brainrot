@@ -69,7 +69,7 @@ BASE = dict(
         ("Common", 65, 20, 100), ("Uncommon", 26, 48, 250), ("Rare", 6.5, 120, 600),
         ("Legendary", 2, 400, 0), ("Mythic", 0.4, 1400, 0), ("Godly", 0.06, 6000, 0),
     ],
-    brainrots=dict(Common=4, Uncommon=3, Rare=3, Legendary=2, Mythic=2, Godly=1),  # Config/Brainrots
+    brainrots=dict(Common=8, Uncommon=6, Rare=5, Legendary=3, Mythic=3, Godly=1),  # Config/Brainrots
     starter="Common",  # Brainrots.StarterId's rarity: its 4 parts from the start
     starter_rolls=3,  # DataManager STARTER_ROLLS
     sure_new=dict(Roll=3, Box=1),  # Config/Loot.SureNew
@@ -422,7 +422,7 @@ def main(seeds=40, runs=10):
     r = Sim(BASE).run(BASE["rebirth_cost"], log=True)
     print("\n".join(r["trace"]))
     print(f"rebirth ({BASE['rebirth_cost']:,.0f} Coins) at {r['t'] / 3600:.2f} h with {r['share'] * 100:.0f}% of the buttons "
-          f"bought and {r['parts']} of 60 parts; income then {r['income']:,.0f}/s\n")
+          f"bought and {r['parts']} of {sum(BASE['brainrots'].values()) * 4} parts; income then {r['income']:,.0f}/s\n")
     runs1 = [Sim(BASE, seed).run(BASE["rebirth_cost"])["marks"] for seed in range(seeds)]
     print(f"over {seeds} seeds (minutes: 10th percentile / median / 90th):")
     for key in ("line1", "PlushieRoom", "ClayStudio", "VinylCollectibles", "rebirth"):

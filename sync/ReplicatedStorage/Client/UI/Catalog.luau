@@ -31,7 +31,8 @@ local Loot = require(script.Parent:WaitForChild("Loot"))
 local PART_TYPES = Brainrots.PartTypes
 local SIZE = Vector2.new(1000, 660)
 local PAGE = Vector2.new(968, 506) -- the page, under the rarity tabs
-local CARD = Vector2.new(216, 452)
+local CARD = Vector2.new(200, 452)
+local PER_SHEET = 4 -- stickers on a sheet; a rarity with more turns its sheets with arrows
 local TAB = Vector2.new(150, 50)
 local RIGHT = 410 -- the spread's right column starts here
 local SILHOUETTE_COLOR = Color3.fromRGB(28, 26, 40)
@@ -80,6 +81,7 @@ local body: Frame? = nil
 local inventory: Inventory = { Parts = {}, Claimed = {} }
 local lineIds: { Line } = {} -- the player's lines, by room
 local page = Rarities.List[1].Id -- the rarity page shown
+local sheetIndex = 1 -- which sheet of that rarity's stickers
 local selected: string? = nil -- the brainrot whose spread is open
 local claiming = false
 local animators: { (t: number, dt: number) -> () } = {} -- what moves on the page
@@ -296,6 +298,7 @@ local function renderTabs(parent: Frame)
 		tab.Activated:Connect(function()
 			Kit.click()
 			page = rarity.Id
+			sheetIndex = 1
 			selected = nil
 			render()
 		end)
@@ -465,7 +468,53 @@ local function renderCard(parent: Instance, order: number, brainrot: Brainrots.B
 	end)
 end
 
+-- An arrow on the sheet's edge that turns to the next or previous sheet, a "!" on it
+-- when a sticker that way can be claimed.
+local function sheetArrow(sheet: Frame, direction: number, sheets: number, list: { Brainrots.Brainrot })
+	local arrow = Kit.button({
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(if direction < 0 then 0 else 1, -direction * 32, 0.5, 0),
+		Size = UDim2.fromOffset(52, 64),
+		ZIndex = 6,
+		Parent = sheet,
+	}, Kit.Colors.Coins, nil, function()
+		sheetIndex = (sheetIndex - 1 + direction) % sheets + 1
+		render()
+	end, "Arrow")
+	local icon = arrow:FindFirstChild("Icon") :: ImageLabel?
+	if icon then
+		icon.Rotation = if direction < 0 then 180 else 0
+	end
+	local ready = false
+	for index, brainrot in list do
+		local onSheet = math.ceil(index / PER_SHEET)
+		local ahead = (onSheet - sheetIndex) * direction
+		if ahead > 0 and canClaim(inventory, brainrot.Id) then
+			ready = true
+		end
+	end
+	if ready then
+		local badge = Kit.text({
+			Text = "!",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0, -4),
+			Size = UDim2.fromOffset(28, 28),
+			BackgroundTransparency = 0,
+			BackgroundColor3 = GOLD,
+			StrokeThickness = 2,
+			ZIndex = 8,
+			Parent = arrow,
+		})
+		Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = badge })
+		Kit.stroke(badge, 3)
+		pulse(badge, 0.15, 6)
+	end
+end
+
 local function renderStickers(sheet: Frame)
+	local list = Brainrots.ByRarity[page] or {}
+	local sheets = math.max(1, math.ceil(#list / PER_SHEET))
+	sheetIndex = math.clamp(sheetIndex, 1, sheets)
 	local row = Kit.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -478,12 +527,30 @@ local function renderStickers(sheet: Frame)
 		FillDirection = Enum.FillDirection.Horizontal,
 		HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		VerticalAlignment = Enum.VerticalAlignment.Center,
-		Padding = UDim.new(0, 24),
+		Padding = UDim.new(0, 16),
 		SortOrder = Enum.SortOrder.LayoutOrder,
 		Parent = row,
 	})
-	for order, brainrot in Brainrots.ByRarity[page] or {} do
-		renderCard(row, order, brainrot)
+	local first = (sheetIndex - 1) * PER_SHEET
+	for order = first + 1, math.min(first + PER_SHEET, #list) do
+		renderCard(row, order, list[order])
+	end
+	if sheets > 1 then
+		sheetArrow(sheet, -1, sheets, list)
+		sheetArrow(sheet, 1, sheets, list)
+		for index = 1, sheets do -- a dot per sheet under the stickers, this one bigger and gold
+			local here = index == sheetIndex
+			local dot = Kit.new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.new(0.5, (index - (sheets + 1) / 2) * 26, 1, -11),
+				Size = UDim2.fromOffset(if here then 18 else 12, if here then 18 else 12),
+				BackgroundColor3 = if here then GOLD else Kit.White,
+				ZIndex = 6,
+				Parent = sheet,
+			})
+			Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = dot })
+			Kit.stroke(dot, 2.5)
+		end
 	end
 end
 
@@ -762,10 +829,11 @@ function Catalog.Open()
 		refresh()
 		-- open on the first page with a sticker to claim
 		for _, rarity in Rarities.List do
-			for _, brainrot in Brainrots.ByRarity[rarity.Id] or {} do
+			for index, brainrot in Brainrots.ByRarity[rarity.Id] or {} do
 				if canClaim(inventory, brainrot.Id) then
-					if page ~= rarity.Id then
-						page = rarity.Id
+					local onSheet = math.ceil(index / PER_SHEET)
+					if page ~= rarity.Id or sheetIndex ~= onSheet then
+						page, sheetIndex = rarity.Id, onSheet
 						render()
 					end
 					return

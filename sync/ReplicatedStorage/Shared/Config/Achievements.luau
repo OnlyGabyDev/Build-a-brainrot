@@ -48,7 +48,7 @@ end
 
 local ALL_PARTS = #Brainrots.List * #Brainrots.PartTypes
 local PART_GOALS = {}
-for _, goal in { 8, 12, 20, 30, 45 } do
+for _, goal in { 8, 12, 20, 30, 45, 75, 140 } do -- (8 tiers at most, the last every part)
 	if goal < ALL_PARTS then
 		table.insert(PART_GOALS, goal)
 	end

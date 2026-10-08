@@ -34,7 +34,7 @@ local IS_STUDIO = RunService:IsStudio()
 -- Studio uses its own store so play-testing never touches live player data.
 local STORE_NAME = if IS_STUDIO then "PlayerData_Studio" else "PlayerData"
 local KEY_PREFIX = "Player_"
-local DATA_VERSION = 2
+local DATA_VERSION = 3
 
 local AUTOSAVE_INTERVAL = 60 -- seconds between saves for each player
 local LOCK_EXPIRE_SECONDS = 300 -- a lock not refreshed for this long belongs to a dead server
@@ -200,6 +200,37 @@ MIGRATIONS[1] = function(data)
 			entry.Goal = math.max(1, math.floor((tonumber(entry.Goal) or 1) * ratio))
 		end
 	end
+end
+
+-- 2 -> 3 (v5.7, a bigger collection, 2026-10-07): our own Supremo Brainrotto left the
+-- roster (real memes only); the new Godly, Dragon Cannelloni, takes its place everywhere a
+-- brainrot id is saved (parts, claims, lines, the mascot, morph and gadget choices), so its
+-- owners keep a Godly.
+MIGRATIONS[2] = function(data)
+	local OLD, NEW = "SupremoBrainrotto", "DragonCannelloni"
+	local function swap(node: any)
+		if type(node) ~= "table" then
+			return
+		end
+		local moved = {}
+		for key, value in node do
+			if value == OLD then
+				node[key] = NEW
+			else
+				swap(value)
+			end
+			if key == OLD then
+				table.insert(moved, key)
+			end
+		end
+		for _, key in moved do
+			if node[NEW] == nil then
+				node[NEW] = node[key]
+			end
+			node[key] = nil
+		end
+	end
+	swap(data)
 end
 
 -- State ----------------------------------------------------------------------

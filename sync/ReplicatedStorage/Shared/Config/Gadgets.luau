@@ -45,7 +45,19 @@ local Gadgets: { [string]: Gadget } = {
 	GlorboFruttodrillo = { Name = "Watermelon Chomp", Icon = "Hammer", Description = "Chomp players away!", Archetype = "Melee", Range = 7, Knockback = 85, Cooldown = 1 },
 	BombardiroCrocodilo = { Name = "Bombardiro Jet", Icon = "Rocket", Description = "Click to blast forward like a jet!", Archetype = "Launch", Forward = 140, Up = 55, Cooldown = 3 },
 	LaVacaSaturnoSaturnita = { Name = "Saturn Moon Jump", Icon = "Shoe", Description = "Hold it to jump like on the moon!", Archetype = "Movement", JumpHeight = 30 },
-	SupremoBrainrotto = { Name = "Royal Risotto Rush", Icon = "Shoe", Description = "Hold it: faster AND higher!", Archetype = "Movement", WalkSpeed = 36, JumpHeight = 16 },
+	-- the bigger collection's first wave (2026-10-07)
+	TimCheese = { Name = "Cheese Dash", Icon = "Shoe", Description = "Hold it to scurry fast!", Archetype = "Movement", WalkSpeed = 26 },
+	TaTaTaTaSahur = { Name = "Teapot Bonk", Icon = "Hammer", Description = "Bonk players away!", Archetype = "Melee", Range = 7, Knockback = 70, Cooldown = 1 },
+	TricTracBaraboom = { Name = "Baraboom Stomp", Icon = "Rocket", Description = "Click to spring up high!", Archetype = "Launch", Forward = 30, Up = 75, Cooldown = 2.5 },
+	Fluriflura = { Name = "Fluri Flap", Icon = "Rocket", Description = "Click to flap forward!", Archetype = "Launch", Forward = 55, Up = 65, Cooldown = 2 },
+	BanditoBobritto = { Name = "Beaver Tail Slap", Icon = "Hammer", Description = "Slap players away!", Archetype = "Melee", Range = 8, Knockback = 80, Cooldown = 1 },
+	TrulimeroTrulicina = { Name = "Four-Leg Sprint", Icon = "Shoe", Description = "Hold it to run super fast!", Archetype = "Movement", WalkSpeed = 30 },
+	BananitaDolphinita = { Name = "Dolphin Dive", Icon = "Rocket", Description = "Click to dive forward!", Archetype = "Launch", Forward = 95, Up = 40, Cooldown = 2 },
+	BurbaloniLoliloli = { Name = "Coconut Roll", Icon = "Shoe", Description = "Hold it to roll super fast!", Archetype = "Movement", WalkSpeed = 32 },
+	BlueberrinniOctopusini = { Name = "Tentacle Slap", Icon = "Hammer", Description = "Slap players far away!", Archetype = "Melee", Range = 9, Knockback = 95, Cooldown = 1.2 },
+	OrangutiniAnanassini = { Name = "Jungle Swing", Icon = "Rocket", Description = "Click to swing far!", Archetype = "Launch", Forward = 85, Up = 80, Cooldown = 2.5 },
+	GirafaCelestre = { Name = "Moon Boots", Icon = "Shoe", Description = "Hold it to jump into space!", Archetype = "Movement", JumpHeight = 34 },
+	DragonCannelloni = { Name = "Dragon Wings", Icon = "Rocket", Description = "Click to fly like a dragon!", Archetype = "Launch", Forward = 160, Up = 100, Cooldown = 3 },
 }
 
 return Gadgets

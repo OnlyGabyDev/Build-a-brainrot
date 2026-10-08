@@ -49,16 +49,20 @@ A joyful, colorful **brainrot factory tycoon**. The factory *is* the brainrot bu
 - A brainrot's rarity is the rarity of all 4 of its parts.
 - Parts are **unlocked or locked**. There are no stacks, because duplicates convert to currency (see §5).
 
-### Draft roster (placeholder, tune freely)
+### The roster (50 planned, in 3 waves)
 
-| Rarity | Brainrots | Gadget (claimed in the Album) |
+**Real memes only** (the user, 2026-10-07): every brainrot comes from its creator's original post in the 2025 "Italian brainrot" wave (TikTok), never one a game made up. *Steal a Brainrot* invented many of its own (Noobini Pizzanini, Cocofanto Elefanto, Gattatino Neonino, Raccooni Jandelini, Chimpanzini Spiderini, its "67"...): those are out, and so are its 3D models: our block art follows **the original meme image** (how to find it: docs/reference.md). Also out: names that read badly to kids (Brri Brri Bicus Dicus Bombicus, Graipuss Medussi, the "Pipi" ones, Gangster Footera) and, while their owner's lawsuit against *Steal a Brainrot* runs (2026), the other characters of Tung Tung Tung Sahur's creator (Odin Din Din Dun, Garama and Madundung, Esok Sekolah). Tung Tung Tung Sahur stays (the user's call). Original images with guns or cigars get neither (Bandito Bobritto).
+
+| Rarity | In the game (26) | Waves 2 and 3 (24) |
 |---|---|---|
-| Common | **Tralalero Tralala** (shark with shoes, *starter*), Brr Brr Patapim, Lirilì Larilà, Trippi Troppi | Tralalero: speed-boost sneakers · others: archetype defaults |
-| Uncommon | Ballerina Cappuccina, Chimpanzini Bananini, Boneca Ambalabu | Ballerina: **dance emote** |
-| Rare | Cappuccino Assassino, Bombombini Gusini, Frigo Camelo | archetype defaults |
-| Legendary | **Tung Tung Tung Sahur**, Glorbo Fruttodrillo | Sahur: **high-knockback baton** |
-| Mythic | **Bombardiro Crocodilo**, La Vaca Saturno Saturnita | Bombardiro: **rideable bomber** 🟡 |
-| Godly | **Supremo Brainrotto**, the Risotto King (our own signature brainrot): a crowned pink brain with googly eyes and a mustache, popping out of a golden pot of risotto that steams in rainbow colors, holding a giant spoon and fork, on chef boots | TBD |
+| Common (14) | **Tralalero Tralala** (*starter*), Brr Brr Patapim, Lirilì Larilà, Trippi Troppi, Tim Cheese, Ta Ta Ta Ta Sahur, Tric Trac Baraboom, Fluriflura | Talpa Di Fero, Svinina Bombardino, Cacto Hipopotamo, Bambini Crostini, Moranguete, Abacatudo |
+| Uncommon (11) | Ballerina Cappuccina, Chimpanzini Bananini, Boneca Ambalabu, Bandito Bobritto, Trulimero Trulicina, Bananita Dolphinita | Perochello Lemonchello, Mangolini Parrocini, Penguino Cocosino, Spioniro Golubiro, Lionel Cactuseli |
+| Rare (9) | Cappuccino Assassino, Bombombini Gusini, Frigo Camelo, Burbaloni Loliloli, Blueberrinni Octopusini | Strawberrelli Flamingelli, Rhino Toasterino, Cavallo Virtuoso, Cocosini Mama |
+| Legendary (7) | **Tung Tung Tung Sahur**, Glorbo Fruttodrillo, Orangutini Ananassini | "67" (our own look: the meme is real, the *Steal a Brainrot* figure isn't), Zibra Zubra Zibralini, Gorillo Watermelondrillo, Ballerino Lololo |
+| Mythic (5) | **Bombardiro Crocodilo**, La Vaca Saturno Saturnita, Girafa Celestre | Orcalero Orcala, Espresso Signora |
+| Godly (4) | **Dragon Cannelloni** (glowing fire breath) | Trenostruzzo Turbo 3000, Nuclearo Dinossauro, Ketupat Kepat |
+
+Every brainrot has a gadget (`Config/Gadgets`, one of the archetypes below): Tralalero's speed sneakers, Ballerina's **dance emote**, Sahur's **high-knockback baton**, Bombardiro's jet launch, Dragon Cannelloni's dragon-wing launch, and simple ones for the rest. Our own Supremo Brainrotto (the old Godly) left in v5.7; saves that had it got Dragon Cannelloni instead. Waves 2 and 3: check each one's creator and original image first (`tools/brainrot_refs.py`; Moranguete and Abacatudo come from the Brazilian AI fruit soap operas, not that wiki); swap any that can't be traced to its creator.
 
 **Gadget archetypes.** Every brainrot's gadget is one of a few reusable templates plus config:
 - **Emote** (dance, pose) 🟢
@@ -232,7 +236,7 @@ The HUD's ALBUM button wears a pulsing gold **CLAIM!** while a brainrot waits to
 ✅ (v4.1, the user's new-player review: the Index was cluttered and not special) A **sticker album** in the blue-inventory style (*Pet Simulator 99*), its button on the HUD named **ALBUM**:
 - **A page per rarity**, tabs across the top in the rarity's colors (Godly a turning rainbow) with how many are claimed (e.g. 1/4) and a "!" where something can be claimed; it opens on the first page with a sticker to claim. The title counts every claim (ALBUM 3/15).
 - **Each page has its own scenery:** Common a sunny meadow (sky over a grass horizon, clouds drifting), Uncommon leafy green (leaves floating up), Rare the sea (bubbles rising), Legendary gold under a turning sunburst, Mythic a pink night of twinkles, Godly a turning rainbow with twinkles.
-- **Stickers are big** (up to 4 a page): a white die-cut card with the whole brainrot filling its face (framed to fit whatever its shape, swaying at three quarters), the parts you're missing dark, its name ("???" until you find a part), a dot per part (green with a tick once it's yours), and what's next: **x/4 PARTS**, a pulsing gold **CLAIM!** (the card rimmed in gold neon), or claimed (a tick on the corner, its morph and gadget icons).
+- **Stickers are big** (4 a sheet; a page with more turns its sheets with gold arrows on its sides, a "!" on an arrow when a sticker that way can be claimed, and a dot per sheet under them, v5.7; it opens on the sheet with the sticker to claim): a white die-cut card with the whole brainrot filling its face (framed to fit whatever its shape, swaying at three quarters), the parts you're missing dark, its name ("???" until you find a part), a dot per part (green with a tick once it's yours), and what's next: **x/4 PARTS**, a pulsing gold **CLAIM!** (the card rimmed in gold neon), or claimed (a tick on the corner, its morph and gadget icons).
 - **A sticker opens its spread:** the big brainrot, its name, its rarity with stars, its **4 part slots** (each part turning, dark if missing, a tick or a lock) and **one button**: missing parts → how many are left and OPEN A ROLL (or a hint about map boxes); all 4 → what claiming gives (morph, gadget, Gems) and a huge **CLAIM!** over a sunburst; claimed → **MORPH / GADGET** (on and off) and **BUILD IT ON A LINE** (a button per line).
 
 ---
@@ -516,7 +520,7 @@ StarterPlayer/StarterPlayerScripts/
     - Economy: the plain block already sells for more than a Vinyl brainrot, so money never drops when you enter the room. The chocolate stages (melting, pouring, molds filling) suit the far better animations the user wants from this room on.
 22. **Rebirth unlocks** (the user, 2026-10-02; after the main loop, the HUD, the bosses and the gadgets): each rebirth unlocks cool new upgrades for the rooms you already have, like minigames (a playable claw machine in the Toy Workshop).
 23. **A new verb per room** (proposed 2026-10-02; the user worried every room is the same loop, droppers into an Assembler, at least until the first rebirth). Classic dropper tycoons repeat their loop floor after floor, and ours already varies the machines and animations per room, but what the player *does* stays the same. Each room could add one small mechanic of its own: *Plushie room:* an **orders board** (a customer wants, say, a Tralalero head on any body, for a big bonus), so the tablet's choices matter. *Clay Studio:* **customizing** (the Paint Booth options and the Photobooth, §6). *Vinyl:* **limited editions** (a chance of a holo or gold variant to collect in the Index). *Candy Factory:* the chocolate line (21). To decide.
-24. **New brainrots** (the user, 2026-10-02): **Moranguete** (a strawberry) and **Abacatudo** (an avocado), from the viral AI fruit soap operas: simple names foreign players can say too. Commons, to fill out the roster and push the coolest brainrots a few tiers up. Also the **"67"** meme, as a **Legendary**. Design our own look for each (never copy the videos' renders, the song or the real people), and prefer names that are generic wordplay. The main players are foreign, so no Portuguese-only names.
+24. 🟡 (Moranguete, Abacatudo and "67" are in the roster's waves 2-3, §3) **New brainrots** (the user, 2026-10-02): **Moranguete** (a strawberry) and **Abacatudo** (an avocado), from the viral AI fruit soap operas: simple names foreign players can say too. Commons, to fill out the roster and push the coolest brainrots a few tiers up. Also the **"67"** meme, as a **Legendary**. Design our own look for each (never copy the videos' renders, the song or the real people), and prefer names that are generic wordplay. The main players are foreign, so no Portuguese-only names.
 
 25. ✅ (v4.9, §5 "Achievements": tiers in rarity colors; no Roblox badges yet) **Achievements** (the user, 2026-10-02: before the release): an in-game list (first brainrot built, first full match, N completions, a brainrot of each rarity, every room opened, the first rebirth, boxes opened, bosses beaten...) with Gem and Roll rewards, a popup when one is earned, a page in the UI, and Roblox badges for the big ones.
 
