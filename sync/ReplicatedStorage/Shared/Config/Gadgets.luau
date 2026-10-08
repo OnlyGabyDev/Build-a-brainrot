@@ -71,6 +71,19 @@ local Gadgets: { [string]: Gadget } = {
 	GorilloWatermelondrillo = { Name = "Gorilla Smash", Icon = "Hammer", Description = "A huge smash: players fly!", Archetype = "Melee", Range = 10, Knockback = 130, Cooldown = 1.5 },
 	OrcaleroOrcala = { Name = "Orca Splash", Icon = "Rocket", Description = "Click to leap like an orca!", Archetype = "Launch", Forward = 130, Up = 75, Cooldown = 3 },
 	TrenostruzzoTurbo3000 = { Name = "Turbo 3000", Icon = "Rocket", Description = "Click to zoom off like a train!", Archetype = "Launch", Forward = 190, Up = 40, Cooldown = 3 },
+	-- the third wave (2026-10-08)
+	BambiniCrostini = { Name = "Fawn Hop", Icon = "Shoe", Description = "Hold it to jump really high!", Archetype = "Movement", JumpHeight = 18 },
+	PandacciniBananini = { Name = "Panda Bonk", Icon = "Hammer", Description = "Bonk players away!", Archetype = "Melee", Range = 7, Knockback = 60, Cooldown = 0.8 },
+	TigroligreFrutonni = { Name = "Tiger Pounce", Icon = "Rocket", Description = "Click to pounce forward!", Archetype = "Launch", Forward = 75, Up = 45, Cooldown = 2 },
+	SpioniroGolubiro = { Name = "Spy Sneak", Icon = "Shoe", Description = "Hold it to sneak super fast!", Archetype = "Movement", WalkSpeed = 28 },
+	LionelCactuseli = { Name = "Cactus Swipe", Icon = "Hammer", Description = "Swipe players away!", Archetype = "Melee", Range = 8, Knockback = 80, Cooldown = 1 },
+	CavalloVirtuoso = { Name = "Giant Boots", Icon = "Shoe", Description = "Hold it to stomp super fast!", Archetype = "Movement", WalkSpeed = 32 },
+	CocosiniMama = { Name = "Kangaroo Hop", Icon = "Shoe", Description = "Hold it to hop really high!", Archetype = "Movement", JumpHeight = 26 },
+	SixtySeven = { Name = "Six Seven Jump", Icon = "Rocket", Description = "Click to jump: six, seven!", Archetype = "Launch", Forward = 67, Up = 67, Cooldown = 2 },
+	BallerinoLololo = { Name = "Muscle Punch", Icon = "Hammer", Description = "Punch players far away!", Archetype = "Melee", Range = 9, Knockback = 115, Cooldown = 1.2 },
+	EspressoSignora = { Name = "Espresso Rush", Icon = "Shoe", Description = "Hold it for a coffee rush!", Archetype = "Movement", WalkSpeed = 38 },
+	NuclearoDinossauro = { Name = "Nuclear Jet", Icon = "Rocket", Description = "Click to blast off like a bomber!", Archetype = "Launch", Forward = 180, Up = 90, Cooldown = 3 },
+	KetupatKepat = { Name = "Ketupat Smash", Icon = "Hammer", Description = "Whack players into the sky!", Archetype = "Melee", Range = 11, Knockback = 150, Cooldown = 1.5 },
 }
 
 return Gadgets
