@@ -22,7 +22,7 @@ The pipeline works: the voxel Tralalero already runs on the lines in game (60 fp
 4. The renders of the game's own figures still load with `action=query&titles=<Page_Title>&prop=pageimages&pithumbsize=600` (curl with the browser headers in the script; WebP, convert with PIL), only to understand a shape the original hides.
 
 **Previewing in Studio** (edit mode, no playtest needed):
-1. Paste [tools/ArtPreview.luau](tools/ArtPreview.luau) into `execute_luau` (Edit), after setting its `IDS` (and `MIXES` for a mixed build). It builds them side by side from x = 300, and reports part counts and **overlaps between parts** (they must be "none").
+1. Paste [tools/ArtPreview.luau](tools/ArtPreview.luau) into `execute_luau` (Edit), after setting its `IDS` (and `MIXES` for a mixed build). It builds them side by side from x = 300, and reports part counts and **flicker between parts**: faces of two parts in one plane, facing the same way, in different colors (it must be "none"). A block of one part reaching into another is fine. `voxel_art.py`'s "cells shared between parts" skips `block`/`wedge`/`rod` solids, so for block art it's always 0: trust the Studio check.
 2. `screen_capture` from `(x + 3, 4.5, -7.5)` looking at `(x, 3.2, 0)`. Edit mode is flatly lit, so colors look paler than in game.
 3. **Delete `Workspace.ArtPreview` when done.** It's a Studio instance and isn't synced.
 

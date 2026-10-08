@@ -3,9 +3,12 @@
 	the code, after editing IDS (and MIXES, for mixed-part builds).
 
 	Builds each brainrot side by side from x = 300 in Workspace.ArtPreview, and
-	reports its size, part count, and any voxels where two of its parts overlap
-	(overlaps flicker: fix them). It requires a fresh clone of Shared, so edits
-	synced by Azul always show (Studio caches a module after its first require).
+	reports its size, part count, and where two of its parts flicker: faces of
+	different parts in the same plane, facing the same way, in different colors
+	(fix them). Blocks of one part reaching into another are fine (legs up into a
+	body), and so are faces 0.02 studs apart (Tralalero's run in game without
+	flicker). Rotated blocks aren't checked. It requires a fresh clone of Shared, so
+	edits synced by Azul always show (Studio caches a module after its first require).
 
 	Camera for one brainrot at x: screen_capture from (x + 3, 4.5, -7.5) looking at
 	(x, 3.2, 0). Delete Workspace.ArtPreview when done (the last line of the output
@@ -31,9 +34,30 @@ local folder = Instance.new("Folder")
 folder.Name = "ArtPreview"
 folder.Parent = workspace
 
-local function overlap(a: BasePart, b: BasePart): number
-	local d = (a.Position + a.Size / 2):Min(b.Position + b.Size / 2) - (a.Position - a.Size / 2):Max(b.Position - b.Size / 2)
-	return if d.X > 0.01 and d.Y > 0.01 and d.Z > 0.01 then d.X * d.Y * d.Z else 0
+local PLANE = 0.01 -- studs: faces closer than this share a plane
+local AXES = { { "X", "Y", "Z" }, { "Y", "Z", "X" }, { "Z", "X", "Y" } } -- (the normal, then the face's two sides)
+
+local function aligned(part: BasePart): boolean
+	return part:IsA("Part") and part.Shape == Enum.PartType.Block and part.CFrame.Rotation:FuzzyEq(CFrame.identity, 1e-4)
+end
+
+-- The area (studs²) where faces of two unrotated blocks share a plane and face the same way.
+local function sharedFaces(a: BasePart, b: BasePart): number
+	local ca, ha, cb, hb = a.Position :: any, (a.Size / 2) :: any, b.Position :: any, (b.Size / 2) :: any
+	local area = 0
+	for _, axes in AXES do
+		local n, u, v = axes[1], axes[2], axes[3]
+		local du = math.min(ca[u] + ha[u], cb[u] + hb[u]) - math.max(ca[u] - ha[u], cb[u] - hb[u])
+		local dv = math.min(ca[v] + ha[v], cb[v] + hb[v]) - math.max(ca[v] - ha[v], cb[v] - hb[v])
+		if du > PLANE and dv > PLANE then
+			for _, sign in { 1, -1 } do
+				if math.abs((ca[n] + sign * ha[n]) - (cb[n] + sign * hb[n])) < PLANE then
+					area += du * dv
+				end
+			end
+		end
+	end
+	return area
 end
 
 local out = {}
@@ -53,19 +77,19 @@ for i, id in IDS do
 			table.insert(parts, part)
 		end
 	end
-	local overlaps = {}
+	local flickers = {}
 	for a = 1, #parts do
 		for b = a + 1, #parts do
-			local volume = 0
+			local area = 0
 			for _, pa in parts[a]:GetChildren() do
 				for _, pb in parts[b]:GetChildren() do
-					if pa:IsA("BasePart") and pb:IsA("BasePart") then
-						volume += overlap(pa, pb)
+					if pa:IsA("BasePart") and pb:IsA("BasePart") and aligned(pa) and aligned(pb) and (pa.Color ~= pb.Color or pa.Material ~= pb.Material) then
+						area += sharedFaces(pa, pb)
 					end
 				end
 			end
-			if volume > 0 then
-				table.insert(overlaps, `{parts[a].Name}/{parts[b].Name} {math.round(volume / art.VoxelSize ^ 3)} voxels`)
+			if area > 0 then
+				table.insert(flickers, `{parts[a].Name}/{parts[b].Name} {string.format("%.2f", area)} studs²`)
 			end
 		end
 	end
@@ -79,8 +103,8 @@ for i, id in IDS do
 			count += 1
 		end
 	end
-	local overlapText = if #overlaps > 0 then table.concat(overlaps, ", ") else "none"
-	table.insert(out, `{id} at x={300 + (i - 1) * SPACING}: {count} parts, size {size}, overlaps: {overlapText}`)
+	local flickerText = if #flickers > 0 then table.concat(flickers, ", ") else "none"
+	table.insert(out, `{id} at x={300 + (i - 1) * SPACING}: {count} parts, size {size}, flicker: {flickerText}`)
 end
 
 for i, build in MIXES do

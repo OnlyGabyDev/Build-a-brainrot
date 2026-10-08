@@ -53,16 +53,16 @@ A joyful, colorful **brainrot factory tycoon**. The factory *is* the brainrot bu
 
 **Real memes only** (the user, 2026-10-07): every brainrot comes from its creator's original post in the 2025 "Italian brainrot" wave (TikTok), never one a game made up. *Steal a Brainrot* invented many of its own (Noobini Pizzanini, Cocofanto Elefanto, Gattatino Neonino, Raccooni Jandelini, Chimpanzini Spiderini, its "67"...): those are out, and so are its 3D models: our block art follows **the original meme image** (how to find it: docs/reference.md). Also out: names that read badly to kids (Brri Brri Bicus Dicus Bombicus, Graipuss Medussi, the "Pipi" ones, Gangster Footera) and, while their owner's lawsuit against *Steal a Brainrot* runs (2026), the other characters of Tung Tung Tung Sahur's creator (Odin Din Din Dun, Garama and Madundung, Esok Sekolah). Tung Tung Tung Sahur stays (the user's call). Original images with guns or cigars get neither (Bandito Bobritto).
 
-| Rarity | In the game (26) | Waves 2 and 3 (24) |
+| Rarity | In the game (38) | Wave 3 (12) |
 |---|---|---|
-| Common (14) | **Tralalero Tralala** (*starter*), Brr Brr Patapim, Lirilì Larilà, Trippi Troppi, Tim Cheese, Ta Ta Ta Ta Sahur, Tric Trac Baraboom, Fluriflura | Talpa Di Fero, Svinina Bombardino, Cacto Hipopotamo, Bambini Crostini, Moranguete, Abacatudo |
-| Uncommon (11) | Ballerina Cappuccina, Chimpanzini Bananini, Boneca Ambalabu, Bandito Bobritto, Trulimero Trulicina, Bananita Dolphinita | Perochello Lemonchello, Mangolini Parrocini, Penguino Cocosino, Spioniro Golubiro, Lionel Cactuseli |
-| Rare (9) | Cappuccino Assassino, Bombombini Gusini, Frigo Camelo, Burbaloni Loliloli, Blueberrinni Octopusini | Strawberrelli Flamingelli, Rhino Toasterino, Cavallo Virtuoso, Cocosini Mama |
-| Legendary (7) | **Tung Tung Tung Sahur**, Glorbo Fruttodrillo, Orangutini Ananassini | "67" (our own look: the meme is real, the *Steal a Brainrot* figure isn't), Zibra Zubra Zibralini, Gorillo Watermelondrillo, Ballerino Lololo |
-| Mythic (5) | **Bombardiro Crocodilo**, La Vaca Saturno Saturnita, Girafa Celestre | Orcalero Orcala, Espresso Signora |
-| Godly (4) | **Dragon Cannelloni** (glowing fire breath) | Trenostruzzo Turbo 3000, Nuclearo Dinossauro, Ketupat Kepat |
+| Common (14) | **Tralalero Tralala** (*starter*), Brr Brr Patapim, Lirilì Larilà, Trippi Troppi, Tim Cheese, Ta Ta Ta Ta Sahur, Tric Trac Baraboom, Fluriflura, Talpa Di Fero, Svinina Bombardino, Cacto Hipopotamo | Bambini Crostini, Moranguete, Abacatudo |
+| Uncommon (11) | Ballerina Cappuccina, Chimpanzini Bananini, Boneca Ambalabu, Bandito Bobritto, Trulimero Trulicina, Bananita Dolphinita, Perochello Lemonchello, Mangolini Parrocini, Penguino Cocosino | Spioniro Golubiro, Lionel Cactuseli |
+| Rare (9) | Cappuccino Assassino, Bombombini Gusini, Frigo Camelo, Burbaloni Loliloli, Blueberrinni Octopusini, Strawberrelli Flamingelli, Rhino Toasterino | Cavallo Virtuoso, Cocosini Mama |
+| Legendary (7) | **Tung Tung Tung Sahur**, Glorbo Fruttodrillo, Orangutini Ananassini, Zibra Zubra Zibralini, Gorillo Watermelondrillo | "67" (our own look: the meme is real, the *Steal a Brainrot* figure isn't), Ballerino Lololo |
+| Mythic (5) | **Bombardiro Crocodilo**, La Vaca Saturno Saturnita, Girafa Celestre, Orcalero Orcala | Espresso Signora |
+| Godly (4) | **Dragon Cannelloni** (glowing fire breath), Trenostruzzo Turbo 3000 | Nuclearo Dinossauro, Ketupat Kepat |
 
-Every brainrot has a gadget (`Config/Gadgets`, one of the archetypes below): Tralalero's speed sneakers, Ballerina's **dance emote**, Sahur's **high-knockback baton**, Bombardiro's jet launch, Dragon Cannelloni's dragon-wing launch, and simple ones for the rest. Our own Supremo Brainrotto (the old Godly) left in v5.7; saves that had it got Dragon Cannelloni instead. Waves 2 and 3: check each one's creator and original image first (`tools/brainrot_refs.py`; Moranguete and Abacatudo come from the Brazilian AI fruit soap operas, not that wiki); swap any that can't be traced to its creator.
+Every brainrot has a gadget (`Config/Gadgets`, one of the archetypes below): Tralalero's speed sneakers, Ballerina's **dance emote**, Sahur's **high-knockback baton**, Bombardiro's jet launch, Dragon Cannelloni's dragon-wing launch, and simple ones for the rest. Our own Supremo Brainrotto (the old Godly) left in v5.7; saves that had it got Dragon Cannelloni instead. Wave 3: check each one's creator and original image first (`tools/brainrot_refs.py`; Moranguete and Abacatudo come from the Brazilian AI fruit soap operas, not that wiki); swap any that can't be traced to its creator.
 
 **Gadget archetypes.** Every brainrot's gadget is one of a few reusable templates plus config:
 - **Emote** (dance, pose) 🟢
