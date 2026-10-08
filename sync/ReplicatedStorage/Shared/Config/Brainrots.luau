@@ -38,6 +38,9 @@ Brainrots.List = {
 	{ Id = "BambiniCrostini", Name = "Bambini Crostini", Rarity = "Common", Color = Color3.fromRGB(230, 156, 62) },
 	{ Id = "PandacciniBananini", Name = "Pandaccini Bananini", Rarity = "Common", Color = Color3.fromRGB(250, 214, 52) },
 	{ Id = "TigroligreFrutonni", Name = "Tigroligre Frutonni", Rarity = "Common", Color = Color3.fromRGB(240, 140, 40) },
+	{ Id = "AvocadiniGuffo", Name = "Avocadini Guffo", Rarity = "Common", Color = Color3.fromRGB(96, 156, 56) },
+	{ Id = "PeachiFoxilini", Name = "Peachi Foxilini", Rarity = "Common", Color = Color3.fromRGB(244, 150, 120) },
+	{ Id = "SalaminoPenguino", Name = "Salamino Penguino", Rarity = "Common", Color = Color3.fromRGB(186, 44, 48) },
 
 	-- Uncommon
 	{ Id = "BallerinaCappuccina", Name = "Ballerina Cappuccina", Rarity = "Uncommon", Color = Color3.fromRGB(255, 170, 200) },
@@ -51,6 +54,8 @@ Brainrots.List = {
 	{ Id = "PenguinoCocosino", Name = "Penguino Cocosino", Rarity = "Uncommon", Color = Color3.fromRGB(126, 80, 46) },
 	{ Id = "SpioniroGolubiro", Name = "Spioniro Golubiro", Rarity = "Uncommon", Color = Color3.fromRGB(186, 112, 62) },
 	{ Id = "LionelCactuseli", Name = "Lionel Cactuseli", Rarity = "Uncommon", Color = Color3.fromRGB(92, 156, 66) },
+	{ Id = "DulDulDul", Name = "Dul Dul Dul", Rarity = "Uncommon", Color = Color3.fromRGB(132, 92, 60) },
+	{ Id = "Carloo", Name = "Carloo", Rarity = "Uncommon", Color = Color3.fromRGB(104, 124, 74) },
 
 	-- Rare
 	{ Id = "CappuccinoAssassino", Name = "Cappuccino Assassino", Rarity = "Rare", Color = Color3.fromRGB(120, 80, 60) },
@@ -62,6 +67,8 @@ Brainrots.List = {
 	{ Id = "RhinoToasterino", Name = "Rhino Toasterino", Rarity = "Rare", Color = Color3.fromRGB(206, 212, 222) },
 	{ Id = "CavalloVirtuoso", Name = "Cavallo Virtuoso", Rarity = "Rare", Color = Color3.fromRGB(204, 44, 40) },
 	{ Id = "CocosiniMama", Name = "Cocosini Mama", Rarity = "Rare", Color = Color3.fromRGB(204, 150, 96) },
+	{ Id = "GanganzelliTrulala", Name = "Ganganzelli Trulala", Rarity = "Rare", Color = Color3.fromRGB(244, 132, 28) },
+	{ Id = "TirilikalikaTirilikalako", Name = "Tirilikalika Tirilikalako", Rarity = "Rare", Color = Color3.fromRGB(200, 112, 40) },
 
 	-- Legendary
 	{ Id = "TungTungTungSahur", Name = "Tung Tung Tung Sahur", Rarity = "Legendary", Color = Color3.fromRGB(190, 140, 90) },
@@ -71,6 +78,7 @@ Brainrots.List = {
 	{ Id = "GorilloWatermelondrillo", Name = "Gorillo Watermelondrillo", Rarity = "Legendary", Color = Color3.fromRGB(40, 40, 46) },
 	{ Id = "SixtySeven", Name = "67", Rarity = "Legendary", Color = Color3.fromRGB(238, 122, 38) },
 	{ Id = "BallerinoLololo", Name = "Ballerino Lololo", Rarity = "Legendary", Color = Color3.fromRGB(236, 208, 180) },
+	{ Id = "PotHotspot", Name = "Pot Hotspot", Rarity = "Legendary", Color = Color3.fromRGB(96, 176, 164) },
 
 	-- Mythic
 	{ Id = "BombardiroCrocodilo", Name = "Bombardiro Crocodilo", Rarity = "Mythic", Color = Color3.fromRGB(70, 120, 60) },
@@ -78,12 +86,14 @@ Brainrots.List = {
 	{ Id = "GirafaCelestre", Name = "Girafa Celestre", Rarity = "Mythic", Color = Color3.fromRGB(234, 64, 70) },
 	{ Id = "OrcaleroOrcala", Name = "Orcalero Orcala", Rarity = "Mythic", Color = Color3.fromRGB(32, 34, 42) },
 	{ Id = "EspressoSignora", Name = "Espresso Signora", Rarity = "Mythic", Color = Color3.fromRGB(240, 226, 200) },
+	{ Id = "TigriliniWatermelini", Name = "Tigrilini Watermelini", Rarity = "Mythic", Color = Color3.fromRGB(118, 178, 70) },
 
 	-- Godly
 	{ Id = "DragonCannelloni", Name = "Dragon Cannelloni", Rarity = "Godly", Color = Color3.fromRGB(242, 200, 116) },
 	{ Id = "TrenostruzzoTurbo3000", Name = "Trenostruzzo Turbo 3000", Rarity = "Godly", Color = Color3.fromRGB(60, 140, 76) },
 	{ Id = "NuclearoDinossauro", Name = "Nuclearo Dinossauro", Rarity = "Godly", Color = Color3.fromRGB(98, 94, 84) },
 	{ Id = "KetupatKepat", Name = "Ketupat Kepat", Rarity = "Godly", Color = Color3.fromRGB(110, 172, 60) },
+	{ Id = "TorrtuginniDragonfrutini", Name = "Torrtuginni Dragonfrutini", Rarity = "Godly", Color = Color3.fromRGB(228, 50, 132) },
 } :: { Brainrot }
 
 Brainrots.ById = {} :: { [string]: Brainrot }

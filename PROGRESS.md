@@ -50,7 +50,9 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
    b. [x] **Wave 2** (2026-10-08): 12 new (Talpa Di Fero, Svinina Bombardino, Cacto Hipopotamo, Perochello Lemonchello, Mangolini Parrocini, Penguino Cocosino, Strawberrelli Flamingelli, Rhino Toasterino, Zibra Zubra Zibralini, Gorillo Watermelondrillo, Orcalero Orcala, Trenostruzzo Turbo 3000 the second Godly), gadgets; 38 in all; `tools/ArtPreview` checks flicker, not overlap (docs/history.md, "The user's roadmap").
    c. [x] **Wave 3** (2026-10-08): 12 new (Bambini Crostini, Pandaccini Bananini, Tigroligre Frutonni, Spioniro Golubiro, Lionel Cactuseli, Cavallo Virtuoso, Cocosini Mama, 67, Ballerino Lololo, Espresso Signora, Nuclearo Dinossauro, Ketupat Kepat), gadgets; all 50 in; Moranguete/Abacatudo swapped out (the user); 67 after *Steal a Brainrot*'s figure with our changes (the user) (docs/history.md, "The user's roadmap").
 20d. [x] **The Loot Rain** (2026-10-08, the user): every 30 min (:00, :30) 25-50 boxes by the players rain all over the map for 60 s, leftovers gone at 90 s; a HUD countdown, banner, music, 3D coins falling; `/dev LootRain <s>` (docs/history.md, "The user's roadmap").
-20e. [ ] **101 brainrots** (the user, 2026-10-08: before new content): the next 51 are proposed in GDD §3 ("The next 51": creators checked, kid-safe by name and look, rarities set, reserves and what's left out; the 101st is Hipopotamino Supermarketino, a 5th Godly); build them in waves of ~12 like 20a-c.
+20e. [ ] **101 brainrots** (the user, 2026-10-08: before new content): the next 51 are proposed in GDD §3 ("The next 51": creators checked, kid-safe by name and look, rarities set, reserves and what's left out; the 101st is Hipopotamino Supermarketino, a 5th Godly). **In patches of 10, no gadgets until all 101 are in** (the user, 2026-10-08); ✅ marks the built ones in GDD §3.
+   - [x] **Patch 1** (2026-10-08): Avocadini Guffo, Peachi Foxilini, Salamino Penguino, Dul Dul Dul, Carloo, Ganganzelli Trulala, Tirilikalika Tirilikalako, Pot Hotspot, Tigrilini Watermelini, Torrtuginni Dragonfrutini; 60 in all; Frulli Frulla = Fluriflura, Burballoni Watermeloni proposed instead (docs/history.md, "The user's roadmap").
+   - [ ] Patches 2-5 (41 left: 11 Common, 9 Uncommon, 7 Rare, 6 Legendary, 4 Mythic, 4 Godly incl. the 101st), then the gadgets of all 51.
 21. [ ] **New rooms** (after the collection).
 
 ### Then (backlog, roughly by value)
@@ -60,6 +62,7 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 - Tech debt (only when it gets in the way): `ProductionVisuals` (3.6K lines) and `TycoonManager` sit at Luau's 200-locals limit; `isDeveloper` is copied in DevTools, MonetizationManager and UIController.
 
 ### Open questions for the user
+- **Frulli Frulla** (in the next-51 list) is Fluriflura's other name (already in the game). Burballoni Watermeloni (a capybara in a watermelon, @alexey_pigeon) is proposed in its place: OK, or another?
 - **Tigroligre Frutonni** (in the game since wave 3): playbrainrot.org says @fakebaneimations made it in Sept 2025 as a copy of @alexey_pigeon's Tigrulli Grapefrutunni (2025-03-11); wave 3 credited @alexey_pigeon. Swap it for the original Tigrulli?
 - **Tung Tung Tung Sahur:** a 2026 report says *Steal a Brainrot* took it out again after a European trademark takedown by Noxa's agency (Mementum Lab). It stays by the user's call; a heads-up.
 - The first 14 brainrots were drawn from *Steal a Brainrot*'s figures (as asked then), not from the original memes. They're our own simple blocks, but some copy choices that are only theirs (outfits, colors). Redraw them from the originals? (a task of its own; Tung Tung Tung Sahur stays either way).
