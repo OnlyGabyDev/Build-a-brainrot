@@ -65,7 +65,9 @@ local BOARDS: { Board } = {
 	end, Show = function(value)
 		return `{Format.Number(value)}`
 	end, Rows = {}, Top = {} },
-	{ Key = "CoinsEarned", Title = "TOP MONEY EARNED", Color = GOLD, Value = function(data)
+	-- (V2: a fresh store since the economy study, v5.6, made Coins ~600x smaller; the old
+	-- store's billions would have stayed on top forever)
+	{ Key = "CoinsEarnedV2", Title = "TOP MONEY EARNED", Color = GOLD, Value = function(data)
 		return data.Stats.TotalCoinsEarned
 	end, Show = function(value)
 		return `${Format.Number(value)}`

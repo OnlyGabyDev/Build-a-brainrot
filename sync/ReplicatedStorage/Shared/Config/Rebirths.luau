@@ -17,8 +17,13 @@ export type Legacy = {
 export type Levels = { [string]: number } -- [upgradeId] = level (the old shop's)
 
 local Rebirths = {
-	BaseCost = 60000000000, -- Coins needed for the first rebirth (~1 h of play: the pacing pass, tools/economy_sim.py)...
-	CostGrowth = 3, -- ...and each next one costs this much more
+	-- Coins for the next rebirth: BaseCost x (rebirths + 1)^CostPower (100M, 800M, 2.7B,
+	-- 6.4B ... 100B for the 10th). v5.6, the economy study: was 60B x3 per rebirth, which
+	-- outran the mascot's bonuses (the 10th took ~30 h). A run's buttons are all bought in
+	-- ~40 min, then you save at your best income, so each rebirth takes a little longer
+	-- than the last (a perfect player in tools/economy_sim.py: 48, 44, 56 ... 74 min).
+	BaseCost = 100000000,
+	CostPower = 3,
 	-- per rebirth (a mascot level), forever:
 	IncomeBonus = 0.25, -- +25% ship value
 	SpeedBonus = 0.05, -- +5% line speed (the old shop's Dropper Speed, now free)
@@ -39,7 +44,7 @@ end
 
 -- Coins needed to rebirth from `rebirths` to `rebirths + 1`.
 function Rebirths.Cost(rebirths: number): number
-	return math.floor(Rebirths.BaseCost * Rebirths.CostGrowth ^ rebirths)
+	return math.floor(Rebirths.BaseCost * (rebirths + 1) ^ Rebirths.CostPower)
 end
 
 local function legacy(levels: Levels?, id: string): number

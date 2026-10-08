@@ -7,7 +7,9 @@
 
 	Every level is a tycoon item (TycoonItems: Kind "Track", "{lineId}_Up{Track}_{Level}"),
 	so they save, reset on rebirth and pay out like the rest. Prices are × the line's
-	price scale and the zone's PriceMultiplier. Placeholders to tune.
+	price scale and the zone's PriceMultiplier. v5.6 (the economy study): each level costs
+	1.35x the last (was 1.7-1.8x) and the value tracks are gentler, so a run's buttons get
+	bought before its rebirth and the numbers stay small (tools/economy_sim.py).
 ]]
 
 export type Track = {
@@ -36,7 +38,7 @@ LineUpgrades.Tracks = {
 		Effect = "Speed",
 		Step = 0.05, -- speed tracks stay gentle: a fast line hurries the assembly show
 		BasePrice = 600,
-		Growth = 1.75,
+		Growth = 1.35,
 		Levels = 10,
 		Gate = "Legs",
 		Colors = { Color3.fromRGB(255, 150, 210), Color3.fromRGB(235, 80, 160) },
@@ -48,7 +50,7 @@ LineUpgrades.Tracks = {
 		Effect = "Speed",
 		Step = 0.03,
 		BasePrice = 500,
-		Growth = 1.7,
+		Growth = 1.35,
 		Levels = 10,
 		Gate = "Speed1",
 		Colors = { Color3.fromRGB(130, 230, 255), Color3.fromRGB(50, 160, 245) },
@@ -58,9 +60,9 @@ LineUpgrades.Tracks = {
 		Name = "Super Upgraders",
 		Icon = "Sparkle",
 		Effect = "Flat",
-		Step = 24, -- x4 with the part values (the pacing pass)
+		Step = 4, -- a Common part is worth 20 (was 24: v5.6, the economy study)
 		BasePrice = 800,
-		Growth = 1.75,
+		Growth = 1.35,
 		Levels = 10,
 		Gate = "Station1",
 		Colors = { Color3.fromRGB(200, 160, 255), Color3.fromRGB(130, 80, 235) },
@@ -70,9 +72,9 @@ LineUpgrades.Tracks = {
 		Name = "Premium Shipping",
 		Icon = "Gift",
 		Effect = "Percent",
-		Step = 0.1,
+		Step = 0.05,
 		BasePrice = 1000,
-		Growth = 1.8,
+		Growth = 1.35,
 		Levels = 10,
 		Gate = "Legs",
 		Colors = { Color3.fromRGB(255, 225, 90), Color3.fromRGB(255, 160, 30) },

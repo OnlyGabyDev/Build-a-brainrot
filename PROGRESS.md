@@ -44,7 +44,7 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 
 ### Next: the user's roadmap (2026-10-07), in order
 18. [x] **Funnel analytics** (2026-10-07): `Services/AnalyticsManager`: an onboarding funnel of 20 steps (joined, each guide step, Clay, Vinyl, rebirths 1-10; new players only, the last step saved as `Funnel`) and economy events (Coins/Gems sources and sinks by type, summed per minute, fields: rebirths and top room); `/dev Analytics` (docs/history.md, "The user's roadmap").
-19. [ ] **Economy study and fixes:** inflation; the numbers grow exponentially far too fast. Start from `tools/economy_sim.py` and the economy events of task 18 (Creator Hub → Analytics → Economy and Funnels, once live servers have sent some).
+19. [x] **The economy study** (2026-10-07): numbers in millions, each rebirth a little longer (the user's calls): rooms ×3 (were ×15), gentler buttons, a rebirth 100M × (n+1)³ (was 60B ×3^n); sim: Rebirth 1 ~46 min, runs 44 → 74 min, 9.3 h to Rebirth 10 (was 66 h); old saves' Coins shrink to match, a fresh money board (docs/history.md, "The user's roadmap"). Check live players' times on the Creator Hub once there's data.
 20. [ ] **A much bigger collection of real brainrots** (for new and old players alike): real memes only (Moranguete, Abacatudo and "67" among them, §16.24); our own Supremo Brainrotto goes. Ask first: how many, the rarity spread, and whether our block-style art stays.
 21. [ ] **New rooms** (after the collection).
 

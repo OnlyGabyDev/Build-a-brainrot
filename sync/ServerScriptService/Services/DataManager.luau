@@ -24,6 +24,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage.Shared
 local Brainrots = require(Shared.Config.Brainrots)
 local Guide = require(Shared.Config.Guide)
+local Rebirths = require(Shared.Config.Rebirths)
 local Remotes = require(Shared.Remotes)
 
 local IS_STUDIO = RunService:IsStudio()
@@ -33,7 +34,7 @@ local IS_STUDIO = RunService:IsStudio()
 -- Studio uses its own store so play-testing never touches live player data.
 local STORE_NAME = if IS_STUDIO then "PlayerData_Studio" else "PlayerData"
 local KEY_PREFIX = "Player_"
-local DATA_VERSION = 1
+local DATA_VERSION = 2
 
 local AUTOSAVE_INTERVAL = 60 -- seconds between saves for each player
 local LOCK_EXPIRE_SECONDS = 300 -- a lock not refreshed for this long belongs to a dead server
@@ -174,6 +175,32 @@ local SETTING_TYPES: { [string]: string } = { LowGraphics = "boolean" }
 -- Adding a new field doesn't need one (reconcile fills it in). Renaming or
 -- restructuring does: bump DATA_VERSION and add a step here.
 local MIGRATIONS: { [number]: (data: any) -> () } = {}
+
+-- 1 -> 2 (v5.6, the economy study, 2026-10-07): Coins went from billions to millions
+-- (rooms x3 instead of x15, a rebirth 100M x (n + 1)^3 instead of 60B x 3^n). Every Coin
+-- amount saved shrinks by the new rebirth cost over the old one at the player's rebirth
+-- count, so they're as far toward their next rebirth as before. Their factory stays
+-- bought and simply earns at the new rates.
+MIGRATIONS[1] = function(data)
+	local rebirths = if type(data.Rebirths) == "number" then data.Rebirths else 0
+	local ratio = Rebirths.Cost(rebirths) / (60e9 * 3 ^ rebirths)
+	local function scale(holder: any, key: string)
+		if type(holder) == "table" and type(holder[key]) == "number" then
+			holder[key] = math.floor(holder[key] * ratio)
+		end
+	end
+	scale(data, "Coins")
+	scale(data.Stats, "TotalCoinsEarned")
+	scale(data.Stats, "LastIncome")
+	-- today's "Earn n Coins" quest counts from a TotalCoinsEarned it saved
+	local missions = type(data.Missions) == "table" and data.Missions.List
+	for _, entry in (if type(missions) == "table" then missions else {}) :: any do
+		if type(entry) == "table" and entry.Id == "Coins" then
+			scale(entry, "Base")
+			entry.Goal = math.max(1, math.floor((tonumber(entry.Goal) or 1) * ratio))
+		end
+	end
+end
 
 -- State ----------------------------------------------------------------------
 

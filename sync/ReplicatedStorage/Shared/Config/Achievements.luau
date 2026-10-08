@@ -65,7 +65,7 @@ Achievements.List = {
 	{ Id = "Parts", Name = "COLLECTOR", Icon = "Puzzle", Kind = "Counter", Source = "Parts", Text = "Collect {n} parts", Goals = PART_GOALS, Gems = 1, Coins = 0 },
 	{ Id = "Rarity", Name = "RARITY HUNTER", Icon = "Album", Kind = "Rarity", Gems = 2, Coins = 0 },
 	{ Id = "Boxes", Name = "BOX HUNTER", Icon = "Gift", Kind = "Counter", Source = "Counters.Boxes", Text = "Open {n} boxes", Goals = { 5, 20, 50, 150, 400, 1000, 2500, 5000 }, Gems = 1, Coins = 1 },
-	{ Id = "Coins", Name = "TYCOON", Icon = "Coin", Kind = "Counter", Source = "Stats.TotalCoinsEarned", Text = "Earn {n} Coins", Goals = { 10e3, 1e6, 100e6, 10e9, 1e12, 100e12, 10e15, 1e18 }, Gems = 0, Coins = 1 },
+	{ Id = "Coins", Name = "TYCOON", Icon = "Coin", Kind = "Counter", Source = "Stats.TotalCoinsEarned", Text = "Earn {n} Coins", Goals = { 10e3, 1e6, 50e6, 1e9, 20e9, 300e9, 5e12, 100e12 }, Gems = 0, Coins = 1 },
 	{ Id = "Rebirths", Name = "REBORN", Icon = "Rebirth", Kind = "Counter", Source = "Rebirths", Text = "Rebirth {n} times", One = "Rebirth once", Goals = { 1, 2, 3, 5, 8, 12, 20, 30 }, Gems = 2, Coins = 0 },
 	{ Id = "Perfects", Name = "PERFECTIONIST", Icon = "Star", Kind = "Counter", Source = "Stats.Perfects", Text = "Make {n} PERFECTs", One = "Make a PERFECT", Goals = { 1, 10, 50, 250, 1000, 5000, 25000 }, Gems = 1, Coins = 1 },
 	{ Id = "Playtime", Name = "TIME FLIES", Icon = "Clock", Kind = "Counter", Source = "Stats.Playtime", Text = "Play for {n}", Time = true, Goals = { 10 * MINUTE, 30 * MINUTE, HOUR, 3 * HOUR, 8 * HOUR, 24 * HOUR, 48 * HOUR, 100 * HOUR }, Gems = 1, Coins = 1 },
