@@ -681,6 +681,44 @@ def Storm():
     ])
 
 
+def falling_gift(cx, cy, size, colors, tilt):
+    """A small Gift (its bow, lid and ribbon) `size` tall centered on (cx, cy), turned `tilt` degrees."""
+    k = size / 80
+
+    def at(x, y):
+        return cx + (x - 50) * k, cy + (y - 50) * k
+
+    def box(x0, y0, x1, y1, r=0):
+        (a0, b0), (a1, b1) = at(x0, y0), at(x1, y1)
+        return rotate(rect(a0, b0, a1, b1, r * k), tilt, cx, cy)
+
+    def oval(x0, y0, x1, y1):
+        (a0, b0), (a1, b1) = at(x0, y0), at(x1, y1)
+        return rotate(ellipse(a0, b0, a1, b1), tilt, cx, cy)
+
+    knot_x, knot_y = at(50, 30)
+    lid = (min(255, colors[0][0] + 20), min(255, colors[0][1] + 20), min(255, colors[0][2] + 20)), colors[1]
+    return [
+        L(oval(24, 10, 50, 36), WHITE, gloss=0.4, line_width=1.4),
+        L(oval(50, 10, 76, 36), WHITE, gloss=0.4, line_width=1.4),
+        L(box(20, 46, 80, 90, 3), colors, line_width=1.6),
+        L(box(14, 32, 86, 50, 4), lid, line_width=1.6),
+        L(box(43, 32, 57, 90), WHITE, line_width=1.2, gloss=0.3, shade=0),
+        L(rotate(circle(knot_x, knot_y, 8 * k), tilt, cx, cy), WHITE, line_width=1.2, gloss=0.4, shade=0),
+    ]
+
+
+@icon
+def LootRain():
+    """The Loot Rain: a cloud letting gift boxes fall."""
+    cloud = rounded(union(circle(30, 28, 15), circle(52, 19, 18), circle(72, 29, 13), rect(16, 27, 85, 42, 8)), 1)
+    layers = [L(cloud, ((245, 248, 255), (165, 185, 235)))]
+    layers += falling_gift(23, 66, 30, BLUE, -16)
+    layers += falling_gift(79, 62, 28, PINK, 18)
+    layers += falling_gift(51, 78, 32, GOLD, 6)
+    return paint(layers)
+
+
 @icon
 def Party():
     cone = rounded(poly([(10, 92), (30, 40), (62, 72)]), 1)

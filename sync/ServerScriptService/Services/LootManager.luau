@@ -14,6 +14,10 @@
 	    onto the map round the buyer, rolled like a Roll with the buyer's luck plus
 	    extra, theirs alone for a while, then anyone's. They
 	    sit on top of the map's own boxes and aren't replaced when opened.
+	  * The Loot Rain (Config/Loot.Rain): every 30 min of the clock, 25 to 50 boxes (by
+	    the players) rain all over the map for a minute, anyone's; what's left vanishes
+	    when it ends. The "LootRain" attribute on workspace says when the next (or
+	    current) one starts.
 	  * Duplicates convert into Coins (plus some income) or Gems, per rarity. A
 	    newcomer's first Rolls and first box always give a new part (Loot.SureNew).
 	The first map box a player opens earns the FirstBox badge (Rolls don't count).
@@ -54,6 +58,7 @@ export type Box = {
 	Rarity: string,
 	PartType: string,
 	Bought: boolean?, -- a bought drop (not counted toward the map's own boxes)
+	Rain: boolean?, -- a Loot Rain's (not counted either; it vanishes when the rain ends)
 	Owner: number?, -- a bought drop's buyer (UserId): only they can open it...
 	OwnerName: string?,
 	ReservedUntil: number?, -- ...until this server time (workspace:GetServerTimeNow)
@@ -83,6 +88,7 @@ local dropping = false
 local lastRequest: { [Player]: number } = {}
 local nextBoxId = 0
 local boxesRemote: RemoteEvent
+local rain = { Next = 0, Active = false } -- the Loot Rain: when the next one starts, whether one is on
 
 local LootManager = {}
 -- (player): someone opened a loot box (Tralalero's guide listens)
@@ -260,14 +266,19 @@ local function mapBoxPosition(): Vector3
 	return randomBoxPosition(nil, nil, Loot.MapBoxGap)
 end
 
--- More players, more boxes.
-local function targetBoxCount(): number
+local function loadedPlayers(): number
 	local loaded = 0
 	for _, player in Players:GetPlayers() do
 		if DataManager.IsLoaded(player) then
 			loaded += 1
 		end
 	end
+	return loaded
+end
+
+-- More players, more boxes.
+local function targetBoxCount(): number
+	local loaded = loadedPlayers()
 	if loaded == 0 then
 		return 0
 	end
@@ -278,7 +289,7 @@ local function addBox(box: Box)
 	boxes[box.Id] = box
 	if box.Bought then
 		boughtCount += 1
-	else
+	elseif not box.Rain then
 		boxCount += 1
 	end
 	boxesRemote:FireAllClients("Add", box)
@@ -367,6 +378,70 @@ local function fillBoxes()
 	end
 end
 
+-- The Loot Rain --------------------------------------------------------------
+
+-- When the next Loot Rain starts after `time`: on the clock's next slot (:00, :30).
+local function nextRainSlot(time: number): number
+	return (math.floor(time / Loot.Rain.Every) + 1) * Loot.Rain.Every
+end
+
+local function spawnRainBox()
+	nextBoxId += 1
+	local box: Box = {
+		Id = nextBoxId,
+		Position = randomBoxPosition(nil, nil, Loot.Rain.Gap),
+		Rarity = rollRarity(Loot.RollOdds(Loot.Rain.Luck), Rarities.List[1].Id),
+		PartType = rollPartType(),
+		Rain = true,
+	}
+	addBox(box)
+	if Rarities.ById[box.Rarity].Rank >= Loot.AnnounceRank then
+		boxesRemote:FireAllClients("Announce", box)
+	end
+end
+
+-- A Loot Rain starting at `start` (server time): its boxes rain down evenly through
+-- Falling seconds, and Duration seconds after the start what's left vanishes.
+local function runRain(start: number)
+	rain.Active = true
+	local loaded = loadedPlayers()
+	local total = if loaded > 0 then math.min(Loot.Rain.Boxes + (loaded - 1) * Loot.Rain.BoxesPerPlayer, Loot.Rain.MaxBoxes) else 0
+	for index = 1, total do
+		local wait = start + (index - 1) / total * Loot.Rain.Falling - workspace:GetServerTimeNow()
+		if wait > 0 then
+			task.wait(wait)
+		end
+		spawnRainBox()
+	end
+	local left = start + Loot.Rain.Duration - workspace:GetServerTimeNow()
+	if left > 0 then
+		task.wait(left)
+	end
+	local gone = {}
+	for id, box in boxes do
+		if box.Rain then
+			boxes[id] = nil
+			table.insert(gone, id)
+		end
+	end
+	boxesRemote:FireAllClients("Expire", gone)
+	rain.Active = false
+end
+
+-- Waits for each Loot Rain and runs it, then sets the next ("LootRain" on workspace).
+local function rainLoop()
+	rain.Next = nextRainSlot(workspace:GetServerTimeNow())
+	workspace:SetAttribute("LootRain", rain.Next)
+	while true do
+		task.wait(0.5)
+		if workspace:GetServerTimeNow() >= rain.Next then
+			runRain(rain.Next)
+			rain.Next = nextRainSlot(workspace:GetServerTimeNow())
+			workspace:SetAttribute("LootRain", rain.Next)
+		end
+	end
+end
+
 -- Remotes --------------------------------------------------------------------
 
 local function onOpenRoll(player: Player): Result?
@@ -407,7 +482,7 @@ local function onOpenBox(player: Player, boxId: unknown): Result?
 	boxes[box.Id] = nil
 	if box.Bought then
 		boughtCount -= 1
-	else
+	elseif not box.Rain then
 		boxCount -= 1
 		task.delay(random:NextNumber(Loot.RespawnTime.Min, Loot.RespawnTime.Max), spawnBox)
 	end
@@ -472,6 +547,17 @@ function LootManager.DevSpawnBoxes(player: Player, rarityName: string, count: nu
 	if first and rarity.Rank >= Loot.AnnounceRank then
 		boxesRemote:FireAllClients("Announce", first)
 	end
+	return true
+end
+
+-- Studio and developers (DevTools' LootRain): the next Loot Rain starts in `seconds`
+-- (5 if not given), unless one is on.
+function LootManager.DevRain(seconds: number?): boolean
+	if rain.Active then
+		return false
+	end
+	rain.Next = workspace:GetServerTimeNow() + math.clamp(seconds or 5, 1, 600)
+	workspace:SetAttribute("LootRain", rain.Next)
 	return true
 end
 
@@ -551,6 +637,8 @@ function LootManager.Init()
 		LootManager.Drop(player, product.Amount)
 		return `{product.Amount} {if product.Amount == 1 then "BOX" else "BOXES"} INCOMING!`
 	end)
+
+	task.spawn(rainLoop)
 
 	-- The loot wheel shows odds with the player's luck, which changes with upgrades,
 	-- passes and boosts that run out, so keep the attribute fresh.

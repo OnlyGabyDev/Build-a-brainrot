@@ -75,6 +75,7 @@ addAction("Give Auto-Collect Pass", "GrantPass", {"AutoCollect"}, Kit.Colors.Gre
 addAction("Unlock All Brainrots", "GiveBrainrots", {}, Kit.Colors.Purple)
 addAction("Spawn 3 Godly Boxes", "SpawnBox", {"Godly", 3}, Kit.Colors.Purple)
 addAction("Spawn 3 Common Boxes", "SpawnBox", {"Common", 3}, Kit.Colors.Grey)
+addAction("Loot Rain in 10s", "LootRain", {10}, Kit.Colors.Gems)
 addAction("Nuke Server", "Nuke", {}, Kit.Colors.Red)
 addAction("Create Thumbnail Stage", "CreateThumb", {}, Kit.Colors.Panel)
 

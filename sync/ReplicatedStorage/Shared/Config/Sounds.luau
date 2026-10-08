@@ -38,6 +38,10 @@ return {
 	BombFall = "rbxassetid://92146752553247", -- an artillery shell falling (3.5 s: the nuke's fall)
 	Boom = "rbxassetid://9113169432", -- deep distant artillery booms
 
+	-- The Loot Rain (LootBoxes.client)
+	RainSting = "rbxassetid://9045298695", -- "Crack The Safe": a 5 s funky retro brass sting (it starts)
+	RainMusic = "rbxassetid://1835450912", -- "Crazy Games" (APM): played over the music while it rains
+
 	-- Background music, shuffled
 	Music = {
 		"rbxassetid://1837478883", -- Cutie Pie

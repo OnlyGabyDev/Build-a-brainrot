@@ -247,6 +247,10 @@ local COMMANDS: { [string]: (player: Player, ...any) -> any } = {
 	SpawnBox = function(player, rarity, count)
 		return LootManager.DevSpawnBoxes(player, rarity, count)
 	end,
+	-- The next Loot Rain starts in `seconds` (5 if not given): "LootRain 20".
+	LootRain = function(_, seconds)
+		return LootManager.DevRain(if typeof(seconds) == "number" then seconds else nil)
+	end,
 	Nuke = function(player)
 		NukeManager.Launch(player)
 		return true

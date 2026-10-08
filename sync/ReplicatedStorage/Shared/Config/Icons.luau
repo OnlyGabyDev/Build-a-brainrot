@@ -26,6 +26,7 @@ local Icons = {
 	Hammer = "rbxassetid://119699870422184",
 	Lightning = "rbxassetid://130389902682202",
 	Lock = "rbxassetid://118814323121284",
+	LootRain = "rbxassetid://94839881966110",
 	Magnet = "rbxassetid://137231200989985",
 	Mask = "rbxassetid://112201828705197",
 	Music = "rbxassetid://133717242833921",

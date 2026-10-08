@@ -67,6 +67,26 @@ local Loot = {
 		ReservedSeconds = 120,
 		MaxBought = 120,
 	},
+
+	-- The Loot Rain (GDD §5; the user, 2026-10-08: all over the map, every 30 min, 25 to
+	-- 50 boxes by the players there, so it's worth the wait): at every `Every` seconds of
+	-- the clock (:00 and :30), `Boxes` boxes with one player plus `BoxesPerPlayer` per
+	-- extra one (`MaxBoxes` at most: 6 players, a full server) rain all over the map,
+	-- evenly through `Falling` seconds, anyone's, rolled like a Roll with `Luck` extra
+	-- luck; Rare+ ones are announced like the map's. They don't count toward the map's
+	-- own boxes and aren't replaced; whatever's left vanishes `Duration` seconds after
+	-- the start. A HUD timer counts down to it.
+	Rain = {
+		Every = 1800,
+		Boxes = 25,
+		BoxesPerPlayer = 5,
+		MaxBoxes = 50,
+		Falling = 60,
+		Duration = 90,
+		Gap = 14, -- studs kept from other boxes
+		Luck = 1,
+		Notice = 60, -- seconds before: "LOOT RAIN in 1 min!"
+	},
 }
 
 export type Odds = { [string]: number } -- [rarityId] = relative weight

@@ -29,6 +29,10 @@
 	and its distance (Alert); the Box Radar pass lays chevrons at your feet toward the
 	best one (Radar).
 
+	The Loot Rain (Rain, at the end): every 30 min boxes rain all over the map; a HUD
+	button counts down to it, and while it rains there's a banner, its own music, coins
+	and gifts falling round the camera and a richer look. Its leftovers vanish in a puff.
+
 	Performance: a box storm can put ~150 boxes on the map, so only boxes near the
 	camera bob and spin (ANIMATE_RANGE), only Rare+ boxes carry a light, and effects
 	far from the camera are skipped (EFFECTS_RANGE).
@@ -51,6 +55,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local Sounds = require(Config:WaitForChild("Sounds"))
 local UI = ReplicatedStorage:WaitForChild("Client"):WaitForChild("UI")
 local Kit = require(UI:WaitForChild("Kit"))
+local Performance = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Performance"))
 local Loot = require(UI:WaitForChild("Loot"))
 
 local OPEN_DISTANCE = 6 -- walk this close to open (the server allows a bit more)
@@ -98,6 +103,7 @@ type Box = {
 	Rarity: string,
 	PartType: string,
 	Bought: boolean?,
+	Rain: boolean?, -- a Loot Rain's (it vanishes when the rain ends)
 	Owner: number?,
 	OwnerName: string?,
 	ReservedUntil: number?,
@@ -1147,7 +1153,8 @@ local function land(entry: Entry)
 	end
 end
 
-local function removeBox(boxId: number, opener: Player?)
+-- A box goes: opened by `opener` (a burst), or `expired` (a Loot Rain's leftover: a puff).
+local function removeBox(boxId: number, opener: Player?, expired: boolean?)
 	local entry = entries[boxId]
 	if not entry then
 		return
@@ -1156,7 +1163,12 @@ local function removeBox(boxId: number, opener: Player?)
 	local rarity = Rarities.ById[entry.Box.Rarity]
 	local at = entry.Model:GetPivot().Position
 	local rank = rarity.Rank
-	if Effects.near(at, EFFECTS_RANGE) then
+	if expired then
+		if Effects.near(at, EFFECTS_RANGE) then
+			Effects.puff(at, DUST_COLOR, 10, 1.4)
+			Effects.sparkle(at, rarity.Color, 8)
+		end
+	elseif Effects.near(at, EFFECTS_RANGE) then
 		Effects.sparkle(at, rarity.Color, 35, 19)
 		Effects.sound(at, Sounds.Pop, 0.6)
 		Effects.confetti(at, 8 + rank * 8)
@@ -1381,6 +1393,10 @@ Remotes.Event("LootBoxes").OnClientEvent:Connect(function(action: string, payloa
 		removeBox(payload, opener)
 	elseif action == "Update" then
 		updateBox(payload)
+	elseif action == "Expire" then -- (the Loot Rain's leftovers)
+		for _, boxId in payload do
+			removeBox(boxId, nil, true)
+		end
 	elseif action == "Announce" then
 		Alert.show(payload)
 	elseif action == "Drop" then
@@ -1599,4 +1615,299 @@ RunService.RenderStepped:Connect(function()
 	tag.Text = `{string.upper(rarity.Id)} · {math.floor(best)}m`
 	;(Radar.Rim :: UIStroke).Color = rarity.Color
 	model.Parent = workspace.CurrentCamera
+end)
+
+-- The Loot Rain (Config/Loot.Rain; LootManager runs it) -----------------------------
+-- Every 30 min boxes rain all over the map for a minute. A button on the HUD's right
+-- column (under the calendar and the gifts) counts down to it: gold and wobbling in its
+-- last minute, and while it rains it shows the time left on a gold button. A toast a
+-- minute before; when it starts a banner, a brass sting, its own music in place of the
+-- usual, gold coins (3D: flat icons falling looked odd, the user) and sparkles falling
+-- round the camera and a richer look; a toast when it's over. Clicking the button says
+-- what it is.
+local Rain = {
+	Top = 228, -- the right column's slot under the gear (the calendar's)
+	State = nil :: string?, -- "Wait", "Soon" (its last minute) or "On"
+	Button = nil :: TextButton?,
+	Pill = nil :: TextLabel?,
+	Gradient = nil :: UIGradient?,
+	Glyph = nil :: ImageLabel?,
+	Sky = nil :: Part?, -- the sparkles over the camera (and ahead of it; off under a roof)
+	Covered = false,
+	Coins = {} :: { { Part: Part, Speed: number, Floor: number, Turn: number } }, -- falling
+	CoinDue = 0, -- coins owed to the sky (a fraction carries over between frames)
+	Tint = nil :: ColorCorrectionEffect?,
+	Music = nil :: Sound?,
+	Paused = nil :: Sound?, -- the usual music, paused while it rains
+	Gold = Color3.fromRGB(255, 220, 70),
+	Dark = Color3.fromRGB(40, 32, 60),
+}
+
+-- Where the Loot Rain stands: "Wait" (or "Soon") and the seconds to it, or "On" and
+-- the seconds left; nil before the server says.
+function Rain.phase(): (string?, number)
+	local start = workspace:GetAttribute("LootRain")
+	if typeof(start) ~= "number" then
+		return nil, 0
+	end
+	local now = workspace:GetServerTimeNow()
+	if now < start then
+		return if start - now <= LootConfig.Rain.Notice then "Soon" else "Wait", start - now
+	end
+	return "On", math.max(0, start + LootConfig.Rain.Duration - now)
+end
+
+function Rain.clock(seconds: number): string
+	local whole = math.max(0, math.ceil(seconds))
+	return string.format("%d:%02d", whole // 60, whole % 60)
+end
+
+function Rain.build()
+	local button = Kit.button({
+		Name = "LootRainButton",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -24, 0, Rain.Top),
+		Size = UDim2.fromOffset(64, 64),
+		Visible = false,
+		Parent = Kit.getGui(),
+	}, Kit.pair(Kit.Hues.Blue), nil, function()
+		Kit.toast("LOOT RAIN: free boxes all over the map!", Kit.Hues.Blue.Neon, "LootRain")
+	end, "LootRain")
+	local pill = Kit.text({
+		Text = "",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 2),
+		Size = UDim2.fromOffset(86, 26),
+		BackgroundTransparency = 0.15,
+		BackgroundColor3 = Rain.Dark,
+		StrokeThickness = 2,
+		ZIndex = 5,
+		Parent = button,
+	})
+	Kit.new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = pill })
+	Kit.stroke(pill, 2.5)
+	Rain.Button, Rain.Pill = button, pill
+	Rain.Gradient = button:FindFirstChildOfClass("UIGradient")
+	Rain.Glyph = button:FindFirstChild("Icon") :: ImageLabel?
+end
+
+-- A gold coin falls from the sky somewhere ahead of the camera, spinning, down to the
+-- ground (where it glints and goes).
+function Rain.dropCoin(camera: Camera)
+	local look = camera.CFrame.LookVector
+	local ahead = Vector3.new(look.X, 0, look.Z)
+	ahead = if ahead.Magnitude > 0.01 then ahead.Unit * 30 else Vector3.zero
+	local spot = camera.CFrame.Position + ahead + Vector3.new(math.random(-45, 45), 30, math.random(-45, 45))
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { camera, folder, player.Character :: Instance }
+	local hit = workspace:Raycast(spot, Vector3.new(0, -120, 0), params)
+	local coin = Effects.makeCoin(2.2)
+	coin.Material = Enum.Material.Metal -- (real gold, shaded: the Neon coin looked like flat confetti)
+	coin.Color = Color3.fromRGB(255, 190, 35)
+	coin.Size = Vector3.new(0.45, 2.2, 2.2)
+	coin.CastShadow = false
+	coin.CFrame = CFrame.new(spot)
+	coin.Parent = camera
+	table.insert(Rain.Coins, {
+		Part = coin,
+		Speed = 18 + math.random() * 8,
+		Floor = (if hit then hit.Position.Y else spot.Y - 90) + 0.85,
+		Turn = math.random() * math.pi * 2,
+	})
+end
+
+-- The falling coins move (and new ones drop while it rains, not under a roof).
+function Rain.stepCoins(dt: number, camera: Camera)
+	if Rain.Sky and not Rain.Covered and #Rain.Coins < 60 then
+		Rain.CoinDue += dt * (if Performance.Low then 4 else 10)
+		while Rain.CoinDue >= 1 do
+			Rain.CoinDue -= 1
+			Rain.dropCoin(camera)
+		end
+	end
+	local now = os.clock()
+	for index = #Rain.Coins, 1, -1 do
+		local falling = Rain.Coins[index]
+		local position = falling.Part.Position - Vector3.new(0, falling.Speed * dt, 0)
+		if position.Y <= falling.Floor then
+			if Effects.near(position, 120) then
+				Effects.sparkle(position, Rain.Gold, 3, 6)
+			end
+			falling.Part:Destroy()
+			table.remove(Rain.Coins, index)
+		else
+			falling.Part.CFrame = CFrame.new(position) * CFrame.Angles(0, falling.Turn + now * 5, math.pi / 2 + math.sin(now * 3 + falling.Turn) * 0.5)
+		end
+	end
+end
+
+-- Gold coins and sparkles falling round the camera, a richer look, its own music.
+function Rain.start()
+	local sky = Instance.new("Part")
+	sky.Name = "LootRainSky"
+	sky.Anchored, sky.CanCollide, sky.CanQuery, sky.CanTouch = true, false, false, false
+	sky.Transparency = 1
+	sky.Size = Vector3.new(110, 1, 110)
+	do
+		local particles = Instance.new("ParticleEmitter")
+		particles.Texture = SPARKLE_TEXTURE
+		particles.Color = ColorSequence.new(Color3.fromRGB(255, 235, 140))
+		particles.Rate = Performance.Particles(36)
+		particles.Size = NumberSequence.new(1.6)
+		particles.EmissionDirection = Enum.NormalId.Bottom
+		particles.Speed = NumberRange.new(10, 14)
+		particles.Acceleration = Vector3.new(0, -8, 0)
+		particles.Lifetime = NumberRange.new(3, 3.6)
+		particles.Rotation = NumberRange.new(0, 360)
+		particles.RotSpeed = NumberRange.new(-150, 150)
+		particles.SpreadAngle = Vector2.new(12, 12)
+		particles.LightEmission = 0.25
+		particles.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.1, 0),
+			NumberSequenceKeypoint.new(0.85, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		particles.Parent = sky
+	end
+	sky.Parent = workspace.CurrentCamera
+	Rain.Sky = sky
+	Rain.Covered = false
+
+	local tint = Instance.new("ColorCorrectionEffect")
+	tint.Name = "LootRainTint"
+	tint.Parent = game:GetService("Lighting")
+	TweenService:Create(tint, TweenInfo.new(1.2), { Saturation = 0.18, Brightness = 0.03, TintColor = Color3.fromRGB(255, 248, 232) }):Play()
+	Rain.Tint = tint
+
+	local usual = Effects.MusicGroup:FindFirstChild("Music") :: Sound?
+	if usual and usual.IsPlaying then
+		usual:Pause()
+		Rain.Paused = usual
+	end
+	local music = Instance.new("Sound")
+	music.Name = "LootRainMusic"
+	music.SoundId = Sounds.RainMusic
+	music.Looped = true
+	music.Volume = 0
+	music.SoundGroup = Effects.MusicGroup
+	music.Parent = Effects.MusicGroup
+	music:Play()
+	TweenService:Create(music, TweenInfo.new(2), { Volume = 0.35 }):Play()
+	Rain.Music = music
+end
+
+function Rain.stop()
+	local sky, tint, music = Rain.Sky, Rain.Tint, Rain.Music
+	Rain.Sky, Rain.Tint, Rain.Music = nil, nil, nil
+	if sky then
+		for _, particles in sky:GetChildren() do
+			(particles :: ParticleEmitter).Enabled = false
+		end
+		task.delay(4, function()
+			sky:Destroy()
+		end)
+	end
+	if tint then
+		TweenService:Create(tint, TweenInfo.new(2), { Saturation = 0, Brightness = 0, TintColor = WHITE }):Play()
+		task.delay(2.1, function()
+			tint:Destroy()
+		end)
+	end
+	if music then
+		TweenService:Create(music, TweenInfo.new(1.5), { Volume = 0 }):Play()
+		task.delay(1.6, function()
+			music:Destroy()
+			local usual = Rain.Paused
+			Rain.Paused = nil
+			if usual and not Rain.Music then
+				usual:Resume()
+			end
+		end)
+	end
+end
+
+-- What happens when the rain's state changes (`before` nil: just joined).
+function Rain.change(before: string?, now: string)
+	if now == "Soon" and before == "Wait" then
+		Kit.toast("LOOT RAIN in 1 min!", Kit.Hues.Blue.Neon, "LootRain")
+		Kit.playSound(Sounds.Jingle, 0.4)
+	elseif now == "On" then
+		Kit.banner("LootRain", "LOOT RAIN!", "Free boxes are falling all over the map!", Kit.Hues.Blue.Main, 2)
+		Kit.playSound(Sounds.RainSting, 0.5)
+		Rain.start()
+	elseif before == "On" then
+		Rain.stop()
+		Kit.toast("The LOOT RAIN is over! Next one in 30 min", Kit.Hues.Blue.Neon, "LootRain")
+	end
+end
+
+-- The button: where it goes (under whatever the calendar and the gifts show), its
+-- countdown, gold while it's near or on.
+function Rain.step()
+	local state, seconds = Rain.phase()
+	local button, pill = Rain.Button :: TextButton, Rain.Pill :: TextLabel
+	button.Visible = state ~= nil
+	if not state then
+		return
+	end
+	local gui = Kit.getGui()
+	local calendar = gui:FindFirstChild("DailyLoginButton") :: GuiObject?
+	local gifts = gui:FindFirstChild("FreeGiftsButton") :: GuiObject?
+	local top = Rain.Top + (if calendar and calendar.Visible then 72 else 0) + (if gifts and gifts.Visible then 100 else 0)
+	button.Position = UDim2.new(1, -24, 0, top)
+	pill.Text = Rain.clock(seconds)
+	pill.TextColor3 = if state == "Wait" then WHITE else Rain.Gold
+	pill.BackgroundColor3 = if state == "On" then Kit.Hues.Blue.Dark else Rain.Dark
+	if Rain.Gradient then
+		local colors = Kit.pair(if state == "On" then Kit.Hues.Gold else Kit.Hues.Blue)
+		Rain.Gradient.Color = ColorSequence.new(colors[1], colors[2])
+	end
+	if state ~= Rain.State then
+		local before = Rain.State
+		Rain.State = state
+		Rain.change(before, state)
+	end
+	-- no loot falling through a roof (inside the factory)
+	local sky, camera = Rain.Sky, workspace.CurrentCamera
+	if sky and camera then
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { camera, folder, player.Character :: Instance }
+		params.RespectCanCollide = true
+		local covered = workspace:Raycast(camera.CFrame.Position, Vector3.new(0, 60, 0), params) ~= nil
+		if covered ~= Rain.Covered then
+			Rain.Covered = covered
+			for _, particles in sky:GetChildren() do
+				(particles :: ParticleEmitter).Enabled = not covered
+			end
+		end
+	end
+end
+
+Rain.build()
+task.spawn(function()
+	while true do
+		Rain.step()
+		task.wait(0.25)
+	end
+end)
+RunService.RenderStepped:Connect(function(dt)
+	local glyph, sky = Rain.Glyph, Rain.Sky
+	if glyph and Rain.Button and Rain.Button.Visible then
+		local hot = Rain.State ~= "Wait"
+		glyph.Rotation = math.sin(os.clock() * (if hot then 9 else 1.5)) * (if hot then 14 else 5)
+	end
+	local camera = workspace.CurrentCamera
+	if camera and (sky or #Rain.Coins > 0) then
+		Rain.stepCoins(dt, camera)
+	end
+	if sky and camera then
+		-- over the camera and a little ahead, where it falls in sight
+		local look = camera.CFrame.LookVector
+		local ahead = Vector3.new(look.X, 0, look.Z)
+		ahead = if ahead.Magnitude > 0.01 then ahead.Unit * 36 else Vector3.zero
+		sky.CFrame = CFrame.new(camera.CFrame.Position + ahead + Vector3.new(0, 28, 0))
+	end
 end)
