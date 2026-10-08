@@ -74,6 +74,19 @@ def rod(a, b, thickness, color, shape="Block"):
     return solid("Block", *middle, thickness, length, thickness, color, (rx, 0, rz))
 
 
+def turned(cx, cy, cz, sx, sy, sz, color, x_axis, y_axis, shape="Block"):
+    """A solid whose own X and Y point along x_axis and y_axis (unit vectors at right
+    angles): a leaf or a flap lying along a direction, which the Euler angles of rot make
+    awkward to aim."""
+    t, d = x_axis, y_axis
+    n = (t[1] * d[2] - t[2] * d[1], t[2] * d[0] - t[0] * d[2], t[0] * d[1] - t[1] * d[0])
+    m = [[t[i], d[i], n[i]] for i in range(3)]  # (columns: the solid's X, Y and Z)
+    rx = math.degrees(math.atan2(-m[1][2], m[2][2]))
+    ry = math.degrees(math.asin(max(-1.0, min(1.0, m[0][2]))))
+    rz = math.degrees(math.atan2(-m[0][1], m[0][0]))
+    return solid(shape, cx, cy, cz, sx, sy, sz, color, (rx, ry, rz))
+
+
 def plate(cx, cy, cz, sx, sy, color, depth=0.4, rot=(0, 0, 0)):
     """A thin plate facing -Z (an eye, a mouth, a stripe on a solid's front)."""
     return solid("Block", cx, cy, cz, sx, sy, depth, color, rot)

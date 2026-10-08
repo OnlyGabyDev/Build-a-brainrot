@@ -52,7 +52,8 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 20d. [x] **The Loot Rain** (2026-10-08, the user): every 30 min (:00, :30) 25-50 boxes by the players rain all over the map for 60 s, leftovers gone at 90 s; a HUD countdown, banner, music, 3D coins falling; `/dev LootRain <s>` (docs/history.md, "The user's roadmap").
 20e. [ ] **101 brainrots** (the user, 2026-10-08: before new content): the next 51 are proposed in GDD §3 ("The next 51": creators checked, kid-safe by name and look, rarities set, reserves and what's left out; the 101st is Hipopotamino Supermarketino, a 5th Godly). **In patches of 10, no gadgets until all 101 are in** (the user, 2026-10-08); ✅ marks the built ones in GDD §3.
    - [x] **Patch 1** (2026-10-08): Avocadini Guffo, Peachi Foxilini, Salamino Penguino, Dul Dul Dul, Carloo, Ganganzelli Trulala, Tirilikalika Tirilikalako, Pot Hotspot, Tigrilini Watermelini, Torrtuginni Dragonfrutini; 60 in all; Frulli Frulla = Fluriflura, Burballoni Watermeloni proposed instead (docs/history.md, "The user's roadmap").
-   - [ ] Patches 2-5 (41 left: 11 Common, 9 Uncommon, 7 Rare, 6 Legendary, 4 Mythic, 4 Godly incl. the 101st), then the gadgets of all 51.
+   - [x] **Patch 2** (2026-10-08): Crabito Cocosito, Ananitto Giraffini, Makakini Bananini, Cocosino Rhino, Malame Amarele, Quivioli Ameleonni, Alessio, Lerulerulerule, Il Mastodontico Telepiedone, Tukanno Bananno; 70 in all (docs/history.md, "The user's roadmap").
+   - [ ] Patches 3-5 (31 left: 8 Common, 7 Uncommon incl. Burballoni Watermeloni, 5 Rare, 5 Legendary, 3 Mythic, 3 Godly incl. the 101st), then the gadgets of all 51.
 21. [ ] **New rooms** (after the collection).
 
 ### Then (backlog, roughly by value)
