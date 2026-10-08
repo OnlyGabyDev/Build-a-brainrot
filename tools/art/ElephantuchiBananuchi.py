@@ -8,12 +8,12 @@ import math
 from voxel_art import block, both, plate, rod, solid, turned
 
 legs = []
-P = [(0, 9.0, 0.6), (0, 6.0, 0.8), (0, 3.4, 0.2), (0, 1.6, -1.6), (0, 0.9, -4.0)]
+P = [(0, 9.0, 0.6), (0, 6.0, 0.8), (0, 3.6, 0.2), (0, 2.0, -1.6), (0, 1.6, -4.0)]
 for k in range(len(P) - 1):  # the banana's curved bottom, standing on the ground...
     d = 6.0 - k * 1.0
     legs.append(rod(P[k], P[k + 1], d, "Banana"))
     legs.append(solid("Ball", *P[k + 1], d - 0.4, d - 0.4, d - 0.4, "Banana"))
-legs.append(block(0, 1.0, -5.6, 1.4, 1.4, 1.4, "Tip"))  # ...a brown tip
+legs.append(block(0, 1.6, -5.6, 1.4, 1.4, 1.4, "Tip"))  # ...a brown tip
 
 BY = 12.6  # the banana's middle
 body = [
