@@ -51,6 +51,7 @@ Brainrots.List = {
 	{ Id = "ArmodilloCocodillo", Name = "Armodillo Cocodillo", Rarity = "Common", Color = Color3.fromRGB(132, 84, 48) },
 	{ Id = "BobrelliBananelli", Name = "Bobrelli Bananelli", Rarity = "Common", Color = Color3.fromRGB(170, 118, 70) },
 	{ Id = "SuricatelliBananelli", Name = "Suricatelli Bananelli", Rarity = "Common", Color = Color3.fromRGB(206, 170, 120) },
+	{ Id = "BobrinniKokokosinni", Name = "Bobrinni Kokokosinni", Rarity = "Common", Color = Color3.fromRGB(126, 82, 46) },
 
 	-- Uncommon
 	{ Id = "BallerinaCappuccina", Name = "Ballerina Cappuccina", Rarity = "Uncommon", Color = Color3.fromRGB(255, 170, 200) },
@@ -74,6 +75,7 @@ Brainrots.List = {
 	{ Id = "BullicciniBananini", Name = "Bulliccini Bananini", Rarity = "Uncommon", Color = Color3.fromRGB(226, 214, 188) },
 	{ Id = "FlamingulliLicholli", Name = "Flamingulli Licholli", Rarity = "Uncommon", Color = Color3.fromRGB(206, 50, 70) },
 	{ Id = "BurballoniWatermeloni", Name = "Burballoni Watermeloni", Rarity = "Uncommon", Color = Color3.fromRGB(66, 150, 64) },
+	{ Id = "KarkerkarKurkur", Name = "Karkerkar Kurkur", Rarity = "Uncommon", Color = Color3.fromRGB(70, 210, 160) },
 
 	-- Rare
 	{ Id = "CappuccinoAssassino", Name = "Cappuccino Assassino", Rarity = "Rare", Color = Color3.fromRGB(120, 80, 60) },
@@ -132,6 +134,7 @@ Brainrots.List = {
 	{ Id = "TukannoBananno", Name = "Tukanno Bananno", Rarity = "Godly", Color = Color3.fromRGB(252, 222, 60) },
 	{ Id = "ChicleteiraBicicleteira", Name = "Chicleteira Bicicleteira", Rarity = "Godly", Color = Color3.fromRGB(204, 50, 44) },
 	{ Id = "PiccioneMacchina", Name = "Piccione Macchina", Rarity = "Godly", Color = Color3.fromRGB(190, 196, 204) },
+	{ Id = "HipopotaminoSupermarketino", Name = "Hipopotamino Supermarketino", Rarity = "Godly", Color = Color3.fromRGB(150, 136, 150) },
 } :: { Brainrot }
 
 Brainrots.ById = {} :: { [string]: Brainrot }
