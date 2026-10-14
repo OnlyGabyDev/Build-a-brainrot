@@ -42,6 +42,9 @@ The user played as a newcomer and found: the Jack-in-the-Box faces away and hide
 ### Map fixes (the user, 2026-10-07)
 17. [x] **The front yard's walks connected** (2026-10-07): the stairs' stepping stones go on along the front into an opening in the path's curb, a walk of stones from the path to the mascot (docs/history.md, "Map fixes").
 
+### Ads prep (the user, 2026-10-14)
+- [x] **The lighting** (2026-10-14): a strong, high, slightly blue afternoon sun, crisp shadows, sky-blue shade, less glaring grass, a blue haze far off (`Atmosphere.client`; docs/history.md, "The user's roadmap").
+
 ### Next: the user's roadmap (2026-10-07), in order
 18. [x] **Funnel analytics** (2026-10-07): `Services/AnalyticsManager`: an onboarding funnel of 20 steps (joined, each guide step, Clay, Vinyl, rebirths 1-10; new players only, the last step saved as `Funnel`) and economy events (Coins/Gems sources and sinks by type, summed per minute, fields: rebirths and top room); `/dev Analytics` (docs/history.md, "The user's roadmap").
 19. [x] **The economy study** (2026-10-07): numbers in millions, each rebirth a little longer (the user's calls): rooms ×3 (were ×15), gentler buttons, a rebirth 100M × (n+1)³ (was 60B ×3^n); sim: Rebirth 1 ~46 min, runs 44 → 74 min, 9.3 h to Rebirth 10 (was 66 h); old saves' Coins shrink to match, a fresh money board (docs/history.md, "The user's roadmap"). Check live players' times on the Creator Hub once there's data.

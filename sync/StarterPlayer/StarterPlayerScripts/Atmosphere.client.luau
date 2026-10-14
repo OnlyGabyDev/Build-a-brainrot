@@ -1,8 +1,8 @@
 --[[
 	Atmosphere
-	The look and sound of the world (GDD §1, §13): a bright, warm, candy-colored
+	The look and sound of the world (GDD §1, §13): a bright, sunny, slightly blue
 	afternoon under a dreamy anime skybox (Creator Store), with bloom (so every Neon part
-	glows), punchy color grading, a soft pastel haze, and cheerful background music on
+	glows), punchy color grading, a blue haze far off, and cheerful background music on
 	shuffle with a mute button. In the hub (MapBuilder), the statues turn slowly, the
 	balloons bob and the water's cartoon texture drifts; on the factories
 	(FactoryBuilder), pinwheels, donuts and lollipops spin, balloons bob and marquee
@@ -50,32 +50,36 @@ local function effect(className: string, props: { [string]: any }): Instance
 	return instance
 end
 
-Lighting.ClockTime = 14.5
-Lighting.Brightness = 2.4
-Lighting.Ambient = Color3.fromRGB(120, 105, 140)
-Lighting.OutdoorAmbient = Color3.fromRGB(150, 135, 170)
-Lighting.ColorShift_Top = Color3.fromRGB(255, 235, 215)
-Lighting.ExposureCompensation = 0.05
-Lighting.EnvironmentDiffuseScale = 0.7
-Lighting.EnvironmentSpecularScale = 0.5
-Lighting.ShadowSoftness = 0.5
-Lighting.GeographicLatitude = 30
+-- A strong early-afternoon sun, crisp and a little blue: a high sun (it lights the
+-- hub-facing fronts of most plots), cool sky-blue fill in the shade, clean whites, a
+-- blue haze far off. Bright but never glaring (no extra exposure).
+Lighting.ClockTime = 13.5
+Lighting.GeographicLatitude = 5 -- the sun high and a little toward -Z (Plot1's front)
+Lighting.Brightness = 3.3
+Lighting.Ambient = Color3.fromRGB(122, 120, 150) -- indoors: a cool lilac fill
+Lighting.OutdoorAmbient = Color3.fromRGB(150, 166, 196) -- outdoors: the blue sky's bounce
+Lighting.ColorShift_Top = Color3.fromRGB(255, 250, 242) -- sunlight near white
+Lighting.ColorShift_Bottom = Color3.new(0, 0, 0)
+Lighting.ExposureCompensation = 0
+Lighting.EnvironmentDiffuseScale = 0.6
+Lighting.EnvironmentSpecularScale = 0.7
+Lighting.ShadowSoftness = 0.25 -- crisp sun shadows
 
-effect("BloomEffect", { Intensity = 0.6, Size = 24, Threshold = 1.9 })
+effect("BloomEffect", { Intensity = 0.75, Size = 28, Threshold = 1.75 })
 effect("ColorCorrectionEffect", {
-	Saturation = 0.25,
-	Contrast = 0.1,
-	Brightness = 0.02,
-	TintColor = Color3.fromRGB(255, 250, 252),
+	Saturation = 0.2,
+	Contrast = 0.12,
+	Brightness = 0,
+	TintColor = Color3.fromRGB(245, 250, 255), -- a touch of blue
 })
-effect("SunRaysEffect", { Intensity = 0.05, Spread = 0.7 })
+effect("SunRaysEffect", { Intensity = 0.1, Spread = 0.55 })
 effect("Atmosphere", {
-	Density = 0.16,
-	Offset = 0.2,
-	Color = Color3.fromRGB(210, 228, 255), -- the skybox's horizon
-	Decay = Color3.fromRGB(255, 210, 235),
-	Glare = 0,
-	Haze = 0.15,
+	Density = 0.22,
+	Offset = 0.12,
+	Color = Color3.fromRGB(192, 218, 255), -- the skybox's horizon
+	Decay = Color3.fromRGB(140, 185, 245),
+	Glare = 0.2,
+	Haze = 0.35,
 })
 effect("Sky", SKYBOX)
 local sky = Lighting:FindFirstChildOfClass("Sky") :: Sky
